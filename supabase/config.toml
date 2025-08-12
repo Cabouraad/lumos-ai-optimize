@@ -1,1 +1,10 @@
 project_id = "cgocsffxqyhojtyzniyz"
+
+[functions.daily-run]
+verify_jwt = false
+
+[functions.weekly-suggestions]
+verify_jwt = false
+
+[functions.verify-domain]
+verify_jwt = false
