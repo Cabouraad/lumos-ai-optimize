@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.verify-domain]
 verify_jwt = false
+
+[functions.run-prompt-now]
+verify_jwt = false
