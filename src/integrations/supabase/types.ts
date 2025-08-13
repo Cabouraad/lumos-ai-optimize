@@ -66,31 +66,43 @@ export type Database = {
       }
       organizations: {
         Row: {
+          business_description: string | null
           created_at: string
           domain: string
           domain_locked_at: string | null
           domain_verification_method: string | null
           id: string
+          keywords: string[] | null
           name: string
           plan_tier: string
+          products_services: string | null
+          target_audience: string | null
         }
         Insert: {
+          business_description?: string | null
           created_at?: string
           domain: string
           domain_locked_at?: string | null
           domain_verification_method?: string | null
           id?: string
+          keywords?: string[] | null
           name: string
           plan_tier: string
+          products_services?: string | null
+          target_audience?: string | null
         }
         Update: {
+          business_description?: string | null
           created_at?: string
           domain?: string
           domain_locked_at?: string | null
           domain_verification_method?: string | null
           id?: string
+          keywords?: string[] | null
           name?: string
           plan_tier?: string
+          products_services?: string | null
+          target_audience?: string | null
         }
         Relationships: []
       }

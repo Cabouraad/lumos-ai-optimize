@@ -47,10 +47,10 @@ serve(async (req) => {
 
     const orgId = userData.org_id;
 
-    // Get organization data
+    // Get organization data including keywords and business context
     const { data: org } = await supabase
       .from('organizations')
-      .select('name, domain, plan_tier')
+      .select('name, domain, plan_tier, keywords, products_services, target_audience, business_description')
       .eq('id', orgId)
       .single();
 
@@ -61,7 +61,7 @@ serve(async (req) => {
       });
     }
 
-    const result = await generateSuggestions(orgId, org.name, org.domain, supabase, openaiKey);
+    const result = await generateSuggestions(orgId, org.name, org.domain, org, supabase, openaiKey);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ serve(async (req) => {
   }
 });
 
-async function generateSuggestions(orgId: string, orgName: string, orgDomain: string, supabase: any, openaiKey?: string) {
+async function generateSuggestions(orgId: string, orgName: string, orgDomain: string, orgData: any, supabase: any, openaiKey?: string) {
   try {
     console.log(`Generating suggestions for org ${orgId} (${orgName})`);
 
@@ -116,27 +116,35 @@ async function generateSuggestions(orgId: string, orgName: string, orgDomain: st
     const brandNames = brands?.map(b => b.name) || [orgName];
     const mainBrand = brandNames[0] || orgName;
 
-    // Generate suggestions based on different strategies
+    // Build keyword context for enhanced suggestions
+    const keywordContext = {
+      keywords: orgData.keywords || [],
+      products_services: orgData.products_services || '',
+      target_audience: orgData.target_audience || '',
+      business_description: orgData.business_description || ''
+    };
+
+    // Generate suggestions based on different strategies with keyword context
     const suggestions: string[] = [];
 
     // Strategy 1: Industry-specific prompts
-    const industryPrompts = generateIndustryPrompts(industry, mainBrand);
+    const industryPrompts = generateIndustryPrompts(industry, mainBrand, keywordContext);
     suggestions.push(...industryPrompts);
 
     // Strategy 2: Competitor analysis prompts
-    const competitorPrompts = generateCompetitorPrompts(mainBrand, domain);
+    const competitorPrompts = generateCompetitorPrompts(mainBrand, domain, keywordContext);
     suggestions.push(...competitorPrompts);
 
     // Strategy 3: Gap analysis from low-scoring results
     if (recentResults) {
-      const lowScorePrompts = analyzeLowScoreResults(recentResults, mainBrand);
+      const lowScorePrompts = analyzeLowScoreResults(recentResults, mainBrand, keywordContext);
       suggestions.push(...lowScorePrompts);
     }
 
     // Strategy 4: Trending topics (if OpenAI is available)
     if (openaiKey) {
       try {
-        const trendingPrompts = await generateTrendingPrompts(mainBrand, industry, openaiKey);
+        const trendingPrompts = await generateTrendingPrompts(mainBrand, industry, openaiKey, keywordContext);
         suggestions.push(...trendingPrompts);
       } catch (aiError) {
         console.error('Error generating AI suggestions:', aiError);
@@ -251,7 +259,7 @@ function inferIndustryFromDomain(domain: string): string {
   return 'business';
 }
 
-function generateIndustryPrompts(industry: string, brandName: string): string[] {
+function generateIndustryPrompts(industry: string, brandName: string, context?: any): string[] {
   const templates: Record<string, string[]> = {
     'technology': [
       `What's the easiest CRM that actually works for small teams?`,
@@ -305,7 +313,11 @@ function generateIndustryPrompts(industry: string, brandName: string): string[] 
     ]
   };
 
-  return templates[industry] || [
+  const keywords = context?.keywords || [];
+  const products = context?.products_services || '';
+  const audience = context?.target_audience || '';
+  
+  let basePrompts = templates[industry] || [
     `What's the best ${industry} solution that's actually easy to use?`,
     `I need help choosing between different ${industry} options`,
     `Looking for affordable ${industry} software for small business`,
@@ -315,10 +327,34 @@ function generateIndustryPrompts(industry: string, brandName: string): string[] 
     `${industry} software with good mobile app and integrations`,
     `How to find reliable ${industry} solution within budget?`
   ];
+
+  // Add keyword-specific prompts if available
+  const keywordPrompts: string[] = [];
+  keywords.slice(0, 3).forEach((keyword: string) => {
+    keywordPrompts.push(`Best ${keyword} solution for ${audience || 'small businesses'}`);
+    keywordPrompts.push(`${keyword} vs competitors comparison`);
+    keywordPrompts.push(`How to choose the right ${keyword} platform`);
+  });
+
+  // Add product-specific prompts
+  if (products) {
+    const productWords = products.split(' ').slice(0, 2);
+    productWords.forEach(word => {
+      if (word.length > 3) {
+        keywordPrompts.push(`${word} for ${audience || 'companies'}`);
+        keywordPrompts.push(`Best ${word} ${industry} solution`);
+      }
+    });
+  }
+
+  return [...basePrompts.slice(0, 6), ...keywordPrompts].slice(0, 10);
 }
 
-function generateCompetitorPrompts(brandName: string, domain: string): string[] {
-  return [
+function generateCompetitorPrompts(brandName: string, domain: string, context?: any): string[] {
+  const keywords = context?.keywords || [];
+  const audience = context?.target_audience || '';
+  
+  const basePrompts = [
     `Is ${brandName} better than its competitors?`,
     `What are the best alternatives to ${brandName}?`,
     `${brandName} vs [competitor] - which should I choose?`,
@@ -328,14 +364,29 @@ function generateCompetitorPrompts(brandName: string, domain: string): string[] 
     `Comparing ${brandName} with industry leaders`,
     `What makes ${brandName} different from competitors?`
   ];
+
+  // Add keyword-enhanced competitor prompts
+  const enhancedPrompts: string[] = [];
+  keywords.slice(0, 2).forEach((keyword: string) => {
+    enhancedPrompts.push(`${keyword} ${brandName} vs competitors`);
+    enhancedPrompts.push(`Best ${keyword} alternative to ${brandName}`);
+  });
+
+  if (audience) {
+    enhancedPrompts.push(`${brandName} vs competitors for ${audience}`);
+  }
+
+  return [...basePrompts.slice(0, 6), ...enhancedPrompts].slice(0, 8);
 }
 
-function analyzeLowScoreResults(results: any[], brandName: string): string[] {
+function analyzeLowScoreResults(results: any[], brandName: string, context?: any): string[] {
+  const keywords = context?.keywords || [];
+  const audience = context?.target_audience || '';
   const lowScoreResults = results.filter(r => r.score < 3);
   
   if (lowScoreResults.length === 0) return [];
   
-  return [
+  const basePrompts = [
     `Why isn't ${brandName} showing up in search results?`,
     `How can ${brandName} improve its online visibility?`,
     `What are people saying about ${brandName} online?`,
@@ -345,17 +396,51 @@ function analyzeLowScoreResults(results: any[], brandName: string): string[] {
     `What can ${brandName} do to stand out in search results?`,
     `${brandName} SEO strategy - why aren't we ranking higher?`
   ];
+
+  // Add keyword-enhanced prompts
+  const enhancedPrompts: string[] = [];
+  if (keywords.length > 0) {
+    const keyword = keywords[0];
+    enhancedPrompts.push(`${keyword} ${brandName} for ${audience || 'businesses'}`);
+    enhancedPrompts.push(`How to improve ${brandName} ${keyword} visibility`);
+  }
+
+  return [...basePrompts.slice(0, 6), ...enhancedPrompts].slice(0, 8);
 }
 
-async function generateTrendingPrompts(brandName: string, industry: string, apiKey: string): Promise<string[]> {
-  const prompt = `Generate 6 realistic search queries that people would actually type when looking for ${industry} solutions in 2024. Make them sound conversational and natural, like real user questions. Include some that might mention brands like ${brandName}. Examples of good formats:
+async function generateTrendingPrompts(brandName: string, industry: string, apiKey: string, context?: any): Promise<string[]> {
+  const keywords = context?.keywords || [];
+  const products = context?.products_services || '';
+  const audience = context?.target_audience || '';
+  const businessDesc = context?.business_description || '';
+  
+  // Build enhanced context for AI
+  let contextPrompt = `Generate 8 realistic search queries for ${industry} solutions in 2024`;
+  
+  if (businessDesc) {
+    contextPrompt += ` (Business: ${businessDesc})`;
+  }
+  
+  if (keywords.length > 0) {
+    contextPrompt += `. Key areas: ${keywords.slice(0, 3).join(', ')}`;
+  }
+  
+  if (products) {
+    contextPrompt += `. Main offerings: ${products.slice(0, 100)}`;
+  }
+  
+  if (audience) {
+    contextPrompt += `. Target audience: ${audience.slice(0, 100)}`;
+  }
+  
+  const prompt = `${contextPrompt}. Make them conversational and natural, like real user questions. Include brands like ${brandName} when relevant. Examples:
 - "What's the best [solution] for [specific use case]?"
 - "I'm looking for [tool] that [specific need]"  
 - "Should I switch from [current solution] to [new solution]?"
 - "[Brand] vs [other brand] for [use case]"
 - "Looking for [solution] under $X per month"
 
-Make them specific, problem-focused, and conversational. Don't use corporate language like "solutions" or "providers" too much. Return only the search queries, one per line.`;
+Make them specific, problem-focused, and conversational. Use the keywords and business context provided. Return only search queries, one per line.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -372,7 +457,7 @@ Make them specific, problem-focused, and conversational. Don't use corporate lan
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 400,
+      max_tokens: 500,
       temperature: 0.8,
     }),
   });
@@ -386,8 +471,8 @@ Make them specific, problem-focused, and conversational. Don't use corporate lan
   
   return content.split('\n')
     .map((line: string) => line.trim())
-    .filter((line: string) => line.length > 0 && !line.match(/^\d+\.?\s*/) && line.includes('?'))
-    .slice(0, 6);
+    .filter((line: string) => line.length > 0 && !line.match(/^\d+\.?\s*/) && line.length < 120)
+    .slice(0, 8);
 }
 
 function getSourceForSuggestion(text: string, isIndustry: boolean): string {

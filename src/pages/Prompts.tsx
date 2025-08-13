@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { getSafePromptsData } from '@/lib/prompts/safe-data';
@@ -15,6 +16,7 @@ import { runPromptNow } from '../../lib/prompts/data';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles } from 'lucide-react';
+import { KeywordManagement } from '@/components/KeywordManagement';
 
 export default function Prompts() {
   const { orgData } = useAuth();
@@ -258,7 +260,7 @@ export default function Prompts() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Prompts</h1>
             <p className="text-muted-foreground">
-              Manage and monitor your AI search prompts
+              Manage your search prompts and discover AI-suggested improvements.
             </p>
           </div>
           
@@ -301,8 +303,15 @@ export default function Prompts() {
           </Dialog>
         </div>
 
-        {/* Prompts summary */}
-        <Card>
+        <Tabs defaultValue="prompts" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="prompts">My Prompts</TabsTrigger>
+            <TabsTrigger value="keywords">Business Context</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="prompts" className="space-y-6">
+            {/* Prompts summary */}
+            <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -462,6 +471,12 @@ export default function Prompts() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="keywords" className="space-y-6">
+            <KeywordManagement />
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
