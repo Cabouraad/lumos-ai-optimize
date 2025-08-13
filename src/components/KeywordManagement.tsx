@@ -5,9 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Save } from "lucide-react";
+import { X, Plus, Save, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from "@/lib/org/data";
+import { supabase } from "@/integrations/supabase/client";
 
 export function KeywordManagement() {
   const [keywords, setKeywords] = useState<OrganizationKeywords>({
@@ -19,6 +20,7 @@ export function KeywordManagement() {
   const [newKeyword, setNewKeyword] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -83,6 +85,47 @@ export function KeywordManagement() {
     }
   };
 
+  const handleAutoFill = async () => {
+    try {
+      setAutoFilling(true);
+      
+      const { data, error } = await supabase.functions.invoke('auto-fill-business-context', {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        // Update the local state with auto-filled data
+        setKeywords(prev => ({
+          ...prev,
+          keywords: [...new Set([...prev.keywords, ...data.data.keywords])], // Merge without duplicates
+          business_description: data.data.business_description || prev.business_description,
+          products_services: data.data.products_services || prev.products_services,
+          target_audience: data.data.target_audience || prev.target_audience,
+        }));
+        
+        toast({
+          title: "Success",
+          description: "Business context auto-filled from your website!",
+        });
+      } else {
+        throw new Error(data.error || 'Failed to auto-fill');
+      }
+    } catch (error) {
+      console.error('Auto-fill error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to auto-fill business context from website",
+        variant: "destructive",
+      });
+    } finally {
+      setAutoFilling(false);
+    }
+  };
+
   if (loading) {
     return <div className="animate-pulse">Loading keyword management...</div>;
   }
@@ -98,6 +141,27 @@ export function KeywordManagement() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Auto-fill section */}
+        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg p-4 border border-primary/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-medium text-foreground mb-1">Auto-fill from Website</h4>
+              <p className="text-xs text-muted-foreground">
+                Automatically extract business context from your website
+              </p>
+            </div>
+            <Button
+              onClick={handleAutoFill}
+              disabled={autoFilling}
+              variant="outline"
+              size="sm"
+              className="bg-background hover:bg-primary/5"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              {autoFilling ? "Analyzing..." : "Auto-fill"}
+            </Button>
+          </div>
+        </div>
         <div>
           <Label htmlFor="keywords">Industry & Product Keywords</Label>
           <div className="flex gap-2 mt-2">
