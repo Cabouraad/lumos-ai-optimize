@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.run-prompt-now]
 verify_jwt = false
+
+[functions.onboarding]
+verify_jwt = true

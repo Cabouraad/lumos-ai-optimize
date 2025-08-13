@@ -34,43 +34,28 @@ export default function Onboarding() {
     setLoading(true);
 
     try {
-      // Create organization
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
+      // Get current session for JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
+      // Call onboarding edge function
+      const { data, error } = await supabase.functions.invoke('onboarding', {
+        body: {
           name: formData.orgName,
           domain: formData.domain,
-          plan_tier: 'starter',
-          domain_verification_method: 'file'
-        })
-        .select()
-        .single();
+          industry: formData.industry,
+          keywords: formData.keywords,
+          competitors: formData.competitors
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      if (orgError) throw orgError;
-
-      // Create user record
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: user.id,
-          org_id: org.id,
-          role: 'owner',
-          email: user.email!
-        });
-
-      if (userError) throw userError;
-
-      // Create organization's brand in catalog
-      const { error: brandError } = await supabase
-        .from('brand_catalog')
-        .insert({
-          org_id: org.id,
-          name: formData.orgName,
-          variants_json: [],
-          is_org_brand: true
-        });
-
-      if (brandError) throw brandError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({
         title: "Welcome to Llumos!",
@@ -80,9 +65,10 @@ export default function Onboarding() {
       // Force refresh auth context
       window.location.reload();
     } catch (error: any) {
+      console.error("Onboarding error:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to complete setup",
         variant: "destructive",
       });
     }
