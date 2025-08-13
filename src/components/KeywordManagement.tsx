@@ -112,17 +112,29 @@ export function KeywordManagement() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {keywords.keywords.map((keyword, index) => (
-              <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                {keyword}
-                <X 
-                  className="h-3 w-3 cursor-pointer" 
-                  onClick={() => removeKeyword(keyword)}
-                />
-              </Badge>
-            ))}
-          </div>
+          {keywords.keywords.length > 0 && (
+            <div className="mt-3">
+              <div className="text-sm text-muted-foreground mb-2">
+                Current Keywords ({keywords.keywords.length}):
+              </div>
+              <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg border">
+                {keywords.keywords.map((keyword, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                    {keyword}
+                    <X 
+                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                      onClick={() => removeKeyword(keyword)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {keywords.keywords.length === 0 && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              No keywords added yet. Add keywords to improve prompt suggestions.
+            </div>
+          )}
         </div>
 
         <div>
