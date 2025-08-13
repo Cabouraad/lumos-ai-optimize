@@ -112,29 +112,31 @@ export function KeywordManagement() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          {keywords.keywords.length > 0 && (
-            <div className="mt-3">
-              <div className="text-sm text-muted-foreground mb-2">
-                Current Keywords ({keywords.keywords.length}):
-              </div>
-              <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg border">
+          {/* Always show keywords section */}
+          <div className="mt-3">
+            <div className="text-sm font-medium text-foreground mb-2">
+              Saved Keywords ({keywords.keywords.length}):
+            </div>
+            {keywords.keywords.length > 0 ? (
+              <div className="flex flex-wrap gap-2 p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
                 {keywords.keywords.map((keyword, index) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1 px-3 py-1">
                     {keyword}
                     <X 
-                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                      className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" 
                       onClick={() => removeKeyword(keyword)}
                     />
                   </Badge>
                 ))}
               </div>
-            </div>
-          )}
-          {keywords.keywords.length === 0 && (
-            <div className="mt-3 text-sm text-muted-foreground">
-              No keywords added yet. Add keywords to improve prompt suggestions.
-            </div>
-          )}
+            ) : (
+              <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/30">
+                <p className="text-sm text-muted-foreground text-center">
+                  No keywords saved yet. Add keywords above to improve your AI prompt suggestions.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div>
