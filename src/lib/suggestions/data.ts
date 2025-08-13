@@ -88,13 +88,34 @@ export async function dismissSuggestion(suggestionId: string) {
 
 export async function generateSuggestionsNow() {
   try {
-    const { data, error } = await supabase.functions.invoke('suggest-prompts-now');
+    // Create timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timed out - please try again')), 60000); // 60 second timeout
+    });
 
-    if (error) throw error;
+    // Create the function call promise
+    const functionPromise = supabase.functions.invoke('suggest-prompts-now', {
+      body: {},
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-    return data;
+    // Race between timeout and function call
+    const result = await Promise.race([functionPromise, timeoutPromise]) as any;
+    
+    if (result.error) {
+      console.error('Supabase function error:', result.error);
+      throw new Error(result.error.message || 'Failed to generate suggestions');
+    }
+
+    if (!result.data) {
+      throw new Error('No data returned from suggestions generator');
+    }
+
+    return result.data;
   } catch (error) {
     console.error('Generate suggestions error:', error);
-    throw error;
+    throw new Error(error instanceof Error ? error.message : 'Failed to generate suggestions');
   }
 }
