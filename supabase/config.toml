@@ -12,5 +12,8 @@ verify_jwt = false
 [functions.run-prompt-now]
 verify_jwt = false
 
+[functions.suggest-prompts-now]
+verify_jwt = true
+
 [functions.onboarding]
 verify_jwt = true
