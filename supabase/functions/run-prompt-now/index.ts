@@ -8,166 +8,193 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     const { promptId, orgId } = await req.json();
 
     if (!promptId || !orgId) {
-      return new Response(JSON.stringify({ error: 'promptId and orgId required' }), {
+      return new Response(JSON.stringify({ error: 'Missing promptId or orgId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Verify org ownership
-    const { data: prompt } = await supabase
+    // Verify prompt belongs to org
+    const { data: prompt, error: promptError } = await supabase
       .from('prompts')
-      .select('org_id')
+      .select('*')
       .eq('id', promptId)
+      .eq('org_id', orgId)
       .single();
 
-    if (!prompt || prompt.org_id !== orgId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 403,
+    if (promptError || !prompt) {
+      return new Response(JSON.stringify({ error: 'Prompt not found or access denied' }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Run the prompt using the same logic as daily-run
+    console.log(`Running prompt ${promptId} for org ${orgId}`);
+    
     const result = await runPrompt(promptId, orgId, supabase, openaiKey, perplexityKey);
-
+    
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Run prompt now error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Error in run-prompt-now function:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message || 'Internal server error',
+      runsCreated: 0
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
 
-// Copy the runPrompt function from daily-run (inline to avoid imports)
 async function runPrompt(promptId: string, orgId: string, supabase: any, openaiKey?: string, perplexityKey?: string) {
-  // ... (same implementation as in daily-run/index.ts)
-  // I'll copy the exact same function here
   try {
-    const { data: prompt } = await supabase
-      .from('prompts')
-      .select('text')
-      .eq('id', promptId)
-      .single();
+    // Fetch prompt, organization, and enabled providers
+    const [promptResult, orgResult, providersResult] = await Promise.all([
+      supabase.from('prompts').select('text, active').eq('id', promptId).single(),
+      supabase.from('organizations').select('plan_tier').eq('id', orgId).single(),
+      supabase.from('llm_providers').select('id, name').eq('enabled', true)
+    ]);
 
-    if (!prompt) {
-      return { success: false, error: 'Prompt not found' };
+    if (promptResult.error || !promptResult.data) {
+      throw new Error('Prompt not found');
     }
 
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('plan_tier')
-      .eq('id', orgId)
-      .single();
-
-    if (!org) {
-      return { success: false, error: 'Organization not found' };
+    if (orgResult.error || !orgResult.data) {
+      throw new Error('Organization not found');
     }
 
-    const { data: providers } = await supabase
-      .from('llm_providers')
-      .select('*')
-      .eq('enabled', true)
-      .order('name');
+    const prompt = promptResult.data;
+    const org = orgResult.data;
+    const enabledProviders = providersResult.data || [];
 
-    if (!providers || providers.length === 0) {
-      return { success: false, error: 'No enabled providers' };
+    if (!prompt.active) {
+      throw new Error('Prompt is not active');
     }
 
-    const { data: brandCatalog } = await supabase
+    // Check quotas
+    const quotas = getQuotasForTier(org.plan_tier);
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data: todayRuns } = await supabase
+      .from('prompt_runs')
+      .select('id')
+      .in('prompt_id', [promptId])
+      .gte('run_at', `${today}T00:00:00Z`)
+      .lt('run_at', `${today}T23:59:59Z`);
+
+    if (todayRuns && todayRuns.length >= quotas.promptsPerDay) {
+      return {
+        success: false,
+        error: 'Daily quota exceeded',
+        runsCreated: 0
+      };
+    }
+
+    // Load brand catalog
+    const { data: brands } = await supabase
       .from('brand_catalog')
       .select('name, variants_json')
       .eq('org_id', orgId);
 
-    if (!brandCatalog) {
-      return { success: false, error: 'Could not load brand catalog' };
-    }
+    const brandCatalog = brands || [];
 
-    const quotas = getQuotasForTier(org.plan_tier);
     let runsCreated = 0;
+    const providersToUse = enabledProviders.slice(0, quotas.providersPerPrompt);
 
-    for (const provider of providers.slice(0, quotas.providersPerPrompt)) {
+    // Run prompt against each enabled provider
+    for (const provider of providersToUse) {
       try {
-        let extraction;
+        console.log(`Running prompt with provider: ${provider.name}`);
+        
+        let extractedBrands = [];
+        
         if (provider.name === 'openai' && openaiKey) {
-          extraction = await extractBrandsOpenAI(prompt.text, openaiKey);
+          extractedBrands = await extractBrandsOpenAI(prompt.text, openaiKey);
         } else if (provider.name === 'perplexity' && perplexityKey) {
-          extraction = await extractBrandsPerplexity(prompt.text, perplexityKey);
+          extractedBrands = await extractBrandsPerplexity(prompt.text, perplexityKey);
         } else {
+          console.warn(`No API key available for provider: ${provider.name}`);
           continue;
         }
 
-        const normalizedBrands = extraction.brands.map((brand: string) => normalize(brand));
-        const orgBrands = normalizedBrands.filter((brand: string) => 
-          isOrgBrand(brand, brandCatalog)
-        );
+        // Normalize and analyze brands
+        const normalizedBrands = extractedBrands.map(brand => normalize(brand));
+        const orgBrandPresent = normalizedBrands.some(brand => isOrgBrand(brand, brandCatalog));
+        const orgBrandIndex = normalizedBrands.findIndex(brand => isOrgBrand(brand, brandCatalog));
+        const competitorsCount = normalizedBrands.filter(brand => !isOrgBrand(brand, brandCatalog)).length;
         
-        const orgPresent = orgBrands.length > 0;
-        const orgBrandIdx = orgPresent ? normalizedBrands.findIndex((brand: string) => 
-          isOrgBrand(brand, brandCatalog)
-        ) : null;
-        
-        const competitorsCount = normalizedBrands.length - orgBrands.length;
-        const score = computeScore(orgPresent, orgBrandIdx, competitorsCount);
+        const score = computeScore(orgBrandPresent, orgBrandIndex >= 0 ? orgBrandIndex : null, competitorsCount);
 
-        const { data: newRun } = await supabase
+        // Insert prompt run
+        const { data: promptRun, error: runError } = await supabase
           .from('prompt_runs')
           .insert({
             prompt_id: promptId,
             provider_id: provider.id,
-            status: 'success',
-            token_in: extraction.tokenIn,
-            token_out: extraction.tokenOut,
-            cost_est: 0
+            status: 'completed',
+            run_at: new Date().toISOString(),
+            token_in: Math.floor(prompt.text.length / 4), // Rough estimate
+            token_out: Math.floor(extractedBrands.join(' ').length / 4),
+            cost_est: 0.001 // Rough estimate
           })
-          .select()
+          .select('id')
           .single();
 
-        if (newRun) {
-          await supabase
-            .from('visibility_results')
-            .insert({
-              prompt_run_id: newRun.id,
-              org_brand_present: orgPresent,
-              org_brand_prominence: orgBrandIdx ?? 0,
-              brands_json: extraction.brands,
-              competitors_count: competitorsCount,
-              raw_evidence: JSON.stringify({ normalized: normalizedBrands, orgMatches: orgBrands }),
-              score: score
-            });
-          
+        if (runError) {
+          console.error('Error inserting prompt run:', runError);
+          continue;
+        }
+
+        // Insert visibility results
+        const { error: resultError } = await supabase
+          .from('visibility_results')
+          .insert({
+            prompt_run_id: promptRun.id,
+            score,
+            org_brand_present: orgBrandPresent,
+            org_brand_prominence: orgBrandIndex >= 0 ? orgBrandIndex : null,
+            competitors_count: competitorsCount,
+            brands_json: extractedBrands,
+            raw_evidence: extractedBrands.join(', ')
+          });
+
+        if (resultError) {
+          console.error('Error inserting visibility result:', resultError);
+        } else {
           runsCreated++;
         }
 
-      } catch (providerError: any) {
-        console.error(`Provider ${provider.name} error:`, providerError);
+      } catch (providerError) {
+        console.error(`Error running provider ${provider.name}:`, providerError);
         
+        // Insert failed run
         await supabase
           .from('prompt_runs')
           .insert({
             prompt_id: promptId,
             provider_id: provider.id,
-            status: 'error',
+            status: 'failed',
+            run_at: new Date().toISOString(),
             token_in: 0,
             token_out: 0,
             cost_est: 0
@@ -175,63 +202,75 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
       }
     }
 
-    return { success: true, runsCreated };
+    return {
+      success: true,
+      runsCreated,
+      error: null
+    };
 
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    console.error('Error in runPrompt:', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+      runsCreated: 0
+    };
   }
 }
 
-// Helper functions (copied inline)
 function getQuotasForTier(planTier: string) {
-  switch (planTier) {
-    case 'starter': return { promptsPerDay: 10, providersPerPrompt: 2 };
-    case 'pro': return { promptsPerDay: 50, providersPerPrompt: 3 };
-    case 'scale': return { promptsPerDay: 200, providersPerPrompt: 3 };
-    default: return { promptsPerDay: 10, providersPerPrompt: 2 };
-  }
+  const quotas = {
+    'free': { promptsPerDay: 10, providersPerPrompt: 1 },
+    'pro': { promptsPerDay: 100, providersPerPrompt: 2 },
+    'enterprise': { promptsPerDay: 1000, providersPerPrompt: 3 }
+  };
+  
+  return quotas[planTier as keyof typeof quotas] || quotas.free;
 }
 
 function normalize(str: string): string {
-  return str.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+  return str.toLowerCase().trim().replace(/[^\w\s]/g, '');
 }
 
 function isOrgBrand(token: string, catalog: Array<{ name: string; variants_json: string[] }>): boolean {
   const normalizedToken = normalize(token);
-  if (normalizedToken.length < 4) return false;
-
+  
   for (const brand of catalog) {
-    const normalizedBrandName = normalize(brand.name);
-    if (normalizedToken === normalizedBrandName) return true;
-    if (normalizedBrandName.length >= 4) {
-      if (normalizedToken.startsWith(normalizedBrandName) || normalizedToken.includes(normalizedBrandName)) {
+    if (normalize(brand.name) === normalizedToken) {
+      return true;
+    }
+    
+    const variants = Array.isArray(brand.variants_json) ? brand.variants_json : [];
+    for (const variant of variants) {
+      if (normalize(variant) === normalizedToken) {
         return true;
       }
     }
-    for (const variant of brand.variants_json || []) {
-      const normalizedVariant = normalize(variant);
-      if (normalizedToken === normalizedVariant) return true;
-      if (normalizedVariant.length >= 4) {
-        if (normalizedToken.startsWith(normalizedVariant) || normalizedToken.includes(normalizedVariant)) {
-          return true;
-        }
-      }
-    }
   }
+  
   return false;
 }
 
 function computeScore(orgPresent: boolean, prominenceIdx: number | null, competitorsCount: number): number {
-  let score = orgPresent ? 100 : 0;
-  if (orgPresent && prominenceIdx !== null) {
-    const bonus = [30, 20, 10, 0][Math.min(prominenceIdx, 3)] ?? 0;
-    score = Math.min(100, score + bonus);
+  if (!orgPresent) return 1;
+  
+  let score = 5;
+  
+  // Prominence bonus (earlier = better)
+  if (prominenceIdx !== null) {
+    if (prominenceIdx === 0) score += 3;
+    else if (prominenceIdx <= 2) score += 2;
+    else if (prominenceIdx <= 5) score += 1;
   }
-  score = Math.max(0, score - Math.min(20, competitorsCount * 5));
-  return score;
+  
+  // Competitor penalty
+  if (competitorsCount > 5) score -= 2;
+  else if (competitorsCount > 2) score -= 1;
+  
+  return Math.max(1, Math.min(10, score));
 }
 
-async function extractBrandsOpenAI(promptText: string, apiKey: string) {
+async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<string[]> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -239,54 +278,37 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4.1-2025-04-14',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: 'You are an extraction API. Given a user prompt, output ONLY a JSON object with a single key brands as an array of brand or company names you would include in your answer. No explanations.'
+          content: 'Extract all brand names and company names mentioned in search results. Return only the names, one per line, without any additional text or formatting.'
         },
         {
           role: 'user',
-          content: promptText
+          content: `Extract brand names from this search query and likely results: "${promptText}"`
         }
       ],
-      response_format: { type: 'json_object' },
+      max_tokens: 200,
       temperature: 0.1,
     }),
   });
 
-  if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.statusText}`);
+  }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
-  const usage = data.usage || {};
-
-  try {
-    const parsed = JSON.parse(content);
-    return {
-      brands: Array.isArray(parsed.brands) ? parsed.brands : [],
-      tokenIn: usage.prompt_tokens || 0,
-      tokenOut: usage.completion_tokens || 0,
-    };
-  } catch (parseError) {
-    const match = content.match(/\["[^"]*"(?:,\s*"[^"]*")*\]/);
-    if (match) {
-      try {
-        const brands = JSON.parse(match[0]);
-        return {
-          brands: Array.isArray(brands) ? brands : [],
-          tokenIn: usage.prompt_tokens || 0,
-          tokenOut: usage.completion_tokens || 0,
-        };
-      } catch {
-        return { brands: [], tokenIn: 0, tokenOut: 0 };
-      }
-    }
-    return { brands: [], tokenIn: 0, tokenOut: 0 };
-  }
+  const content = data.choices[0].message.content || '';
+  
+  return content
+    .split('\n')
+    .map((line: string) => line.trim())
+    .filter((line: string) => line.length > 0 && !line.startsWith('-'))
+    .slice(0, 10);
 }
 
-async function extractBrandsPerplexity(promptText: string, apiKey: string) {
+async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<string[]> {
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: {
@@ -298,47 +320,28 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
       messages: [
         {
           role: 'system',
-          content: 'You are an extraction API. Given a user prompt, output ONLY a JSON object with a single key brands as an array of brand or company names you would include in your answer. No explanations.'
+          content: 'Extract all brand names and company names mentioned in search results. Return only the names, one per line.'
         },
         {
           role: 'user',
-          content: promptText
+          content: `Extract brand names from this search query: "${promptText}"`
         }
       ],
+      max_tokens: 200,
       temperature: 0.1,
-      max_tokens: 1000,
-      return_images: false,
-      return_related_questions: false,
     }),
   });
 
-  if (!response.ok) throw new Error(`Perplexity API error: ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`Perplexity API error: ${response.statusText}`);
+  }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
-  const usage = data.usage || {};
-
-  try {
-    const parsed = JSON.parse(content);
-    return {
-      brands: Array.isArray(parsed.brands) ? parsed.brands : [],
-      tokenIn: usage.prompt_tokens || 0,
-      tokenOut: usage.completion_tokens || 0,
-    };
-  } catch (parseError) {
-    const match = content.match(/\["[^"]*"(?:,\s*"[^"]*")*\]/);
-    if (match) {
-      try {
-        const brands = JSON.parse(match[0]);
-        return {
-          brands: Array.isArray(brands) ? brands : [],
-          tokenIn: usage.prompt_tokens || 0,
-          tokenOut: usage.completion_tokens || 0,
-        };
-      } catch {
-        return { brands: [], tokenIn: 0, tokenOut: 0 };
-      }
-    }
-    return { brands: [], tokenIn: 0, tokenOut: 0 };
-  }
+  const content = data.choices[0].message.content || '';
+  
+  return content
+    .split('\n')
+    .map((line: string) => line.trim())
+    .filter((line: string) => line.length > 0 && !line.startsWith('-'))
+    .slice(0, 10);
 }
