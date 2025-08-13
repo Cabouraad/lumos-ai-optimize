@@ -10,15 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { getPromptsData, runPromptNow } from '../../lib/prompts/data';
+import { getSafePromptsData } from '@/lib/prompts/safe-data';
+import { runPromptNow } from '../../lib/prompts/data';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Play, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 export default function Prompts() {
   const { orgData } = useAuth();
   const { toast } = useToast();
-  const [promptsData, setPromptsData] = useState<any>(null);
+  const [prompts, setPrompts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
   const [runningPrompts, setRunningPrompts] = useState<Set<string>>(new Set());
@@ -30,13 +32,12 @@ export default function Prompts() {
   }, [orgData]);
 
   const loadPromptsData = async () => {
-    if (!orgData?.organizations?.id) return;
-    
     try {
-      const data = await getPromptsData(orgData.organizations.id, orgData.organizations.plan_tier);
-      setPromptsData(data);
-    } catch (error) {
-      console.error('Error loading prompts:', error);
+      const data = await getSafePromptsData();
+      setPrompts(data);
+      setError(null);
+    } catch (err) {
+      setError(err?.message || 'Failed to load prompts');
     } finally {
       setLoading(false);
     }
@@ -145,6 +146,21 @@ export default function Prompts() {
     );
   }
 
+  if (error) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Prompts</h1>
+            <div className="mt-4 p-4 bg-destructive/10 text-destructive rounded-lg">
+              {error}
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -195,27 +211,22 @@ export default function Prompts() {
           </Dialog>
         </div>
 
-        {/* Usage indicator */}
-        {promptsData && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Daily Usage</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {promptsData.usage} / {promptsData.quota} prompts used today
-                  </p>
-                </div>
-                <div className="w-32 bg-muted rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full" 
-                    style={{ width: `${Math.min(100, (promptsData.usage / promptsData.quota) * 100)}%` }}
-                  />
-                </div>
+        {/* Prompts summary */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Prompts Overview</h4>
+                <p className="text-sm text-muted-foreground">
+                  {prompts.length} prompt{prompts.length !== 1 ? 's' : ''} configured
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <Badge variant="secondary">
+                {prompts.filter(p => p.active).length} active
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -225,9 +236,9 @@ export default function Prompts() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {promptsData?.prompts.length > 0 ? (
+            {prompts.length > 0 ? (
               <div className="space-y-4">
-                {promptsData.prompts.map((prompt: any) => (
+                {prompts.map((prompt: any) => (
                   <div key={prompt.id} className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -253,28 +264,14 @@ export default function Prompts() {
                       </div>
                     </div>
 
-                    {/* Provider results */}
+                    {/* Provider status */}
                     <div className="grid gap-2 md:grid-cols-2">
-                      {['openai', 'perplexity'].map(providerName => {
-                        const runs = Object.values(promptsData.latestRuns).filter((run: any) => 
-                          run.prompt_id === prompt.id && run.llm_providers?.name === providerName
-                        );
-                        const latestRun = runs[0] as any;
-
-                        return (
-                          <div key={providerName} className="flex items-center justify-between p-2 bg-muted rounded">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium capitalize">{providerName}</span>
-                              {latestRun && getStatusIcon(latestRun.status)}
-                            </div>
-                            {latestRun?.visibility_results?.[0] && (
-                              <Badge variant="secondary">
-                                Score: {latestRun.visibility_results[0].score}
-                              </Badge>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {['openai', 'perplexity'].map(providerName => (
+                        <div key={providerName} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <span className="text-sm font-medium capitalize">{providerName}</span>
+                          <Badge variant="outline">Ready</Badge>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}

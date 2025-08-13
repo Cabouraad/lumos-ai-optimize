@@ -126,6 +126,26 @@ serve(async (req) => {
 
     console.log("Brand catalog created");
 
+    // 4) Ensure default providers exist (idempotent)
+    const { error: providersErr } = await supa
+      .from("llm_providers")
+      .upsert([
+        { name: "openai", enabled: true }, 
+        { name: "perplexity", enabled: true }
+      ], { 
+        onConflict: "name" 
+      });
+
+    if (providersErr) {
+      console.error("Error upserting providers:", providersErr);
+      return new Response(JSON.stringify({ error: providersErr.message }), { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log("Default providers ensured");
+
     return new Response(JSON.stringify({ ok: true, orgId: org.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
