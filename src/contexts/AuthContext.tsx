@@ -19,18 +19,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [orgData, setOrgData] = useState<any | null>(null);
 
   useEffect(() => {
-    console.log('AuthProvider: Setting up auth state listener');
-    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('AuthProvider: Auth state changed', { event, hasSession: !!session, userId: session?.user?.id });
-        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log('AuthProvider: User found, fetching org data for:', session.user.id);
           // Fetch user's org data
           setTimeout(async () => {
             try {
@@ -43,22 +38,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .eq('id', session.user.id)
                 .maybeSingle();
               
-              console.log('AuthProvider: Org data query result', { data, error });
-              
               if (error) {
-                console.error('AuthProvider: Error fetching org data:', error);
+                console.error('Error fetching org data:', error);
               }
               
               setOrgData(data);
               setLoading(false);
             } catch (err) {
-              console.error('AuthProvider: Exception in org data fetch:', err);
+              console.error('Exception in org data fetch:', err);
               setOrgData(null);
               setLoading(false);
             }
           }, 0);
         } else {
-          console.log('AuthProvider: No user, clearing org data');
           setOrgData(null);
           setLoading(false);
         }
@@ -66,22 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Check for existing session
-    console.log('AuthProvider: Checking for existing session');
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('AuthProvider: Initial session check', { hasSession: !!session, userId: session?.user?.id, error });
-      
       setSession(session);
       setUser(session?.user ?? null);
       if (!session) {
-        console.log('AuthProvider: No initial session, stopping loading');
         setLoading(false);
       }
     });
 
-    return () => {
-      console.log('AuthProvider: Cleaning up auth subscription');
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
