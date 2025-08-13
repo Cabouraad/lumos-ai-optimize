@@ -147,3 +147,10 @@ After deploying the application, run through this manual checklist:
 - [ ] Confirm retry logic works for network errors
 
 All items should pass before considering the deployment successful.
+
+## RLS Hardening Notes
+
+- `users` table: read-only for clients; writes are service-role via the onboarding function.
+- `organizations` insert: service-role only (trigger); updates: owner policy.
+- Never reference `users` inside a `users` policy (recursion). See scripts/check-policies.sql.
+- Onboarding must call the Edge Function `/functions/v1/onboarding` with the user's JWT; the function uses `SUPABASE_SERVICE_ROLE_KEY`.
