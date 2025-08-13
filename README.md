@@ -71,3 +71,79 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Development & Testing
+
+### Running Tests
+
+```sh
+# Run unit tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with UI
+npm run test:ui
+
+# Run smoke tests (requires environment setup)
+node scripts/smoke-test.mjs
+
+# Seed development data
+npx tsx scripts/seed.ts
+```
+
+### Acceptance Testing Checklist
+
+After deploying the application, run through this manual checklist:
+
+**1. Organization Setup**
+- [ ] Create organization and login as owner
+- [ ] Verify user can access all authenticated pages
+- [ ] Confirm organization data appears correctly
+
+**2. Domain Verification**
+- [ ] Enter domain in Settings page
+- [ ] Place verification file at `https://yourdomain/.well-known/llumos-verify.txt` with the provided token
+- [ ] Click "Verify domain" button
+- [ ] Confirm `domain_locked_at` is set in database
+- [ ] Verify domain becomes read-only in Settings
+
+**3. Provider & Prompt Testing**
+- [ ] Toggle LLM providers (OpenAI/Perplexity) in Settings
+- [ ] Add a test prompt in Prompts page
+- [ ] Click "Run now" on the prompt
+- [ ] Verify prompt run appears in table with status and score
+- [ ] Check Dashboard shows updated aggregate score
+
+**4. Daily Automation**
+- [ ] Manually trigger daily-run Edge Function
+- [ ] Confirm quotas are respected (Starter: 10 prompts × 2 providers/day)
+- [ ] Verify no quota overruns occur
+- [ ] Check function logs for any errors
+
+**5. Recommendations System**
+- [ ] Navigate to Recommendations page
+- [ ] Verify recommendations appear for low/absent prompts
+- [ ] Test "Mark Done" and "Ignore" actions
+- [ ] Confirm recommendations are grouped by type
+
+**6. Row Level Security (RLS)**
+- [ ] Create second test organization
+- [ ] Attempt to access first org's data while logged in as second org
+- [ ] Confirm access is properly denied (should fail)
+- [ ] Verify cross-organization data isolation
+
+**7. Dashboard Metrics**
+- [ ] Check Today's Aggregate Score displays correctly
+- [ ] Verify 7-day sparkline shows trend data
+- [ ] Confirm top missing prompts and competitors appear
+- [ ] Check Health panel shows provider status and token usage
+
+**8. Error Handling**
+- [ ] Test with invalid API keys
+- [ ] Verify graceful failure and error messages
+- [ ] Check Edge Function timeout handling (15s limit)
+- [ ] Confirm retry logic works for network errors
+
+All items should pass before considering the deployment successful.
