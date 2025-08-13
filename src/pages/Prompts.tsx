@@ -12,14 +12,18 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { supabase } from '@/integrations/supabase/client';
 import { getSafePromptsData } from '@/lib/prompts/safe-data';
 import { runPromptNow } from '../../lib/prompts/data';
+import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Play, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles } from 'lucide-react';
 
 export default function Prompts() {
   const { orgData } = useAuth();
   const { toast } = useToast();
   const [prompts, setPrompts] = useState<any[]>([]);
+  const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [generatingsuggestions, setGeneratingSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
@@ -28,6 +32,7 @@ export default function Prompts() {
   useEffect(() => {
     if (orgData?.organizations?.id) {
       loadPromptsData();
+      loadSuggestedPrompts();
     }
   }, [orgData]);
 
@@ -40,6 +45,18 @@ export default function Prompts() {
       setError(err?.message || 'Failed to load prompts');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSuggestedPrompts = async () => {
+    try {
+      setSuggestionsLoading(true);
+      const data = await getSuggestedPrompts();
+      setSuggestedPrompts(data);
+    } catch (err) {
+      console.error('Failed to load suggested prompts:', err);
+    } finally {
+      setSuggestionsLoading(false);
     }
   };
 
@@ -121,6 +138,70 @@ export default function Prompts() {
         next.delete(promptId);
         return next;
       });
+    }
+  };
+
+  const handleAcceptSuggestion = async (suggestionId: string) => {
+    try {
+      await acceptSuggestion(suggestionId);
+      toast({
+        title: "Success",
+        description: "Suggestion accepted and added as prompt",
+      });
+      loadPromptsData();
+      loadSuggestedPrompts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDismissSuggestion = async (suggestionId: string) => {
+    try {
+      await dismissSuggestion(suggestionId);
+      toast({
+        title: "Success",
+        description: "Suggestion dismissed",
+      });
+      loadSuggestedPrompts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateMoreSuggestions = async () => {
+    try {
+      setGeneratingSuggestions(true);
+      await generateSuggestionsNow();
+      toast({
+        title: "Success",
+        description: "New suggestions generated",
+      });
+      loadSuggestedPrompts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingSuggestions(false);
+    }
+  };
+
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case 'industry': return <Lightbulb className="h-4 w-4 text-blue-500" />;
+      case 'competitors': return <CheckCircle className="h-4 w-4 text-purple-500" />;
+      case 'gap': return <XCircle className="h-4 w-4 text-orange-500" />;
+      default: return <Sparkles className="h-4 w-4 text-green-500" />;
     }
   };
 
@@ -227,6 +308,85 @@ export default function Prompts() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Suggested Prompts Section */}
+        {suggestedPrompts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    AI Suggested Prompts
+                  </CardTitle>
+                  <CardDescription>
+                    Recommended prompts to improve your search visibility
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateMoreSuggestions}
+                  disabled={generatingsuggestions}
+                >
+                  {generatingsuggestions ? (
+                    <>
+                      <Clock className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate More
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {suggestedPrompts.map((suggestion: any) => (
+                  <div key={suggestion.id} className="border border-primary/20 rounded-lg p-4 bg-primary/5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          {getSourceIcon(suggestion.source)}
+                          <Badge variant="secondary" className="text-xs">
+                            {suggestion.source}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium">{suggestion.text}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Suggested {new Date(suggestion.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAcceptSuggestion(suggestion.id)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <Check className="mr-1 h-3 w-3" />
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDismissSuggestion(suggestion.id)}
+                          className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
