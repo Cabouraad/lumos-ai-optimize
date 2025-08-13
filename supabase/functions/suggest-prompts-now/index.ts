@@ -286,8 +286,8 @@ async function generateTrendingPrompts(brandName: string, industry: string, apiK
 }
 
 function getSourceForSuggestion(text: string, isIndustry: boolean): string {
-  if (text.includes('vs') || text.includes('alternatives') || text.includes('competitors')) return 'competitor-analysis';
-  if (text.includes('trends') || text.includes('2024') || text.includes('innovations')) return 'trending-topics';
-  if (isIndustry) return 'industry-analysis';
-  return 'gap-analysis';
+  if (text.includes('vs') || text.includes('alternatives') || text.includes('competitors')) return 'competitors';
+  if (text.includes('trends') || text.includes('2024') || text.includes('innovations')) return 'trends';
+  if (isIndustry) return 'industry';
+  return 'gap';
 }
