@@ -309,41 +309,43 @@ export default function Prompts() {
           </CardContent>
         </Card>
 
-        {/* Suggested Prompts Section */}
-        {suggestedPrompts.length > 0 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-primary" />
-                    AI Suggested Prompts
-                  </CardTitle>
-                  <CardDescription>
-                    Recommended prompts to improve your search visibility
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateMoreSuggestions}
-                  disabled={generatingsuggestions}
-                >
-                  {generatingsuggestions ? (
-                    <>
-                      <Clock className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate More
-                    </>
-                  )}
-                </Button>
+        {/* Suggested Prompts Section - Always Show */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  AI Suggested Prompts
+                </CardTitle>
+                <CardDescription>
+                  {suggestedPrompts.length > 0 
+                    ? "Recommended prompts to improve your search visibility"
+                    : "Get AI-powered suggestions for prompts to track your brand visibility"}
+                </CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateMoreSuggestions}
+                disabled={generatingsuggestions}
+              >
+                {generatingsuggestions ? (
+                  <>
+                    <Clock className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {suggestedPrompts.length > 0 ? 'Generate More' : 'Generate Suggestions'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {suggestedPrompts.length > 0 ? (
               <div className="space-y-3">
                 {suggestedPrompts.map((suggestion: any) => (
                   <div key={suggestion.id} className="border border-primary/20 rounded-lg p-4 bg-primary/5">
@@ -384,9 +386,17 @@ export default function Prompts() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="text-center py-8">
+                <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No suggestions yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Click "Generate Suggestions" to get AI-powered prompt recommendations tailored to your brand and industry.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
