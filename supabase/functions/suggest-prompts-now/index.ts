@@ -265,94 +265,78 @@ function generateIndustryPrompts(industry: string, brandName: string, context?: 
   const audience = context?.target_audience || '';
   const businessDesc = context?.business_description || '';
   
-  // Generate specific, buyer-intent focused prompts based on keywords
+  // If no business context provided, return empty to avoid generic suggestions
+  if (keywords.length === 0 && !products && !audience && !businessDesc) {
+    return [];
+  }
+  
   const keywordPrompts: string[] = [];
   
-  // Primary keyword-focused queries (matching the reference style)
-  keywords.slice(0, 4).forEach((keyword: string) => {
-    const cleanKeyword = keyword.toLowerCase();
+  // Primary keyword-focused queries - ONLY use actual user keywords
+  keywords.forEach((keyword: string) => {
+    const cleanKeyword = keyword.toLowerCase().trim();
+    if (!cleanKeyword) return;
     
-    // Comparison and evaluation prompts
-    keywordPrompts.push(`Compare ${cleanKeyword} software pricing and plans for small businesses`);
-    keywordPrompts.push(`Best free ${cleanKeyword} tools for ${audience || 'startups'}`);
-    keywordPrompts.push(`Top ${cleanKeyword} platforms with customizable workflows`);
-    keywordPrompts.push(`${cleanKeyword} software comparison for ${audience || 'growing companies'}`);
+    // Target audience specific prompts
+    if (audience) {
+      const cleanAudience = audience.toLowerCase().trim();
+      keywordPrompts.push(`Best ${cleanKeyword} solutions for ${cleanAudience}`);
+      keywordPrompts.push(`${cleanKeyword} software comparison for ${cleanAudience}`);
+      keywordPrompts.push(`Top rated ${cleanKeyword} platforms used by ${cleanAudience}`);
+      keywordPrompts.push(`${cleanKeyword} tools with features designed for ${cleanAudience}`);
+    } else {
+      keywordPrompts.push(`Compare top ${cleanKeyword} software options`);
+      keywordPrompts.push(`Best ${cleanKeyword} platforms with highest user ratings`);
+      keywordPrompts.push(`${cleanKeyword} solutions with advanced features`);
+    }
+    
+    // Pricing and evaluation prompts
+    keywordPrompts.push(`${cleanKeyword} software pricing comparison and reviews`);
+    keywordPrompts.push(`Which ${cleanKeyword} platform offers the best value?`);
+    keywordPrompts.push(`Free vs paid ${cleanKeyword} tools comparison`);
     
     // Feature-specific prompts
-    keywordPrompts.push(`Which ${cleanKeyword} platform integrates seamlessly with popular tools?`);
-    keywordPrompts.push(`${cleanKeyword} solutions with AI-driven features`);
-    keywordPrompts.push(`User ratings for top ${cleanKeyword} software solutions`);
-    
-    // Problem-solving prompts
-    keywordPrompts.push(`Where to find affordable ${cleanKeyword} solutions`);
-    keywordPrompts.push(`${cleanKeyword} platforms for remote teams under 50 employees`);
+    keywordPrompts.push(`${cleanKeyword} platforms with integration capabilities`);
+    keywordPrompts.push(`User reviews: best ${cleanKeyword} software features`);
   });
 
-  // Product/service specific prompts matching the reference format
+  // Product/service specific prompts - ONLY use actual user products/services
   if (products) {
-    const productWords = products.toLowerCase().split(/[,\s]+/).filter(word => word.length > 3);
-    productWords.slice(0, 3).forEach(product => {
-      keywordPrompts.push(`Compare key features of leading ${product} software`);
-      keywordPrompts.push(`${product} tools with advanced analytics and reporting`);
-      keywordPrompts.push(`User reviews comparing ${product} vs traditional solutions`);
+    const productWords = products.toLowerCase()
+      .split(/[,\s&+]+/)
+      .map(word => word.trim())
+      .filter(word => word.length > 2);
+    
+    productWords.forEach(product => {
       if (audience) {
-        keywordPrompts.push(`${product} software comparison for ${audience}`);
+        keywordPrompts.push(`${product} solutions comparison for ${audience.toLowerCase()}`);
+        keywordPrompts.push(`Best ${product} providers recommended by ${audience.toLowerCase()}`);
+      } else {
+        keywordPrompts.push(`Compare leading ${product} providers and features`);
+        keywordPrompts.push(`${product} software with highest customer satisfaction`);
+      }
+      keywordPrompts.push(`${product} pricing models and cost comparison`);
+      keywordPrompts.push(`User reviews: top ${product} platforms`);
+    });
+  }
+
+  // Business description specific prompts - extract key terms from description
+  if (businessDesc) {
+    const businessWords = businessDesc.toLowerCase()
+      .match(/\b(software|platform|tool|service|solution|system|app|technology)\w*\b/g) || [];
+    
+    businessWords.slice(0, 2).forEach(term => {
+      if (audience) {
+        keywordPrompts.push(`Best ${term} for ${audience.toLowerCase()} businesses`);
+      } else {
+        keywordPrompts.push(`Compare ${term} options for growing businesses`);
       }
     });
   }
 
-  // Industry-specific templates matching the reference style
-  const industryTemplates: Record<string, string[]> = {
-    'technology': [
-      'Best project management tools with API integrations for developers',
-      'Compare code repository platforms for enterprise teams',
-      'DevOps tools with built-in security scanning features',
-      'Cloud hosting providers with automatic scaling capabilities',
-      'User ratings for top developer productivity software'
-    ],
-    'healthcare': [
-      'HIPAA-compliant patient portal software with mobile access',
-      'Compare EMR systems pricing for solo practitioners',
-      'Medical billing platforms with insurance claim automation',
-      'Telehealth solutions with prescription management features',
-      'Practice management software comparison for specialty clinics'
-    ],
-    'finance': [
-      'Compare wealth management platforms for independent advisors',
-      'Trading software with advanced charting and analysis tools',
-      'Payment processing solutions with fraud protection features',
-      'Accounting software comparison for financial services firms',
-      'Client portal platforms with document sharing capabilities'
-    ],
-    'retail': [
-      'Multi-channel inventory management systems with real-time sync',
-      'POS systems with integrated loyalty program features',
-      'E-commerce platforms comparison for fashion retailers',
-      'Customer analytics tools with behavioral tracking',
-      'Supply chain management software for retail chains'
-    ],
-    'education': [
-      'Learning management systems with interactive content creation',
-      'Student information systems with parent portal access',
-      'Online course platforms with certification management',
-      'Virtual classroom tools with breakout room capabilities',
-      'Gradebook software comparison for K-12 schools'
-    ]
-  };
-
-  const industryPrompts = industryTemplates[industry] || [
-    `Compare ${industry} software solutions for mid-size companies`,
-    `Best ${industry} platforms with mobile app access`,
-    `${industry} tools with advanced reporting and analytics`,
-    `User reviews for leading ${industry} software providers`,
-    `${industry} solutions with third-party integrations`
-  ];
-
-  // Combine all prompts
-  const allPrompts = [...keywordPrompts, ...industryPrompts];
-  const uniquePrompts = [...new Set(allPrompts)];
-  
-  return uniquePrompts.slice(0, 15);
+  // Remove duplicates and limit
+  const uniquePrompts = [...new Set(keywordPrompts)];
+  return uniquePrompts.slice(0, 12);
 }
 
 
@@ -361,51 +345,61 @@ function generateCompetitorPrompts(brandName: string, domain: string, context?: 
   const audience = context?.target_audience || '';
   const products = context?.products_services || '';
   
+  // If no business context provided, return empty to avoid generic suggestions
+  if (keywords.length === 0 && !products && !audience) {
+    return [];
+  }
+  
   const competitorPrompts: string[] = [];
   
-  // Keyword-based comparison prompts matching reference style
-  keywords.slice(0, 3).forEach((keyword: string) => {
-    const cleanKeyword = keyword.toLowerCase();
+  // Keyword-based comparison prompts - ONLY use actual user keywords
+  keywords.forEach((keyword: string) => {
+    const cleanKeyword = keyword.toLowerCase().trim();
+    if (!cleanKeyword) return;
     
-    competitorPrompts.push(`Compare key features of leading ${cleanKeyword} software`);
-    competitorPrompts.push(`User ratings for top ${cleanKeyword} solutions`);
-    competitorPrompts.push(`${cleanKeyword} platforms with best customer support ratings`);
-    competitorPrompts.push(`Which ${cleanKeyword} tool offers the best value for money?`);
+    competitorPrompts.push(`Compare leading ${cleanKeyword} software providers`);
+    competitorPrompts.push(`${cleanKeyword} platforms: user ratings and reviews`);
+    competitorPrompts.push(`Which ${cleanKeyword} solution has the best features?`);
+    competitorPrompts.push(`${cleanKeyword} software: pricing and value comparison`);
     
     if (audience) {
-      competitorPrompts.push(`${cleanKeyword} software comparison for ${audience}`);
-      competitorPrompts.push(`User reviews: ${cleanKeyword} tools for ${audience}`);
+      const cleanAudience = audience.toLowerCase().trim();
+      competitorPrompts.push(`${cleanKeyword} recommendations from ${cleanAudience}`);
+      competitorPrompts.push(`Best ${cleanKeyword} tools for ${cleanAudience} according to reviews`);
     }
   });
 
-  // Product/service category comparisons in reference style
+  // Product/service category comparisons - ONLY use actual user products/services
   if (products) {
-    const productWords = products.toLowerCase().split(/[,\s]+/).filter(word => word.length > 3);
-    productWords.slice(0, 2).forEach(product => {
-      competitorPrompts.push(`Compare ${product} providers: features and pricing`);
-      competitorPrompts.push(`User reviews comparing ${product} vs traditional solutions`);
-      competitorPrompts.push(`${product} software with highest user satisfaction ratings`);
+    const productWords = products.toLowerCase()
+      .split(/[,\s&+]+/)
+      .map(word => word.trim())
+      .filter(word => word.length > 2);
+    
+    productWords.forEach(product => {
+      competitorPrompts.push(`${product} provider comparison: features vs pricing`);
+      competitorPrompts.push(`User reviews: top ${product} companies ranked`);
+      competitorPrompts.push(`${product} market leaders vs emerging competitors`);
+      
+      if (audience) {
+        competitorPrompts.push(`${product} providers highly rated by ${audience.toLowerCase()}`);
+      }
     });
   }
 
-  // Generic comparison prompts based on audience/industry
-  const genericComparisons = [
-    'Software comparison: enterprise vs small business solutions',
-    'Cloud-based vs on-premise platform comparison',
-    'User ratings for industry-leading software providers',
-    'Compare pricing models: subscription vs one-time purchase',
-    'Platform integration capabilities comparison chart'
-  ];
-
+  // Audience-specific comparison prompts - ONLY if audience is specified
   if (audience) {
-    genericComparisons.push(`Software recommendations based on ${audience} reviews`);
-    genericComparisons.push(`Compare solutions designed specifically for ${audience}`);
+    const cleanAudience = audience.toLowerCase().trim();
+    if (keywords.length > 0) {
+      const primaryKeyword = keywords[0].toLowerCase();
+      competitorPrompts.push(`${primaryKeyword} solutions comparison by ${cleanAudience} users`);
+      competitorPrompts.push(`Most recommended ${primaryKeyword} platforms for ${cleanAudience}`);
+    }
   }
 
-  const allPrompts = [...competitorPrompts, ...genericComparisons];
-  const uniquePrompts = [...new Set(allPrompts)];
-  
-  return uniquePrompts.slice(0, 10);
+  // Remove duplicates and limit
+  const uniquePrompts = [...new Set(competitorPrompts)];
+  return uniquePrompts.slice(0, 8);
 }
 
 function analyzeLowScoreResults(results: any[], brandName: string, context?: any): string[] {
@@ -416,51 +410,57 @@ function analyzeLowScoreResults(results: any[], brandName: string, context?: any
   
   if (lowScoreResults.length === 0) return [];
   
-  // Generate discovery-focused prompts in reference style
+  // If no business context provided, return empty to avoid generic suggestions
+  if (keywords.length === 0 && !products && !audience) {
+    return [];
+  }
+  
   const discoveryPrompts: string[] = [];
   
-  // Keyword-focused discovery queries matching the reference format
-  keywords.slice(0, 3).forEach((keyword: string) => {
-    const cleanKeyword = keyword.toLowerCase();
+  // Keyword-focused discovery queries - ONLY use actual user keywords
+  keywords.forEach((keyword: string) => {
+    const cleanKeyword = keyword.toLowerCase().trim();
+    if (!cleanKeyword) return;
     
-    discoveryPrompts.push(`Where to find reliable ${cleanKeyword} solutions for small businesses`);
-    discoveryPrompts.push(`User ratings for lesser-known ${cleanKeyword} platforms`);
-    discoveryPrompts.push(`${cleanKeyword} tools with exceptional customer support`);
+    discoveryPrompts.push(`Alternative ${cleanKeyword} solutions with unique features`);
+    discoveryPrompts.push(`${cleanKeyword} platforms with excellent customer reviews`);
+    discoveryPrompts.push(`Affordable ${cleanKeyword} tools with premium features`);
     
     if (audience) {
-      discoveryPrompts.push(`${cleanKeyword} recommendations from ${audience} users`);
-      discoveryPrompts.push(`Best ${cleanKeyword} solutions for ${audience} on a budget`);
+      const cleanAudience = audience.toLowerCase().trim();
+      discoveryPrompts.push(`${cleanKeyword} solutions highly rated by ${cleanAudience}`);
+      discoveryPrompts.push(`Budget-friendly ${cleanKeyword} options for ${cleanAudience}`);
     }
   });
 
-  // Product/service discovery prompts
+  // Product/service discovery prompts - ONLY use actual user products/services
   if (products) {
-    const productWords = products.toLowerCase().split(/[,\s]+/).filter(word => word.length > 3);
-    productWords.slice(0, 2).forEach(product => {
-      discoveryPrompts.push(`Compare emerging ${product} platforms vs established players`);
-      discoveryPrompts.push(`${product} software with unique features and capabilities`);
-      discoveryPrompts.push(`User reviews: hidden gems in ${product} solutions`);
+    const productWords = products.toLowerCase()
+      .split(/[,\s&+]+/)
+      .map(word => word.trim())
+      .filter(word => word.length > 2);
+    
+    productWords.forEach(product => {
+      discoveryPrompts.push(`Innovative ${product} companies with strong user ratings`);
+      discoveryPrompts.push(`${product} providers offering exceptional value`);
+      
+      if (audience) {
+        discoveryPrompts.push(`${product} solutions preferred by ${audience.toLowerCase()}`);
+      }
     });
   }
 
-  // Generic discovery prompts in the reference style
-  const genericDiscovery = [
-    'User ratings for up-and-coming software platforms',
-    'Compare new vs established players in the software market',
-    'Software solutions with exceptional value for small businesses',
-    'Platform recommendations from industry professionals',
-    'Tools with best customer satisfaction ratings in the industry'
-  ];
-
-  if (audience) {
-    genericDiscovery.push(`Software recommendations specifically for ${audience}`);
-    genericDiscovery.push(`User reviews: best tools for ${audience} workflows`);
+  // Brand visibility improvement prompts based on actual context
+  if (keywords.length > 0 && audience) {
+    const primaryKeyword = keywords[0].toLowerCase();
+    const cleanAudience = audience.toLowerCase();
+    discoveryPrompts.push(`${primaryKeyword} tools that ${cleanAudience} actually recommend`);
+    discoveryPrompts.push(`Most trusted ${primaryKeyword} platforms among ${cleanAudience}`);
   }
 
-  const allPrompts = [...discoveryPrompts, ...genericDiscovery];
-  const uniquePrompts = [...new Set(allPrompts)];
-  
-  return uniquePrompts.slice(0, 10);
+  // Remove duplicates and limit
+  const uniquePrompts = [...new Set(discoveryPrompts)];
+  return uniquePrompts.slice(0, 6);
 }
 
 async function generateTrendingPrompts(brandName: string, industry: string, apiKey: string, context?: any): Promise<string[]> {
@@ -469,36 +469,41 @@ async function generateTrendingPrompts(brandName: string, industry: string, apiK
   const audience = context?.target_audience || '';
   const businessDesc = context?.business_description || '';
   
-  // Build enhanced context for AI with reference style examples
-  let contextPrompt = `Generate 8 realistic, specific search queries for ${industry} solutions in 2024`;
+  // If no business context provided, return empty to avoid generic AI suggestions
+  if (keywords.length === 0 && !products && !audience && !businessDesc) {
+    return [];
+  }
+  
+  // Build highly specific context based on actual business data
+  let contextPrompt = 'Generate 6 specific search queries based on this business context:';
   
   if (businessDesc) {
-    contextPrompt += ` (Business focus: ${businessDesc})`;
+    contextPrompt += ` Business: "${businessDesc}"`;
   }
   
   if (keywords.length > 0) {
-    contextPrompt += `. Key solution areas: ${keywords.slice(0, 3).join(', ')}`;
+    contextPrompt += ` Keywords: ${keywords.join(', ')}`;
   }
   
   if (products) {
-    contextPrompt += `. Main offerings: ${products.slice(0, 100)}`;
+    contextPrompt += ` Products/Services: ${products}`;
   }
   
   if (audience) {
-    contextPrompt += `. Target audience: ${audience.slice(0, 100)}`;
+    contextPrompt += ` Target Audience: ${audience}`;
   }
   
-  const prompt = `${contextPrompt}. Make them specific, buyer-intent focused queries that match this style:
-- "Compare [solution] software pricing and plans for small businesses"
-- "Best free [tool] tools for [audience]"
-- "User ratings for top [solution] software solutions"
-- "Which [platform] integrates seamlessly with popular tools?"
-- "[Solution] platforms with AI-driven features"
-- "Where to find affordable [solution] for [audience]"
-- "Compare key features of leading [tool] software"
-- "User reviews comparing [solution] vs traditional approaches"
+  const prompt = `${contextPrompt}
 
-Focus on comparisons, ratings, features, pricing, and integrations. Make them sound like real buyer research queries. Never include specific company or brand names. Return only search queries, one per line.`;
+Create buyer-intent search queries that combine these specific business elements. Use this format:
+- "Compare [keyword] software for [audience]"  
+- "Best [product/service] platforms with [specific feature]"
+- "[keyword] solutions: pricing and reviews"
+- "User ratings for [keyword] tools designed for [audience]"
+- "Which [product] offers the best value for [audience]?"
+- "[keyword] software comparison: features vs cost"
+
+IMPORTANT: Only use the exact keywords, products, services, and audience provided above. Do not add generic industry terms or make assumptions. Each query must contain elements from the business context provided. Return only search queries, one per line.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -511,12 +516,12 @@ Focus on comparisons, ratings, features, pricing, and integrations. Make them so
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert at understanding how real people search online. Generate natural, conversational search queries that sound like actual user questions, not corporate marketing speak.' 
+          content: 'You are an expert at generating targeted search queries. You must only use the specific business context provided - never add generic terms or make assumptions about the business.' 
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 500,
-      temperature: 0.8,
+      max_tokens: 400,
+      temperature: 0.7,
     }),
   });
 
@@ -530,7 +535,7 @@ Focus on comparisons, ratings, features, pricing, and integrations. Make them so
   return content.split('\n')
     .map((line: string) => line.trim())
     .filter((line: string) => line.length > 0 && !line.match(/^\d+\.?\s*/) && line.length < 120)
-    .slice(0, 8);
+    .slice(0, 6);
 }
 
 function getSourceForSuggestion(text: string, isIndustry: boolean): string {
