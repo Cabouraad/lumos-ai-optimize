@@ -8,19 +8,41 @@ import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
 import { TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
 
 export default function Dashboard() {
-  const { orgData } = useAuth();
+  const { orgData, user, loading: authLoading } = useAuth();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  console.log('Dashboard: Component render', { 
+    hasOrgData: !!orgData, 
+    hasUser: !!user, 
+    authLoading, 
+    orgId: orgData?.organizations?.id 
+  });
+
   useEffect(() => {
+    console.log('Dashboard: useEffect triggered', { orgData });
+    
     if (orgData?.organizations?.id) {
+      console.log('Dashboard: Loading dashboard data for org:', orgData.organizations.id);
       getSafeDashboardData()
-        .then(setDashboardData)
-        .catch((err) => setError(err?.message || 'Failed to load dashboard'))
-        .finally(() => setLoading(false));
+        .then((data) => {
+          console.log('Dashboard: Data loaded successfully', data);
+          setDashboardData(data);
+        })
+        .catch((err) => {
+          console.error('Dashboard: Error loading data', err);
+          setError(err?.message || 'Failed to load dashboard');
+        })
+        .finally(() => {
+          console.log('Dashboard: Finished loading');
+          setLoading(false);
+        });
+    } else if (!authLoading) {
+      console.log('Dashboard: No org data and not loading, stopping');
+      setLoading(false);
     }
-  }, [orgData]);
+  }, [orgData, authLoading]);
 
   if (loading) {
     return (
