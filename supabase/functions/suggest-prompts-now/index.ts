@@ -265,99 +265,96 @@ function generateIndustryPrompts(industry: string, brandName: string, context?: 
   const audience = context?.target_audience || '';
   const businessDesc = context?.business_description || '';
   
-  // Generate keyword-specific prompts first
+  // Generate specific, buyer-intent focused prompts based on keywords
   const keywordPrompts: string[] = [];
   
-  // Primary keyword-focused queries
-  keywords.slice(0, 5).forEach((keyword: string) => {
+  // Primary keyword-focused queries (matching the reference style)
+  keywords.slice(0, 4).forEach((keyword: string) => {
     const cleanKeyword = keyword.toLowerCase();
     
-    if (audience) {
-      keywordPrompts.push(`Best ${cleanKeyword} software for ${audience}`);
-      keywordPrompts.push(`${cleanKeyword} solution for ${audience} - recommendations?`);
-    } else {
-      keywordPrompts.push(`Best ${cleanKeyword} software for small businesses`);
-      keywordPrompts.push(`${cleanKeyword} solution comparison 2024`);
-    }
+    // Comparison and evaluation prompts
+    keywordPrompts.push(`Compare ${cleanKeyword} software pricing and plans for small businesses`);
+    keywordPrompts.push(`Best free ${cleanKeyword} tools for ${audience || 'startups'}`);
+    keywordPrompts.push(`Top ${cleanKeyword} platforms with customizable workflows`);
+    keywordPrompts.push(`${cleanKeyword} software comparison for ${audience || 'growing companies'}`);
     
-    keywordPrompts.push(`How to choose the right ${cleanKeyword} platform`);
-    keywordPrompts.push(`${cleanKeyword} vs alternatives - which is better?`);
-    keywordPrompts.push(`Looking for affordable ${cleanKeyword} tool under $100/month`);
+    // Feature-specific prompts
+    keywordPrompts.push(`Which ${cleanKeyword} platform integrates seamlessly with popular tools?`);
+    keywordPrompts.push(`${cleanKeyword} solutions with AI-driven features`);
+    keywordPrompts.push(`User ratings for top ${cleanKeyword} software solutions`);
+    
+    // Problem-solving prompts
+    keywordPrompts.push(`Where to find affordable ${cleanKeyword} solutions`);
+    keywordPrompts.push(`${cleanKeyword} platforms for remote teams under 50 employees`);
   });
 
-  // Industry + keyword combinations
-  if (industry && keywords.length > 0) {
-    keywords.slice(0, 3).forEach((keyword: string) => {
-      keywordPrompts.push(`${keyword} for ${industry} companies`);
-      keywordPrompts.push(`${industry} ${keyword} software recommendations`);
-    });
-  }
-
-  // Product/service specific prompts
+  // Product/service specific prompts matching the reference format
   if (products) {
     const productWords = products.toLowerCase().split(/[,\s]+/).filter(word => word.length > 3);
     productWords.slice(0, 3).forEach(product => {
+      keywordPrompts.push(`Compare key features of leading ${product} software`);
+      keywordPrompts.push(`${product} tools with advanced analytics and reporting`);
+      keywordPrompts.push(`User reviews comparing ${product} vs traditional solutions`);
       if (audience) {
-        keywordPrompts.push(`${product} platform for ${audience}`);
+        keywordPrompts.push(`${product} software comparison for ${audience}`);
       }
-      keywordPrompts.push(`Best ${product} software solution`);
-      keywordPrompts.push(`${product} tool comparison guide`);
     });
   }
 
-  // Industry-specific base prompts (without brand names)
-  const industryPrompts: Record<string, string[]> = {
+  // Industry-specific templates matching the reference style
+  const industryTemplates: Record<string, string[]> = {
     'technology': [
-      'What\'s the most reliable project management tool for remote teams?',
-      'Best CRM for tech startups under 50 employees?',
-      'Looking for time tracking software that integrates with Slack',
-      'Most secure password manager for small tech companies',
-      'API documentation tool that\'s actually easy to use'
+      'Best project management tools with API integrations for developers',
+      'Compare code repository platforms for enterprise teams',
+      'DevOps tools with built-in security scanning features',
+      'Cloud hosting providers with automatic scaling capabilities',
+      'User ratings for top developer productivity software'
     ],
     'healthcare': [
-      'HIPAA-compliant patient portal software recommendations',
-      'Best EMR system for solo practitioners?',
-      'Medical scheduling software that reduces no-shows',
-      'Telehealth platform with good patient experience',
-      'Practice management software for specialty clinics'
+      'HIPAA-compliant patient portal software with mobile access',
+      'Compare EMR systems pricing for solo practitioners',
+      'Medical billing platforms with insurance claim automation',
+      'Telehealth solutions with prescription management features',
+      'Practice management software comparison for specialty clinics'
     ],
     'finance': [
-      'Client portal software for financial advisors',
-      'Best expense management tool for remote finance teams',
-      'Trading platform with advanced analytics',
-      'Secure payment processing for financial services',
-      'Loan origination software for community banks'
+      'Compare wealth management platforms for independent advisors',
+      'Trading software with advanced charting and analysis tools',
+      'Payment processing solutions with fraud protection features',
+      'Accounting software comparison for financial services firms',
+      'Client portal platforms with document sharing capabilities'
     ],
     'retail': [
-      'Multi-channel inventory management system',
-      'Customer loyalty program that actually works',
-      'E-commerce platform for fashion brands',
-      'POS system with good offline capabilities',
-      'Retail analytics dashboard for small chains'
+      'Multi-channel inventory management systems with real-time sync',
+      'POS systems with integrated loyalty program features',
+      'E-commerce platforms comparison for fashion retailers',
+      'Customer analytics tools with behavioral tracking',
+      'Supply chain management software for retail chains'
     ],
     'education': [
-      'Learning management system for K-12 schools',
-      'Student engagement platform for online courses',
-      'Gradebook software with parent portal access',
-      'Virtual classroom tool with breakout rooms',
-      'Plagiarism detection for academic institutions'
+      'Learning management systems with interactive content creation',
+      'Student information systems with parent portal access',
+      'Online course platforms with certification management',
+      'Virtual classroom tools with breakout room capabilities',
+      'Gradebook software comparison for K-12 schools'
     ]
   };
 
-  const basePrompts = industryPrompts[industry] || [
-    `Professional ${industry} software recommendations`,
-    `Best ${industry} platform for growing businesses`,
-    `${industry} tool with strong customer support`,
-    `Affordable ${industry} solution for small teams`,
-    `${industry} software with mobile app access`
+  const industryPrompts = industryTemplates[industry] || [
+    `Compare ${industry} software solutions for mid-size companies`,
+    `Best ${industry} platforms with mobile app access`,
+    `${industry} tools with advanced reporting and analytics`,
+    `User reviews for leading ${industry} software providers`,
+    `${industry} solutions with third-party integrations`
   ];
 
-  // Combine and deduplicate
-  const allPrompts = [...keywordPrompts, ...basePrompts];
+  // Combine all prompts
+  const allPrompts = [...keywordPrompts, ...industryPrompts];
   const uniquePrompts = [...new Set(allPrompts)];
   
-  return uniquePrompts.slice(0, 12);
+  return uniquePrompts.slice(0, 15);
 }
+
 
 function generateCompetitorPrompts(brandName: string, domain: string, context?: any): string[] {
   const keywords = context?.keywords || [];
@@ -366,48 +363,49 @@ function generateCompetitorPrompts(brandName: string, domain: string, context?: 
   
   const competitorPrompts: string[] = [];
   
-  // Keyword-based comparison prompts (no brand names)
-  keywords.slice(0, 4).forEach((keyword: string) => {
+  // Keyword-based comparison prompts matching reference style
+  keywords.slice(0, 3).forEach((keyword: string) => {
     const cleanKeyword = keyword.toLowerCase();
     
-    competitorPrompts.push(`Top ${cleanKeyword} platforms comparison 2024`);
-    competitorPrompts.push(`${cleanKeyword} software alternatives comparison`);
-    competitorPrompts.push(`Which ${cleanKeyword} tool is most cost-effective?`);
+    competitorPrompts.push(`Compare key features of leading ${cleanKeyword} software`);
+    competitorPrompts.push(`User ratings for top ${cleanKeyword} solutions`);
+    competitorPrompts.push(`${cleanKeyword} platforms with best customer support ratings`);
+    competitorPrompts.push(`Which ${cleanKeyword} tool offers the best value for money?`);
     
     if (audience) {
-      competitorPrompts.push(`${cleanKeyword} options for ${audience} - pros and cons`);
+      competitorPrompts.push(`${cleanKeyword} software comparison for ${audience}`);
+      competitorPrompts.push(`User reviews: ${cleanKeyword} tools for ${audience}`);
     }
   });
 
-  // Product/service category comparisons
+  // Product/service category comparisons in reference style
   if (products) {
     const productWords = products.toLowerCase().split(/[,\s]+/).filter(word => word.length > 3);
-    productWords.slice(0, 3).forEach(product => {
-      competitorPrompts.push(`${product} providers comparison chart`);
-      competitorPrompts.push(`Best ${product} service for the price`);
+    productWords.slice(0, 2).forEach(product => {
+      competitorPrompts.push(`Compare ${product} providers: features and pricing`);
+      competitorPrompts.push(`User reviews comparing ${product} vs traditional solutions`);
+      competitorPrompts.push(`${product} software with highest user satisfaction ratings`);
     });
   }
 
-  // Generic comparison prompts based on audience
-  if (audience) {
-    competitorPrompts.push(`Software comparison for ${audience}`);
-    competitorPrompts.push(`Best value platforms for ${audience}`);
-    competitorPrompts.push(`${audience} software reviews and comparisons`);
-  }
-
-  // Industry comparison prompts
-  const industryComparisons = [
-    'Market leaders vs emerging platforms in this space',
-    'Enterprise vs small business solution comparison',
-    'Open source vs commercial software options',
-    'Cloud-based vs on-premise solutions comparison',
-    'Budget-friendly alternatives to premium tools'
+  // Generic comparison prompts based on audience/industry
+  const genericComparisons = [
+    'Software comparison: enterprise vs small business solutions',
+    'Cloud-based vs on-premise platform comparison',
+    'User ratings for industry-leading software providers',
+    'Compare pricing models: subscription vs one-time purchase',
+    'Platform integration capabilities comparison chart'
   ];
 
-  const allPrompts = [...competitorPrompts, ...industryComparisons];
+  if (audience) {
+    genericComparisons.push(`Software recommendations based on ${audience} reviews`);
+    genericComparisons.push(`Compare solutions designed specifically for ${audience}`);
+  }
+
+  const allPrompts = [...competitorPrompts, ...genericComparisons];
   const uniquePrompts = [...new Set(allPrompts)];
   
-  return uniquePrompts.slice(0, 8);
+  return uniquePrompts.slice(0, 10);
 }
 
 function analyzeLowScoreResults(results: any[], brandName: string, context?: any): string[] {
@@ -418,50 +416,51 @@ function analyzeLowScoreResults(results: any[], brandName: string, context?: any
   
   if (lowScoreResults.length === 0) return [];
   
-  // Generate visibility-focused prompts without brand names
-  const visibilityPrompts: string[] = [];
+  // Generate discovery-focused prompts in reference style
+  const discoveryPrompts: string[] = [];
   
-  // Keyword-focused visibility queries
+  // Keyword-focused discovery queries matching the reference format
   keywords.slice(0, 3).forEach((keyword: string) => {
     const cleanKeyword = keyword.toLowerCase();
     
-    if (audience) {
-      visibilityPrompts.push(`Where to find reliable ${cleanKeyword} for ${audience}`);
-      visibilityPrompts.push(`${cleanKeyword} recommendations for ${audience}`);
-    }
+    discoveryPrompts.push(`Where to find reliable ${cleanKeyword} solutions for small businesses`);
+    discoveryPrompts.push(`User ratings for lesser-known ${cleanKeyword} platforms`);
+    discoveryPrompts.push(`${cleanKeyword} tools with exceptional customer support`);
     
-    visibilityPrompts.push(`Hidden gems in ${cleanKeyword} software`);
-    visibilityPrompts.push(`Underrated ${cleanKeyword} tools worth trying`);
-    visibilityPrompts.push(`${cleanKeyword} solutions that actually work`);
+    if (audience) {
+      discoveryPrompts.push(`${cleanKeyword} recommendations from ${audience} users`);
+      discoveryPrompts.push(`Best ${cleanKeyword} solutions for ${audience} on a budget`);
+    }
   });
 
   // Product/service discovery prompts
   if (products) {
     const productWords = products.toLowerCase().split(/[,\s]+/).filter(word => word.length > 3);
     productWords.slice(0, 2).forEach(product => {
-      visibilityPrompts.push(`Best kept secrets in ${product} software`);
-      visibilityPrompts.push(`${product} tools that are worth the investment`);
+      discoveryPrompts.push(`Compare emerging ${product} platforms vs established players`);
+      discoveryPrompts.push(`${product} software with unique features and capabilities`);
+      discoveryPrompts.push(`User reviews: hidden gems in ${product} solutions`);
     });
   }
 
-  // Generic discovery and visibility prompts
-  const discoveryPrompts = [
-    'Lesser-known but powerful business tools',
-    'Software solutions that punch above their weight',
-    'Hidden alternatives to mainstream platforms',
-    'Up-and-coming tools in this industry',
-    'Software recommendations from industry insiders'
+  // Generic discovery prompts in the reference style
+  const genericDiscovery = [
+    'User ratings for up-and-coming software platforms',
+    'Compare new vs established players in the software market',
+    'Software solutions with exceptional value for small businesses',
+    'Platform recommendations from industry professionals',
+    'Tools with best customer satisfaction ratings in the industry'
   ];
 
   if (audience) {
-    discoveryPrompts.push(`Insider recommendations for ${audience}`);
-    discoveryPrompts.push(`What tools do successful ${audience} actually use?`);
+    genericDiscovery.push(`Software recommendations specifically for ${audience}`);
+    genericDiscovery.push(`User reviews: best tools for ${audience} workflows`);
   }
 
-  const allPrompts = [...visibilityPrompts, ...discoveryPrompts];
+  const allPrompts = [...discoveryPrompts, ...genericDiscovery];
   const uniquePrompts = [...new Set(allPrompts)];
   
-  return uniquePrompts.slice(0, 8);
+  return uniquePrompts.slice(0, 10);
 }
 
 async function generateTrendingPrompts(brandName: string, industry: string, apiKey: string, context?: any): Promise<string[]> {
@@ -470,15 +469,15 @@ async function generateTrendingPrompts(brandName: string, industry: string, apiK
   const audience = context?.target_audience || '';
   const businessDesc = context?.business_description || '';
   
-  // Build enhanced context for AI
-  let contextPrompt = `Generate 8 realistic search queries for ${industry} solutions in 2024`;
+  // Build enhanced context for AI with reference style examples
+  let contextPrompt = `Generate 8 realistic, specific search queries for ${industry} solutions in 2024`;
   
   if (businessDesc) {
-    contextPrompt += ` (Business: ${businessDesc})`;
+    contextPrompt += ` (Business focus: ${businessDesc})`;
   }
   
   if (keywords.length > 0) {
-    contextPrompt += `. Key areas: ${keywords.slice(0, 3).join(', ')}`;
+    contextPrompt += `. Key solution areas: ${keywords.slice(0, 3).join(', ')}`;
   }
   
   if (products) {
@@ -489,15 +488,17 @@ async function generateTrendingPrompts(brandName: string, industry: string, apiK
     contextPrompt += `. Target audience: ${audience.slice(0, 100)}`;
   }
   
-  const prompt = `${contextPrompt}. Make them conversational and natural, like real user questions that potential customers would search for. NEVER mention specific brand names. Examples:
-- "What's the best [solution] for [specific use case]?"
-- "I'm looking for [tool] that [specific need]"  
-- "Should I switch from [current solution type] to [new solution type]?"
-- "Affordable [solution category] for [audience type]"
-- "Looking for [solution] under $X per month"
-- "[Solution type] with [specific feature] - recommendations?"
+  const prompt = `${contextPrompt}. Make them specific, buyer-intent focused queries that match this style:
+- "Compare [solution] software pricing and plans for small businesses"
+- "Best free [tool] tools for [audience]"
+- "User ratings for top [solution] software solutions"
+- "Which [platform] integrates seamlessly with popular tools?"
+- "[Solution] platforms with AI-driven features"
+- "Where to find affordable [solution] for [audience]"
+- "Compare key features of leading [tool] software"
+- "User reviews comparing [solution] vs traditional approaches"
 
-Make them specific, problem-focused, and conversational. Focus on buyer intent and pain points. Use the keywords and business context provided but never include specific company or brand names. Return only search queries, one per line.`;
+Focus on comparisons, ratings, features, pricing, and integrations. Make them sound like real buyer research queries. Never include specific company or brand names. Return only search queries, one per line.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
