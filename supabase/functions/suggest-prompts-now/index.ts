@@ -146,15 +146,63 @@ async function generateSuggestions(orgId: string, orgName: string, orgDomain: st
     // Deduplicate and limit
     const uniqueSuggestions = [...new Set(suggestions)].slice(0, 20);
 
-    // Insert suggestions into database
-    const insertData = uniqueSuggestions.map((text, index) => ({
-      org_id: orgId,
-      text,
-      source: getSourceForSuggestion(text, index < industryPrompts.length),
-      accepted: false
-    }));
+    // Check for existing suggestions to avoid duplicates
+    const { data: existingSuggestions } = await supabase
+      .from('suggested_prompts')
+      .select('text')
+      .eq('org_id', orgId)
+      .eq('accepted', false);
 
-    if (insertData.length > 0) {
+    const existingTexts = new Set(existingSuggestions?.map(s => s.text) || []);
+    const newSuggestions = uniqueSuggestions.filter(text => !existingTexts.has(text));
+
+    // If we have fewer than 5 new suggestions, clear old ones to make room for fresh content
+    if (newSuggestions.length < 5 && existingSuggestions && existingSuggestions.length > 10) {
+      console.log('Clearing old suggestions to make room for fresh content');
+      await supabase
+        .from('suggested_prompts')
+        .delete()
+        .eq('org_id', orgId)
+        .eq('accepted', false);
+      
+      // Use all unique suggestions since we cleared the old ones
+      const finalSuggestions = uniqueSuggestions;
+      
+      const insertData = finalSuggestions.map((text, index) => ({
+        org_id: orgId,
+        text,
+        source: getSourceForSuggestion(text, index < industryPrompts.length),
+        accepted: false
+      }));
+
+      if (insertData.length > 0) {
+        const { error: insertError } = await supabase
+          .from('suggested_prompts')
+          .insert(insertData);
+
+        if (insertError) {
+          console.error('Error inserting suggestions:', insertError);
+          return { success: false, error: insertError.message, suggestionsCreated: 0 };
+        }
+      }
+
+      return { 
+        success: true, 
+        suggestionsCreated: insertData.length,
+        error: null,
+        message: 'Refreshed suggestions with new content'
+      };
+    }
+
+    // Insert only new suggestions
+    if (newSuggestions.length > 0) {
+      const insertData = newSuggestions.map((text, index) => ({
+        org_id: orgId,
+        text,
+        source: getSourceForSuggestion(text, index < industryPrompts.length),
+        accepted: false
+      }));
+
       const { error: insertError } = await supabase
         .from('suggested_prompts')
         .insert(insertData);
@@ -163,12 +211,20 @@ async function generateSuggestions(orgId: string, orgName: string, orgDomain: st
         console.error('Error inserting suggestions:', insertError);
         return { success: false, error: insertError.message, suggestionsCreated: 0 };
       }
+
+      return { 
+        success: true, 
+        suggestionsCreated: insertData.length,
+        error: null
+      };
     }
 
+    // No new suggestions to add
     return { 
       success: true, 
-      suggestionsCreated: insertData.length,
-      error: null
+      suggestionsCreated: 0,
+      error: null,
+      message: 'No new suggestions to add - all current suggestions already exist'
     };
 
   } catch (error) {

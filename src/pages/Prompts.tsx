@@ -179,11 +179,20 @@ export default function Prompts() {
   const handleGenerateMoreSuggestions = async () => {
     try {
       setGeneratingSuggestions(true);
-      await generateSuggestionsNow();
-      toast({
-        title: "Success",
-        description: "New suggestions generated",
-      });
+      const result = await generateSuggestionsNow();
+      
+      if (result.suggestionsCreated === 0) {
+        toast({
+          title: "Info",
+          description: result.message || "No new suggestions to add - all current suggestions already exist",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `${result.suggestionsCreated} new suggestions generated`,
+        });
+      }
+      
       loadSuggestedPrompts();
     } catch (error: any) {
       toast({
