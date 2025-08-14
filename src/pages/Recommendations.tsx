@@ -13,6 +13,7 @@ export default function Recommendations() {
   const { toast } = useToast();
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -66,6 +67,34 @@ export default function Recommendations() {
     }
   };
 
+  const handleGenerateRecommendations = async () => {
+    if (!orgData?.organizations?.id) return;
+    
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-recommendations', {
+        body: { orgId: orgData.organizations.id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Generated ${data.recommendationsCreated} new recommendations`,
+      });
+
+      loadRecommendations();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to generate recommendations',
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'content': return <FileText className="h-4 w-4" />;
@@ -109,11 +138,19 @@ export default function Recommendations() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Recommendations</h1>
-          <p className="text-muted-foreground">
-            AI-powered suggestions to improve your search visibility
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Recommendations</h1>
+            <p className="text-muted-foreground">
+              AI-powered suggestions to improve your search visibility
+            </p>
+          </div>
+          <Button 
+            onClick={handleGenerateRecommendations}
+            disabled={generating}
+          >
+            {generating ? 'Generating...' : 'Generate Recommendations'}
+          </Button>
         </div>
 
         {Object.keys(groupedRecommendations).length > 0 ? (
@@ -190,11 +227,17 @@ export default function Recommendations() {
             <CardContent className="text-center py-12">
               <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No recommendations yet</h3>
-              <div className="text-sm text-muted-foreground space-y-1">
+              <div className="text-sm text-muted-foreground space-y-2 mb-4">
                 <p>• Run some prompts to get personalized suggestions</p>
-                <p>• Enable weekly suggestion generation</p>
-                <p>• Monitor your brand visibility consistently</p>
+                <p>• Analyze your brand visibility data</p>
+                <p>• Generate actionable insights from your results</p>
               </div>
+              <Button 
+                onClick={handleGenerateRecommendations}
+                disabled={generating}
+              >
+                {generating ? 'Generating...' : 'Generate First Recommendations'}
+              </Button>
             </CardContent>
           </Card>
         )}
