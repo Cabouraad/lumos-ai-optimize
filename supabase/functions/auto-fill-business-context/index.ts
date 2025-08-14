@@ -60,30 +60,71 @@ Deno.serve(async (req) => {
 
     console.log('Fetching website content for:', orgData.domain)
 
-    // Fetch website content
+    // Try multiple approaches to fetch website content
     let websiteContent = ''
+    let websiteUrl = ''
+    
     try {
-      const websiteUrl = orgData.domain.startsWith('http') ? orgData.domain : `https://${orgData.domain}`
-      const websiteResponse = await fetch(websiteUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; BusinessContextBot/1.0)'
+      // Try different URL formats
+      const urlsToTry = [
+        orgData.domain.startsWith('http') ? orgData.domain : `https://${orgData.domain}`,
+        orgData.domain.startsWith('http') ? orgData.domain : `http://${orgData.domain}`,
+        `https://www.${orgData.domain.replace(/^https?:\/\/(www\.)?/, '')}`,
+        `http://www.${orgData.domain.replace(/^https?:\/\/(www\.)?/, '')}`
+      ]
+
+      for (const url of urlsToTry) {
+        try {
+          console.log(`Trying to fetch: ${url}`)
+          websiteUrl = url
+          
+          const websiteResponse = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+              'Accept-Encoding': 'gzip, deflate',
+              'Connection': 'keep-alive',
+              'Upgrade-Insecure-Requests': '1'
+            },
+            signal: AbortSignal.timeout(10000) // 10 second timeout
+          })
+          
+          if (websiteResponse.ok) {
+            const html = await websiteResponse.text()
+            websiteContent = html
+            console.log(`Successfully fetched content from: ${url}`)
+            break
+          } else {
+            console.log(`Failed to fetch ${url}: ${websiteResponse.status} ${websiteResponse.statusText}`)
+          }
+        } catch (fetchError) {
+          console.log(`Error fetching ${url}:`, fetchError.message)
+          continue
         }
-      })
+      }
       
-      if (websiteResponse.ok) {
-        const html = await websiteResponse.text()
-        // Extract text content from HTML (simple approach)
-        websiteContent = html
+      if (websiteContent) {
+        // Extract text content from HTML (improved approach)
+        websiteContent = websiteContent
+          // Remove script and style tags
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '')
+          // Remove HTML comments
+          .replace(/<!--[\s\S]*?-->/gi, '')
+          // Remove HTML tags but keep some structure
+          .replace(/<\/?(h[1-6]|p|div|section|article|header|main|nav|footer)[^>]*>/gi, '\n')
           .replace(/<[^>]*>/g, ' ')
+          // Clean up whitespace
           .replace(/\s+/g, ' ')
+          .replace(/\n\s*\n/g, '\n')
           .trim()
-          .substring(0, 8000) // Limit content size
+          .substring(0, 12000) // Increased limit for better context
       }
     } catch (error) {
-      console.error('Error fetching website:', error)
-      throw new Error('Unable to fetch website content')
+      console.error('Error during website fetching:', error)
     }
 
     if (!websiteContent) {
