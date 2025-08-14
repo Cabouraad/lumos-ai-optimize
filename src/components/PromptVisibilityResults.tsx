@@ -33,6 +33,7 @@ interface PromptVisibilityResultsProps {
 export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisibilityResultsProps) {
   const [results, setResults] = useState<VisibilityResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAllResults, setShowAllResults] = useState(false);
 
   useEffect(() => {
     fetchResults();
@@ -120,14 +121,44 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     );
   }
 
+  // Get the latest results (most recent run per provider)
+  const getLatestResults = () => {
+    if (showAllResults) return results;
+    
+    // Group by provider and get the latest run for each
+    const latestByProvider = new Map();
+    results.forEach(result => {
+      const provider = result.prompt_runs.llm_providers.name;
+      const existing = latestByProvider.get(provider);
+      if (!existing || new Date(result.prompt_runs.run_at) > new Date(existing.prompt_runs.run_at)) {
+        latestByProvider.set(provider, result);
+      }
+    });
+    return Array.from(latestByProvider.values());
+  };
+
+  const displayResults = getLatestResults();
+
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <Eye className="h-5 w-5" />
-        Latest Visibility Results
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Eye className="h-5 w-5" />
+          {showAllResults ? 'All Visibility Results' : 'Latest Visibility Results'}
+        </h3>
+        
+        {results.length > displayResults.length && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowAllResults(!showAllResults)}
+          >
+            {showAllResults ? `Show Latest Only` : `Show All (${results.length})`}
+          </Button>
+        )}
+      </div>
       
-      {results.map((result) => (
+      {displayResults.map((result) => (
         <Card key={result.id} className="relative">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">

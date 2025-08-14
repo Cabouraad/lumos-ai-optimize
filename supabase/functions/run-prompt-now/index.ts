@@ -256,18 +256,18 @@ function isOrgBrand(token: string, catalog: Array<{ name: string; variants_json:
 function computeScore(orgPresent: boolean, prominenceIdx: number | null, competitorsCount: number): number {
   if (!orgPresent) return 1;
   
-  let score = 5;
+  let score = 6; // Base score when org brand is present
   
   // Prominence bonus (earlier = better)
   if (prominenceIdx !== null) {
-    if (prominenceIdx === 0) score += 3;
-    else if (prominenceIdx <= 2) score += 2;
-    else if (prominenceIdx <= 5) score += 1;
+    if (prominenceIdx === 0) score += 3; // First position gets big bonus
+    else if (prominenceIdx <= 2) score += 2; // Top 3 gets good bonus
+    else if (prominenceIdx <= 5) score += 1; // Top 6 gets small bonus
   }
   
-  // Competitor penalty
-  if (competitorsCount > 5) score -= 2;
-  else if (competitorsCount > 2) score -= 1;
+  // Competitor penalty (more competitors = lower visibility)
+  if (competitorsCount > 8) score -= 2;
+  else if (competitorsCount > 4) score -= 1;
   
   return Math.max(1, Math.min(10, score));
 }
@@ -344,6 +344,11 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
       if (/^\d+\.?\s*$/.test(line)) return false;
       if (line.includes('http') || line.includes('www.')) return false;
       if (line.length > 40) return false;
+      
+      // Exclude AI tools and common non-competitor brands
+      const excludedBrands = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 'microsoft'];
+      const lowerLine = line.toLowerCase();
+      if (excludedBrands.some(excluded => lowerLine.includes(excluded))) return false;
       
       return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
     })
@@ -431,6 +436,11 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
       if (line.includes('http') || line.includes('www.') || line.includes('.com')) return false;
       if (line.length > 40) return false;
       if (line.includes('text:') || line.includes('extract')) return false;
+      
+      // Exclude AI tools and common non-competitor brands
+      const excludedBrands = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 'microsoft'];
+      const lowerLine = line.toLowerCase();
+      if (excludedBrands.some(excluded => lowerLine.includes(excluded))) return false;
       
       return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
     })
