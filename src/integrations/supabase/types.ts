@@ -307,7 +307,7 @@ export type Database = {
           competitors_count: number
           id: string
           org_brand_present: boolean
-          org_brand_prominence: number
+          org_brand_prominence: number | null
           prompt_run_id: string
           raw_evidence: string | null
           score: number
@@ -317,7 +317,7 @@ export type Database = {
           competitors_count?: number
           id?: string
           org_brand_present: boolean
-          org_brand_prominence: number
+          org_brand_prominence?: number | null
           prompt_run_id: string
           raw_evidence?: string | null
           score: number
@@ -327,7 +327,7 @@ export type Database = {
           competitors_count?: number
           id?: string
           org_brand_present?: boolean
-          org_brand_prominence?: number
+          org_brand_prominence?: number | null
           prompt_run_id?: string
           raw_evidence?: string | null
           score?: number
