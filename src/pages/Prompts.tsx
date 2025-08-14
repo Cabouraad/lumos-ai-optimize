@@ -16,7 +16,7 @@ import { getSafePromptsData } from '@/lib/prompts/safe-data';
 import { runPromptNow } from '../../lib/prompts/data';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles, ChevronDown, ChevronRight, Trash2, Eye } from 'lucide-react';
 import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptVisibilityResults } from '@/components/PromptVisibilityResults';
 
@@ -35,6 +35,8 @@ export default function Prompts() {
   const [collapsedPrompts, setCollapsedPrompts] = useState<Set<string>>(new Set());
   const [deletingPrompts, setDeletingPrompts] = useState<Set<string>>(new Set());
   const [runningAll, setRunningAll] = useState(false);
+  const [providerResponses, setProviderResponses] = useState<Record<string, Record<string, string>>>({});
+  const [viewingResponse, setViewingResponse] = useState<{provider: string, response: string} | null>(null);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -47,11 +49,77 @@ export default function Prompts() {
     try {
       const data = await getSafePromptsData();
       setPrompts(data);
+      
+      // Load raw responses for each prompt
+      if (orgData?.organizations?.id) {
+        await loadProviderResponses(data);
+      }
+      
       setError(null);
     } catch (err) {
       setError(err?.message || 'Failed to load prompts');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProviderResponses = async (promptsData: any[]) => {
+    try {
+      const responses: Record<string, Record<string, string>> = {};
+      
+      for (const prompt of promptsData) {
+        // Get the latest visibility results for each provider for this prompt
+        const { data: visibilityData } = await supabase
+          .from('visibility_results')
+          .select(`
+            raw_ai_response,
+            prompt_runs!inner (
+              id,
+              run_at,
+              prompt_id,
+              llm_providers!inner (
+                name
+              )
+            )
+          `)
+          .eq('prompt_runs.prompt_id', prompt.id)
+          .not('raw_ai_response', 'is', null)
+          .order('prompt_runs.run_at', { ascending: false });
+
+        if (visibilityData && visibilityData.length > 0) {
+          responses[prompt.id] = {};
+          
+          // Get the latest response for each provider
+          const providerResponses: Record<string, any> = {};
+          visibilityData.forEach((result: any) => {
+            const providerName = result.prompt_runs.llm_providers.name;
+            const runAt = result.prompt_runs.run_at;
+            
+            if (!providerResponses[providerName] || new Date(runAt) > new Date(providerResponses[providerName].run_at)) {
+              providerResponses[providerName] = {
+                response: result.raw_ai_response,
+                run_at: runAt
+              };
+            }
+          });
+          
+          // Store the latest responses
+          Object.entries(providerResponses).forEach(([provider, data]: [string, any]) => {
+            responses[prompt.id][provider] = data.response;
+          });
+        }
+      }
+      
+      setProviderResponses(responses);
+    } catch (error) {
+      console.error('Error loading provider responses:', error);
+    }
+  };
+
+  const handleViewResponse = (provider: string, promptId: string) => {
+    const response = providerResponses[promptId]?.[provider];
+    if (response) {
+      setViewingResponse({ provider, response });
     }
   };
 
@@ -527,20 +595,36 @@ export default function Prompts() {
 
                            {!isCollapsed && (
                              <>
-                               {/* Provider status with enhanced styling */}
-                               <div className="grid gap-3 md:grid-cols-2 ml-7">
-                                 {['openai', 'perplexity'].map(providerName => (
-                                   <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
-                                     <div className="flex items-center gap-2">
-                                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                       <span className="text-sm font-medium capitalize">{providerName}</span>
-                                     </div>
-                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                       Ready
-                                     </Badge>
-                                   </div>
-                                 ))}
-                               </div>
+                                {/* Provider status with enhanced styling and response viewing */}
+                                <div className="grid gap-3 md:grid-cols-2 ml-7">
+                                  {['openai', 'perplexity'].map(providerName => {
+                                    const hasResponse = providerResponses[prompt.id]?.[providerName];
+                                    return (
+                                      <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                          <span className="text-sm font-medium capitalize">{providerName}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {hasResponse && (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => handleViewResponse(providerName, prompt.id)}
+                                              className="h-7 px-2 text-xs"
+                                            >
+                                              <Eye className="mr-1 h-3 w-3" />
+                                              View Response
+                                            </Button>
+                                          )}
+                                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                            {hasResponse ? 'Has Response' : 'Ready'}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                                
                                {/* Show visibility results */}
                                <div className="ml-7">
@@ -659,6 +743,25 @@ export default function Prompts() {
             <KeywordManagement />
           </TabsContent>
         </Tabs>
+
+        {/* Raw Response Viewing Dialog */}
+        <Dialog open={!!viewingResponse} onOpenChange={() => setViewingResponse(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="capitalize">
+                {viewingResponse?.provider} Raw Response
+              </DialogTitle>
+              <DialogDescription>
+                Complete AI response from {viewingResponse?.provider}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="overflow-y-auto max-h-[60vh] bg-muted p-4 rounded-md">
+              <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
+                {viewingResponse?.response || 'No response available'}
+              </pre>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
