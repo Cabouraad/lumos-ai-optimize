@@ -86,14 +86,21 @@ export function KeywordManagement() {
   };
 
   const handleAutoFill = async () => {
+    console.log('=== STARTING AUTO-FILL ===');
     try {
       setAutoFilling(true);
       
+      const session = await supabase.auth.getSession();
+      console.log('Auth session:', session.data.session ? 'Present' : 'Missing');
+      
+      console.log('Calling auto-fill function...');
       const { data, error } = await supabase.functions.invoke('auto-fill-business-context', {
         headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          Authorization: `Bearer ${session.data.session?.access_token}`,
         },
       });
+
+      console.log('Function response:', { data, error });
 
       if (error) throw error;
 

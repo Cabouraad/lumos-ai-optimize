@@ -18,6 +18,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  console.log('=== AUTO-FILL FUNCTION STARTED ===')
+  
   try {
     // Check if OpenAI API key is available
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
