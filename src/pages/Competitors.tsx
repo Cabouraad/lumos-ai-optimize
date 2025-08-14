@@ -111,10 +111,26 @@ export default function Competitors() {
         };
 
         brands.forEach(brand => {
-          const brandLower = brand.toLowerCase();
+          const brandLower = brand.toLowerCase().trim();
           
           // Skip if it's an org brand
           if (orgBrandNames.has(brandLower)) {
+            return;
+          }
+
+          // Filter out AI tools and generic terms (same logic as edge functions)
+          const excludedBrands = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 'microsoft', 'azure', 'aws', 'amazon'];
+          if (excludedBrands.some(excluded => brandLower.includes(excluded))) {
+            return;
+          }
+
+          // Skip very short brands or non-brand text
+          if (brand.length < 2 || brand.length > 40) {
+            return;
+          }
+
+          // Skip brands with special characters that indicate they're not real company names
+          if (!/^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(brand)) {
             return;
           }
 
@@ -133,16 +149,19 @@ export default function Competitors() {
         });
       });
 
-      // Calculate average scores and sort
-      const competitorsArray = Array.from(competitorMap.values()).map(competitor => {
-        const totalScore = competitor.promptsAppeared.reduce((sum, prompt) => sum + prompt.score, 0);
-        competitor.averageScore = totalScore / competitor.promptsAppeared.length;
-        
-        // Sort prompts by run date (most recent first)
-        competitor.promptsAppeared.sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime());
-        
-        return competitor;
-      }).sort((a, b) => b.totalAppearances - a.totalAppearances);
+      // Calculate average scores and sort by total appearances
+      const competitorsArray = Array.from(competitorMap.values())
+        .filter(competitor => competitor.totalAppearances > 0) // Only include competitors with appearances
+        .map(competitor => {
+          const totalScore = competitor.promptsAppeared.reduce((sum, prompt) => sum + prompt.score, 0);
+          competitor.averageScore = totalScore / competitor.promptsAppeared.length;
+          
+          // Sort prompts by run date (most recent first)
+          competitor.promptsAppeared.sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime());
+          
+          return competitor;
+        })
+        .sort((a, b) => b.totalAppearances - a.totalAppearances);
 
       setCompetitors(competitorsArray);
     } catch (error) {
@@ -178,9 +197,19 @@ export default function Competitors() {
   return (
     <Layout>
       <div className="container mx-auto p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Users className="h-8 w-8" />
-          <h1 className="text-3xl font-bold">Competitors</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Users className="h-8 w-8" />
+            <div>
+              <h1 className="text-3xl font-bold">Competitors</h1>
+              <p className="text-muted-foreground">Brands detected in AI responses to your prompts</p>
+            </div>
+          </div>
+          {competitors.length > 0 && (
+            <Badge variant="secondary" className="text-sm">
+              {competitors.length} competitors detected
+            </Badge>
+          )}
         </div>
 
         {competitors.length === 0 ? (
@@ -188,7 +217,12 @@ export default function Competitors() {
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No competitor data available yet. Run some prompts to see competitor analysis.</p>
+                <h3 className="text-lg font-medium mb-2">No competitors detected yet</h3>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>• Run prompts to discover competitor mentions in AI responses</p>
+                  <p>• AI tools and generic terms are automatically filtered out</p>
+                  <p>• Only real business competitors are shown</p>
+                </div>
               </div>
             </CardContent>
           </Card>
