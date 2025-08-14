@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Sparkline } from '@/components/Sparkline';
 import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
-import { TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, Activity, AlertCircle, Eye, BarChart3 } from 'lucide-react';
 
 export default function Dashboard() {
   const { orgData, user, loading: authLoading } = useAuth();
@@ -85,6 +86,29 @@ export default function Dashboard() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Overall Visibility Score</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                <div className="text-2xl font-bold">{dashboardData.overallScore}</div>
+                <div className="text-sm text-muted-foreground">/10</div>
+                {dashboardData.trend !== 0 && (
+                  <div className={`flex items-center text-xs ${dashboardData.trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {dashboardData.trend > 0 ? (
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                    )}
+                    {Math.abs(dashboardData.trend)}%
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">7-day average</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Today's Score</CardTitle>
             </CardHeader>
             <CardContent>
@@ -105,27 +129,85 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Providers</CardTitle>
+              <CardTitle className="text-sm font-medium">Recent Runs</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardData.providers.filter(p => p.enabled).length}</div>
-              <p className="text-xs text-muted-foreground">Enabled providers</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">System Health</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-1">
-                <Activity className="h-4 w-4 text-green-500" />
-                <span className="text-sm">Operational</span>
-              </div>
-              <p className="text-xs text-muted-foreground">All systems running</p>
+              <div className="text-2xl font-bold">{dashboardData.recentRunsCount}</div>
+              <p className="text-xs text-muted-foreground">Last 7 days</p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Visibility Trends Chart */}
+        {dashboardData.chartData && dashboardData.chartData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Visibility Trends
+              </CardTitle>
+              <CardDescription>Daily average visibility scores over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      className="text-xs"
+                    />
+                    <YAxis 
+                      domain={[0, 10]} 
+                      className="text-xs"
+                    />
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                      formatter={(value: any, name) => [`${value}/10`, 'Visibility Score']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="score" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-green-600">
+                    {dashboardData.chartData.length > 0 ? Math.max(...dashboardData.chartData.map(d => d.score)) : 0}
+                  </div>
+                  <div className="text-muted-foreground">Peak Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-blue-600">
+                    {dashboardData.chartData.length > 0 ? 
+                      Math.round((dashboardData.chartData.reduce((sum, d) => sum + d.score, 0) / dashboardData.chartData.length) * 10) / 10 
+                      : 0
+                    }
+                  </div>
+                  <div className="text-muted-foreground">Average</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-orange-600">
+                    {dashboardData.totalRuns}
+                  </div>
+                  <div className="text-muted-foreground">Total Runs</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Providers overview */}
         <Card>
