@@ -138,7 +138,8 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
         }
 
         // Normalize and analyze brands
-        const normalizedBrands = extractedBrands.map(brand => normalize(brand));
+        const brands = Array.isArray(extractedBrands) ? extractedBrands : extractedBrands.slice ? extractedBrands.slice() : [];
+        const normalizedBrands = brands.map(brand => normalize(brand));
         const orgBrandPresent = normalizedBrands.some(brand => isOrgBrand(brand, brandCatalog));
         const orgBrandIndex = normalizedBrands.findIndex(brand => isOrgBrand(brand, brandCatalog));
         const competitorsCount = normalizedBrands.filter(brand => !isOrgBrand(brand, brandCatalog)).length;
@@ -154,7 +155,7 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
             status: 'success',
             run_at: new Date().toISOString(),
             token_in: Math.floor(prompt.text.length / 4), // Rough estimate
-            token_out: Math.floor(extractedBrands.join(' ').length / 4),
+            token_out: Math.floor(brands.join(' ').length / 4),
             cost_est: 0.001 // Rough estimate
           })
           .select('id')
@@ -174,8 +175,9 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
             org_brand_present: orgBrandPresent,
             org_brand_prominence: orgBrandIndex >= 0 ? orgBrandIndex : null,
             competitors_count: competitorsCount,
-            brands_json: extractedBrands,
-            raw_evidence: extractedBrands.join(', ')
+            brands_json: brands,
+            raw_evidence: brands.join(', '),
+            raw_ai_response: extractedBrands.rawResponse || ''
           });
 
         if (resultError) {
@@ -270,7 +272,7 @@ function computeScore(orgPresent: boolean, prominenceIdx: number | null, competi
   return Math.max(1, Math.min(10, score));
 }
 
-async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<string[]> {
+async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<any> {
   // First, get the actual AI response to the prompt
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -347,10 +349,13 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
     })
     .slice(0, 12);
 
-  return brands;
+  // Return both the brands and the raw response
+  const result = brands;
+  result.rawResponse = aiResponse;
+  return result;
 }
 
-async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<string[]> {
+async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<any> {
   // Get the actual AI response from Perplexity
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -431,5 +436,8 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
     })
     .slice(0, 12);
   
-  return brands;
+  // Return both the brands and the raw response
+  const result = brands;
+  result.rawResponse = aiResponse;
+  return result;
 }

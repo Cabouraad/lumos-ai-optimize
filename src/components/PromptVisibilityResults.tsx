@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, XCircle, Eye, Trophy, Users } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Trophy, Users, FileText } from 'lucide-react';
 
 interface VisibilityResult {
   id: string;
@@ -12,6 +14,7 @@ interface VisibilityResult {
   competitors_count: number;
   brands_json: any; // JSON field from database
   raw_evidence: string | null;
+  raw_ai_response: string | null;
   prompt_runs: {
     id: string;
     status: string;
@@ -48,6 +51,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           competitors_count,
           brands_json,
           raw_evidence,
+          raw_ai_response,
           prompt_runs!inner (
             id,
             status,
@@ -192,6 +196,44 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                       {brand}
                     </Badge>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Raw AI Response */}
+            {result.raw_ai_response && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium">AI Response:</p>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7">
+                        <FileText className="h-3 w-3 mr-1" />
+                        View Full Response
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh]">
+                      <DialogHeader>
+                        <DialogTitle>Full AI Response - {result.prompt_runs.llm_providers.name}</DialogTitle>
+                        <DialogDescription>
+                          Response generated on {new Date(result.prompt_runs.run_at).toLocaleString()}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="mt-4 max-h-96 overflow-y-auto">
+                        <div className="p-4 bg-muted rounded-lg">
+                          <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
+                            {result.raw_ai_response}
+                          </pre>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded border-l-4 border-primary/30">
+                  {result.raw_ai_response.length > 200 
+                    ? `${result.raw_ai_response.substring(0, 200)}...` 
+                    : result.raw_ai_response
+                  }
                 </div>
               </div>
             )}

@@ -309,6 +309,7 @@ export type Database = {
           org_brand_present: boolean
           org_brand_prominence: number | null
           prompt_run_id: string
+          raw_ai_response: string | null
           raw_evidence: string | null
           score: number
         }
@@ -319,6 +320,7 @@ export type Database = {
           org_brand_present: boolean
           org_brand_prominence?: number | null
           prompt_run_id: string
+          raw_ai_response?: string | null
           raw_evidence?: string | null
           score: number
         }
@@ -329,6 +331,7 @@ export type Database = {
           org_brand_present?: boolean
           org_brand_prominence?: number | null
           prompt_run_id?: string
+          raw_ai_response?: string | null
           raw_evidence?: string | null
           score?: number
         }
