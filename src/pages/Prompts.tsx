@@ -312,165 +312,182 @@ export default function Prompts() {
           <TabsContent value="prompts" className="space-y-6">
             {/* Prompts summary */}
             <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium">Prompts Overview</h4>
-                <p className="text-sm text-muted-foreground">
-                  {prompts.length} prompt{prompts.length !== 1 ? 's' : ''} configured
-                </p>
-              </div>
-              <Badge variant="secondary">
-                {prompts.filter(p => p.active).length} active
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Prompts Overview</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {prompts.length} prompt{prompts.length !== 1 ? 's' : ''} configured
+                    </p>
+                  </div>
+                  <Badge variant="secondary">
+                    {prompts.filter(p => p.active).length} active
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Suggested Prompts Section - Always Show */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            {/* Your Tracked Prompts Section - Now shown first */}
+            <Card className="border-primary/30">
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  AI Suggested Prompts
+                  <Play className="h-5 w-5 text-primary" />
+                  Your Tracked Prompts
                 </CardTitle>
                 <CardDescription>
-                  {suggestedPrompts.length > 0 
-                    ? "Recommended prompts to improve your search visibility"
-                    : "Get AI-powered suggestions for prompts to track your brand visibility"}
+                  Monitor your brand visibility across these search queries. Use "Run Now" for real-time visibility analysis.
                 </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateMoreSuggestions}
-                disabled={generatingsuggestions}
-              >
-                {generatingsuggestions ? (
-                  <>
-                    <Clock className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
+              </CardHeader>
+              <CardContent>
+                {prompts.length > 0 ? (
+                  <div className="space-y-4">
+                    {prompts.map((prompt: any) => (
+                      <div key={prompt.id} className="border-2 border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-foreground">{prompt.text}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Created {new Date(prompt.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-muted-foreground">Active</span>
+                              <Switch
+                                checked={prompt.active}
+                                onCheckedChange={(checked) => handleToggleActive(prompt.id, checked)}
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handleRunNow(prompt.id)}
+                              disabled={runningPrompts.has(prompt.id)}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                            >
+                              <Play className="mr-1 h-3 w-3" />
+                              {runningPrompts.has(prompt.id) ? 'Running...' : 'Run Now'}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Provider status with enhanced styling */}
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {['openai', 'perplexity'].map(providerName => (
+                            <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-sm font-medium capitalize">{providerName}</span>
+                              </div>
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                Ready
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    {suggestedPrompts.length > 0 ? 'Generate More' : 'Generate Suggestions'}
-                  </>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Play className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No prompts tracked yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add your first prompt to start monitoring your brand visibility in AI search results.
+                    </p>
+                  </div>
                 )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {suggestedPrompts.length > 0 ? (
-              <div className="space-y-3">
-                {suggestedPrompts.map((suggestion: any) => (
-                  <div key={suggestion.id} className="border border-primary/20 rounded-lg p-4 bg-primary/5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          {getSourceIcon(suggestion.source)}
-                          <Badge variant="secondary" className="text-xs">
-                            {suggestion.source}
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-medium">{suggestion.text}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Suggested {new Date(suggestion.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAcceptSuggestion(suggestion.id)}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                        >
-                          <Check className="mr-1 h-3 w-3" />
-                          Accept
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDismissSuggestion(suggestion.id)}
-                          className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
-                        >
-                          <X className="mr-1 h-3 w-3" />
-                          Dismiss
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No suggestions yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Click "Generate Suggestions" to get AI-powered prompt recommendations tailored to your brand and industry.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Prompts</CardTitle>
-            <CardDescription>
-              Track how your brand appears in AI search results
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {prompts.length > 0 ? (
-              <div className="space-y-4">
-                {prompts.map((prompt: any) => (
-                  <div key={prompt.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{prompt.text}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Created {new Date(prompt.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={prompt.active}
-                          onCheckedChange={(checked) => handleToggleActive(prompt.id, checked)}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRunNow(prompt.id)}
-                          disabled={runningPrompts.has(prompt.id)}
-                        >
-                          <Play className="mr-1 h-3 w-3" />
-                          {runningPrompts.has(prompt.id) ? 'Running...' : 'Run Now'}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Provider status */}
-                    <div className="grid gap-2 md:grid-cols-2">
-                      {['openai', 'perplexity'].map(providerName => (
-                        <div key={providerName} className="flex items-center justify-between p-2 bg-muted rounded">
-                          <span className="text-sm font-medium capitalize">{providerName}</span>
-                          <Badge variant="outline">Ready</Badge>
-                        </div>
-                      ))}
-                    </div>
+            {/* AI Suggested Prompts Section - Now shown after tracked prompts */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      AI Suggested Prompts
+                    </CardTitle>
+                    <CardDescription>
+                      {suggestedPrompts.length > 0 
+                        ? "Recommended prompts to improve your search visibility"
+                        : "Get AI-powered suggestions for prompts to track your brand visibility"}
+                    </CardDescription>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No prompts created yet. Add your first prompt to start monitoring.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateMoreSuggestions}
+                    disabled={generatingsuggestions}
+                  >
+                    {generatingsuggestions ? (
+                      <>
+                        <Clock className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        {suggestedPrompts.length > 0 ? 'Generate More' : 'Generate Suggestions'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {suggestedPrompts.length > 0 ? (
+                  <div className="space-y-3">
+                    {suggestedPrompts.map((suggestion: any) => (
+                      <div key={suggestion.id} className="border border-primary/20 rounded-lg p-4 bg-primary/5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              {getSourceIcon(suggestion.source)}
+                              <Badge variant="secondary" className="text-xs">
+                                {suggestion.source}
+                              </Badge>
+                            </div>
+                            <p className="text-sm font-medium">{suggestion.text}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Suggested {new Date(suggestion.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAcceptSuggestion(suggestion.id)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <Check className="mr-1 h-3 w-3" />
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDismissSuggestion(suggestion.id)}
+                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                            >
+                              <X className="mr-1 h-3 w-3" />
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No suggestions yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Click "Generate Suggestions" to get AI-powered prompt recommendations tailored to your brand and industry.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
           </TabsContent>
 
           <TabsContent value="keywords" className="space-y-6">
