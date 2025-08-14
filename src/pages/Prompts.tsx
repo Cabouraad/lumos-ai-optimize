@@ -10,12 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { getSafePromptsData } from '@/lib/prompts/safe-data';
 import { runPromptNow } from '../../lib/prompts/data';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles } from 'lucide-react';
+import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptVisibilityResults } from '@/components/PromptVisibilityResults';
 
@@ -31,6 +32,8 @@ export default function Prompts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
   const [runningPrompts, setRunningPrompts] = useState<Set<string>>(new Set());
+  const [collapsedPrompts, setCollapsedPrompts] = useState<Set<string>>(new Set());
+  const [deletingPrompts, setDeletingPrompts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -137,6 +140,53 @@ export default function Prompts() {
       });
     } finally {
       setRunningPrompts(prev => {
+        const next = new Set(prev);
+        next.delete(promptId);
+        return next;
+      });
+    }
+  };
+
+  const togglePromptCollapse = (promptId: string) => {
+    setCollapsedPrompts(prev => {
+      const next = new Set(prev);
+      if (next.has(promptId)) {
+        next.delete(promptId);
+      } else {
+        next.add(promptId);
+      }
+      return next;
+    });
+  };
+
+  const handleDeletePrompt = async (promptId: string) => {
+    if (!orgData?.organizations?.id) return;
+
+    setDeletingPrompts(prev => new Set(prev).add(promptId));
+
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .delete()
+        .eq('id', promptId)
+        .eq('org_id', orgData.organizations.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Prompt deleted successfully",
+      });
+
+      loadPromptsData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingPrompts(prev => {
         const next = new Set(prev);
         next.delete(promptId);
         return next;
@@ -342,55 +392,110 @@ export default function Prompts() {
               <CardContent>
                 {prompts.length > 0 ? (
                   <div className="space-y-4">
-                    {prompts.map((prompt: any) => (
-                      <div key={prompt.id} className="border-2 border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-foreground">{prompt.text}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Created {new Date(prompt.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs text-muted-foreground">Active</span>
-                              <Switch
-                                checked={prompt.active}
-                                onCheckedChange={(checked) => handleToggleActive(prompt.id, checked)}
-                              />
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={() => handleRunNow(prompt.id)}
-                              disabled={runningPrompts.has(prompt.id)}
-                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                            >
-                              <Play className="mr-1 h-3 w-3" />
-                              {runningPrompts.has(prompt.id) ? 'Running...' : 'Run Now'}
-                            </Button>
-                          </div>
-                        </div>
-
-                         {/* Provider status with enhanced styling */}
-                         <div className="grid gap-3 md:grid-cols-2">
-                           {['openai', 'perplexity'].map(providerName => (
-                             <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
-                               <div className="flex items-center gap-2">
-                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                 <span className="text-sm font-medium capitalize">{providerName}</span>
+                     {prompts.map((prompt: any) => {
+                       const isCollapsed = collapsedPrompts.has(prompt.id);
+                       const isDeleting = deletingPrompts.has(prompt.id);
+                       
+                       return (
+                         <div key={prompt.id} className="border-2 border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
+                           <div className="flex items-start justify-between">
+                             <div className="flex items-start gap-3 flex-1">
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => togglePromptCollapse(prompt.id)}
+                                 className="p-1 h-auto hover:bg-primary/10"
+                               >
+                                 {isCollapsed ? (
+                                   <ChevronRight className="h-4 w-4" />
+                                 ) : (
+                                   <ChevronDown className="h-4 w-4" />
+                                 )}
+                               </Button>
+                               <div className="flex-1">
+                                 <p className="text-sm font-semibold text-foreground">{prompt.text}</p>
+                                 <p className="text-xs text-muted-foreground mt-1">
+                                   Created {new Date(prompt.created_at).toLocaleDateString()}
+                                 </p>
                                </div>
-                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                 Ready
-                               </Badge>
                              </div>
-                           ))}
+                             <div className="flex items-center space-x-2">
+                               <div className="flex items-center space-x-2">
+                                 <span className="text-xs text-muted-foreground">Active</span>
+                                 <Switch
+                                   checked={prompt.active}
+                                   onCheckedChange={(checked) => handleToggleActive(prompt.id, checked)}
+                                 />
+                               </div>
+                               <Button
+                                 size="sm"
+                                 onClick={() => handleRunNow(prompt.id)}
+                                 disabled={runningPrompts.has(prompt.id)}
+                                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                               >
+                                 <Play className="mr-1 h-3 w-3" />
+                                 {runningPrompts.has(prompt.id) ? 'Running...' : 'Run Now'}
+                               </Button>
+                               
+                               <AlertDialog>
+                                 <AlertDialogTrigger asChild>
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     disabled={isDeleting}
+                                     className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                   >
+                                     <Trash2 className="h-3 w-3" />
+                                   </Button>
+                                 </AlertDialogTrigger>
+                                 <AlertDialogContent>
+                                   <AlertDialogHeader>
+                                     <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
+                                     <AlertDialogDescription>
+                                       Are you sure you want to delete this prompt? This will also remove all associated visibility results and cannot be undone.
+                                     </AlertDialogDescription>
+                                   </AlertDialogHeader>
+                                   <AlertDialogFooter>
+                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                     <AlertDialogAction
+                                       onClick={() => handleDeletePrompt(prompt.id)}
+                                       className="bg-red-600 hover:bg-red-700"
+                                     >
+                                       Delete
+                                     </AlertDialogAction>
+                                   </AlertDialogFooter>
+                                 </AlertDialogContent>
+                               </AlertDialog>
+                             </div>
+                           </div>
+
+                           {!isCollapsed && (
+                             <>
+                               {/* Provider status with enhanced styling */}
+                               <div className="grid gap-3 md:grid-cols-2 ml-7">
+                                 {['openai', 'perplexity'].map(providerName => (
+                                   <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
+                                     <div className="flex items-center gap-2">
+                                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                       <span className="text-sm font-medium capitalize">{providerName}</span>
+                                     </div>
+                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                       Ready
+                                     </Badge>
+                                   </div>
+                                 ))}
+                               </div>
+                               
+                               {/* Show visibility results */}
+                               <div className="ml-7">
+                                 <PromptVisibilityResults promptId={prompt.id} refreshTrigger={runningPrompts.has(prompt.id) ? Date.now() : 0} />
+                               </div>
+                             </>
+                           )}
                          </div>
-                         
-                         {/* Show visibility results */}
-                         <PromptVisibilityResults promptId={prompt.id} refreshTrigger={runningPrompts.has(prompt.id) ? Date.now() : 0} />
-                      </div>
-                    ))}
-                  </div>
+                       );
+                     })}
+                   </div>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <Play className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
