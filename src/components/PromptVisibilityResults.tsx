@@ -57,7 +57,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
         `)
         .eq('prompt_runs.prompt_id', promptId)
         .eq('prompt_runs.status', 'success')
-        .order('prompt_runs.run_at', { ascending: false })
+        .order('run_at', { ascending: false, foreignTable: 'prompt_runs' })
         .limit(10);
 
       if (error) {
