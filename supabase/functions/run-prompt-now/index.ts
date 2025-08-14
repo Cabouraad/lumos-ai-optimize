@@ -151,7 +151,7 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
           .insert({
             prompt_id: promptId,
             provider_id: provider.id,
-            status: 'completed',
+            status: 'success',
             run_at: new Date().toISOString(),
             token_in: Math.floor(prompt.text.length / 4), // Rough estimate
             token_out: Math.floor(extractedBrands.join(' ').length / 4),
@@ -193,7 +193,7 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
           .insert({
             prompt_id: promptId,
             provider_id: provider.id,
-            status: 'failed',
+            status: 'error',
             run_at: new Date().toISOString(),
             token_in: 0,
             token_out: 0,

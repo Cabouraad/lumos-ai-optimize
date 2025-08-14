@@ -17,6 +17,7 @@ import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSugge
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles } from 'lucide-react';
 import { KeywordManagement } from '@/components/KeywordManagement';
+import { PromptVisibilityResults } from '@/components/PromptVisibilityResults';
 
 export default function Prompts() {
   const { orgData } = useAuth();
@@ -370,20 +371,23 @@ export default function Prompts() {
                           </div>
                         </div>
 
-                        {/* Provider status with enhanced styling */}
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {['openai', 'perplexity'].map(providerName => (
-                            <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-sm font-medium capitalize">{providerName}</span>
-                              </div>
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                Ready
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
+                         {/* Provider status with enhanced styling */}
+                         <div className="grid gap-3 md:grid-cols-2">
+                           {['openai', 'perplexity'].map(providerName => (
+                             <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
+                               <div className="flex items-center gap-2">
+                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                 <span className="text-sm font-medium capitalize">{providerName}</span>
+                               </div>
+                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                 Ready
+                               </Badge>
+                             </div>
+                           ))}
+                         </div>
+                         
+                         {/* Show visibility results */}
+                         <PromptVisibilityResults promptId={prompt.id} refreshTrigger={runningPrompts.has(prompt.id) ? Date.now() : 0} />
                       </div>
                     ))}
                   </div>
