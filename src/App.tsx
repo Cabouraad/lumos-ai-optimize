@@ -11,6 +11,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Prompts from "./pages/Prompts";
 import Recommendations from "./pages/Recommendations";
+import Competitors from "./pages/Competitors";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +36,11 @@ const App = () => (
             <Route path="/prompts" element={
               <ProtectedRoute>
                 <Prompts />
+              </ProtectedRoute>
+            } />
+            <Route path="/competitors" element={
+              <ProtectedRoute>
+                <Competitors />
               </ProtectedRoute>
             } />
             <Route path="/recommendations" element={

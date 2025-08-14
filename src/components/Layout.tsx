@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
-  MessageSquare, 
+  MessageSquare,
+  Users, 
   Lightbulb, 
   Settings,
   LogOut
@@ -21,6 +22,7 @@ export function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
+    { name: 'Competitors', href: '/competitors', icon: Users },
     { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
