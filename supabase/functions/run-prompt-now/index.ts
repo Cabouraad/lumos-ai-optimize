@@ -356,7 +356,13 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
       if (line.length > 40) return false;
       
       // Exclude AI tools and common non-competitor brands
-      const excludedBrands = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 'microsoft'];
+      const excludedBrands = [
+        'openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 
+        'microsoft', 'apple', 'facebook', 'meta', 'twitter', 'linkedin', 'instagram', 'youtube',
+        'amazon', 'aws', 'azure', 'github', 'stackoverflow', 'reddit', 'wikipedia', 'bing',
+        'search', 'engine', 'platform', 'tool', 'software', 'app', 'website', 'service',
+        'technology', 'digital', 'online', 'internet', 'web', 'cloud', 'data', 'analytics'
+      ];
       const lowerLine = line.toLowerCase();
       if (excludedBrands.some(excluded => lowerLine.includes(excluded))) return false;
       
@@ -448,7 +454,13 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
       if (line.includes('text:') || line.includes('extract')) return false;
       
       // Exclude AI tools and common non-competitor brands
-      const excludedBrands = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 'microsoft'];
+      const excludedBrands = [
+        'openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 
+        'microsoft', 'apple', 'facebook', 'meta', 'twitter', 'linkedin', 'instagram', 'youtube',
+        'amazon', 'aws', 'azure', 'github', 'stackoverflow', 'reddit', 'wikipedia', 'bing',
+        'search', 'engine', 'platform', 'tool', 'software', 'app', 'website', 'service',
+        'technology', 'digital', 'online', 'internet', 'web', 'cloud', 'data', 'analytics'
+      ];
       const lowerLine = line.toLowerCase();
       if (excludedBrands.some(excluded => lowerLine.includes(excluded))) return false;
       

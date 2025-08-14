@@ -77,6 +77,7 @@ export default function Prompts() {
               id,
               run_at,
               prompt_id,
+              provider_id,
               llm_providers!inner (
                 name
               )
