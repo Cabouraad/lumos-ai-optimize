@@ -278,19 +278,31 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       messages: [
         {
           role: 'system',
-          content: 'You are a search engine. Provide realistic search results for the given query, then extract all brand names and company names that would appear in those results. Focus on actual brands that would be mentioned in real search results, not just category leaders. Return only the brand names, one per line, without additional text.'
+          content: 'You are tasked with identifying which specific brands and companies would actually appear in real search engine results for a given query. Think about what real users would actually see when searching, not just market leaders. Include specific product names, service brands, and lesser-known but relevant companies that would appear in actual search results.'
         },
         {
           role: 'user',
-          content: `Search for: "${promptText}". First, simulate what the actual search results would look like, then extract all brand names that appear in those results. Include specific product names, company names, and service brands that would realistically appear.`
+          content: `For the search query: "${promptText}"
+          
+Think step by step:
+1. What would the actual search results look like for this query?
+2. Which specific brands, companies, or product names would appear in those results?
+3. Include both well-known and niche players that would realistically show up
+
+Extract only the brand/company names, one per line. Focus on:
+- Actual company names (not generic terms)
+- Specific product/service names
+- Brands that would appear in real search results for this query
+
+List only the names without explanations:`
         }
       ],
-      max_tokens: 300,
-      temperature: 0.2,
+      max_tokens: 400,
+      temperature: 0.3,
     }),
   });
 
@@ -301,21 +313,22 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
   const data = await response.json();
   const content = data.choices[0].message.content || '';
   
-  // Extract only lines that look like brand names (filter out search result text)
+  // Extract only lines that look like brand names
   const lines = content.split('\n').map(line => line.trim());
   const brandLines = lines.filter(line => {
-    // Skip empty lines, explanatory text, or lines with common search result patterns
+    // Skip empty lines, numbers, or obvious non-brand text
     if (!line || line.length < 2) return false;
-    if (line.includes('Search results:') || line.includes('Results for:')) return false;
+    if (/^\d+\.?\s*$/.test(line)) return false; // Skip numbers
     if (line.includes('http') || line.includes('www.')) return false;
-    if (line.length > 50) return false; // Skip long descriptions
-    if (line.includes('...') || line.includes('search') || line.includes('results')) return false;
+    if (line.length > 40) return false; // Skip long descriptions
+    if (line.toLowerCase().includes('step ') || line.toLowerCase().includes('think')) return false;
+    if (line.includes(':') && line.length > 20) return false; // Skip explanatory text
     
     // Accept lines that look like brand names
-    return /^[A-Za-z0-9\s&\-\.]{2,30}$/.test(line) && !line.includes('  ');
+    return /^[A-Za-z0-9\s&\-\.\(\)]{2,35}$/.test(line) && !line.includes('  ');
   });
   
-  return brandLines.slice(0, 10);
+  return brandLines.slice(0, 12);
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<string[]> {

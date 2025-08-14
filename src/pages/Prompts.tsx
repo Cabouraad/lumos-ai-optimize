@@ -34,6 +34,7 @@ export default function Prompts() {
   const [runningPrompts, setRunningPrompts] = useState<Set<string>>(new Set());
   const [collapsedPrompts, setCollapsedPrompts] = useState<Set<string>>(new Set());
   const [deletingPrompts, setDeletingPrompts] = useState<Set<string>>(new Set());
+  const [runningAll, setRunningAll] = useState(false);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -194,6 +195,47 @@ export default function Prompts() {
     }
   };
 
+  const handleRunAll = async () => {
+    const activePrompts = prompts.filter(prompt => prompt.active);
+    if (activePrompts.length === 0 || !orgData?.organizations?.id) return;
+
+    setRunningAll(true);
+    const allPromptIds = activePrompts.map(p => p.id);
+    setRunningPrompts(new Set(allPromptIds));
+
+    const results = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Run prompts sequentially to avoid rate limits
+    for (const prompt of activePrompts) {
+      try {
+        await runPromptNow(prompt.id, orgData.organizations.id);
+        successCount++;
+      } catch (error: any) {
+        console.error(`Error running prompt ${prompt.id}:`, error);
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast({
+        title: "Batch Run Complete",
+        description: `${successCount} prompts completed successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      });
+    } else {
+      toast({
+        title: "Batch Run Failed",
+        description: "All prompts failed to execute",
+        variant: "destructive",
+      });
+    }
+
+    setRunningPrompts(new Set());
+    setRunningAll(false);
+    loadPromptsData();
+  };
+
   const handleAcceptSuggestion = async (suggestionId: string) => {
     try {
       await acceptSuggestion(suggestionId);
@@ -315,13 +357,26 @@ export default function Prompts() {
             </p>
           </div>
           
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Prompt
+          <div className="flex items-center gap-3">
+            {prompts.filter(p => p.active).length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleRunAll}
+                disabled={runningAll || runningPrompts.size > 0}
+                className="bg-primary/10 border-primary/30 hover:bg-primary/20"
+              >
+                <Play className="mr-2 h-4 w-4" />
+                {runningAll ? `Running ${prompts.filter(p => p.active).length} prompts...` : `Run All (${prompts.filter(p => p.active).length})`}
               </Button>
-            </DialogTrigger>
+            )}
+
+            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Prompt
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Prompt</DialogTitle>
@@ -352,6 +407,7 @@ export default function Prompts() {
               </form>
             </DialogContent>
           </Dialog>
+        </div>
         </div>
 
         <Tabs defaultValue="prompts" className="w-full">

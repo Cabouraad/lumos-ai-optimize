@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Prompts from "./pages/Prompts";
 import Recommendations from "./pages/Recommendations";
 import Competitors from "./pages/Competitors";
+import BrandAnalysis from "./pages/BrandAnalysis";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +42,11 @@ const App = () => (
             <Route path="/competitors" element={
               <ProtectedRoute>
                 <Competitors />
+              </ProtectedRoute>
+            } />
+            <Route path="/analysis" element={
+              <ProtectedRoute>
+                <BrandAnalysis />
               </ProtectedRoute>
             } />
             <Route path="/recommendations" element={

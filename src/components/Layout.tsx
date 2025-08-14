@@ -6,6 +6,7 @@ import {
   LayoutDashboard, 
   MessageSquare,
   Users, 
+  Search,
   Lightbulb, 
   Settings,
   LogOut
@@ -23,6 +24,7 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
     { name: 'Competitors', href: '/competitors', icon: Users },
+    { name: 'Analysis', href: '/analysis', icon: Search },
     { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
