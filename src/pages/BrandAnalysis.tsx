@@ -9,27 +9,70 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getOrgId } from '@/lib/auth';
-import { Search, Sparkles, CheckCircle, XCircle, Trophy, Users } from 'lucide-react';
+import { Search, Sparkles, CheckCircle, XCircle, Trophy, Users, Bot } from 'lucide-react';
 
 interface AnalysisResult {
   brands: string[];
   orgBrandPresent: boolean;
   orgBrandPosition: number | null;
   score: number;
+  rawResponse: string;
 }
 
 export default function BrandAnalysis() {
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [provider, setProvider] = useState<'openai' | 'perplexity'>('openai');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [testingPrompt, setTestingPrompt] = useState(false);
 
-  const analyzeSearchResults = async () => {
-    if (!searchQuery.trim() || !searchResults.trim()) {
+  const testPromptWithAI = async () => {
+    if (!prompt.trim()) {
+      toast({
+        title: "Missing Prompt",
+        description: "Please provide a prompt to test",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTestingPrompt(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('test-prompt-response', {
+        body: {
+          prompt: prompt.trim(),
+          provider
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to get AI response');
+      }
+
+      setAiResponse(result.response);
+      toast({
+        title: "AI Response Generated",
+        description: `Got response from ${provider.toUpperCase()}. Now analyze it for brand mentions.`,
+      });
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setTestingPrompt(false);
+    }
+  };
+
+  const analyzeAIResponse = async () => {
+    if (!prompt.trim() || !aiResponse.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please provide both a search query and the search results",
+        description: "Please provide both a prompt and the AI response to analyze",
         variant: "destructive",
       });
       return;
@@ -58,11 +101,12 @@ export default function BrandAnalysis() {
         }
       });
 
-      // Call edge function to analyze the search results
-      const { data: result, error } = await supabase.functions.invoke('analyze-search-results', {
+      // Call edge function to analyze the AI response
+      const { data: result, error } = await supabase.functions.invoke('analyze-ai-response', {
         body: {
-          query: searchQuery,
-          results: searchResults,
+          prompt: prompt,
+          response: aiResponse,
+          provider: provider,
           orgBrands: Array.from(orgBrands)
         },
       });
@@ -106,8 +150,8 @@ export default function BrandAnalysis() {
     <Layout>
       <div className="container mx-auto p-6 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
-          <Search className="h-8 w-8" />
-          <h1 className="text-3xl font-bold">Brand Analysis Tool</h1>
+          <Bot className="h-8 w-8" />
+          <h1 className="text-3xl font-bold">AI Response Analysis</h1>
         </div>
 
         <div className="grid gap-6">
@@ -116,38 +160,81 @@ export default function BrandAnalysis() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                Analyze Real Search Results
+                Analyze AI Prompt Responses
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="query">Search Query</Label>
+                <Label htmlFor="prompt">Prompt</Label>
                 <Textarea
-                  id="query"
-                  placeholder="e.g., best ai search platforms"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  rows={2}
+                  id="prompt"
+                  placeholder="e.g., What are the best AI search platforms for enterprise?"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={3}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>AI Provider</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      value="openai"
+                      checked={provider === 'openai'}
+                      onChange={(e) => setProvider(e.target.value as 'openai')}
+                    />
+                    OpenAI
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      value="perplexity"
+                      checked={provider === 'perplexity'}
+                      onChange={(e) => setProvider(e.target.value as 'perplexity')}
+                    />
+                    Perplexity
+                  </label>
+                </div>
+              </div>
+
+              <Button
+                onClick={testPromptWithAI}
+                disabled={testingPrompt || !prompt.trim()}
+                className="w-full"
+                variant="outline"
+              >
+                {testingPrompt ? (
+                  <>
+                    <Bot className="mr-2 h-4 w-4 animate-spin" />
+                    Getting {provider.toUpperCase()} Response...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="mr-2 h-4 w-4" />
+                    Test Prompt with {provider.toUpperCase()}
+                  </>
+                )}
+              </Button>
               
               <div className="space-y-2">
-                <Label htmlFor="results">Search Results (Copy & Paste)</Label>
+                <Label htmlFor="response">AI Response</Label>
                 <Textarea
-                  id="results"
-                  placeholder="Paste the actual search results from Google, Bing, or other search engines here. Include titles, descriptions, and any brand names you see..."
-                  value={searchResults}
-                  onChange={(e) => setSearchResults(e.target.value)}
+                  id="response"
+                  placeholder="Paste or generate the AI response here..."
+                  value={aiResponse}
+                  onChange={(e) => setAiResponse(e.target.value)}
                   rows={8}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Copy the search results from any search engine and paste them here for accurate brand analysis
+                  Use "Test Prompt" to automatically get a response, or paste an existing AI response here
                 </p>
               </div>
 
               <Button
-                onClick={analyzeSearchResults}
-                disabled={analyzing || !searchQuery.trim() || !searchResults.trim()}
+                onClick={analyzeAIResponse}
+                disabled={analyzing || !prompt.trim() || !aiResponse.trim()}
                 className="w-full"
               >
                 {analyzing ? (
@@ -158,7 +245,7 @@ export default function BrandAnalysis() {
                 ) : (
                   <>
                     <Search className="mr-2 h-4 w-4" />
-                    Analyze Search Results
+                    Analyze AI Response for Brands
                   </>
                 )}
               </Button>
@@ -249,22 +336,22 @@ export default function BrandAnalysis() {
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">1</div>
                 <div>
-                  <p className="font-medium">Perform a Search</p>
-                  <p className="text-sm text-muted-foreground">Go to Google, Bing, or any search engine and search for your target query</p>
+                  <p className="font-medium">Enter Your Prompt</p>
+                  <p className="text-sm text-muted-foreground">Type the same prompt you use in your tracking system</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
                 <div>
-                  <p className="font-medium">Copy Results</p>
-                  <p className="text-sm text-muted-foreground">Copy the search results including titles, descriptions, and brand names</p>
+                  <p className="font-medium">Get AI Response</p>
+                  <p className="text-sm text-muted-foreground">Use "Test Prompt" to get a fresh response from OpenAI or Perplexity, or paste an existing response</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">3</div>
                 <div>
-                  <p className="font-medium">Analyze</p>
-                  <p className="text-sm text-muted-foreground">Paste the results here to get accurate brand visibility analysis</p>
+                  <p className="font-medium">Analyze for Brands</p>
+                  <p className="text-sm text-muted-foreground">Extract all brand mentions and check your organization's visibility score</p>
                 </div>
               </div>
             </CardContent>

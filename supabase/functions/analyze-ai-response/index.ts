@@ -22,16 +22,16 @@ serve(async (req) => {
   }
 
   try {
-    const { query, results, orgBrands } = await req.json();
+    const { prompt, response, provider, orgBrands } = await req.json();
 
-    if (!query || !results) {
-      return new Response(JSON.stringify({ error: 'Missing query or results' }), {
+    if (!prompt || !response) {
+      return new Response(JSON.stringify({ error: 'Missing prompt or AI response' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Analyzing search results for query: "${query}"`);
+    console.log(`Analyzing ${provider || 'AI'} response for prompt: "${prompt}"`);
 
     // Extract brands from search results using OpenAI
     const brandResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -45,16 +45,22 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert at extracting brand names and company names from search results. Extract all brand names, company names, product names, and service names mentioned in the provided search results. Be thorough and include both well-known and lesser-known brands.'
+            content: 'You are an expert at extracting brand names, company names, product names, and service names from AI-generated text responses. Extract all brands and companies that are specifically mentioned in the AI response. Be thorough but only include actual brand names, not generic categories.'
           },
           {
             role: 'user',
-            content: `Search Query: "${query}"
+            content: `Original Prompt: "${prompt}"
 
-Search Results:
-${results}
+AI Response to analyze:
+${response}
 
-Extract all brand names, company names, product names, and service names that appear in these search results. Return only the names, one per line, without any additional text or explanations.`
+Extract all brand names, company names, product names, and service names that are specifically mentioned in this AI response. Return only the names, one per line, without any additional text or explanations. Focus on:
+- Specific company names mentioned
+- Product/service brand names
+- Platform names
+- Software/tool names
+
+Do not include generic terms or categories.`
           }
         ],
         max_tokens: 500,

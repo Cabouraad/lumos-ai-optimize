@@ -271,6 +271,7 @@ function computeScore(orgPresent: boolean, prominenceIdx: number | null, competi
 }
 
 async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<string[]> {
+  // First, get the actual AI response to the prompt
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -281,28 +282,12 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
       model: 'gpt-4.1-2025-04-14',
       messages: [
         {
-          role: 'system',
-          content: 'You are tasked with identifying which specific brands and companies would actually appear in real search engine results for a given query. Think about what real users would actually see when searching, not just market leaders. Include specific product names, service brands, and lesser-known but relevant companies that would appear in actual search results.'
-        },
-        {
           role: 'user',
-          content: `For the search query: "${promptText}"
-          
-Think step by step:
-1. What would the actual search results look like for this query?
-2. Which specific brands, companies, or product names would appear in those results?
-3. Include both well-known and niche players that would realistically show up
-
-Extract only the brand/company names, one per line. Focus on:
-- Actual company names (not generic terms)
-- Specific product/service names
-- Brands that would appear in real search results for this query
-
-List only the names without explanations:`
+          content: promptText
         }
       ],
-      max_tokens: 400,
-      temperature: 0.3,
+      max_tokens: 800,
+      temperature: 0.7,
     }),
   });
 
@@ -311,27 +296,62 @@ List only the names without explanations:`
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content || '';
+  const aiResponse = data.choices[0].message.content || '';
   
-  // Extract only lines that look like brand names
-  const lines = content.split('\n').map(line => line.trim());
-  const brandLines = lines.filter(line => {
-    // Skip empty lines, numbers, or obvious non-brand text
-    if (!line || line.length < 2) return false;
-    if (/^\d+\.?\s*$/.test(line)) return false; // Skip numbers
-    if (line.includes('http') || line.includes('www.')) return false;
-    if (line.length > 40) return false; // Skip long descriptions
-    if (line.toLowerCase().includes('step ') || line.toLowerCase().includes('think')) return false;
-    if (line.includes(':') && line.length > 20) return false; // Skip explanatory text
-    
-    // Accept lines that look like brand names
-    return /^[A-Za-z0-9\s&\-\.\(\)]{2,35}$/.test(line) && !line.includes('  ');
+  // Store the raw response for evidence
+  console.log('OpenAI Response:', aiResponse.substring(0, 200) + '...');
+
+  // Now extract brands from the actual AI response
+  const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4.1-2025-04-14',
+      messages: [
+        {
+          role: 'system',
+          content: 'Extract all brand names, company names, product names, and service names that are specifically mentioned in the provided text. Return only the names, one per line, without explanations. Focus on actual brands mentioned, not generic categories.'
+        },
+        {
+          role: 'user',
+          content: `Extract all brand names from this AI response:\n\n${aiResponse}`
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.1,
+    }),
   });
+
+  if (!extractResponse.ok) {
+    throw new Error(`OpenAI extraction error: ${extractResponse.statusText}`);
+  }
+
+  const extractData = await extractResponse.json();
+  const extractedContent = extractData.choices[0].message.content || '';
   
-  return brandLines.slice(0, 12);
+  // Extract and clean brand names
+  const brands = extractedContent
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => {
+      // Filter out empty lines, numbers, and obvious non-brand text
+      if (!line || line.length < 2) return false;
+      if (/^\d+\.?\s*$/.test(line)) return false;
+      if (line.includes('http') || line.includes('www.')) return false;
+      if (line.length > 40) return false;
+      
+      return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
+    })
+    .slice(0, 12);
+
+  return brands;
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<string[]> {
+  // Get the actual AI response from Perplexity
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: {
@@ -342,19 +362,14 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
       model: 'llama-3.1-sonar-small-128k-online',
       messages: [
         {
-          role: 'system',
-          content: 'You have access to real-time search. When given a search query, perform the search and extract all brand names and company names that appear in the actual search results. Return only the brand names, one per line, without additional explanatory text.'
-        },
-        {
           role: 'user',
-          content: `Search for: "${promptText}". Extract all brand names that appear in the search results.`
+          content: promptText
         }
       ],
-      max_tokens: 300,
-      temperature: 0.1,
+      max_tokens: 800,
+      temperature: 0.7,
       return_images: false,
       return_related_questions: false,
-      search_recency_filter: 'month'
     }),
   });
 
@@ -363,21 +378,58 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content || '';
+  const aiResponse = data.choices[0].message.content || '';
   
-  // Extract only lines that look like brand names
-  const lines = content.split('\n').map(line => line.trim());
-  const brandLines = lines.filter(line => {
-    // Skip empty lines, explanatory text, or search result metadata
-    if (!line || line.length < 2) return false;
-    if (line.includes('Based on') || line.includes('According to') || line.includes('Search results')) return false;
-    if (line.includes('http') || line.includes('www.') || line.includes('.com')) return false;
-    if (line.length > 40) return false; // Skip long descriptions
-    if (line.includes('search') || line.includes('results') || line.includes('include')) return false;
-    
-    // Accept lines that look like brand names
-    return /^[A-Za-z0-9\s&\-\.]{2,25}$/.test(line) && !line.includes('  ');
+  console.log('Perplexity Response:', aiResponse.substring(0, 200) + '...');
+
+  // Extract brands from the actual response using a follow-up call
+  const extractResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-sonar-small-128k-online',
+      messages: [
+        {
+          role: 'system',
+          content: 'Extract all brand names, company names, product names, and service names that are specifically mentioned in the provided text. Return only the names, one per line, without explanations.'
+        },
+        {
+          role: 'user',
+          content: `Extract all brand names from this text:\n\n${aiResponse}`
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.1,
+      return_images: false,
+      return_related_questions: false,
+    }),
   });
+
+  if (!extractResponse.ok) {
+    throw new Error(`Perplexity extraction error: ${extractResponse.statusText}`);
+  }
+
+  const extractData = await extractResponse.json();
+  const extractedContent = extractData.choices[0].message.content || '';
   
-  return brandLines.slice(0, 10);
+  // Extract and clean brand names
+  const brands = extractedContent
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => {
+      // Filter out empty lines, explanatory text, or metadata
+      if (!line || line.length < 2) return false;
+      if (line.includes('Based on') || line.includes('According to')) return false;
+      if (line.includes('http') || line.includes('www.') || line.includes('.com')) return false;
+      if (line.length > 40) return false;
+      if (line.includes('text:') || line.includes('extract')) return false;
+      
+      return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
+    })
+    .slice(0, 12);
+  
+  return brands;
 }
