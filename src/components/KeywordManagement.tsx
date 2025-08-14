@@ -109,7 +109,19 @@ export function KeywordManagement() {
         
         toast({
           title: "Success",
-          description: "Business context auto-filled from your website!",
+          description: data.message || "Business context auto-filled from your website!",
+        });
+      } else if (data.needsApiKey) {
+        toast({
+          title: "OpenAI API Key Required",
+          description: "Please add your OpenAI API key in the project settings to use the auto-fill feature.",
+          variant: "destructive",
+        });
+      } else if (data.suggestManual) {
+        toast({
+          title: "Auto-fill Failed",
+          description: data.error || "Unable to fetch website content. Please fill in the information manually.",
+          variant: "destructive",
         });
       } else {
         throw new Error(data.error || 'Failed to auto-fill');
@@ -117,8 +129,8 @@ export function KeywordManagement() {
     } catch (error) {
       console.error('Auto-fill error:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to auto-fill business context from website",
+        title: "Error", 
+        description: error.message || "Failed to auto-fill business context. Please try again or fill in manually.",
         variant: "destructive",
       });
     } finally {
