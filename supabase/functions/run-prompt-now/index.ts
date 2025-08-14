@@ -282,15 +282,15 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
       messages: [
         {
           role: 'system',
-          content: 'Extract all brand names and company names mentioned in search results. Return only the names, one per line, without any additional text or formatting.'
+          content: 'You are a search engine. Provide realistic search results for the given query, then extract all brand names and company names that would appear in those results. Focus on actual brands that would be mentioned in real search results, not just category leaders. Return only the brand names, one per line, without additional text.'
         },
         {
           role: 'user',
-          content: `Extract brand names from this search query and likely results: "${promptText}"`
+          content: `Search for: "${promptText}". First, simulate what the actual search results would look like, then extract all brand names that appear in those results. Include specific product names, company names, and service brands that would realistically appear.`
         }
       ],
-      max_tokens: 200,
-      temperature: 0.1,
+      max_tokens: 300,
+      temperature: 0.2,
     }),
   });
 
@@ -301,11 +301,21 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
   const data = await response.json();
   const content = data.choices[0].message.content || '';
   
-  return content
-    .split('\n')
-    .map((line: string) => line.trim())
-    .filter((line: string) => line.length > 0 && !line.startsWith('-'))
-    .slice(0, 10);
+  // Extract only lines that look like brand names (filter out search result text)
+  const lines = content.split('\n').map(line => line.trim());
+  const brandLines = lines.filter(line => {
+    // Skip empty lines, explanatory text, or lines with common search result patterns
+    if (!line || line.length < 2) return false;
+    if (line.includes('Search results:') || line.includes('Results for:')) return false;
+    if (line.includes('http') || line.includes('www.')) return false;
+    if (line.length > 50) return false; // Skip long descriptions
+    if (line.includes('...') || line.includes('search') || line.includes('results')) return false;
+    
+    // Accept lines that look like brand names
+    return /^[A-Za-z0-9\s&\-\.]{2,30}$/.test(line) && !line.includes('  ');
+  });
+  
+  return brandLines.slice(0, 10);
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<string[]> {
@@ -320,15 +330,18 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
       messages: [
         {
           role: 'system',
-          content: 'Extract all brand names and company names mentioned in search results. Return only the names, one per line.'
+          content: 'You have access to real-time search. When given a search query, perform the search and extract all brand names and company names that appear in the actual search results. Return only the brand names, one per line, without additional explanatory text.'
         },
         {
           role: 'user',
-          content: `Extract brand names from this search query: "${promptText}"`
+          content: `Search for: "${promptText}". Extract all brand names that appear in the search results.`
         }
       ],
-      max_tokens: 200,
+      max_tokens: 300,
       temperature: 0.1,
+      return_images: false,
+      return_related_questions: false,
+      search_recency_filter: 'month'
     }),
   });
 
@@ -339,9 +352,19 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
   const data = await response.json();
   const content = data.choices[0].message.content || '';
   
-  return content
-    .split('\n')
-    .map((line: string) => line.trim())
-    .filter((line: string) => line.length > 0 && !line.startsWith('-'))
-    .slice(0, 10);
+  // Extract only lines that look like brand names
+  const lines = content.split('\n').map(line => line.trim());
+  const brandLines = lines.filter(line => {
+    // Skip empty lines, explanatory text, or search result metadata
+    if (!line || line.length < 2) return false;
+    if (line.includes('Based on') || line.includes('According to') || line.includes('Search results')) return false;
+    if (line.includes('http') || line.includes('www.') || line.includes('.com')) return false;
+    if (line.length > 40) return false; // Skip long descriptions
+    if (line.includes('search') || line.includes('results') || line.includes('include')) return false;
+    
+    // Accept lines that look like brand names
+    return /^[A-Za-z0-9\s&\-\.]{2,25}$/.test(line) && !line.includes('  ');
+  });
+  
+  return brandLines.slice(0, 10);
 }
