@@ -58,10 +58,27 @@ export async function getPromptsData(orgId: string, planTier: string) {
 }
 
 export async function runPromptNow(promptId: string, orgId: string) {
-  const { data, error } = await supabase.functions.invoke('run-prompt-now', {
-    body: { promptId, orgId }
-  });
+  console.log('=== runPromptNow called ===');
+  console.log('promptId:', promptId);
+  console.log('orgId:', orgId);
+  
+  try {
+    console.log('Calling supabase.functions.invoke for run-prompt-now...');
+    const { data, error } = await supabase.functions.invoke('run-prompt-now', {
+      body: { promptId, orgId }
+    });
 
-  if (error) throw error;
-  return data;
+    console.log('Edge function response:', { data, error });
+    
+    if (error) {
+      console.error('Edge function error:', error);
+      throw error;
+    }
+    
+    console.log('Edge function success, returning data:', data);
+    return data;
+  } catch (err) {
+    console.error('runPromptNow catch block:', err);
+    throw err;
+  }
 }

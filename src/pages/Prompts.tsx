@@ -210,20 +210,31 @@ export default function Prompts() {
   };
 
   const handleRunNow = async (promptId: string) => {
-    if (!orgData?.organizations?.id) return;
+    console.log('=== handleRunNow clicked ===');
+    console.log('promptId:', promptId);
+    console.log('orgId:', orgData?.organizations?.id);
+    
+    if (!orgData?.organizations?.id) {
+      console.error('No org ID available');
+      return;
+    }
 
     setRunningPrompts(prev => new Set(prev).add(promptId));
 
     try {
-      await runPromptNow(promptId, orgData.organizations.id);
+      console.log('Calling runPromptNow...');
+      const result = await runPromptNow(promptId, orgData.organizations.id);
+      console.log('runPromptNow result:', result);
       
       toast({
         title: "Success",
         description: "Prompt executed successfully",
       });
 
+      console.log('Reloading prompts data...');
       loadPromptsData();
     } catch (error: any) {
+      console.error('handleRunNow error:', error);
       toast({
         title: "Error",
         description: error.message,
