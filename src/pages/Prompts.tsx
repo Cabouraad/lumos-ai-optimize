@@ -35,8 +35,8 @@ export default function Prompts() {
   const [collapsedPrompts, setCollapsedPrompts] = useState<Set<string>>(new Set());
   const [deletingPrompts, setDeletingPrompts] = useState<Set<string>>(new Set());
   const [runningAll, setRunningAll] = useState(false);
-  const [providerResponses, setProviderResponses] = useState<Record<string, Record<string, string>>>({});
-  const [viewingResponse, setViewingResponse] = useState<{provider: string, response: string} | null>(null);
+  const [providerResponses, setProviderResponses] = useState<Record<string, Record<string, { response: string; run_at: string }>>>({});
+  const [viewingResponse, setViewingResponse] = useState<{provider: string, response: string, runAt?: string} | null>(null);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -65,7 +65,7 @@ export default function Prompts() {
 
   const loadProviderResponses = async (promptsData: any[]) => {
     try {
-      const responses: Record<string, Record<string, string>> = {};
+      const responses: Record<string, Record<string, { response: string; run_at: string }>> = {};
       
       for (const prompt of promptsData) {
         // Get the latest visibility results for each provider for this prompt
@@ -91,13 +91,14 @@ export default function Prompts() {
           responses[prompt.id] = {};
           
           // Get the latest response for each provider
-          const providerResponses: Record<string, any> = {};
+          const providerResponsesMap: Record<string, { response: string; run_at: string }> = {};
           visibilityData.forEach((result: any) => {
-            const providerName = result.prompt_runs.llm_providers.name;
+            const providerNameRaw = result.prompt_runs.llm_providers.name;
+            const providerKey = typeof providerNameRaw === 'string' ? providerNameRaw.toLowerCase() : String(providerNameRaw);
             const runAt = result.prompt_runs.run_at;
             
-            if (!providerResponses[providerName] || new Date(runAt) > new Date(providerResponses[providerName].run_at)) {
-              providerResponses[providerName] = {
+            if (!providerResponsesMap[providerKey] || new Date(runAt) > new Date(providerResponsesMap[providerKey].run_at)) {
+              providerResponsesMap[providerKey] = {
                 response: result.raw_ai_response,
                 run_at: runAt
               };
@@ -105,8 +106,8 @@ export default function Prompts() {
           });
           
           // Store the latest responses
-          Object.entries(providerResponses).forEach(([provider, data]: [string, any]) => {
-            responses[prompt.id][provider] = data.response;
+          Object.entries(providerResponsesMap).forEach(([provider, data]) => {
+            responses[prompt.id][provider] = data;
           });
         }
       }
@@ -118,9 +119,9 @@ export default function Prompts() {
   };
 
   const handleViewResponse = (provider: string, promptId: string) => {
-    const response = providerResponses[promptId]?.[provider];
-    if (response) {
-      setViewingResponse({ provider, response });
+    const entry = providerResponses[promptId]?.[provider];
+    if (entry?.response) {
+      setViewingResponse({ provider, response: entry.response, runAt: entry.run_at });
     }
   };
 
@@ -599,7 +600,7 @@ export default function Prompts() {
                                 {/* Provider status with enhanced styling and response viewing */}
                                 <div className="grid gap-3 md:grid-cols-2 ml-7">
                                   {['openai', 'perplexity'].map(providerName => {
-                                    const hasResponse = providerResponses[prompt.id]?.[providerName];
+                                    const hasResponse = Boolean(providerResponses[prompt.id]?.[providerName]?.response);
                                     return (
                                       <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
                                         <div className="flex items-center gap-2">
@@ -750,10 +751,12 @@ export default function Prompts() {
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle className="capitalize">
-                {viewingResponse?.provider} Raw Response
+                Full AI Response - {viewingResponse?.provider}
               </DialogTitle>
               <DialogDescription>
-                Complete AI response from {viewingResponse?.provider}
+                {viewingResponse?.runAt
+                  ? `Response generated on ${new Date(viewingResponse.runAt).toLocaleString()}`
+                  : `Complete AI response from ${viewingResponse?.provider}`}
               </DialogDescription>
             </DialogHeader>
             <div className="overflow-y-auto max-h-[60vh] bg-muted p-4 rounded-md">
