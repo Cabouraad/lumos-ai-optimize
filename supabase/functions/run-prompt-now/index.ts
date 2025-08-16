@@ -386,71 +386,84 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<any> {
   const endpoint = 'https://api.perplexity.ai/chat/completions';
+  // Use the correct model names from Perplexity docs
   const modelFallbacks = [
+    'sonar-pro',
+    'sonar',
     'llama-3.1-sonar-small-128k-online',
-    'llama-3.1-sonar-large-128k-online',
-    'llama-3.1-70b-instruct',
     'llama-3.1-8b-instruct'
   ];
 
-  async function callPerplexityWithFallback(messages: any[], params: Record<string, any>) {
-    let lastError: any = null;
-    for (const model of modelFallbacks) {
-      const payload = {
-        model,
-        messages,
-        max_tokens: params.max_tokens ?? 800,
-        temperature: params.temperature ?? 0.7,
-        return_images: false,
-        return_related_questions: false,
-        // Safe, optional search knobs (ignored by instruct models)
-        search_recency_filter: 'month',
-        frequency_penalty: 1,
-        presence_penalty: 0,
-      };
+  async function callPerplexity(messages: any[], model: string, maxTokens: number = 800) {
+    // Use the exact payload structure from Perplexity documentation
+    const payload = {
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      stream: false
+    };
 
-      console.log(`[Perplexity] Trying model: ${model}`);
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+    console.log(`[Perplexity] Trying model: ${model} with payload:`, JSON.stringify(payload, null, 2));
+    
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-      if (!res.ok) {
-        const bodyText = await res.text().catch(() => '');
-        console.error(`[Perplexity] Model ${model} failed: ${res.status} ${res.statusText} — ${bodyText?.slice(0, 500)}`);
-        lastError = new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
-        continue; // try next model
-      }
-
-      const data = await res.json();
-      const content = data?.choices?.[0]?.message?.content ?? '';
-      return { content, modelUsed: model };
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      console.error(`[Perplexity] Model ${model} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
+      throw new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
     }
-    throw lastError || new Error('Perplexity error: all models failed');
+
+    const data = await res.json();
+    console.log(`[Perplexity] Raw response data:`, JSON.stringify(data, null, 2));
+    const content = data?.choices?.[0]?.message?.content ?? '';
+    return { content, modelUsed: model };
   }
 
   // 1) Get the raw AI response with fallback
-  const { content: aiResponse, modelUsed } = await callPerplexityWithFallback([
-    { role: 'user', content: promptText }
-  ], { max_tokens: 800, temperature: 0.7 });
+  let aiResponse = '';
+  let modelUsed = '';
+  let lastError: any = null;
 
-  console.log(`[Perplexity] Response using model ${modelUsed}:`, aiResponse.substring(0, 200) + '...');
+  for (const model of modelFallbacks) {
+    try {
+      const result = await callPerplexity([
+        { role: 'user', content: promptText }
+      ], model, 800);
+      
+      aiResponse = result.content;
+      modelUsed = result.modelUsed;
+      break;
+    } catch (error) {
+      console.error(`[Perplexity] Failed with model ${model}:`, error);
+      lastError = error;
+      continue;
+    }
+  }
+
+  if (!aiResponse) {
+    throw lastError || new Error('Perplexity error: all models failed');
+  }
+
+  console.log(`[Perplexity] Success with model ${modelUsed}:`, aiResponse.substring(0, 200) + '...');
 
   // 2) Try to extract brands; never fail the whole provider if extraction fails
   let brands: string[] = [];
   try {
-    const { content: extraction } = await callPerplexityWithFallback([
+    const { content: extraction } = await callPerplexity([
       {
         role: 'system',
-        content:
-          'Extract brand/company/product/service names mentioned in the provided text. Return only the names, one per line, no numbering, no explanations.'
+        content: 'Extract brand/company/product/service names mentioned in the provided text. Return only the names, one per line, no numbering, no explanations.'
       },
       { role: 'user', content: `Text to extract from:\n\n${aiResponse}` }
-    ], { max_tokens: 300, temperature: 0.1 });
+    ], modelUsed, 300);
 
     brands = extraction
       .split('\n')
