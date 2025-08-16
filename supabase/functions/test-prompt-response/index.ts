@@ -74,37 +74,52 @@ serve(async (req) => {
         });
       }
 
-      response = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${perplexityKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.7,
-          return_images: false,
-          return_related_questions: false,
-        }),
-      });
+      // Perplexity with robust fallback and detailed error logging
+      const endpoint = 'https://api.perplexity.ai/chat/completions';
+      const models = [
+        'llama-3.1-sonar-small-128k-online',
+        'llama-3.1-sonar-large-128k-online',
+        'llama-3.1-70b-instruct',
+        'llama-3.1-8b-instruct'
+      ];
 
-      if (!response.ok) {
-        throw new Error(`Perplexity API error: ${response.statusText}`);
+      let lastError: any = null;
+      for (const model of models) {
+        console.log(`[Perplexity:test] Trying model: ${model}`);
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${perplexityKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [ { role: 'user', content: prompt } ],
+            max_tokens: 1000,
+            temperature: 0.7,
+            return_images: false,
+            return_related_questions: false,
+            search_recency_filter: 'month',
+            frequency_penalty: 1,
+            presence_penalty: 0
+          }),
+        });
+
+        if (!res.ok) {
+          const bodyText = await res.text().catch(() => '');
+          console.error(`[Perplexity:test] ${model} failed: ${res.status} ${res.statusText} — ${bodyText?.slice(0, 500)}`);
+          lastError = new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
+          continue;
+        }
+
+        const data = await res.json();
+        const aiResponse = data?.choices?.[0]?.message?.content || '';
+        return new Response(JSON.stringify({ response: aiResponse }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
-      const data = await response.json();
-      const aiResponse = data.choices[0].message.content || '';
-
-      return new Response(JSON.stringify({ response: aiResponse }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw lastError || new Error('Perplexity error: all models failed');
     } else {
       throw new Error('Invalid provider specified');
     }

@@ -385,103 +385,102 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<any> {
-  // Get the actual AI response from Perplexity
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [
-        {
-          role: 'user',
-          content: promptText
-        }
-      ],
-      max_tokens: 800,
-      temperature: 0.7,
-      return_images: false,
-      return_related_questions: false,
-    }),
-  });
+  const endpoint = 'https://api.perplexity.ai/chat/completions';
+  const modelFallbacks = [
+    'llama-3.1-sonar-small-128k-online',
+    'llama-3.1-sonar-large-128k-online',
+    'llama-3.1-70b-instruct',
+    'llama-3.1-8b-instruct'
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.statusText}`);
-  }
+  async function callPerplexityWithFallback(messages: any[], params: Record<string, any>) {
+    let lastError: any = null;
+    for (const model of modelFallbacks) {
+      const payload = {
+        model,
+        messages,
+        max_tokens: params.max_tokens ?? 800,
+        temperature: params.temperature ?? 0.7,
+        return_images: false,
+        return_related_questions: false,
+        // Safe, optional search knobs (ignored by instruct models)
+        search_recency_filter: 'month',
+        frequency_penalty: 1,
+        presence_penalty: 0,
+      };
 
-  const data = await response.json();
-  const aiResponse = data.choices[0].message.content || '';
-  
-  console.log('Perplexity Response:', aiResponse.substring(0, 200) + '...');
-
-  // Extract brands from the actual response using a follow-up call
-  const extractResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [
-        {
-          role: 'system',
-          content: 'Extract all brand names, company names, product names, and service names that are specifically mentioned in the provided text. Return only the names, one per line, without explanations.'
+      console.log(`[Perplexity] Trying model: ${model}`);
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
-        {
-          role: 'user',
-          content: `Extract all brand names from this text:\n\n${aiResponse}`
-        }
-      ],
-      max_tokens: 300,
-      temperature: 0.1,
-      return_images: false,
-      return_related_questions: false,
-    }),
-  });
+        body: JSON.stringify(payload),
+      });
 
-  if (!extractResponse.ok) {
-    throw new Error(`Perplexity extraction error: ${extractResponse.statusText}`);
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => '');
+        console.error(`[Perplexity] Model ${model} failed: ${res.status} ${res.statusText} — ${bodyText?.slice(0, 500)}`);
+        lastError = new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
+        continue; // try next model
+      }
+
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content ?? '';
+      return { content, modelUsed: model };
+    }
+    throw lastError || new Error('Perplexity error: all models failed');
   }
 
-  const extractData = await extractResponse.json();
-  const extractedContent = extractData.choices[0].message.content || '';
-  
-  // Extract and clean brand names
-  const brands = extractedContent
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => {
-      // Filter out empty lines, explanatory text, or metadata
-      if (!line || line.length < 2) return false;
-      if (line.includes('Based on') || line.includes('According to')) return false;
-      if (line.includes('http') || line.includes('www.') || line.includes('.com')) return false;
-      if (line.length > 40) return false;
-      if (line.includes('text:') || line.includes('extract')) return false;
-      
-      // Exclude AI tools and common non-competitor brands
-      const excludedBrands = [
-        'openai', 'claude', 'copilot', 'google', 'chatgpt', 'gpt', 'ai', 'artificial intelligence', 
-        'microsoft', 'apple', 'facebook', 'meta', 'twitter', 'linkedin', 'instagram', 'youtube',
-        'amazon', 'aws', 'azure', 'github', 'stackoverflow', 'reddit', 'wikipedia', 'bing',
-        'search', 'engine', 'platform', 'tool', 'software', 'app', 'website', 'service',
-        'technology', 'digital', 'online', 'internet', 'web', 'cloud', 'data', 'analytics'
-      ];
-      const lowerLine = line.toLowerCase();
-      if (excludedBrands.some(excluded => lowerLine.includes(excluded))) return false;
-      
-      return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
-    })
-    .slice(0, 12);
-  
-  // Return both the brands and the raw response
-  return {
-    brands: brands,
-    rawResponse: aiResponse
-  };
+  // 1) Get the raw AI response with fallback
+  const { content: aiResponse, modelUsed } = await callPerplexityWithFallback([
+    { role: 'user', content: promptText }
+  ], { max_tokens: 800, temperature: 0.7 });
+
+  console.log(`[Perplexity] Response using model ${modelUsed}:`, aiResponse.substring(0, 200) + '...');
+
+  // 2) Try to extract brands; never fail the whole provider if extraction fails
+  let brands: string[] = [];
+  try {
+    const { content: extraction } = await callPerplexityWithFallback([
+      {
+        role: 'system',
+        content:
+          'Extract brand/company/product/service names mentioned in the provided text. Return only the names, one per line, no numbering, no explanations.'
+      },
+      { role: 'user', content: `Text to extract from:\n\n${aiResponse}` }
+    ], { max_tokens: 300, temperature: 0.1 });
+
+    brands = extraction
+      .split('\n')
+      .map((l: string) => l.trim())
+      .filter((line: string) => {
+        if (!line || line.length < 2) return false;
+        if (/^\d+\.?\s*$/.test(line)) return false;
+        if (line.includes('http') || line.includes('www.') || line.includes('.com')) return false;
+        if (line.toLowerCase().includes('text to extract')) return false;
+        if (line.length > 40) return false;
+        const excluded = [
+          'openai','claude','copilot','google','chatgpt','gpt','ai','artificial intelligence',
+          'microsoft','apple','facebook','meta','twitter','linkedin','instagram','youtube',
+          'amazon','aws','azure','github','stackoverflow','reddit','wikipedia','bing',
+          'search','engine','platform','tool','software','app','website','service',
+          'technology','digital','online','internet','web','cloud','data','analytics'
+        ];
+        const lower = line.toLowerCase();
+        if (excluded.some(e => lower.includes(e))) return false;
+        return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
+      })
+      .slice(0, 12);
+  } catch (extractionError) {
+    console.error('[Perplexity] Extraction failed, proceeding with empty brands:', extractionError);
+    brands = [];
+  }
+
+  return { brands, rawResponse: aiResponse };
 }
+
 
 async function generateRecommendations(orgId: string, supabase: any) {
   try {
