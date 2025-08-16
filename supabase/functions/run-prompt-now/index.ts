@@ -368,7 +368,7 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
   const extractedContent = extractData.choices[0].message.content || '';
   
   // Extract and clean brand names
-  const brands = extractedContent
+  let brands = extractedContent
     .split('\n')
     .map(line => line.trim())
     .filter(line => {
@@ -392,6 +392,15 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
       return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
     })
     .slice(0, 12);
+
+  // Keep only brands that actually appear in the AI response text (case-insensitive, punctuation-insensitive, word-boundary aware)
+  const normalizedText = aiResponse.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  brands = brands.filter((b: string) => {
+    const nb = b.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!nb) return false;
+    const pattern = new RegExp(`(?:^|\\s)${nb.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\s|$)`);
+    return pattern.test(normalizedText);
+  });
 
   // Return both the brands and the raw response
   return {
@@ -502,6 +511,15 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
         return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,35}$/.test(line);
       })
       .slice(0, 12);
+
+    // Keep only brands that actually appear in the AI response text (case-insensitive, punctuation-insensitive, word-boundary aware)
+    const normalizedText = aiResponse.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    brands = brands.filter((b: string) => {
+      const nb = b.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!nb) return false;
+      const pattern = new RegExp(`(?:^|\\s)${nb.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\s|$)`);
+      return pattern.test(normalizedText);
+    });
   } catch (extractionError) {
     console.error('[Perplexity] Extraction failed, proceeding with empty brands:', extractionError);
     brands = [];

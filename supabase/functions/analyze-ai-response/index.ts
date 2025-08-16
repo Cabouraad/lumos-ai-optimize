@@ -76,7 +76,7 @@ Do not include generic terms or categories.`
     const brandContent = brandData.choices[0].message.content || '';
     
     // Extract and clean brand names
-    const extractedBrands = brandContent
+    let extractedBrands = brandContent
       .split('\n')
       .map(line => line.trim())
       .filter(line => {
@@ -90,25 +90,30 @@ Do not include generic terms or categories.`
       })
       .slice(0, 15);
 
+    // Keep only brands that actually appear in the AI response text (case-insensitive, punctuation-insensitive, word-boundary aware)
+    const normalizedText = (response || '').toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    extractedBrands = extractedBrands.filter((b: string) => {
+      const nb = b.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!nb) return false;
+      const pattern = new RegExp(`(?:^|\\s)${nb.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\s|$)`);
+      return pattern.test(normalizedText);
+    });
+
     console.log(`Extracted brands:`, extractedBrands);
 
-    // Check for organization brand presence and position
-    let orgBrandPresent = false;
-    let orgBrandPosition: number | null = null;
+    // Check for organization brand presence and position using exact normalized match against provided orgBrands
+    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const normalizedOrgSet = new Set<string>((orgBrands || []).map((b: string) => normalize(b)).filter(Boolean));
+    const normalizedExtracted = extractedBrands.map((b: string) => normalize(b));
 
-    if (orgBrands && orgBrands.length > 0) {
-      for (let i = 0; i < extractedBrands.length; i++) {
-        const brand = extractedBrands[i].toLowerCase();
-        for (const orgBrand of orgBrands) {
-          if (brand.includes(orgBrand.toLowerCase()) || orgBrand.toLowerCase().includes(brand)) {
-            orgBrandPresent = true;
-            orgBrandPosition = i;
-            break;
-          }
-        }
-        if (orgBrandPresent) break;
+    let orgBrandPosition: number | null = null;
+    for (let i = 0; i < normalizedExtracted.length; i++) {
+      if (normalizedOrgSet.has(normalizedExtracted[i])) {
+        orgBrandPosition = i;
+        break;
       }
     }
+    const orgBrandPresent = orgBrandPosition !== null;
 
     // Calculate score
     let score = 1; // Base score
