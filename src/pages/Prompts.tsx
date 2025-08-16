@@ -68,8 +68,10 @@ export default function Prompts() {
       const responses: Record<string, Record<string, { response: string; run_at: string }>> = {};
       
       for (const prompt of promptsData) {
+        console.log(`Loading responses for prompt: ${prompt.id}`);
+        
         // Get the latest visibility results for each provider for this prompt
-        const { data: visibilityData } = await supabase
+        const { data: visibilityData, error: queryError } = await supabase
           .from('visibility_results')
           .select(`
             raw_ai_response,
@@ -86,6 +88,20 @@ export default function Prompts() {
           .eq('prompt_runs.prompt_id', prompt.id)
           .not('raw_ai_response', 'is', null)
           .order('prompt_runs.run_at', { ascending: false });
+
+        if (queryError) {
+          console.error('Query error for prompt', prompt.id, ':', queryError);
+        }
+        
+        console.log(`Found ${visibilityData?.length || 0} visibility results for prompt ${prompt.id}`);
+        visibilityData?.forEach((result: any, index: number) => {
+          console.log(`Result ${index}:`, {
+            provider: result.prompt_runs.llm_providers.name,
+            runAt: result.prompt_runs.run_at,
+            hasRawResponse: !!result.raw_ai_response,
+            responseLength: result.raw_ai_response?.length || 0
+          });
+        });
 
         if (visibilityData && visibilityData.length > 0) {
           responses[prompt.id] = {};
@@ -107,11 +123,15 @@ export default function Prompts() {
           
           // Store the latest responses
           Object.entries(providerResponsesMap).forEach(([provider, data]) => {
+            console.log(`Storing response for ${provider}:`, { hasResponse: !!data.response, responseLength: data.response?.length });
             responses[prompt.id][provider] = data;
           });
+          
+          console.log(`Final responses for prompt ${prompt.id}:`, Object.keys(responses[prompt.id]));
         }
       }
       
+      console.log('Setting provider responses:', Object.keys(responses));
       setProviderResponses(responses);
     } catch (error) {
       console.error('Error loading provider responses:', error);

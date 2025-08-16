@@ -134,14 +134,18 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
     // Run prompt against each enabled provider
     for (const provider of providersToUse) {
       try {
-        console.log(`Running prompt with provider: ${provider.name}`);
+        console.log(`Running prompt with provider: ${provider.name} (ID: ${provider.id})`);
         
-        let extractedBrands = [];
+        let extractedBrands = {};
         
         if (provider.name === 'openai' && openaiKey) {
+          console.log('Calling OpenAI API...');
           extractedBrands = await extractBrandsOpenAI(prompt.text, openaiKey);
+          console.log('OpenAI response received:', extractedBrands.rawResponse ? 'Yes' : 'No');
         } else if (provider.name === 'perplexity' && perplexityKey) {
+          console.log('Calling Perplexity API...');
           extractedBrands = await extractBrandsPerplexity(prompt.text, perplexityKey);
+          console.log('Perplexity response received:', extractedBrands.rawResponse ? 'Yes' : 'No');
         } else {
           console.warn(`No API key available for provider: ${provider.name}`);
           continue;
