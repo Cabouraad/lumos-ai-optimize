@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -16,24 +16,36 @@ export type Database = {
     Tables: {
       brand_catalog: {
         Row: {
+          average_score: number | null
+          first_detected_at: string | null
           id: string
           is_org_brand: boolean
+          last_seen_at: string | null
           name: string
           org_id: string
+          total_appearances: number | null
           variants_json: Json
         }
         Insert: {
+          average_score?: number | null
+          first_detected_at?: string | null
           id?: string
           is_org_brand?: boolean
+          last_seen_at?: string | null
           name: string
           org_id: string
+          total_appearances?: number | null
           variants_json?: Json
         }
         Update: {
+          average_score?: number | null
+          first_detected_at?: string | null
           id?: string
           is_org_brand?: boolean
+          last_seen_at?: string | null
           name?: string
           org_id?: string
+          total_appearances?: number | null
           variants_json?: Json
         }
         Relationships: [
@@ -350,7 +362,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      upsert_competitor_brand: {
+        Args: { p_brand_name: string; p_org_id: string; p_score?: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

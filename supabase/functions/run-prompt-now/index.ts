@@ -200,6 +200,22 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
         if (resultError) {
           console.error('Error inserting visibility result:', resultError);
         } else {
+          // Save competitors to permanent catalog using original brand names (not normalized)
+          const competitorBrands = brands.filter(brand => !isOrgBrand(normalize(brand), brandCatalog));
+          for (const competitorBrand of competitorBrands) {
+            try {
+              const { error: upsertError } = await supabase.rpc('upsert_competitor_brand', {
+                p_org_id: orgId,
+                p_brand_name: competitorBrand, // Use original brand name for display
+                p_score: score
+              });
+              if (upsertError) {
+                console.error('Error upserting competitor brand:', upsertError);
+              }
+            } catch (error) {
+              console.error('Error calling upsert_competitor_brand:', error);
+            }
+          }
           runsCreated++;
         }
 
