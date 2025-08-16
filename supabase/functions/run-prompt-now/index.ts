@@ -129,7 +129,9 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
     const brandCatalog = brands || [];
 
     let runsCreated = 0;
-    const providersToUse = enabledProviders.slice(0, quotas.providersPerPrompt);
+    const providersToUse = enabledProviders.filter((p: any) =>
+      (p.name === 'openai' && !!openaiKey) || (p.name === 'perplexity' && !!perplexityKey)
+    );
 
     // Run prompt against each enabled provider
     for (const provider of providersToUse) {

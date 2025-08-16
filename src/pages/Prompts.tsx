@@ -70,52 +70,53 @@ export default function Prompts() {
       for (const prompt of promptsData) {
         console.log(`Loading responses for prompt: ${prompt.id}`);
         
-        // Get the latest visibility results for each provider for this prompt
-        const { data: visibilityData, error: queryError } = await supabase
-          .from('visibility_results')
+        // Get latest runs for this prompt with raw responses via relations
+        const { data: runs, error: runsError } = await supabase
+          .from('prompt_runs')
           .select(`
-            raw_ai_response,
-            prompt_runs!inner (
-              id,
-              run_at,
-              prompt_id,
-              provider_id,
-              llm_providers!inner (
-                name
-              )
-            )
+            id,
+            run_at,
+            prompt_id,
+            llm_providers ( name ),
+            visibility_results ( raw_ai_response )
           `)
-          .eq('prompt_runs.prompt_id', prompt.id)
-          .not('raw_ai_response', 'is', null)
-          .order('prompt_runs.run_at', { ascending: false });
+          .eq('prompt_id', prompt.id)
+          .order('run_at', { ascending: false });
 
-        if (queryError) {
-          console.error('Query error for prompt', prompt.id, ':', queryError);
+        if (runsError) {
+          console.error('Runs query error for prompt', prompt.id, ':', runsError);
         }
         
-        console.log(`Found ${visibilityData?.length || 0} visibility results for prompt ${prompt.id}`);
-        visibilityData?.forEach((result: any, index: number) => {
-          console.log(`Result ${index}:`, {
-            provider: result.prompt_runs.llm_providers.name,
-            runAt: result.prompt_runs.run_at,
-            hasRawResponse: !!result.raw_ai_response,
-            responseLength: result.raw_ai_response?.length || 0
+        console.log(`Found ${runs?.length || 0} runs for prompt ${prompt.id}`);
+        runs?.forEach((run: any, index: number) => {
+          const providerName = run.llm_providers?.name;
+          const vr = Array.isArray(run.visibility_results) ? run.visibility_results[0] : run.visibility_results;
+          const raw = vr?.raw_ai_response;
+          console.log(`Run ${index}:`, {
+            provider: providerName,
+            runAt: run.run_at,
+            hasRawResponse: !!raw,
+            responseLength: raw?.length || 0
           });
         });
 
-        if (visibilityData && visibilityData.length > 0) {
+        if (runs && runs.length > 0) {
           responses[prompt.id] = {};
           
           // Get the latest response for each provider
           const providerResponsesMap: Record<string, { response: string; run_at: string }> = {};
-          visibilityData.forEach((result: any) => {
-            const providerNameRaw = result.prompt_runs.llm_providers.name;
+          runs.forEach((run: any) => {
+            const providerNameRaw = run.llm_providers?.name;
+            if (!providerNameRaw) return;
             const providerKey = typeof providerNameRaw === 'string' ? providerNameRaw.toLowerCase() : String(providerNameRaw);
-            const runAt = result.prompt_runs.run_at;
+            const runAt = run.run_at as string;
+            const vr = Array.isArray(run.visibility_results) ? run.visibility_results[0] : run.visibility_results;
+            const rawResponse = vr?.raw_ai_response as string | undefined;
+            if (!rawResponse) return;
             
             if (!providerResponsesMap[providerKey] || new Date(runAt) > new Date(providerResponsesMap[providerKey].run_at)) {
               providerResponsesMap[providerKey] = {
-                response: result.raw_ai_response,
+                response: rawResponse,
                 run_at: runAt
               };
             }
