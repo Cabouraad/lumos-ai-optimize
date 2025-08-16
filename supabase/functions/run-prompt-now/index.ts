@@ -147,8 +147,9 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
           continue;
         }
 
-        // Normalize and analyze brands
-        const brands = Array.isArray(extractedBrands) ? extractedBrands : extractedBrands.slice ? extractedBrands.slice() : [];
+        // Handle the new response format
+        const brands = extractedBrands.brands || [];
+        const rawResponse = extractedBrands.rawResponse || '';
         const normalizedBrands = brands.map(brand => normalize(brand));
         const orgBrandPresent = normalizedBrands.some(brand => isOrgBrand(brand, brandCatalog));
         const orgBrandIndex = normalizedBrands.findIndex(brand => isOrgBrand(brand, brandCatalog));
@@ -187,7 +188,7 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
             competitors_count: competitorsCount,
             brands_json: brands,
             raw_evidence: brands.join(', '),
-            raw_ai_response: extractedBrands.rawResponse || ''
+            raw_ai_response: rawResponse
           });
 
         if (resultError) {
@@ -371,9 +372,10 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
     .slice(0, 12);
 
   // Return both the brands and the raw response
-  const result = brands;
-  result.rawResponse = aiResponse;
-  return result;
+  return {
+    brands: brands,
+    rawResponse: aiResponse
+  };
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<any> {
@@ -469,9 +471,10 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
     .slice(0, 12);
   
   // Return both the brands and the raw response
-  const result = brands;
-  result.rawResponse = aiResponse;
-  return result;
+  return {
+    brands: brands,
+    rawResponse: aiResponse
+  };
 }
 
 async function generateRecommendations(orgId: string, supabase: any) {
