@@ -113,10 +113,14 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
           content: promptText
         }
       ],
-      max_tokens: 1500,
-      temperature: 0.7,
+      temperature: 0.2,
+      top_p: 0.9,
+      max_tokens: 1000,
       return_images: false,
       return_related_questions: false,
+      search_recency_filter: 'month',
+      frequency_penalty: 1,
+      presence_penalty: 0
     }),
   });
 
