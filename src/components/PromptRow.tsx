@@ -44,7 +44,6 @@ interface PromptRowProps {
   onSelect: (checked: boolean) => void;
   onExpand: () => void;
   onToggleActive: (active: boolean) => void;
-  onRunNow: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -58,7 +57,6 @@ export function PromptRow({
   onSelect,
   onExpand,
   onToggleActive,
-  onRunNow,
   onEdit,
   onDuplicate,
   onDelete,
@@ -249,18 +247,9 @@ export function PromptRow({
               />
             </div>
 
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRunNow();
-              }}
-              disabled={isRunning}
-              className="h-7 px-3 text-xs bg-primary hover:bg-primary-hover"
-            >
-              <Play className="mr-1 h-3 w-3" />
-              {isRunning ? 'Running...' : 'Run'}
-            </Button>
+            <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
+              Runs automatically at 3:00 AM ET
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -382,10 +371,9 @@ export function PromptRow({
 
                 {/* Footer actions */}
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <Button size="sm" onClick={onRunNow} disabled={isRunning} className="h-7 text-xs">
-                    <Play className="mr-1 h-3 w-3" />
-                    Run Now
-                  </Button>
+                  <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
+                    Runs automatically at 3:00 AM ET
+                  </div>
                   <Button size="sm" variant="outline" onClick={() => onToggleActive(!prompt.active)} className="h-7 text-xs">
                     {prompt.active ? 'Pause' : 'Resume'}
                   </Button>

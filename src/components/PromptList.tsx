@@ -38,8 +38,6 @@ interface PromptListProps {
   prompts: PromptData[];
   loading: boolean;
   onToggleActive: (promptId: string, active: boolean) => void;
-  onRunPrompt: (promptId: string) => void;
-  onRunMultiple: (promptIds: string[]) => void;
   onDeletePrompt: (promptId: string) => void;
   onDeleteMultiple: (promptIds: string[]) => void;
   onEditPrompt: (promptId: string) => void;
@@ -52,8 +50,6 @@ export function PromptList({
   prompts,
   loading,
   onToggleActive,
-  onRunPrompt,
-  onRunMultiple,
   onDeletePrompt,
   onDeleteMultiple,
   onEditPrompt,
@@ -164,16 +160,6 @@ export function PromptList({
     }
   };
 
-  const handleBulkRun = async () => {
-    const selectedIds = Array.from(selectedPrompts);
-    setIsRunningBulk(true);
-    try {
-      await onRunMultiple(selectedIds);
-      setSelectedPrompts(new Set());
-    } finally {
-      setIsRunningBulk(false);
-    }
-  };
 
   const handleBulkDelete = async () => {
     const selectedIds = Array.from(selectedPrompts);
@@ -327,19 +313,9 @@ export function PromptList({
                     <Pause className="mr-1 h-3 w-3" />
                     Disable
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleBulkRun}
-                    disabled={isRunningBulk}
-                    className="h-8 text-xs bg-primary hover:bg-primary-hover"
-                  >
-                    {isRunningBulk ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    ) : (
-                      <Play className="mr-1 h-3 w-3" />
-                    )}
-                    Run All
-                  </Button>
+                  <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
+                    Runs automatically at 3:00 AM ET
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
@@ -378,7 +354,7 @@ export function PromptList({
                 onSelect={(checked) => handleSelectPrompt(prompt.id, checked)}
                 onExpand={() => handleToggleExpand(prompt.id)}
                 onToggleActive={(active) => onToggleActive(prompt.id, active)}
-                onRunNow={() => onRunPrompt(prompt.id)}
+                
                 onEdit={() => onEditPrompt(prompt.id)}
                 onDuplicate={() => onDuplicatePrompt(prompt.id)}
                 onDelete={() => onDeletePrompt(prompt.id)}

@@ -115,7 +115,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">No visibility results yet. Click "Run Now" to generate data.</p>
+          <p className="text-muted-foreground">No visibility results yet. Results will appear after the next automated run at 3:00 AM ET.</p>
         </CardContent>
       </Card>
     );

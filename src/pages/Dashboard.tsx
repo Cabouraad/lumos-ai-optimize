@@ -9,6 +9,7 @@ import { ProviderLogo } from '@/components/ProviderLogo';
 import { MiniSparkline } from '@/components/MiniSparkline';
 import { QuickInsights } from '@/components/QuickInsights';
 import { RecentPromptsWidget } from '@/components/RecentPromptsWidget';
+import { SchedulerStatus } from '@/components/SchedulerStatus';
 import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Activity, AlertCircle, Eye, BarChart3, Zap, Target, Users, Clock } from 'lucide-react';
@@ -157,11 +158,16 @@ export default function Dashboard() {
           <div className="p-6">
             <div className="max-w-7xl mx-auto space-y-8">
               {/* Header */}
-              <div className="space-y-2">
-                <h1 className="text-4xl font-display font-bold text-foreground">Dashboard</h1>
-                <p className="text-lg text-muted-foreground">
-                  AI search optimization performance overview
-                </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-display font-bold text-foreground">Dashboard</h1>
+                  <p className="text-lg text-muted-foreground">
+                    AI search optimization performance overview
+                  </p>
+                </div>
+                
+                {/* Scheduler Status */}
+                <SchedulerStatus />
               </div>
 
               {/* Main Metrics Grid */}

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { getSafePromptsData } from '@/lib/prompts/safe-data';
-import { runPromptNow } from '../../lib/prompts/data';
+
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { useToast } from '@/hooks/use-toast';
 import { PromptList } from '@/components/PromptList';
@@ -149,84 +149,6 @@ export default function Prompts() {
     }
   };
 
-  const handleRunPrompt = async (promptId: string) => {
-    if (!orgData?.organizations?.id) return;
-
-    setRunningPrompts(prev => new Set(prev).add(promptId));
-
-    try {
-      await runPromptNow(promptId, orgData.organizations.id);
-      
-      toast({
-        title: "Success",
-        description: "Prompt executed successfully",
-      });
-
-      loadPromptsData();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setRunningPrompts(prev => {
-        const next = new Set(prev);
-        next.delete(promptId);
-        return next;
-      });
-    }
-  };
-
-  const handleRunMultiple = async (promptIds: string[]) => {
-    if (!orgData?.organizations?.id) return;
-
-    const activePromptIds = promptIds.filter(id => {
-      const prompt = rawPrompts.find(p => p.id === id);
-      return prompt?.active;
-    });
-
-    if (activePromptIds.length === 0) {
-      toast({
-        title: "Warning",
-        description: "No active prompts selected to run",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setRunningPrompts(new Set(activePromptIds));
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    // Run prompts sequentially to avoid rate limits
-    for (const promptId of activePromptIds) {
-      try {
-        await runPromptNow(promptId, orgData.organizations.id);
-        successCount++;
-      } catch (error) {
-        console.error(`Error running prompt ${promptId}:`, error);
-        errorCount++;
-      }
-    }
-
-    if (successCount > 0) {
-      toast({
-        title: "Batch Run Complete",
-        description: `${successCount} prompts completed successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
-      });
-    } else {
-      toast({
-        title: "Batch Run Failed",
-        description: "All selected prompts failed to execute",
-        variant: "destructive",
-      });
-    }
-
-    setRunningPrompts(new Set());
-    loadPromptsData();
-  };
 
   const handleAcceptSuggestion = async (suggestionId: string) => {
     try {
@@ -409,11 +331,26 @@ export default function Prompts() {
         <div className="p-6">
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
-            <div className="space-y-2">
-              <h1 className="text-4xl font-display font-bold text-gray-900">Prompts</h1>
-              <p className="text-lg text-gray-600">
-                Manage search prompts and discover AI-suggested improvements
-              </p>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h1 className="text-4xl font-display font-bold text-gray-900">Prompts</h1>
+                <p className="text-lg text-gray-600">
+                  Manage search prompts and discover AI-suggested improvements
+                </p>
+              </div>
+              
+              {/* Scheduler Status */}
+              <div className="max-w-md">
+                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <div className="text-sm">
+                      <div className="font-medium text-primary">Automated daily runs at 3:00 AM ET</div>
+                      <div className="text-muted-foreground text-xs mt-1">All active prompts run automatically</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <Tabs defaultValue="prompts" className="w-full">
@@ -428,8 +365,6 @@ export default function Prompts() {
                   prompts={transformedPrompts}
                   loading={loading}
                   onToggleActive={handleToggleActive}
-                  onRunPrompt={handleRunPrompt}
-                  onRunMultiple={handleRunMultiple}
                   onDeletePrompt={handleDeletePrompt}
                   onDeleteMultiple={handleDeleteMultiple}
                   onEditPrompt={handleEditPrompt}
