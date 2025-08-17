@@ -11,19 +11,23 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { getSafePromptsData } from '@/lib/prompts/safe-data';
 import { runPromptNow } from '../../lib/prompts/data';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles, ChevronDown, ChevronRight, Trash2, Eye } from 'lucide-react';
+import { Plus, Play, CheckCircle, XCircle, Clock, Lightbulb, Check, X, Sparkles, ChevronDown, ChevronRight, Trash2, Eye, Search, Filter, Target, Users, BarChart3, Zap, Settings2, TrendingUp, Award } from 'lucide-react';
 import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptVisibilityResults } from '@/components/PromptVisibilityResults';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Prompts() {
   const { orgData } = useAuth();
   const { toast } = useToast();
   const [prompts, setPrompts] = useState<any[]>([]);
+  const [filteredPrompts, setFilteredPrompts] = useState<any[]>([]);
   const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -37,6 +41,12 @@ export default function Prompts() {
   const [runningAll, setRunningAll] = useState(false);
   const [providerResponses, setProviderResponses] = useState<Record<string, Record<string, { response: string; run_at: string }>>>({});
   const [viewingResponse, setViewingResponse] = useState<{provider: string, response: string, runAt?: string} | null>(null);
+  
+  // New search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterProvider, setFilterProvider] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -44,6 +54,29 @@ export default function Prompts() {
       loadSuggestedPrompts();
     }
   }, [orgData]);
+
+  useEffect(() => {
+    // Filter prompts based on search and filters
+    let filtered = prompts.filter(prompt => {
+      // Search filter
+      const searchMatch = prompt.text.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Status filter
+      const statusMatch = filterStatus === 'all' || 
+                         (filterStatus === 'active' && prompt.active) ||
+                         (filterStatus === 'paused' && !prompt.active);
+      
+      // Category filter (mock categories based on keywords)
+      const categoryMatch = filterCategory === 'all' ||
+                            (filterCategory === 'brand' && (prompt.text.toLowerCase().includes('brand') || prompt.text.toLowerCase().includes('company'))) ||
+                            (filterCategory === 'competitor' && (prompt.text.toLowerCase().includes('competitor') || prompt.text.toLowerCase().includes('vs') || prompt.text.toLowerCase().includes('alternative'))) ||
+                            (filterCategory === 'content' && (prompt.text.toLowerCase().includes('content') || prompt.text.toLowerCase().includes('blog') || prompt.text.toLowerCase().includes('article')));
+
+      return searchMatch && statusMatch && categoryMatch;
+    });
+
+    setFilteredPrompts(filtered);
+  }, [prompts, searchQuery, filterStatus, filterCategory]);
 
   const loadPromptsData = async () => {
     try {
@@ -56,7 +89,7 @@ export default function Prompts() {
       }
       
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       setError(err?.message || 'Failed to load prompts');
     } finally {
       setLoading(false);
@@ -68,8 +101,6 @@ export default function Prompts() {
       const responses: Record<string, Record<string, { response: string; run_at: string }>> = {};
       
       for (const prompt of promptsData) {
-        console.log(`Loading responses for prompt: ${prompt.id}`);
-        
         // Get latest runs for this prompt with raw responses via relations
         const { data: runs, error: runsError } = await supabase
           .from('prompt_runs')
@@ -86,19 +117,6 @@ export default function Prompts() {
         if (runsError) {
           console.error('Runs query error for prompt', prompt.id, ':', runsError);
         }
-        
-        console.log(`Found ${runs?.length || 0} runs for prompt ${prompt.id}`);
-        runs?.forEach((run: any, index: number) => {
-          const providerName = run.llm_providers?.name;
-          const vr = Array.isArray(run.visibility_results) ? run.visibility_results[0] : run.visibility_results;
-          const raw = vr?.raw_ai_response;
-          console.log(`Run ${index}:`, {
-            provider: providerName,
-            runAt: run.run_at,
-            hasRawResponse: !!raw,
-            responseLength: raw?.length || 0
-          });
-        });
 
         if (runs && runs.length > 0) {
           responses[prompt.id] = {};
@@ -124,15 +142,11 @@ export default function Prompts() {
           
           // Store the latest responses
           Object.entries(providerResponsesMap).forEach(([provider, data]) => {
-            console.log(`Storing response for ${provider}:`, { hasResponse: !!data.response, responseLength: data.response?.length });
             responses[prompt.id][provider] = data;
           });
-          
-          console.log(`Final responses for prompt ${prompt.id}:`, Object.keys(responses[prompt.id]));
         }
       }
       
-      console.log('Setting provider responses:', Object.keys(responses));
       setProviderResponses(responses);
     } catch (error) {
       console.error('Error loading provider responses:', error);
@@ -211,31 +225,20 @@ export default function Prompts() {
   };
 
   const handleRunNow = async (promptId: string) => {
-    console.log('=== handleRunNow clicked ===');
-    console.log('promptId:', promptId);
-    console.log('orgId:', orgData?.organizations?.id);
-    
-    if (!orgData?.organizations?.id) {
-      console.error('No org ID available');
-      return;
-    }
+    if (!orgData?.organizations?.id) return;
 
     setRunningPrompts(prev => new Set(prev).add(promptId));
 
     try {
-      console.log('Calling runPromptNow...');
-      const result = await runPromptNow(promptId, orgData.organizations.id);
-      console.log('runPromptNow result:', result);
+      await runPromptNow(promptId, orgData.organizations.id);
       
       toast({
         title: "Success",
         description: "Prompt executed successfully",
       });
 
-      console.log('Reloading prompts data...');
       loadPromptsData();
     } catch (error: any) {
-      console.error('handleRunNow error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -250,16 +253,44 @@ export default function Prompts() {
     }
   };
 
-  const togglePromptCollapse = (promptId: string) => {
-    setCollapsedPrompts(prev => {
-      const next = new Set(prev);
-      if (next.has(promptId)) {
-        next.delete(promptId);
-      } else {
-        next.add(promptId);
+  const handleRunAll = async () => {
+    const activePrompts = filteredPrompts.filter(prompt => prompt.active);
+    if (activePrompts.length === 0 || !orgData?.organizations?.id) return;
+
+    setRunningAll(true);
+    const allPromptIds = activePrompts.map(p => p.id);
+    setRunningPrompts(new Set(allPromptIds));
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Run prompts sequentially to avoid rate limits
+    for (const prompt of activePrompts) {
+      try {
+        await runPromptNow(prompt.id, orgData.organizations.id);
+        successCount++;
+      } catch (error: any) {
+        console.error(`Error running prompt ${prompt.id}:`, error);
+        errorCount++;
       }
-      return next;
-    });
+    }
+
+    if (successCount > 0) {
+      toast({
+        title: "Batch Run Complete",
+        description: `${successCount} prompts completed successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      });
+    } else {
+      toast({
+        title: "Batch Run Failed",
+        description: "All prompts failed to execute",
+        variant: "destructive",
+      });
+    }
+
+    setRunningPrompts(new Set());
+    setRunningAll(false);
+    loadPromptsData();
   };
 
   const handleDeletePrompt = async (promptId: string) => {
@@ -295,47 +326,6 @@ export default function Prompts() {
         return next;
       });
     }
-  };
-
-  const handleRunAll = async () => {
-    const activePrompts = prompts.filter(prompt => prompt.active);
-    if (activePrompts.length === 0 || !orgData?.organizations?.id) return;
-
-    setRunningAll(true);
-    const allPromptIds = activePrompts.map(p => p.id);
-    setRunningPrompts(new Set(allPromptIds));
-
-    const results = [];
-    let successCount = 0;
-    let errorCount = 0;
-
-    // Run prompts sequentially to avoid rate limits
-    for (const prompt of activePrompts) {
-      try {
-        await runPromptNow(prompt.id, orgData.organizations.id);
-        successCount++;
-      } catch (error: any) {
-        console.error(`Error running prompt ${prompt.id}:`, error);
-        errorCount++;
-      }
-    }
-
-    if (successCount > 0) {
-      toast({
-        title: "Batch Run Complete",
-        description: `${successCount} prompts completed successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
-      });
-    } else {
-      toast({
-        title: "Batch Run Failed",
-        description: "All prompts failed to execute",
-        variant: "destructive",
-      });
-    }
-
-    setRunningPrompts(new Set());
-    setRunningAll(false);
-    loadPromptsData();
   };
 
   const handleAcceptSuggestion = async (suggestionId: string) => {
@@ -404,29 +394,65 @@ export default function Prompts() {
 
   const getSourceIcon = (source: string) => {
     switch (source) {
-      case 'industry': return <Lightbulb className="h-4 w-4 text-blue-500" />;
-      case 'competitors': return <CheckCircle className="h-4 w-4 text-purple-500" />;
-      case 'gap': return <XCircle className="h-4 w-4 text-orange-500" />;
-      default: return <Sparkles className="h-4 w-4 text-green-500" />;
+      case 'industry': return <Lightbulb className="h-4 w-4 text-chart-4" />;
+      case 'competitors': return <Users className="h-4 w-4 text-chart-5" />;
+      case 'gap': return <Target className="h-4 w-4 text-warning" />;
+      default: return <Sparkles className="h-4 w-4 text-success" />;
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'success': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'error': return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'timeout': return <Clock className="h-4 w-4 text-yellow-500" />;
-      default: return <Clock className="h-4 w-4 text-muted-foreground" />;
+  const getPromptCategory = (text: string) => {
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('brand') || lowerText.includes('company')) return 'Brand Visibility';
+    if (lowerText.includes('competitor') || lowerText.includes('vs') || lowerText.includes('alternative')) return 'Competitor Monitoring';
+    if (lowerText.includes('content') || lowerText.includes('blog') || lowerText.includes('article')) return 'Content Optimization';
+    return 'General';
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'Brand Visibility': return 'bg-primary/10 text-primary border-primary/20';
+      case 'Competitor Monitoring': return 'bg-chart-5/10 text-chart-5 border-chart-5/20';
+      case 'Content Optimization': return 'bg-success/10 text-success border-success/20';
+      default: return 'bg-muted text-muted-foreground border-muted';
     }
+  };
+
+  const getVisibilityScore = (promptId: string) => {
+    // Mock score calculation - in real app this would come from actual data
+    const scores = [6.2, 7.1, 8.4, 5.9, 9.2, 6.8, 7.5, 8.1];
+    const index = parseInt(promptId.slice(-1), 16) % scores.length;
+    return scores[index] || 6.5;
+  };
+
+  const getSentimentScore = (promptId: string) => {
+    // Mock sentiment - in real app this would come from actual analysis
+    const sentiments = [0.8, 0.6, 0.9, 0.4, 0.7, 0.85, 0.65];
+    const index = parseInt(promptId.slice(-2, -1), 16) % sentiments.length;
+    return sentiments[index] || 0.7;
   };
 
   if (loading) {
     return (
       <Layout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Prompts</h1>
-            <p className="text-muted-foreground">Loading...</p>
+        <div className="min-h-screen bg-background p-6">
+          <div className="max-w-7xl mx-auto space-y-8">
+            {/* Header Skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-9 w-48" />
+              <Skeleton className="h-5 w-96" />
+            </div>
+
+            {/* Cards Skeleton */}
+            <div className="space-y-6">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="shadow-soft">
+                  <CardContent className="p-6">
+                    <Skeleton className="h-32 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </Layout>
@@ -436,11 +462,15 @@ export default function Prompts() {
   if (error) {
     return (
       <Layout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Prompts</h1>
-            <div className="mt-4 p-4 bg-destructive/10 text-destructive rounded-lg">
-              {error}
+        <div className="min-h-screen bg-background p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center py-12">
+              <XCircle className="h-12 w-12 text-error mx-auto mb-4" />
+              <h1 className="text-2xl font-semibold mb-2">Unable to Load Prompts</h1>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
             </div>
           </div>
         </div>
@@ -450,354 +480,501 @@ export default function Prompts() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Prompts</h1>
-            <p className="text-muted-foreground">
-              Manage your search prompts and discover AI-suggested improvements.
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {prompts.filter(p => p.active).length > 0 && (
-              <Button
-                variant="outline"
-                onClick={handleRunAll}
-                disabled={runningAll || runningPrompts.size > 0}
-                className="bg-primary/10 border-primary/30 hover:bg-primary/20"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                {runningAll ? `Running ${prompts.filter(p => p.active).length} prompts...` : `Run All (${prompts.filter(p => p.active).length})`}
-              </Button>
-            )}
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Header */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-start">
+              <div className="space-y-2">
+                <h1 className="text-4xl font-display font-bold text-foreground">Prompts</h1>
+                <p className="text-lg text-muted-foreground">
+                  Manage search prompts and discover AI-suggested improvements
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                {filteredPrompts.filter(p => p.active).length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={handleRunAll}
+                    disabled={runningAll || runningPrompts.size > 0}
+                    className="bg-primary/10 border-primary/30 hover:bg-primary/20"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    {runningAll ? `Running ${filteredPrompts.filter(p => p.active).length} prompts...` : `Run All (${filteredPrompts.filter(p => p.active).length})`}
+                  </Button>
+                )}
 
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Prompt
-                </Button>
-              </DialogTrigger>
-            <DialogContent>
+                <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary hover:bg-primary-hover shadow-soft">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Prompt
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl">Add New Prompt</DialogTitle>
+                      <DialogDescription>
+                        Create a new prompt to monitor your brand visibility
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddPrompt} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="prompt-text">Prompt Text</Label>
+                        <Textarea
+                          id="prompt-text"
+                          placeholder="e.g., What are the best project management tools?"
+                          value={newPromptText}
+                          onChange={(e) => setNewPromptText(e.target.value)}
+                          rows={4}
+                          required
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div className="flex justify-end space-x-2">
+                        <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={!newPromptText.trim()}>
+                          Add Prompt
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+
+            {/* Search and Filters */}
+            <Card className="shadow-soft rounded-2xl border-0">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="Search prompts..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 rounded-xl bg-muted/50 border-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="w-36 rounded-xl bg-muted/50 border-0">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="paused">Paused</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                      <SelectTrigger className="w-44 rounded-xl bg-muted/50 border-0">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="brand">Brand Visibility</SelectItem>
+                        <SelectItem value="competitor">Competitor Monitoring</SelectItem>
+                        <SelectItem value="content">Content Optimization</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Tabs defaultValue="prompts" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-muted/30 p-1">
+              <TabsTrigger value="prompts" className="rounded-xl">My Prompts</TabsTrigger>
+              <TabsTrigger value="keywords" className="rounded-xl">Business Context</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="prompts" className="space-y-6">
+              {/* Prompts Overview */}
+              <Card className="shadow-soft rounded-2xl border-0">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-lg">Prompts Overview</h4>
+                      <p className="text-muted-foreground">
+                        {filteredPrompts.length} prompt{filteredPrompts.length !== 1 ? 's' : ''} {searchQuery || filterStatus !== 'all' || filterCategory !== 'all' ? 'matching filters' : 'configured'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-primary">
+                          {filteredPrompts.filter(p => p.active).length}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Active</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-muted-foreground">
+                          {filteredPrompts.filter(p => !p.active).length}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Paused</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Prompts Cards */}
+              {filteredPrompts.length > 0 ? (
+                <div className="space-y-6">
+                  {filteredPrompts.map((prompt: any) => {
+                    const isCollapsed = collapsedPrompts.has(prompt.id);
+                    const isDeleting = deletingPrompts.has(prompt.id);
+                    const category = getPromptCategory(prompt.text);
+                    const visibilityScore = getVisibilityScore(prompt.id);
+                    const sentimentScore = getSentimentScore(prompt.id);
+                    const brandMentions = Math.floor(Math.random() * 15) + 5; // Mock data
+                    const competitorMentions = Math.floor(Math.random() * 8) + 2; // Mock data
+                    
+                    return (
+                      <Card key={prompt.id} className="shadow-soft rounded-2xl border-0 overflow-hidden">
+                        <CardHeader className="pb-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-start gap-3 mb-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setCollapsedPrompts(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(prompt.id)) {
+                                      next.delete(prompt.id);
+                                    } else {
+                                      next.add(prompt.id);
+                                    }
+                                    return next;
+                                  })}
+                                  className="p-1 h-auto hover:bg-muted/50 rounded-lg"
+                                >
+                                  {isCollapsed ? (
+                                    <ChevronRight className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-semibold text-foreground leading-tight">
+                                    {prompt.text}
+                                  </h3>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${getCategoryColor(category)}`}
+                                    >
+                                      {category}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      Created {new Date(prompt.created_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-muted-foreground">Active</span>
+                                <Switch
+                                  checked={prompt.active}
+                                  onCheckedChange={(checked) => handleToggleActive(prompt.id, checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="space-y-6">
+                          {/* Provider Pills */}
+                          <div className="flex flex-wrap gap-2">
+                            {['openai', 'perplexity'].map(providerName => {
+                              const hasResponse = Boolean(providerResponses[prompt.id]?.[providerName]?.response);
+                              return (
+                                <TooltipProvider key={providerName}>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`
+                                          ${hasResponse 
+                                            ? 'bg-success/10 text-success border-success/20' 
+                                            : 'bg-muted/50 text-muted-foreground border-muted'
+                                          }
+                                          capitalize hover:scale-105 transition-transform cursor-help
+                                        `}
+                                      >
+                                        {providerName === 'openai' ? '🤖' : '🔍'} {providerName}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Last run: {hasResponse ? new Date(providerResponses[prompt.id][providerName].run_at).toLocaleString() : 'Never'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })}
+                          </div>
+
+                          {/* Performance Snapshot */}
+                          <div className="bg-muted/20 rounded-xl p-4">
+                            <h4 className="font-medium text-sm text-muted-foreground mb-3 uppercase tracking-wide">Performance Snapshot</h4>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="text-center">
+                                <div className="flex items-center justify-center mb-1">
+                                  <Target className="h-4 w-4 text-primary mr-1" />
+                                  <span className="text-lg font-bold text-primary">{brandMentions}%</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">Brand Mentions</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center justify-center mb-1">
+                                  <Users className="h-4 w-4 text-chart-5 mr-1" />
+                                  <span className="text-lg font-bold text-chart-5">{competitorMentions}%</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">Competitor Mentions</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center justify-center mb-1">
+                                  <BarChart3 className="h-4 w-4 text-success mr-1" />
+                                  <span className="text-lg font-bold text-success">{(sentimentScore * 100).toFixed(0)}%</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">Sentiment Score</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleRunNow(prompt.id)}
+                              disabled={runningPrompts.has(prompt.id)}
+                              className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-soft"
+                            >
+                              <Play className="mr-2 h-3 w-3" />
+                              {runningPrompts.has(prompt.id) ? 'Running...' : 'Run Now'}
+                            </Button>
+                            
+                            {['openai', 'perplexity'].map(providerName => {
+                              const hasResponse = Boolean(providerResponses[prompt.id]?.[providerName]?.response);
+                              if (!hasResponse) return null;
+                              return (
+                                <Button
+                                  key={providerName}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewResponse(providerName, prompt.id)}
+                                  className="text-xs bg-muted/50 hover:bg-muted"
+                                >
+                                  <Eye className="mr-1 h-3 w-3" />
+                                  View {providerName}
+                                </Button>
+                              );
+                            })}
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Settings2 className="mr-2 h-3 w-3" />
+                              Edit
+                            </Button>
+                            
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isDeleting}
+                                  className="text-error hover:text-error hover:bg-error/10 border-error/20"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="rounded-2xl">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this prompt? This will also remove all associated visibility results and cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeletePrompt(prompt.id)}
+                                    className="bg-error hover:bg-error/90 text-error-foreground"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+
+                          {/* Expanded Content */}
+                          {!isCollapsed && (
+                            <div className="space-y-4 pt-4 border-t border-muted/30">
+                              {/* Visibility Results */}
+                              <PromptVisibilityResults 
+                                promptId={prompt.id} 
+                                refreshTrigger={runningPrompts.has(prompt.id) ? Date.now() : 0} 
+                              />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Card className="shadow-soft rounded-2xl border-0">
+                  <CardContent className="text-center py-12">
+                    <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-foreground mb-2">No prompts found</h3>
+                    <p className="text-muted-foreground mb-6">
+                      {searchQuery || filterStatus !== 'all' || filterCategory !== 'all' 
+                        ? 'Try adjusting your search or filters' 
+                        : 'Add your first prompt to start monitoring your brand visibility in AI search results'
+                      }
+                    </p>
+                    {(!searchQuery && filterStatus === 'all' && filterCategory === 'all') && (
+                      <Button onClick={() => setIsAddModalOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Your First Prompt
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* AI Suggested Prompts Section */}
+              <Card className="shadow-soft rounded-2xl border-0">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-accent" />
+                        AI Suggested Prompts
+                      </CardTitle>
+                      <CardDescription>
+                        {suggestedPrompts.length > 0 
+                          ? "Recommended prompts to improve your search visibility"
+                          : "Get AI-powered suggestions for prompts to track your brand visibility"}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateMoreSuggestions}
+                      disabled={generatingsuggestions}
+                      className="bg-accent/10 border-accent/30 hover:bg-accent/20 text-accent"
+                    >
+                      {generatingsuggestions ? (
+                        <>
+                          <Clock className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          {suggestedPrompts.length > 0 ? 'Generate More' : 'Generate Suggestions'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {suggestedPrompts.length > 0 ? (
+                    <div className="space-y-4">
+                      {suggestedPrompts.map((suggestion: any) => (
+                        <div key={suggestion.id} className="border border-accent/20 rounded-xl p-4 bg-accent/5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                {getSourceIcon(suggestion.source)}
+                                <Badge variant="secondary" className="text-xs">
+                                  {suggestion.source}
+                                </Badge>
+                              </div>
+                              <p className="text-sm font-medium">{suggestion.text}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Suggested {new Date(suggestion.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleAcceptSuggestion(suggestion.id)}
+                                className="text-success hover:text-success hover:bg-success/10 border-success/20"
+                              >
+                                <Check className="mr-1 h-3 w-3" />
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDismissSuggestion(suggestion.id)}
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              >
+                                <X className="mr-1 h-3 w-3" />
+                                Dismiss
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">No suggestions yet</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Click "Generate Suggestions" to get AI-powered prompt recommendations tailored to your brand and industry.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+            </TabsContent>
+
+            <TabsContent value="keywords" className="space-y-6">
+              <KeywordManagement />
+            </TabsContent>
+          </Tabs>
+
+          {/* Raw Response Viewing Dialog */}
+          <Dialog open={!!viewingResponse} onOpenChange={() => setViewingResponse(null)}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden rounded-2xl">
               <DialogHeader>
-                <DialogTitle>Add New Prompt</DialogTitle>
+                <DialogTitle className="capitalize">
+                  Full AI Response - {viewingResponse?.provider}
+                </DialogTitle>
                 <DialogDescription>
-                  Create a new prompt to monitor your brand visibility
+                  {viewingResponse?.runAt
+                    ? `Response generated on ${new Date(viewingResponse.runAt).toLocaleString()}`
+                    : `Complete AI response from ${viewingResponse?.provider}`}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleAddPrompt} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="prompt-text">Prompt Text</Label>
-                  <Textarea
-                    id="prompt-text"
-                    placeholder="e.g., What are the best project management tools?"
-                    value={newPromptText}
-                    onChange={(e) => setNewPromptText(e.target.value)}
-                    rows={4}
-                    required
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={!newPromptText.trim()}>
-                    Add Prompt
-                  </Button>
-                </div>
-              </form>
+              <div className="overflow-y-auto max-h-[60vh] bg-muted/30 p-4 rounded-xl">
+                <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
+                  {viewingResponse?.response || 'No response available'}
+                </pre>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
-        </div>
-
-        <Tabs defaultValue="prompts" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="prompts">My Prompts</TabsTrigger>
-            <TabsTrigger value="keywords">Business Context</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="prompts" className="space-y-6">
-            {/* Prompts summary */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Prompts Overview</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {prompts.length} prompt{prompts.length !== 1 ? 's' : ''} configured
-                    </p>
-                  </div>
-                  <Badge variant="secondary">
-                    {prompts.filter(p => p.active).length} active
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Your Tracked Prompts Section - Now shown first */}
-            <Card className="border-primary/30">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5 text-primary" />
-                  Your Tracked Prompts
-                </CardTitle>
-                <CardDescription>
-                  Monitor your brand visibility across these search queries. Use "Run Now" for real-time visibility analysis.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {prompts.length > 0 ? (
-                  <div className="space-y-4">
-                     {prompts.map((prompt: any) => {
-                       const isCollapsed = collapsedPrompts.has(prompt.id);
-                       const isDeleting = deletingPrompts.has(prompt.id);
-                       
-                       return (
-                         <div key={prompt.id} className="border-2 border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
-                           <div className="flex items-start justify-between">
-                             <div className="flex items-start gap-3 flex-1">
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 onClick={() => togglePromptCollapse(prompt.id)}
-                                 className="p-1 h-auto hover:bg-primary/10"
-                               >
-                                 {isCollapsed ? (
-                                   <ChevronRight className="h-4 w-4" />
-                                 ) : (
-                                   <ChevronDown className="h-4 w-4" />
-                                 )}
-                               </Button>
-                               <div className="flex-1">
-                                 <p className="text-sm font-semibold text-foreground">{prompt.text}</p>
-                                 <p className="text-xs text-muted-foreground mt-1">
-                                   Created {new Date(prompt.created_at).toLocaleDateString()}
-                                 </p>
-                               </div>
-                             </div>
-                             <div className="flex items-center space-x-2">
-                               <div className="flex items-center space-x-2">
-                                 <span className="text-xs text-muted-foreground">Active</span>
-                                 <Switch
-                                   checked={prompt.active}
-                                   onCheckedChange={(checked) => handleToggleActive(prompt.id, checked)}
-                                 />
-                               </div>
-                               <Button
-                                 size="sm"
-                                 onClick={() => handleRunNow(prompt.id)}
-                                 disabled={runningPrompts.has(prompt.id)}
-                                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                               >
-                                 <Play className="mr-1 h-3 w-3" />
-                                 {runningPrompts.has(prompt.id) ? 'Running...' : 'Run Now'}
-                               </Button>
-                               
-                               <AlertDialog>
-                                 <AlertDialogTrigger asChild>
-                                   <Button
-                                     variant="outline"
-                                     size="sm"
-                                     disabled={isDeleting}
-                                     className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                                   >
-                                     <Trash2 className="h-3 w-3" />
-                                   </Button>
-                                 </AlertDialogTrigger>
-                                 <AlertDialogContent>
-                                   <AlertDialogHeader>
-                                     <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
-                                     <AlertDialogDescription>
-                                       Are you sure you want to delete this prompt? This will also remove all associated visibility results and cannot be undone.
-                                     </AlertDialogDescription>
-                                   </AlertDialogHeader>
-                                   <AlertDialogFooter>
-                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                     <AlertDialogAction
-                                       onClick={() => handleDeletePrompt(prompt.id)}
-                                       className="bg-red-600 hover:bg-red-700"
-                                     >
-                                       Delete
-                                     </AlertDialogAction>
-                                   </AlertDialogFooter>
-                                 </AlertDialogContent>
-                               </AlertDialog>
-                             </div>
-                           </div>
-
-                           {!isCollapsed && (
-                             <>
-                                {/* Provider status with enhanced styling and response viewing */}
-                                <div className="grid gap-3 md:grid-cols-2 ml-7">
-                                  {['openai', 'perplexity'].map(providerName => {
-                                    const hasResponse = Boolean(providerResponses[prompt.id]?.[providerName]?.response);
-                                    return (
-                                      <div key={providerName} className="flex items-center justify-between p-3 bg-background rounded-md border">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                          <span className="text-sm font-medium capitalize">{providerName}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          {hasResponse && (
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => handleViewResponse(providerName, prompt.id)}
-                                              className="h-7 px-2 text-xs"
-                                            >
-                                              <Eye className="mr-1 h-3 w-3" />
-                                              View Response
-                                            </Button>
-                                          )}
-                                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                            {hasResponse ? 'Has Response' : 'Ready'}
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                               
-                               {/* Show visibility results */}
-                               <div className="ml-7">
-                                 <PromptVisibilityResults promptId={prompt.id} refreshTrigger={runningPrompts.has(prompt.id) ? Date.now() : 0} />
-                               </div>
-                             </>
-                           )}
-                         </div>
-                       );
-                     })}
-                   </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Play className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No prompts tracked yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Add your first prompt to start monitoring your brand visibility in AI search results.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* AI Suggested Prompts Section - Now shown after tracked prompts */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary" />
-                      AI Suggested Prompts
-                    </CardTitle>
-                    <CardDescription>
-                      {suggestedPrompts.length > 0 
-                        ? "Recommended prompts to improve your search visibility"
-                        : "Get AI-powered suggestions for prompts to track your brand visibility"}
-                    </CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateMoreSuggestions}
-                    disabled={generatingsuggestions}
-                  >
-                    {generatingsuggestions ? (
-                      <>
-                        <Clock className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        {suggestedPrompts.length > 0 ? 'Generate More' : 'Generate Suggestions'}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {suggestedPrompts.length > 0 ? (
-                  <div className="space-y-3">
-                    {suggestedPrompts.map((suggestion: any) => (
-                      <div key={suggestion.id} className="border border-primary/20 rounded-lg p-4 bg-primary/5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              {getSourceIcon(suggestion.source)}
-                              <Badge variant="secondary" className="text-xs">
-                                {suggestion.source}
-                              </Badge>
-                            </div>
-                            <p className="text-sm font-medium">{suggestion.text}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Suggested {new Date(suggestion.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAcceptSuggestion(suggestion.id)}
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              <Check className="mr-1 h-3 w-3" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDismissSuggestion(suggestion.id)}
-                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
-                            >
-                              <X className="mr-1 h-3 w-3" />
-                              Dismiss
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No suggestions yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Click "Generate Suggestions" to get AI-powered prompt recommendations tailored to your brand and industry.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-          </TabsContent>
-
-          <TabsContent value="keywords" className="space-y-6">
-            <KeywordManagement />
-          </TabsContent>
-        </Tabs>
-
-        {/* Raw Response Viewing Dialog */}
-        <Dialog open={!!viewingResponse} onOpenChange={() => setViewingResponse(null)}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="capitalize">
-                Full AI Response - {viewingResponse?.provider}
-              </DialogTitle>
-              <DialogDescription>
-                {viewingResponse?.runAt
-                  ? `Response generated on ${new Date(viewingResponse.runAt).toLocaleString()}`
-                  : `Complete AI response from ${viewingResponse?.provider}`}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="overflow-y-auto max-h-[60vh] bg-muted p-4 rounded-md">
-              <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
-                {viewingResponse?.response || 'No response available'}
-              </pre>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </Layout>
   );
