@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { extractArtifacts, createBrandGazetteer } from './extractArtifacts.ts';
 
 // Brand normalization functions
 function normalize(brand: string): string {
@@ -49,15 +50,15 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
       messages: [
         {
           role: 'system',
-          content: `Extract brand/company names from AI responses. Return only a JSON array of strings, no other text. Example: ["Brand1", "Brand2"]`
+          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively and naturally. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned in your answer.'
         },
         {
           role: 'user', 
           content: promptText
         }
       ],
-      max_tokens: 150,
-      temperature: 0.1
+      max_tokens: 1500,
+      temperature: 0.7
     }),
   });
 
@@ -66,18 +67,31 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
   }
 
   const data = await response.json();
-  const content = data.choices[0]?.message?.content || '[]';
+  const content = data.choices[0]?.message?.content || '';
   
-  try {
-    const brands = JSON.parse(content);
-    return {
-      brands: Array.isArray(brands) ? brands : [],
-      tokenIn: data.usage?.prompt_tokens || 0,
-      tokenOut: data.usage?.completion_tokens || 0,
-    };
-  } catch (e) {
-    return { brands: [], tokenIn: 0, tokenOut: 0 };
+  // Try to extract JSON from the end of the response
+  const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
+  let brands: string[] = [];
+  
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+    } catch {
+      // If JSON parsing fails, extract brands from text content
+      brands = extractBrandsFromText(content);
+    }
+  } else {
+    // No JSON found, extract from text
+    brands = extractBrandsFromText(content);
   }
+  
+  return {
+    brands,
+    responseText: content,
+    tokenIn: data.usage?.prompt_tokens || 0,
+    tokenOut: data.usage?.completion_tokens || 0,
+  };
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string) {
@@ -92,15 +106,17 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
       messages: [
         {
           role: 'system',
-          content: `Extract brand/company names from AI responses. Return only a JSON array of strings, no other text. Example: ["Brand1", "Brand2"]`
+          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively with web search. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
         },
         {
           role: 'user',
           content: promptText
         }
       ],
-      max_tokens: 150,
-      temperature: 0.1
+      max_tokens: 1500,
+      temperature: 0.7,
+      return_images: false,
+      return_related_questions: false,
     }),
   });
 
@@ -109,18 +125,63 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
   }
 
   const data = await response.json();
-  const content = data.choices[0]?.message?.content || '[]';
+  const content = data.choices[0]?.message?.content || '';
   
-  try {
-    const brands = JSON.parse(content);
-    return {
-      brands: Array.isArray(brands) ? brands : [],
-      tokenIn: data.usage?.prompt_tokens || 0,
-      tokenOut: data.usage?.completion_tokens || 0,
-    };
-  } catch (e) {
-    return { brands: [], tokenIn: 0, tokenOut: 0 };
+  // Try to extract JSON from the end of the response
+  const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
+  let brands: string[] = [];
+  
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+    } catch {
+      // If JSON parsing fails, extract brands from text content
+      brands = extractBrandsFromText(content);
+    }
+  } else {
+    // No JSON found, extract from text
+    brands = extractBrandsFromText(content);
   }
+  
+  return {
+    brands,
+    responseText: content,
+    tokenIn: data.usage?.prompt_tokens || 0,
+    tokenOut: data.usage?.completion_tokens || 0,
+  };
+}
+
+// Fallback brand extraction from text content
+function extractBrandsFromText(text: string): string[] {
+  const brandPatterns = [
+    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, // Two-word brands like "Google Cloud"
+    /\b[A-Z][a-z]{2,}\b/g, // Single capitalized words like "Apple"
+  ];
+  
+  const brands = new Set<string>();
+  
+  for (const pattern of brandPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        if (!isCommonWord(match)) {
+          brands.add(match);
+        }
+      });
+    }
+  }
+  
+  return Array.from(brands);
+}
+
+function isCommonWord(word: string): boolean {
+  const commonWords = [
+    'The', 'This', 'That', 'Here', 'There', 'When', 'Where', 'What', 'How',
+    'Some', 'Many', 'Most', 'All', 'Best', 'Good', 'Better', 'Great',
+    'First', 'Last', 'Next', 'New', 'Old', 'Other', 'Another'
+  ];
+  return commonWords.includes(word);
 }
 
 // Quota configurations
@@ -184,6 +245,10 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
         console.log(`Processing org: ${org.name}`);
         
         const quotas = getQuotasForTier(org.plan_tier);
+        
+        // Create brand gazetteer and user brand norms for artifact extraction
+        const brandGazetteer = createBrandGazetteer(org.brand_catalog);
+        const userBrandNorms = org.brand_catalog.map((brand: any) => normalize(brand.name));
         
         // Get active prompts for this organization
         const { data: prompts } = await supabase
@@ -254,7 +319,10 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                         status: 'success',
                         token_in: 0,
                         token_out: 0,
-                        cost_est: 0
+                        cost_est: 0,
+                        citations: [],
+                        brands: [],
+                        competitors: []
                       })
                       .select()
                       .single();
@@ -289,7 +357,10 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                 continue; // Skip if no API key
               }
 
-              // Normalize and analyze brands
+              // Extract structured artifacts from the full response
+              const artifacts = extractArtifacts(extraction.responseText || '', userBrandNorms, brandGazetteer);
+
+              // Normalize and analyze brands (keep existing logic for compatibility)
               const normalizedBrands = extraction.brands.map(normalize);
               const orgBrands = normalizedBrands.filter(brand => 
                 isOrgBrand(brand, org.brand_catalog)
@@ -303,7 +374,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
               const competitorsCount = normalizedBrands.length - orgBrands.length;
               const score = computeScore(orgPresent, orgBrandIdx, competitorsCount);
 
-              // Insert prompt_runs
+              // Insert prompt_runs with structured artifacts
               const { data: newRun } = await supabase
                 .from('prompt_runs')
                 .insert({
@@ -312,13 +383,16 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                   status: 'success',
                   token_in: extraction.tokenIn,
                   token_out: extraction.tokenOut,
-                  cost_est: 0
+                  cost_est: 0,
+                  citations: artifacts.citations,
+                  brands: artifacts.brands,
+                  competitors: artifacts.competitors
                 })
                 .select()
                 .single();
 
               if (newRun) {
-                // Insert visibility_results
+                // Insert visibility_results (keep existing structure for compatibility)
                 await supabase
                   .from('visibility_results')
                   .insert({
@@ -327,8 +401,14 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                     org_brand_prominence: orgBrandIdx ?? 0,
                     brands_json: extraction.brands,
                     competitors_count: competitorsCount,
-                    raw_evidence: JSON.stringify({ normalized: normalizedBrands, orgMatches: orgBrands }),
-                    score: score
+                    raw_evidence: JSON.stringify({ 
+                      normalized: normalizedBrands, 
+                      orgMatches: orgBrands,
+                      fullResponse: extraction.responseText || '',
+                      artifacts: artifacts 
+                    }),
+                    score: score,
+                    raw_ai_response: extraction.responseText || ''
                   });
                 
                 successfulRuns++;
@@ -341,7 +421,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
             } catch (providerError) {
               console.error(`Provider ${provider.name} error for prompt ${prompt.id}:`, providerError);
               
-              // Log failed run
+              // Log failed run with empty artifacts
               await supabase
                 .from('prompt_runs')
                 .insert({
@@ -350,7 +430,10 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                   status: 'error',
                   token_in: 0,
                   token_out: 0,
-                  cost_est: 0
+                  cost_est: 0,
+                  citations: [],
+                  brands: [],
+                  competitors: []
                 });
             }
           }

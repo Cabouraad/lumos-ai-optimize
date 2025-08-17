@@ -8,6 +8,7 @@ import { computeScore } from '../scoring/visibility';
 import { extractBrands as extractBrandsOpenAI } from '../providers/openai';
 import { extractBrands as extractBrandsPerplexity } from '../providers/perplexity';
 import { getQuotasForTier } from '../tiers/quotas';
+import { extractArtifacts, createBrandGazetteer } from './extractArtifacts';
 
 export interface RunPromptResult {
   success: boolean;
@@ -62,6 +63,10 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
     const quotas = getQuotasForTier(org.plan_tier);
     let runsCreated = 0;
 
+    // Create brand gazetteer and user brand norms for artifact extraction
+    const brandGazetteer = createBrandGazetteer(brandCatalog);
+    const userBrandNorms = brandCatalog.map(brand => normalize(brand.name));
+
     // Check today's runs to respect quotas
     const today = new Date().toISOString().split('T')[0];
     const { data: todayRuns } = await supabase
@@ -108,7 +113,10 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
                   status: 'success',
                   token_in: 0,
                   token_out: 0,
-                  cost_est: 0
+                  cost_est: 0,
+                  citations: [],
+                  brands: [],
+                  competitors: []
                 })
                 .select()
                 .single();
@@ -142,7 +150,10 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
           continue; // Skip if no API key
         }
 
-        // Normalize and analyze brands
+        // Extract structured artifacts from the full response
+        const artifacts = extractArtifacts(extraction.responseText, userBrandNorms, brandGazetteer);
+
+        // Normalize and analyze brands (keep existing logic for compatibility)
         const normalizedBrands = extraction.brands.map(normalize);
         const orgBrands = normalizedBrands.filter(brand => 
           isOrgBrand(brand, brandCatalog)
@@ -156,7 +167,7 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
         const competitorsCount = normalizedBrands.length - orgBrands.length;
         const score = computeScore(orgPresent, orgBrandIdx, competitorsCount);
 
-        // Insert prompt_runs
+        // Insert prompt_runs with structured artifacts
         const { data: newRun } = await supabase
           .from('prompt_runs')
           .insert({
@@ -165,13 +176,16 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
             status: 'success',
             token_in: extraction.tokenIn,
             token_out: extraction.tokenOut,
-            cost_est: 0 // Will be calculated based on tier costs later
+            cost_est: 0, // Will be calculated based on tier costs later
+            citations: artifacts.citations,
+            brands: artifacts.brands,
+            competitors: artifacts.competitors
           })
           .select()
           .single();
 
         if (newRun) {
-          // Insert visibility_results
+          // Insert visibility_results (keep existing structure for compatibility)
           await supabase
             .from('visibility_results')
             .insert({
@@ -180,8 +194,14 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
               org_brand_prominence: orgBrandIdx ?? 0,
               brands_json: extraction.brands,
               competitors_count: competitorsCount,
-              raw_evidence: JSON.stringify({ normalized: normalizedBrands, orgMatches: orgBrands }),
-              score: score
+              raw_evidence: JSON.stringify({ 
+                normalized: normalizedBrands, 
+                orgMatches: orgBrands,
+                fullResponse: extraction.responseText,
+                artifacts: artifacts 
+              }),
+              score: score,
+              raw_ai_response: extraction.responseText
             });
           
           runsCreated++;
@@ -199,7 +219,10 @@ export async function runPrompt(promptId: string, orgId: string, openaiKey?: str
             status: 'error',
             token_in: 0,
             token_out: 0,
-            cost_est: 0
+            cost_est: 0,
+            citations: [],
+            brands: [],
+            competitors: []
           });
       }
     }
