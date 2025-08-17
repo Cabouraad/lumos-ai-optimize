@@ -13,6 +13,7 @@ import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSugge
 import { useToast } from '@/hooks/use-toast';
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
+import { AIPromptSuggestions } from '@/components/AIPromptSuggestions';
 import { AlertCircle } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
@@ -52,12 +53,30 @@ export default function Prompts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
   const [runningPrompts, setRunningPrompts] = useState<Set<string>>(new Set());
+  
+  // AI Suggestions state
+  const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
       loadPromptsData();
+      loadSuggestedPrompts();
     }
   }, [orgData]);
+
+  const loadSuggestedPrompts = async () => {
+    try {
+      setSuggestionsLoading(true);
+      const data = await getSuggestedPrompts();
+      setSuggestedPrompts(data);
+    } catch (err) {
+      console.error('Failed to load suggested prompts:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
 
   const loadPromptsData = async () => {
     try {
@@ -209,6 +228,70 @@ export default function Prompts() {
     loadPromptsData();
   };
 
+  const handleAcceptSuggestion = async (suggestionId: string) => {
+    try {
+      await acceptSuggestion(suggestionId);
+      toast({
+        title: "Success",
+        description: "Suggestion accepted and added as prompt",
+      });
+      loadPromptsData();
+      loadSuggestedPrompts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDismissSuggestion = async (suggestionId: string) => {
+    try {
+      await dismissSuggestion(suggestionId);
+      toast({
+        title: "Success",
+        description: "Suggestion dismissed",
+      });
+      loadSuggestedPrompts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateMoreSuggestions = async () => {
+    try {
+      setGeneratingSuggestions(true);
+      const result = await generateSuggestionsNow();
+      
+      if (result.suggestionsCreated === 0) {
+        toast({
+          title: "Info",
+          description: result.message || "No new suggestions to add - all current suggestions already exist",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `${result.suggestionsCreated} new suggestions generated`,
+        });
+      }
+      
+      loadSuggestedPrompts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingSuggestions(false);
+    }
+  };
+
   const handleDeletePrompt = async (promptId: string) => {
     if (!orgData?.organizations?.id) return;
 
@@ -334,8 +417,9 @@ export default function Prompts() {
             </div>
 
             <Tabs defaultValue="prompts" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-white shadow-soft p-1 border border-gray-100">
+              <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-white shadow-soft p-1 border border-gray-100">
                 <TabsTrigger value="prompts" className="rounded-xl">My Prompts</TabsTrigger>
+                <TabsTrigger value="suggestions" className="rounded-xl">AI Suggestions</TabsTrigger>
                 <TabsTrigger value="keywords" className="rounded-xl">Business Context</TabsTrigger>
               </TabsList>
               
@@ -352,6 +436,17 @@ export default function Prompts() {
                   onDuplicatePrompt={handleDuplicatePrompt}
                   onAddPrompt={() => setIsAddModalOpen(true)}
                   runningPrompts={runningPrompts}
+                />
+              </TabsContent>
+
+              <TabsContent value="suggestions" className="mt-6">
+                <AIPromptSuggestions
+                  suggestions={suggestedPrompts}
+                  loading={suggestionsLoading}
+                  generating={generatingSuggestions}
+                  onAccept={handleAcceptSuggestion}
+                  onDismiss={handleDismissSuggestion}
+                  onGenerate={handleGenerateMoreSuggestions}
                 />
               </TabsContent>
 
