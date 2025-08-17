@@ -246,6 +246,30 @@ export type Database = {
           },
         ]
       }
+      scheduler_state: {
+        Row: {
+          created_at: string
+          id: string
+          last_daily_run_at: string | null
+          last_daily_run_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_daily_run_at?: string | null
+          last_daily_run_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_daily_run_at?: string | null
+          last_daily_run_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suggested_prompts: {
         Row: {
           accepted: boolean
