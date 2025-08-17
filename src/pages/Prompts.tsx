@@ -52,7 +52,7 @@ export default function Prompts() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
-  const [runningPrompts, setRunningPrompts] = useState<Set<string>>(new Set());
+  
   
   // AI Suggestions state
   const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
@@ -370,7 +370,6 @@ export default function Prompts() {
                   onEditPrompt={handleEditPrompt}
                   onDuplicatePrompt={handleDuplicatePrompt}
                   onAddPrompt={() => setIsAddModalOpen(true)}
-                  runningPrompts={runningPrompts}
                 />
               </TabsContent>
 

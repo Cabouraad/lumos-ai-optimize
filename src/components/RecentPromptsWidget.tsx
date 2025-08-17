@@ -10,7 +10,7 @@ import {
   ChevronDown, 
   ChevronRight, 
   ExternalLink, 
-  RefreshCw,
+  
   Users,
   MapPin,
   TrendingUp,
@@ -322,10 +322,9 @@ export function RecentPromptsWidget({ prompts, loading }: RecentPromptsWidgetPro
                             View Full Run
                           </Button>
                         </div>
-                        <Button variant="outline" size="sm" className="h-7">
-                          <RefreshCw className="mr-1 h-3 w-3" />
-                          Re-run
-                        </Button>
+                        <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
+                          Runs automatically at 3:00 AM ET
+                        </div>
                       </div>
                     </div>
                   </motion.div>

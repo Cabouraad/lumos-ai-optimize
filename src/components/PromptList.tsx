@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Search, 
   Filter, 
-  Play, 
+   
   Pause, 
   Trash2, 
   Plus,
@@ -43,7 +43,7 @@ interface PromptListProps {
   onEditPrompt: (promptId: string) => void;
   onDuplicatePrompt: (promptId: string) => void;
   onAddPrompt: () => void;
-  runningPrompts: Set<string>;
+  
 }
 
 export function PromptList({
@@ -55,7 +55,6 @@ export function PromptList({
   onEditPrompt,
   onDuplicatePrompt,
   onAddPrompt,
-  runningPrompts
 }: PromptListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProvider, setFilterProvider] = useState<string>('all');
@@ -65,7 +64,7 @@ export function PromptList({
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isRunningBulk, setIsRunningBulk] = useState(false);
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -140,23 +139,21 @@ export function PromptList({
 
   const handleBulkEnable = async () => {
     const selectedIds = Array.from(selectedPrompts);
-    setIsRunningBulk(true);
     try {
       await Promise.all(selectedIds.map(id => onToggleActive(id, true)));
       setSelectedPrompts(new Set());
     } finally {
-      setIsRunningBulk(false);
+      // Clean up completed
     }
   };
 
   const handleBulkDisable = async () => {
     const selectedIds = Array.from(selectedPrompts);
-    setIsRunningBulk(true);
     try {
       await Promise.all(selectedIds.map(id => onToggleActive(id, false)));
       setSelectedPrompts(new Set());
     } finally {
-      setIsRunningBulk(false);
+      // Clean up completed
     }
   };
 
@@ -297,7 +294,6 @@ export function PromptList({
                     size="sm"
                     variant="outline"
                     onClick={handleBulkEnable}
-                    disabled={isRunningBulk}
                     className="h-8 text-xs"
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -307,7 +303,6 @@ export function PromptList({
                     size="sm"
                     variant="outline"
                     onClick={handleBulkDisable}
-                    disabled={isRunningBulk}
                     className="h-8 text-xs"
                   >
                     <Pause className="mr-1 h-3 w-3" />
@@ -320,7 +315,6 @@ export function PromptList({
                     size="sm"
                     variant="outline"
                     onClick={() => setShowDeleteDialog(true)}
-                    disabled={isRunningBulk}
                     className="h-8 text-xs text-red-600 hover:text-red-600 hover:bg-red-50 border-red-200"
                   >
                     <Trash2 className="mr-1 h-3 w-3" />
@@ -358,7 +352,7 @@ export function PromptList({
                 onEdit={() => onEditPrompt(prompt.id)}
                 onDuplicate={() => onDuplicatePrompt(prompt.id)}
                 onDelete={() => onDeletePrompt(prompt.id)}
-                isRunning={runningPrompts.has(prompt.id)}
+                
               />
             ))}
 

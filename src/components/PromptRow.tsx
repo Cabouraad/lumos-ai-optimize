@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronDown, 
   ChevronRight, 
-  Play, 
+   
   MoreHorizontal, 
   Settings2, 
   Copy, 
@@ -47,7 +47,7 @@ interface PromptRowProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  isRunning: boolean;
+  
 }
 
 export function PromptRow({
@@ -60,7 +60,7 @@ export function PromptRow({
   onEdit,
   onDuplicate,
   onDelete,
-  isRunning
+  
 }: PromptRowProps) {
   const [isHovered, setIsHovered] = useState(false);
 
