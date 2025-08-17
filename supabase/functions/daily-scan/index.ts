@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { todayKeyNY, isPastThreeAMNY } from "../_shared/time.ts";
 import { runDailyScan } from "../_shared/visibility/runDailyScan.ts";
+import { buildRecommendations } from "../_shared/reco/engine.ts";
+import { upsertRecommendations } from "../_shared/reco/persist.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,11 +103,56 @@ serve(async (req) => {
 
     console.log('Daily scan result:', result);
 
+    // Generate recommendations after daily scan completes (ensures fresh data)
+    console.log('Generating recommendations for organizations...');
+    let recommendationsGenerated = 0;
+    
+    if (result.success) {
+      try {
+        // Get all organizations that need recommendations
+        const { data: organizations } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .order('name');
+
+        if (organizations && organizations.length > 0) {
+          for (const org of organizations) {
+            try {
+              console.log(`Generating recommendations for org: ${org.name}`);
+              
+              // Build recommendations using fresh scan data
+              const recos = await buildRecommendations(supabase, org.id);
+              
+              if (recos.length > 0) {
+                console.log(`Generated ${recos.length} recommendations for ${org.name}`);
+                
+                // Persist recommendations with cooldown logic
+                await upsertRecommendations(supabase, org.id, recos);
+                recommendationsGenerated += recos.length;
+              } else {
+                console.log(`No recommendations generated for ${org.name}`);
+              }
+              
+            } catch (orgError) {
+              console.error(`Error generating recommendations for org ${org.id}:`, orgError);
+            }
+          }
+        }
+      } catch (recoError) {
+        console.error('Error in recommendation generation:', recoError);
+      }
+    }
+
+    console.log(`Recommendations generation completed: ${recommendationsGenerated} total`);
+
     return new Response(
       JSON.stringify({ 
         status: "ok", 
         key,
-        result 
+        result: {
+          ...result,
+          recommendationsGenerated
+        }
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
