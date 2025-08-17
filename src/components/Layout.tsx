@@ -33,7 +33,7 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-background">
       <div className="flex">
         {/* Sidebar */}
-        <div className="w-64 bg-card border-r border-border">
+        <div className="w-64 bg-card border-r border-border flex flex-col h-screen">
           <div className="p-6">
             <h1 className="text-xl font-bold text-foreground">Llumos</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -41,7 +41,7 @@ export function Layout({ children }: LayoutProps) {
             </p>
           </div>
           
-          <nav className="px-3">
+          <nav className="px-3 flex-1">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -63,7 +63,7 @@ export function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
-          <div className="absolute bottom-6 left-3 right-3">
+          <div className="p-3 border-t border-border">
             <Button 
               variant="outline" 
               onClick={signOut}
