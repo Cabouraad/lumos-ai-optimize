@@ -225,6 +225,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          metadata: Json | null
           org_id: string
           prompt_ref: string | null
           rationale: string
@@ -235,6 +236,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          metadata?: Json | null
           org_id: string
           prompt_ref?: string | null
           rationale: string
@@ -245,6 +247,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          metadata?: Json | null
           org_id?: string
           prompt_ref?: string | null
           rationale?: string
@@ -458,6 +461,21 @@ export type Database = {
       }
     }
     Functions: {
+      reco_upsert: {
+        Args: {
+          p_citations: Json
+          p_cooldown_days?: number
+          p_est_lift: number
+          p_kind: string
+          p_org_id: string
+          p_rationale: string
+          p_source_prompt_ids: string[]
+          p_source_run_ids: string[]
+          p_steps: string[]
+          p_title: string
+        }
+        Returns: undefined
+      }
       upsert_competitor_brand: {
         Args: { p_brand_name: string; p_org_id: string; p_score?: number }
         Returns: undefined
