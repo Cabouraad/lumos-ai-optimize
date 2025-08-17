@@ -33,6 +33,8 @@ interface RunData {
   prompt_id: string;
   citations: Array<{type: string, value: string}>;
   competitors: Array<{name: string, normalized: string, mentions: number}>;
+  run_at?: string;
+  prompt_text?: string;
 }
 
 export async function buildRecommendations(supabase: any, accountId: string): Promise<Reco[]> {
@@ -57,7 +59,8 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
         prompt_id,
         citations,
         competitors,
-        prompts!inner(org_id)
+        run_at,
+        prompts!inner(org_id, text)
       `)
       .eq('prompts.org_id', accountId)
       .gte('run_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -68,8 +71,7 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       return [];
     }
 
-    // 2) Compute signals
-    const promptMap = new Map(promptVisibility.map(p => [p.prompt_id, p]));
+    // 2) Compute signals and helper data structures
     const competitorMap = new Map<string, CompetitorShare[]>();
     
     competitorShare.forEach(cs => {
@@ -89,7 +91,9 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
         id: run.id,
         prompt_id: run.prompt_id,
         citations: run.citations || [],
-        competitors: run.competitors || []
+        competitors: run.competitors || [],
+        run_at: run.run_at,
+        prompt_text: (run.prompts as any)?.text || ''
       });
     });
 
@@ -97,7 +101,7 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
     const citationFreq = new Map<string, {count: number, runs: string[], prompts: Set<string>}>();
     recentRuns.forEach(run => {
       const citations = run.citations || [];
-      citations.forEach(citation => {
+      citations.forEach((citation: any) => {
         if (!citationFreq.has(citation.value)) {
           citationFreq.set(citation.value, {count: 0, runs: [], prompts: new Set()});
         }
@@ -108,52 +112,53 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       });
     });
 
+    // Helper functions
+    const HEAD_INTENTS = [/best/i, /compare|vs/i, /alternatives?/i];
+    const isHeadPrompt = (txt: string) => HEAD_INTENTS.some(r => r.test(txt));
+
     // 3) Apply heuristic rules
 
-    // R1: Missing on comparison/alternatives prompts
-    const lowVisibilityPrompts = promptVisibility.filter(p => 
-      p.avg_score_7d < 0.2 && 
-      (p.text.toLowerCase().includes('best') || 
-       p.text.toLowerCase().includes('compare') || 
-       p.text.toLowerCase().includes('alternatives') ||
-       p.text.toLowerCase().includes('vs '))
+    // R1: Missing presence on head prompts
+    const headPrompts = promptVisibility.filter(p => 
+      p.avg_score_7d < 0.2 && isHeadPrompt(p.text)
     );
 
-    for (const prompt of lowVisibilityPrompts) {
+    for (const prompt of headPrompts) {
       const competitors = competitorMap.get(prompt.prompt_id) || [];
       const topCompetitor = competitors.sort((a, b) => b.mean_score - a.mean_score)[0];
-      
+      const runs = runsByPrompt.get(prompt.prompt_id) || [];
+      const topCitations = runs.flatMap(r => r.citations).slice(0, 3);
+
       recommendations.push({
         kind: 'content',
-        title: `Create comparison content for "${prompt.text.slice(0, 50)}..."`,
-        rationale: `Low brand visibility (${(prompt.avg_score_7d * 100).toFixed(1)}%) on comparison query. ${topCompetitor ? `${topCompetitor.brand_norm} dominates with ${(topCompetitor.mean_score * 100).toFixed(1)}%` : 'Competitors have strong presence'}.`,
+        title: `Publish a comparison page for "${prompt.text.slice(0, 50)}..."`,
+        rationale: `Your brand rarely appears for a high-intent query (${(prompt.avg_score_7d * 100).toFixed(1)}% visibility). ${topCompetitor ? `${topCompetitor.brand_norm} dominates citations and mentions.` : 'Competitors dominate citations and mentions.'}`,
         steps: [
-          'Research top competitors mentioned in AI responses for this query',
-          'Create comprehensive comparison page highlighting your unique advantages',
-          'Optimize page for the exact query phrasing used in the prompt',
-          'Add internal links from related product pages to boost authority'
+          "Create a /compare/yourbrand-vs-competitor page with a summary table and FAQs.",
+          "Add schema.org FAQ markup and internal links to Pricing and Case Studies.", 
+          "Include 2–3 proof snippets and recent customer outcomes."
         ],
-        estLift: Math.min(0.20, 0.05 + (0.2 - prompt.avg_score_7d)),
+        estLift: 0.10,
         sourcePromptIds: [prompt.prompt_id],
-        sourceRunIds: runsByPrompt.get(prompt.prompt_id)?.slice(0, 5).map(r => r.id) || [],
-        citations: [],
+        sourceRunIds: runs.slice(0, 5).map(r => r.id),
+        citations: topCitations,
         cooldownDays: 21
       });
     }
 
-    // R2: Competitor dominance across multiple prompts
-    const dominantCompetitors = new Map<string, string[]>();
+    // R2: Single competitor dominates
+    const competitorDominance = new Map<string, string[]>();
     for (const [promptId, competitors] of competitorMap.entries()) {
-      const dominant = competitors.find(c => c.mean_score > 0.6);
+      const dominant = competitors.find(c => c.mean_score >= 0.6);
       if (dominant) {
-        if (!dominantCompetitors.has(dominant.brand_norm)) {
-          dominantCompetitors.set(dominant.brand_norm, []);
+        if (!competitorDominance.has(dominant.brand_norm)) {
+          competitorDominance.set(dominant.brand_norm, []);
         }
-        dominantCompetitors.get(dominant.brand_norm)!.push(promptId);
+        competitorDominance.get(dominant.brand_norm)!.push(promptId);
       }
     }
 
-    for (const [competitor, promptIds] of dominantCompetitors.entries()) {
+    for (const [competitor, promptIds] of competitorDominance.entries()) {
       if (promptIds.length >= 3) {
         const sourcePrompts = promptIds.slice(0, 3);
         const sourceRuns = sourcePrompts.flatMap(pid => 
@@ -162,15 +167,14 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
 
         recommendations.push({
           kind: 'content',
-          title: `Create "Your Brand vs ${competitor}" content series`,
-          rationale: `${competitor} dominates across ${promptIds.length} prompts with >60% average score. Need direct comparison content.`,
+          title: `Create "YourBrand vs ${competitor}" pillar page + 2 use-case variants`,
+          rationale: `${competitor} dominates across ${promptIds.length} prompts with 60%+ average visibility. Direct comparison content needed.`,
           steps: [
-            `Research ${competitor}'s positioning and key differentiators`,
-            'Create detailed comparison highlighting your advantages',
-            'Develop supporting content addressing common objections',
-            'Build internal linking strategy to boost comparison pages'
+            "Write the pillar, then add sections targeting top use-cases where the competitor ranks.",
+            "Link from homepage and relevant product pages.",
+            "Share a short thread addressing key buying questions."
           ],
-          estLift: 0.15,
+          estLift: 0.12,
           sourcePromptIds: sourcePrompts,
           sourceRunIds: sourceRuns,
           citations: [],
@@ -179,89 +183,135 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       }
     }
 
-    // R3: Recurring citation URLs
+    // R3: Citations opportunity  
     const frequentCitations = Array.from(citationFreq.entries())
-      .filter(([_, data]) => data.count >= 3 && data.prompts.size >= 2)
+      .filter(([url, data]) => url.startsWith('http') && data.count >= 3 && data.prompts.size >= 2)
       .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 5);
+      .slice(0, 3);
 
     for (const [citation, data] of frequentCitations) {
-      if (citation.startsWith('http')) {
-        recommendations.push({
-          kind: 'site',
-          title: `Add case study page referencing ${new URL(citation).hostname}`,
-          rationale: `URL "${citation}" appears in ${data.count} AI responses across ${data.prompts.size} different prompts. High-authority source worth referencing.`,
-          steps: [
-            'Review the cited source for key insights and data points',
-            'Create case study or evidence page incorporating the source',
-            'Structure content to address the specific queries that cite this source',
-            'Add internal links from relevant product/service pages'
-          ],
-          estLift: 0.08,
-          sourcePromptIds: Array.from(data.prompts),
-          sourceRunIds: data.runs.slice(0, 10),
-          citations: [{type: 'url', value: citation}],
-          cooldownDays: 14
-        });
+      recommendations.push({
+        kind: 'site',
+        title: `Add an Evidence/Resources page referencing ${new URL(citation).hostname}`,
+        rationale: `URL "${citation}" appears in ${data.count} AI responses across ${data.prompts.size} different prompts. High-authority source worth referencing.`,
+        steps: [
+          "Curate the 3–5 most-cited resources into a single page.",
+          "Add concise summaries and link them from related articles.",
+          "Mark up with 'Article' schema."
+        ],
+        estLift: 0.07,
+        sourcePromptIds: Array.from(data.prompts),
+        sourceRunIds: data.runs.slice(0, 8),
+        citations: [{type: 'url', value: citation}],
+        cooldownDays: 14
+      });
+    }
+
+    // R4: Visibility drop WoW on head prompt (>20%)
+    // Get runs from last 6 days and split into two 3-day periods
+    const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+    const { data: recentVisibilityRuns } = await supabase
+      .from('visibility_results')
+      .select(`
+        score,
+        prompt_runs!inner(prompt_id, run_at, prompts!inner(text, org_id))
+      `)
+      .eq('prompt_runs.prompts.org_id', accountId)
+      .gte('prompt_runs.run_at', sixDaysAgo.toISOString())
+      .eq('prompt_runs.status', 'success');
+
+    if (recentVisibilityRuns) {
+      const scoresByPrompt = new Map<string, {recent: number[], older: number[], text: string}>();
+      
+      recentVisibilityRuns.forEach((result: any) => {
+        const promptId = result.prompt_runs.prompt_id;
+        const runDate = new Date(result.prompt_runs.run_at);
+        const promptText = result.prompt_runs.prompts.text;
+        
+        if (!scoresByPrompt.has(promptId)) {
+          scoresByPrompt.set(promptId, {recent: [], older: [], text: promptText});
+        }
+        
+        const scores = scoresByPrompt.get(promptId)!;
+        if (runDate >= threeDaysAgo) {
+          scores.recent.push(result.score);
+        } else {
+          scores.older.push(result.score);
+        }
+      });
+
+      for (const [promptId, {recent, older, text}] of scoresByPrompt.entries()) {
+        if (recent.length > 0 && older.length > 0 && isHeadPrompt(text)) {
+          const recentAvg = recent.reduce((sum, s) => sum + s, 0) / recent.length;
+          const olderAvg = older.reduce((sum, s) => sum + s, 0) / older.length;
+          const dropPercent = (olderAvg - recentAvg) / olderAvg;
+          
+          if (dropPercent > 0.2) { // >20% drop
+            const runs = runsByPrompt.get(promptId) || [];
+            
+            recommendations.push({
+              kind: 'social',
+              title: `Publish a fast-answer thread for "${text.slice(0, 40)}..."`,
+              rationale: `Visibility dropped ${(dropPercent * 100).toFixed(1)}% in recent days (${recentAvg.toFixed(1)} vs ${olderAvg.toFixed(1)} average score). Quick social response needed.`,
+              steps: [
+                "Post a 4–6 bullet answer with one proof stat.",
+                "Link to the optimized guide or comparison page.",
+                "Pin for 48 hours; reshare once."
+              ],
+              estLift: 0.05,
+              sourcePromptIds: [promptId],
+              sourceRunIds: runs.slice(0, 3).map(r => r.id),
+              citations: [],
+              cooldownDays: 7
+            });
+          }
+        }
       }
     }
 
-    // R4: Zero presence prompts with good adjacent performance
-    const zeroPresencePrompts = promptVisibility.filter(p => p.avg_score_7d === 0 && p.runs_7d >= 3);
+    // R5: Prompt coverage gap + adjacency
+    const lowPrompts = promptVisibility.filter(p => p.avg_score_7d < 0.3 && p.runs_7d >= 2);
     
-    for (const prompt of zeroPresencePrompts) {
-      // Check if similar prompts (by word overlap) have good performance
-      const similarPrompts = promptVisibility.filter(other => {
-        if (other.prompt_id === prompt.prompt_id) return false;
-        const words1 = new Set(prompt.text.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-        const words2 = new Set(other.text.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-        const intersection = new Set([...words1].filter(x => words2.has(x)));
-        return intersection.size >= 2 && other.avg_score_7d > 0.4;
+    for (const lowPrompt of lowPrompts) {
+      // Extract head keywords (first 2-3 significant words)
+      const headKeywords = lowPrompt.text.toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 3 && !['best', 'top', 'compare', 'vs', 'versus', 'alternative'].includes(word))
+        .slice(0, 3);
+      
+      if (headKeywords.length === 0) continue;
+      
+      // Find adjacent prompts with same head keywords but better performance
+      const adjacentPrompts = promptVisibility.filter(other => {
+        if (other.prompt_id === lowPrompt.prompt_id) return false;
+        if (other.avg_score_7d < 0.4) return false;
+        
+        const otherKeywords = other.text.toLowerCase().split(/\s+/);
+        return headKeywords.some(kw => otherKeywords.includes(kw));
       });
 
-      if (similarPrompts.length > 0) {
+      if (adjacentPrompts.length > 0) {
+        const avgAdjacentScore = adjacentPrompts.reduce((sum, p) => sum + p.avg_score_7d, 0) / adjacentPrompts.length;
+        const suggestedVariant = `${lowPrompt.text} + use case modifier`;
+        const runs = runsByPrompt.get(lowPrompt.prompt_id) || [];
+
         recommendations.push({
           kind: 'prompt',
-          title: `Track variant of zero-visibility prompt: "${prompt.text.slice(0, 40)}..."`,
-          rationale: `No brand presence despite ${prompt.runs_7d} runs, but similar prompts perform well (avg ${(similarPrompts.reduce((sum, p) => sum + p.avg_score_7d, 0) / similarPrompts.length * 100).toFixed(1)}%).`,
+          title: `Add a variant to track: "${suggestedVariant.slice(0, 50)}..."`,
+          rationale: `Low performance (${(lowPrompt.avg_score_7d * 100).toFixed(1)}%) but similar prompts succeed (avg ${(avgAdjacentScore * 100).toFixed(1)}%). Coverage gap detected.`,
           steps: [
-            'Analyze why similar prompts succeed while this one fails',
-            'Create content variant addressing this specific query angle',
-            'Add tracking for modified prompt with use-case qualifiers',
-            'Monitor performance and iterate based on results'
+            "Add prompt variant including the missing modifier.",
+            "Monitor for 7 days; if lift >10%, keep; otherwise rotate."
           ],
-          estLift: 0.12,
-          sourcePromptIds: [prompt.prompt_id, ...similarPrompts.slice(0, 2).map(p => p.prompt_id)],
-          sourceRunIds: runsByPrompt.get(prompt.prompt_id)?.slice(0, 3).map(r => r.id) || [],
+          estLift: 0.05,
+          sourcePromptIds: [lowPrompt.prompt_id, ...adjacentPrompts.slice(0, 2).map(p => p.prompt_id)],
+          sourceRunIds: runs.slice(0, 3).map(r => r.id),
           citations: [],
           cooldownDays: 14
         });
       }
-    }
-
-    // R5: Social opportunity for declining performance
-    // For now, add a simple declining performance check (would need historical data for proper WoW)
-    const lowPerformingPrompts = promptVisibility.filter(p => 
-      p.avg_score_7d < 0.3 && p.avg_score_7d > 0 && p.runs_7d >= 5
-    );
-
-    for (const prompt of lowPerformingPrompts.slice(0, 3)) {
-      recommendations.push({
-        kind: 'social',
-        title: `Create social thread addressing: "${prompt.text.slice(0, 40)}..."`,
-        rationale: `Below-average performance (${(prompt.avg_score_7d * 100).toFixed(1)}%) on active prompt with ${prompt.runs_7d} recent runs. Social content can drive traffic.`,
-        steps: [
-          'Draft concise thread directly answering the query',
-          'Include your unique perspective or data point',
-          'Link to optimized landing page in thread',
-          'Schedule during peak audience hours'
-        ],
-        estLift: 0.06,
-        sourcePromptIds: [prompt.prompt_id],
-        sourceRunIds: runsByPrompt.get(prompt.prompt_id)?.slice(0, 3).map(r => r.id) || [],
-        citations: [],
-        cooldownDays: 7
-      });
     }
 
   } catch (error) {
