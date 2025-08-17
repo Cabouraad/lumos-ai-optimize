@@ -120,6 +120,9 @@ export type Database = {
       }
       prompt_runs: {
         Row: {
+          brands: Json | null
+          citations: Json | null
+          competitors: Json | null
           cost_est: number
           id: string
           prompt_id: string
@@ -130,6 +133,9 @@ export type Database = {
           token_out: number
         }
         Insert: {
+          brands?: Json | null
+          citations?: Json | null
+          competitors?: Json | null
           cost_est?: number
           id?: string
           prompt_id: string
@@ -140,6 +146,9 @@ export type Database = {
           token_out?: number
         }
         Update: {
+          brands?: Json | null
+          citations?: Json | null
+          competitors?: Json | null
           cost_est?: number
           id?: string
           prompt_id?: string
@@ -156,6 +165,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_runs_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "v_competitor_share_7d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "prompt_runs_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "v_prompt_visibility_7d"
+            referencedColumns: ["prompt_id"]
           },
           {
             foreignKeyName: "prompt_runs_provider_id_fkey"
@@ -243,6 +266,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_prompt_ref_fkey"
+            columns: ["prompt_ref"]
+            isOneToOne: false
+            referencedRelation: "v_competitor_share_7d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "recommendations_prompt_ref_fkey"
+            columns: ["prompt_ref"]
+            isOneToOne: false
+            referencedRelation: "v_prompt_visibility_7d"
+            referencedColumns: ["prompt_id"]
           },
         ]
       }
@@ -383,7 +420,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_competitor_share_7d: {
+        Row: {
+          brand_norm: string | null
+          mean_score: number | null
+          n: number | null
+          org_id: string | null
+          prompt_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_prompt_visibility_7d: {
+        Row: {
+          avg_score_7d: number | null
+          org_id: string | null
+          prompt_id: string | null
+          runs_7d: number | null
+          text: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       upsert_competitor_brand: {
