@@ -5,11 +5,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   ChevronDown, 
   ChevronRight, 
-   
   MoreHorizontal, 
   Settings2, 
   Copy, 
@@ -20,7 +22,9 @@ import {
   Clock,
   Target,
   Users,
-  BarChart3
+  BarChart3,
+  FileText,
+  Eye
 } from 'lucide-react';
 
 interface PromptRowData {
@@ -63,6 +67,13 @@ export function PromptRow({
   
 }: PromptRowProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [rawResponses, setRawResponses] = useState<Array<{
+    provider: string;
+    response: string;
+    timestamp: string;
+    score: number;
+  }>>([]);
+  const [isLoadingResponses, setIsLoadingResponses] = useState(false);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -107,6 +118,42 @@ export function PromptRow({
       return;
     }
     onExpand();
+  };
+
+  const fetchRawResponses = async (promptId: string) => {
+    setIsLoadingResponses(true);
+    try {
+      const { data, error } = await supabase
+        .from('prompt_runs')
+        .select(`
+          id,
+          run_at,
+          llm_providers(name),
+          visibility_results(raw_ai_response, score)
+        `)
+        .eq('prompt_id', promptId)
+        .not('visibility_results.raw_ai_response', 'is', null)
+        .order('run_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching raw responses:', error);
+        return;
+      }
+
+      const responses = data?.map(run => ({
+        provider: run.llm_providers?.name || 'unknown',
+        response: run.visibility_results?.[0]?.raw_ai_response || '',
+        timestamp: run.run_at,
+        score: run.visibility_results?.[0]?.score || 0
+      })).filter(r => r.response) || [];
+
+      setRawResponses(responses);
+    } catch (error) {
+      console.error('Error fetching raw responses:', error);
+    } finally {
+      setIsLoadingResponses(false);
+    }
   };
 
   return (
@@ -326,9 +373,70 @@ export function PromptRow({
                             <Badge className={`text-xs h-5 px-2 rounded-full border ${getScoreColor(result.score)}`}>
                               {result.score}
                             </Badge>
-                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-blue-600">
-                              View
-                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-6 px-2 text-xs text-blue-600 hover:bg-blue-50"
+                                  onClick={() => fetchRawResponses(prompt.id)}
+                                >
+                                  <Eye className="mr-1 h-3 w-3" />
+                                  View
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl max-h-[80vh]">
+                                <DialogHeader>
+                                  <DialogTitle className="flex items-center gap-2">
+                                    <FileText className="h-5 w-5" />
+                                    Raw AI Responses for "{prompt.text}"
+                                  </DialogTitle>
+                                </DialogHeader>
+                                <ScrollArea className="max-h-[60vh]">
+                                  {isLoadingResponses ? (
+                                    <div className="flex items-center justify-center py-8">
+                                      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                                      <span className="ml-2 text-sm text-muted-foreground">Loading responses...</span>
+                                    </div>
+                                  ) : rawResponses.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                      <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                      <p>No raw responses found for this prompt</p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-4">
+                                      {rawResponses.map((response, index) => (
+                                        <div key={index} className="border rounded-lg p-4 bg-gray-50/50">
+                                          <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                              <div className="text-lg">
+                                                {response.provider === 'openai' ? '🤖' : response.provider === 'perplexity' ? '🔍' : '✨'}
+                                              </div>
+                                              <div>
+                                                <div className="text-sm font-medium text-gray-900 capitalize">
+                                                  {response.provider}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                  {new Date(response.timestamp).toLocaleString()}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <Badge className={`text-xs h-5 px-2 rounded-full border ${getScoreColor(response.score)}`}>
+                                              Score: {response.score}
+                                            </Badge>
+                                          </div>
+                                          <div className="bg-white rounded border p-3">
+                                            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                                              {response.response}
+                                            </pre>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </ScrollArea>
+                              </DialogContent>
+                            </Dialog>
                           </div>
                         </div>
                       ))}
