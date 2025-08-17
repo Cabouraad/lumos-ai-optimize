@@ -74,6 +74,7 @@ export function PromptRow({
     score: number;
   }>>([]);
   const [isLoadingResponses, setIsLoadingResponses] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -120,7 +121,8 @@ export function PromptRow({
     onExpand();
   };
 
-  const fetchRawResponses = async (promptId: string) => {
+  const fetchRawResponses = async (promptId: string, providerName: string) => {
+    setSelectedProvider(providerName);
     setIsLoadingResponses(true);
     try {
       const { data, error } = await supabase
@@ -128,10 +130,11 @@ export function PromptRow({
         .select(`
           id,
           run_at,
-          llm_providers(name),
+          llm_providers!inner(name),
           visibility_results(raw_ai_response, score)
         `)
         .eq('prompt_id', promptId)
+        .eq('llm_providers.name', providerName)
         .not('visibility_results.raw_ai_response', 'is', null)
         .order('run_at', { ascending: false })
         .limit(10);
@@ -379,7 +382,7 @@ export function PromptRow({
                                   variant="ghost" 
                                   size="sm" 
                                   className="h-6 px-2 text-xs text-blue-600 hover:bg-blue-50"
-                                  onClick={() => fetchRawResponses(prompt.id)}
+                                  onClick={() => fetchRawResponses(prompt.id, result.provider)}
                                 >
                                   <Eye className="mr-1 h-3 w-3" />
                                   View
@@ -389,7 +392,7 @@ export function PromptRow({
                                 <DialogHeader>
                                   <DialogTitle className="flex items-center gap-2">
                                     <FileText className="h-5 w-5" />
-                                    Raw AI Responses for "{prompt.text}"
+                                    Raw {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} Responses for "{prompt.text}"
                                   </DialogTitle>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
@@ -401,7 +404,8 @@ export function PromptRow({
                                   ) : rawResponses.length === 0 ? (
                                     <div className="text-center py-8 text-muted-foreground">
                                       <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                      <p>No raw responses found for this prompt</p>
+                                      <p className="text-lg font-medium mb-1">No data to show</p>
+                                      <p>No raw responses found for {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} on this prompt</p>
                                     </div>
                                   ) : (
                                     <div className="space-y-4">
