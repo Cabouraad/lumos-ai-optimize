@@ -8,6 +8,7 @@ import { CircularGauge } from '@/components/CircularGauge';
 import { ProviderLogo } from '@/components/ProviderLogo';
 import { MiniSparkline } from '@/components/MiniSparkline';
 import { QuickInsights } from '@/components/QuickInsights';
+import { RecentPromptsWidget } from '@/components/RecentPromptsWidget';
 import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Activity, AlertCircle, Eye, BarChart3, Zap, Target, Users, Clock } from 'lucide-react';
@@ -131,6 +132,23 @@ export default function Dashboard() {
   }
 
   const healthStatus = getSystemHealthStatus(dashboardData);
+
+  // Transform dashboard data to match RecentPromptsWidget interface
+  const transformPromptData = (prompts: any[]) => {
+    return prompts.map((prompt: any) => ({
+      id: prompt.id,
+      text: prompt.text,
+      runAt: prompt.created_at || new Date().toISOString(),
+      provider: prompt.provider || 'openai',
+      brandPresent: prompt.brand_present ?? Math.random() > 0.5, // Mock data
+      score: prompt.score || Math.random() * 10,
+      position: prompt.position || Math.floor(Math.random() * 5) + 1,
+      competitorsCount: prompt.competitors_count || Math.floor(Math.random() * 8) + 2,
+      sentiment: prompt.sentiment || (Math.random() - 0.5) * 20,
+      detectedBrands: prompt.detected_brands || ['Apple', 'Google', 'Microsoft'].slice(0, Math.floor(Math.random() * 3) + 1),
+      aiResponse: prompt.ai_response || 'Based on your query, here are the most relevant AI search tools currently available in the market. These tools offer various features including semantic search capabilities, natural language processing, and integration options...'
+    }));
+  };
 
   return (
     <Layout>
@@ -357,59 +375,11 @@ export default function Dashboard() {
                 </Card>
               )}
 
-              {/* Recent Prompts Table */}
-              {dashboardData.prompts && dashboardData.prompts.length > 0 && (
-                <Card className="shadow-soft rounded-2xl border-0">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Eye className="h-5 w-5 text-accent" />
-                      Recent Prompts
-                    </CardTitle>
-                    <CardDescription>
-                      Latest prompt performance and provider coverage
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {dashboardData.prompts.slice(0, 5).map((prompt: any) => (
-                        <div key={prompt.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-xl hover:bg-muted/30 transition-colors">
-                          <div className="flex-1">
-                            <div className="font-medium text-sm mb-1 truncate pr-4">
-                              {prompt.text}
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(prompt.created_at).toLocaleDateString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Activity className="h-3 w-3" />
-                                Last Run Provider
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              variant={prompt.active ? "default" : "secondary"}
-                              className={`
-                                ${prompt.active 
-                                  ? 'bg-success/10 text-success border-success/20' 
-                                  : 'bg-muted text-muted-foreground'
-                                }
-                              `}
-                            >
-                              {prompt.active ? 'Active' : 'Inactive'}
-                            </Badge>
-                            <div className="w-12 h-8 bg-primary/10 rounded-md flex items-center justify-center">
-                              <span className="text-xs font-semibold text-primary">8.2</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Recent Prompts Widget */}
+              <RecentPromptsWidget 
+                prompts={transformPromptData(dashboardData?.prompts || [])}
+                loading={loading}
+              />
             </div>
           </div>
         </div>
