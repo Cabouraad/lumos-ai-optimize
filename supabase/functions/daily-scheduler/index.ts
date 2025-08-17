@@ -1,74 +1,43 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface Organization {
-  id: string;
-  name: string;
 }
 
-interface Prompt {
+interface SchedulerState {
   id: string;
-  text: string;
-  org_id: string;
+  last_daily_run_key: string | null;
+  last_daily_run_at: string | null;
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    console.log('Daily scheduler started at:', new Date().toISOString());
+    // Initialize Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get current date in America/New_York timezone
-    const nyTime = new Date().toLocaleString('en-US', { 
-      timeZone: 'America/New_York',
+    const nyTime = new Date().toLocaleString("en-US", {
+      timeZone: "America/New_York",
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     });
-    const todayKey = nyTime.replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2'); // Convert MM/DD/YYYY to YYYY-MM-DD
+    
+    const todayKey = nyTime.split(',')[0].split('/').reverse().join('-'); // Convert MM/DD/YYYY to YYYY-MM-DD
+    
+    console.log(`Daily scheduler triggered for ${todayKey} (NY time: ${nyTime})`);
 
-    console.log('Today key (NY timezone):', todayKey);
-
-    // Check if we've already run today
-    const { data: schedulerState, error: stateError } = await supabase
-      .from('scheduler_state')
-      .select('*')
-      .eq('id', 'global')
-      .single();
-
-    if (stateError) {
-      console.error('Error fetching scheduler state:', stateError);
-      throw stateError;
-    }
-
-    if (schedulerState?.last_daily_run_key === todayKey) {
-      console.log('Already ran today, skipping...');
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Already ran today',
-          last_run_key: todayKey 
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
-    }
-
-    // Use a transaction-like approach to prevent double execution
+    // Check if we've already run today - use atomic update for concurrency safety
     const { data: updateResult, error: updateError } = await supabase
       .from('scheduler_state')
       .update({
@@ -76,15 +45,22 @@ Deno.serve(async (req) => {
         last_daily_run_at: new Date().toISOString()
       })
       .eq('id', 'global')
-      .neq('last_daily_run_key', todayKey) // Only update if we haven't run today
+      .neq('last_daily_run_key', todayKey) // Only update if different day
       .select();
 
-    if (updateError || !updateResult || updateResult.length === 0) {
-      console.log('Another instance is running or already completed today');
+    if (updateError) {
+      console.error('Error updating scheduler state:', updateError);
+      throw updateError;
+    }
+
+    // If no rows were updated, we already ran today
+    if (!updateResult || updateResult.length === 0) {
+      console.log('Daily run already completed for', todayKey);
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: 'Another instance handled today\'s run' 
+          message: 'Daily run already completed',
+          date: todayKey,
+          skipped: true
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -93,7 +69,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Starting daily prompt runs...');
+    console.log('Starting daily prompt runs for', todayKey);
 
     // Get all organizations
     const { data: organizations, error: orgError } = await supabase
@@ -105,17 +81,17 @@ Deno.serve(async (req) => {
       throw orgError;
     }
 
-    console.log(`Found ${organizations?.length || 0} organizations`);
+    console.log(`Found ${organizations?.length || 0} organizations to process`);
 
     let totalRuns = 0;
-    const results = [];
+    let successfulRuns = 0;
 
     // Process each organization
     for (const org of organizations || []) {
       try {
         console.log(`Processing organization: ${org.name} (${org.id})`);
 
-        // Get active prompts for this org
+        // Get active prompts for this organization
         const { data: prompts, error: promptsError } = await supabase
           .from('prompts')
           .select('id, text, org_id')
@@ -140,73 +116,72 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Run each prompt with each enabled provider
+        // Run each prompt on each provider
         for (const prompt of prompts || []) {
           for (const provider of providers || []) {
             try {
-              console.log(`Running prompt "${prompt.text}" with ${provider.name}`);
+              totalRuns++;
 
-              // Call the existing run-prompt-now function for each combination
-              const { data: runResult, error: runError } = await supabase.functions.invoke(
-                'run-prompt-now',
-                {
-                  body: {
-                    promptId: prompt.id,
-                    providerId: provider.id
-                  }
+              // Call the existing run-prompt-now function for each prompt/provider combination
+              const { data: runResult, error: runError } = await supabase.functions.invoke('run-prompt-now', {
+                body: {
+                  promptId: prompt.id,
+                  providerId: provider.id
                 }
-              );
+              });
 
               if (runError) {
-                console.error(`Error running prompt ${prompt.id} with provider ${provider.id}:`, runError);
+                console.error(`Failed to run prompt ${prompt.id} on ${provider.name}:`, runError);
               } else {
-                totalRuns++;
-                console.log(`Successfully ran prompt ${prompt.id} with ${provider.name}`);
+                successfulRuns++;
+                console.log(`Successfully ran prompt "${prompt.text}" on ${provider.name}`);
               }
+
+              // Small delay to prevent overwhelming the providers
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
             } catch (error) {
-              console.error(`Exception running prompt ${prompt.id}:`, error);
+              console.error(`Error running prompt ${prompt.id} on provider ${provider.name}:`, error);
             }
           }
         }
-
-        results.push({
-          org_id: org.id,
-          org_name: org.name,
-          prompts_count: prompts?.length || 0
-        });
 
       } catch (error) {
         console.error(`Error processing organization ${org.id}:`, error);
       }
     }
 
-    console.log(`Daily scheduler completed. Total runs: ${totalRuns}`);
+    const result = {
+      message: 'Daily run completed',
+      date: todayKey,
+      totalRuns,
+      successfulRuns,
+      organizations: organizations?.length || 0,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Daily scheduler completed:', result);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Daily scheduler completed successfully`,
-        date: todayKey,
-        total_runs: totalRuns,
-        organizations_processed: results.length,
-        results
-      }),
-      {
+      JSON.stringify(result),
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+        status: 200 
       }
     );
 
   } catch (error) {
     console.error('Daily scheduler error:', error);
+    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+      JSON.stringify({ 
+        error: 'Daily scheduler failed',
+        message: error.message,
+        timestamp: new Date().toISOString()
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+        status: 500 
       }
     );
   }
