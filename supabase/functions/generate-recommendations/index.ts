@@ -18,18 +18,19 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { orgId } = await req.json();
+    const { orgId, accountId } = await req.json();
+    const targetOrgId = orgId || accountId; // Support both parameter names
 
-    if (!orgId) {
-      return new Response(JSON.stringify({ error: 'Missing orgId' }), {
+    if (!targetOrgId) {
+      return new Response(JSON.stringify({ error: 'Missing orgId or accountId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Generating recommendations for org ${orgId}`);
+    console.log(`Generating recommendations for org ${targetOrgId}`);
     
-    const result = await generateRecommendations(orgId, supabase);
+    const result = await generateRecommendations(targetOrgId, supabase);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

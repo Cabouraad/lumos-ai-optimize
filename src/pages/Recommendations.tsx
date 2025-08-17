@@ -302,12 +302,12 @@ export default function Recommendations() {
               </p>
               <Button 
                 onClick={handleGenerateRecommendations}
-                disabled={true}
+                disabled={generating}
                 variant="secondary"
-                aria-label="Generate recommendations (admin only)"
-                title="Admin access required"
+                aria-label="Generate recommendations"
               >
-                Generate Now (requires admin)
+                <RefreshCw className={`mr-2 h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
+                {generating ? 'Generating...' : 'Generate Now'}
               </Button>
             </CardContent>
           </Card>
