@@ -101,47 +101,48 @@ Do not include generic terms or categories.`
 
     console.log(`Extracted brands:`, extractedBrands);
 
-    // Check for organization brand presence and position using exact normalized match against provided orgBrands
+    // Use enhanced artifact extraction for proper competitor analysis
+    const { extractArtifacts, createBrandGazetteer } = await import('../_shared/visibility/extractArtifacts.ts');
+    
     const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-    const normalizedOrgSet = new Set<string>((orgBrands || []).map((b: string) => normalize(b)).filter(Boolean));
-    const normalizedExtracted = extractedBrands.map((b: string) => normalize(b));
+    const normalizedOrgBrands = (orgBrands || []).map((b: string) => normalize(b)).filter(Boolean);
+    
+    // Create a simple brand catalog for the extraction
+    const brandCatalog = (orgBrands || []).map(brand => ({ name: brand, variants_json: [] }));
+    const gazetteer = createBrandGazetteer(brandCatalog);
+    
+    // Extract structured artifacts
+    const artifacts = extractArtifacts(response, normalizedOrgBrands, gazetteer);
 
-    let orgBrandPosition: number | null = null;
-    for (let i = 0; i < normalizedExtracted.length; i++) {
-      if (normalizedOrgSet.has(normalizedExtracted[i])) {
-        orgBrandPosition = i;
-        break;
-      }
-    }
-    const orgBrandPresent = orgBrandPosition !== null;
+    const orgBrandPresent = artifacts.brands.length > 0;
+    const orgBrandPosition = orgBrandPresent ? 0 : null; // First position for org brands
+    const competitorCount = artifacts.competitors.length;
 
-    // Calculate score
+    // Calculate enhanced score
     let score = 1; // Base score
 
     if (orgBrandPresent) {
       score = 5; // Base score for being present
       
-      // Position bonus
-      if (orgBrandPosition !== null) {
-        if (orgBrandPosition === 0) score += 3;
-        else if (orgBrandPosition <= 2) score += 2;
-        else if (orgBrandPosition <= 5) score += 1;
-      }
+      // Position bonus for user brands
+      score += 3; // Bonus for being present (artifacts separates properly)
       
-      // Competitor penalty
-      const competitorCount = extractedBrands.length - (orgBrandPresent ? 1 : 0);
-      if (competitorCount > 5) score -= 2;
-      else if (competitorCount > 2) score -= 1;
+      // Competitor penalty (only actual competitors, not all brands)
+      if (competitorCount > 3) score -= 2;
+      else if (competitorCount > 1) score -= 1;
     }
 
     score = Math.max(1, Math.min(10, score));
 
     const result = {
-      brands: extractedBrands,
+      brands: [...artifacts.brands.map(b => b.name), ...artifacts.competitors.map(c => c.name)],
       orgBrandPresent,
       orgBrandPosition,
       score,
-      competitorCount: extractedBrands.length - (orgBrandPresent ? 1 : 0)
+      competitorCount,
+      competitors: artifacts.competitors.map(c => c.name),
+      userBrands: artifacts.brands.map(b => b.name),
+      metadata: artifacts.metadata
     };
 
     console.log('Analysis result:', result);

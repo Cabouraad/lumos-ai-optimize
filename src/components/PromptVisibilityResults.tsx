@@ -217,16 +217,43 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
               </div>
             </div>
 
-            {/* Detected Brands */}
+            {/* Detected Brands with Enhanced Display */}
             {result.brands_json && Array.isArray(result.brands_json) && result.brands_json.length > 0 && (
               <div className="mt-4 pt-4 border-t">
                 <p className="text-sm font-medium mb-2">Detected Brands:</p>
                 <div className="flex flex-wrap gap-2">
-                  {result.brands_json.map((brand: string, index: number) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {brand}
-                    </Badge>
-                  ))}
+                  {result.brands_json.map((brand: string, index: number) => {
+                    // Try to determine if this is a user brand or competitor from raw_evidence
+                    let isUserBrand = false;
+                    let isCompetitor = false;
+                    
+                    try {
+                      if (result.raw_evidence) {
+                        const evidence = JSON.parse(result.raw_evidence);
+                        if (evidence.userBrands) {
+                          isUserBrand = evidence.userBrands.some((ub: any) => ub.name === brand);
+                        }
+                        if (evidence.competitors) {
+                          isCompetitor = evidence.competitors.some((c: any) => c.name === brand);
+                        }
+                      }
+                    } catch (e) {
+                      // Fallback: assume first brand is user brand if org_brand_present is true
+                      if (result.org_brand_present && index === 0) {
+                        isUserBrand = true;
+                      }
+                    }
+                    
+                    const badgeVariant = isUserBrand ? "default" : isCompetitor ? "destructive" : "secondary";
+                    
+                    return (
+                      <Badge key={index} variant={badgeVariant} className="text-xs">
+                        {brand}
+                        {isUserBrand && " (You)"}
+                        {isCompetitor && " (Competitor)"}
+                      </Badge>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -365,17 +365,12 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
               const artifacts = extractArtifacts(extraction.responseText || '', userBrandNorms, brandGazetteer);
 
               // Normalize and analyze brands (keep existing logic for compatibility)
-              const normalizedBrands = extraction.brands.map(normalize);
-              const orgBrands = normalizedBrands.filter(brand => 
-                isOrgBrand(brand, org.brand_catalog)
-              );
+              // Use enhanced competitor detection from artifacts
+              const orgPresent = artifacts.brands.length > 0;
+              const orgBrandIdx = orgPresent ? 0 : null; // First org brand position in artifacts
               
-              const orgPresent = orgBrands.length > 0;
-              const orgBrandIdx = orgPresent ? normalizedBrands.findIndex(brand => 
-                isOrgBrand(brand, org.brand_catalog)
-              ) : null;
-              
-              const competitorsCount = normalizedBrands.length - orgBrands.length;
+              // Get the actual competitor count from enhanced analysis
+              const competitorsCount = artifacts.competitors.length;
               const score = computeScore(orgPresent, orgBrandIdx, competitorsCount);
 
               // Insert prompt_runs with structured artifacts
@@ -396,20 +391,21 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                 .single();
 
               if (newRun) {
-                // Insert visibility_results (keep existing structure for compatibility)
+                  // Insert visibility_results using enhanced competitor analysis
                 await supabase
                   .from('visibility_results')
                   .insert({
                     prompt_run_id: newRun.id,
                     org_brand_present: orgPresent,
                     org_brand_prominence: orgBrandIdx ?? 0,
-                    brands_json: extraction.brands,
+                    brands_json: [...artifacts.brands.map(b => b.name), ...artifacts.competitors.map(c => c.name)],
                     competitors_count: competitorsCount,
                     raw_evidence: JSON.stringify({ 
-                      normalized: normalizedBrands, 
-                      orgMatches: orgBrands,
-                      fullResponse: extraction.responseText || '',
-                      artifacts: artifacts 
+                      userBrands: artifacts.brands,
+                      competitors: artifacts.competitors,
+                      citations: artifacts.citations,
+                      metadata: artifacts.metadata,
+                      fullResponse: extraction.responseText || ''
                     }),
                     score: score,
                     raw_ai_response: extraction.responseText || ''
