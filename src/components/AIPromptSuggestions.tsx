@@ -40,8 +40,11 @@ export function AIPromptSuggestions({
 }: AIPromptSuggestionsProps) {
   const getSourceIcon = (source: string) => {
     switch (source) {
+      case 'market_research':
       case 'industry': return <Lightbulb className="h-4 w-4 text-chart-4" />;
+      case 'competitor_analysis':
       case 'competitors': return <Users className="h-4 w-4 text-chart-5" />;
+      case 'brand_visibility':
       case 'gap': return <Target className="h-4 w-4 text-warning" />;
       default: return <Sparkles className="h-4 w-4 text-success" />;
     }
@@ -49,10 +52,25 @@ export function AIPromptSuggestions({
 
   const getSourceColor = (source: string) => {
     switch (source) {
+      case 'market_research':
       case 'industry': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'competitor_analysis':
       case 'competitors': return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'brand_visibility':
       case 'gap': return 'bg-orange-50 text-orange-700 border-orange-200';
       default: return 'bg-green-50 text-green-700 border-green-200';
+    }
+  };
+
+  const getSourceDisplayName = (source: string) => {
+    switch (source) {
+      case 'market_research': return 'Market Research';
+      case 'competitor_analysis': return 'Competitor Analysis';  
+      case 'brand_visibility': return 'Brand Visibility';
+      case 'industry': return 'Industry';
+      case 'competitors': return 'Competitors';
+      case 'gap': return 'Gap Analysis';
+      default: return source.charAt(0).toUpperCase() + source.slice(1);
     }
   };
 
@@ -131,7 +149,7 @@ export function AIPromptSuggestions({
                         variant="outline" 
                         className={`text-xs capitalize ${getSourceColor(suggestion.source)}`}
                       >
-                        {suggestion.source}
+                        {getSourceDisplayName(suggestion.source)}
                       </Badge>
                       <span className="text-xs text-gray-500">
                         {new Date(suggestion.created_at).toLocaleDateString()}
@@ -152,10 +170,13 @@ export function AIPromptSuggestions({
                         <div>
                           <span className="font-medium text-blue-900">AI Insight:</span>
                           <span className="ml-1">
-                            This prompt targets a gap in your current coverage and could improve visibility in 
-                            {suggestion.source === 'competitors' ? ' competitor comparison queries' : 
-                             suggestion.source === 'industry' ? ' industry-specific searches' : 
-                             ' underperforming search categories'}.
+                            This prompt targets 
+                            {suggestion.source === 'competitor_analysis' ? ' competitor comparison queries and helps monitor competitive positioning.' : 
+                             suggestion.source === 'brand_visibility' ? ' search queries where your brand should appear prominently.' : 
+                             suggestion.source === 'market_research' ? ' industry-wide search queries for market insights.' :
+                             suggestion.source === 'competitors' ? ' competitor comparison queries.' :
+                             suggestion.source === 'industry' ? ' industry-specific searches.' : 
+                             ' underperforming search categories.'}
                           </span>
                         </div>
                       </div>
@@ -205,18 +226,18 @@ export function AIPromptSuggestions({
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
                   <Lightbulb className="h-6 w-6 text-amber-600 mx-auto mb-2" />
-                  <div className="text-xs font-medium text-amber-900">Industry</div>
-                  <div className="text-xs text-amber-700">Trends</div>
+                  <div className="text-xs font-medium text-amber-900">Market Research</div>
+                  <div className="text-xs text-amber-700">Industry insights</div>
                 </div>
                 <div className="p-3 bg-purple-50 rounded-xl border border-purple-100">
                   <Users className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-                  <div className="text-xs font-medium text-purple-900">Competitor</div>
-                  <div className="text-xs text-purple-700">Analysis</div>
+                  <div className="text-xs font-medium text-purple-900">Competitor Analysis</div>
+                  <div className="text-xs text-purple-700">Competitive queries</div>
                 </div>
                 <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
                   <Target className="h-6 w-6 text-orange-600 mx-auto mb-2" />
-                  <div className="text-xs font-medium text-orange-900">Coverage</div>
-                  <div className="text-xs text-orange-700">Gaps</div>
+                  <div className="text-xs font-medium text-orange-900">Brand Visibility</div>
+                  <div className="text-xs text-orange-700">Visibility opportunities</div>
                 </div>
               </div>
             </div>
