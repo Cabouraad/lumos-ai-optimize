@@ -14,6 +14,7 @@ serve(async (req) => {
 
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
   
   try {
     const { prompt, provider } = await req.json();
@@ -142,6 +143,88 @@ serve(async (req) => {
         }
 
       throw new Error('Perplexity error: all attempts failed');
+    } else if (provider === 'gemini') {
+      if (!geminiKey) {
+        return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      let attempt = 0;
+      const maxAttempts = 3;
+      
+      while (attempt < maxAttempts) {
+        try {
+          console.log(`[Gemini:test] Attempt ${attempt + 1}`);
+          
+          const payload = {
+            contents: [
+              {
+                parts: [
+                  {
+                    text: prompt
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 1000,
+            }
+          };
+
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const bodyText = await res.text().catch(() => '');
+            const error = new Error(`Gemini error: ${res.status} ${res.statusText} — ${bodyText}`);
+            console.error(`[Gemini:test] Attempt ${attempt + 1} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
+            
+            // Don't retry on auth/bad request errors
+            if (res.status === 401 || res.status === 403 || res.status === 400) {
+              throw error;
+            }
+            
+            throw error;
+          }
+
+          const data = await res.json();
+          console.log(`[Gemini:test] Success`);
+          const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          
+          return new Response(JSON.stringify({ 
+            response: aiResponse,
+            provider: 'gemini',
+            model: 'gemini-1.5-flash-latest'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+          
+        } catch (error: any) {
+          attempt++;
+          console.error(`[Gemini:test] Attempt ${attempt} error:`, error.message);
+          
+          // Don't retry on auth errors
+          if (error.message?.includes('401') || error.message?.includes('403')) {
+            break;
+          }
+          
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
+      }
+
+      throw new Error('Gemini error: all attempts failed');
     } else {
       throw new Error('Invalid provider specified');
     }

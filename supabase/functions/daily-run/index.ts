@@ -29,6 +29,7 @@ serve(async (req) => {
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
 
   const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
@@ -90,7 +91,8 @@ serve(async (req) => {
               org.id, 
               supabase,
               openaiKey,
-              perplexityKey
+              perplexityKey,
+              geminiKey
             );
             
             if (result.success) {
@@ -151,7 +153,8 @@ async function runPrompt(
   orgId: string, 
   supabase: any,
   openaiKey?: string,
-  perplexityKey?: string
+  perplexityKey?: string,
+  geminiKey?: string
 ) {
   try {
     // Load prompt and org data
@@ -216,6 +219,8 @@ async function runPrompt(
             extractionPromise = extractBrandsOpenAI(prompt.text, openaiKey);
           } else if (provider.name === 'perplexity' && perplexityKey) {
             extractionPromise = extractBrandsPerplexity(prompt.text, perplexityKey);
+          } else if (provider.name === 'gemini' && geminiKey) {
+            extractionPromise = extractBrandsGemini(prompt.text, geminiKey);
           } else {
             break; // Skip if no API key
           }
@@ -515,4 +520,94 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
   }
 
   throw lastError || new Error('Perplexity API failed');
+}
+
+async function extractBrandsGemini(promptText: string, apiKey: string) {
+  const maxAttempts = 3;
+  
+  let attempt = 0;
+  let lastError: any = null;
+  
+  while (attempt < maxAttempts) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: promptText + '\n\nOutput ONLY a JSON object with a single key "brands" as an array of brand or company names you would include in your answer.'
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1000,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Gemini API error: ${response.status} - ${errorText}`);
+        
+        // Don't retry on auth/bad request errors
+        if (response.status === 401 || response.status === 403 || response.status === 400) {
+          throw error;
+        }
+        
+        throw error;
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const usage = data.usageMetadata || {};
+
+      try {
+        const parsed = JSON.parse(content);
+        return {
+          brands: Array.isArray(parsed.brands) ? parsed.brands : [],
+          tokenIn: usage.promptTokenCount || 0,
+          tokenOut: usage.candidatesTokenCount || 0,
+        };
+      } catch (parseError) {
+        const match = content.match(/\["[^"]*"(?:,\s*"[^"]*")*\]/);
+        if (match) {
+          try {
+            const brands = JSON.parse(match[0]);
+            return {
+              brands: Array.isArray(brands) ? brands : [],
+              tokenIn: usage.promptTokenCount || 0,
+              tokenOut: usage.candidatesTokenCount || 0,
+            };
+          } catch {
+            return { brands: [], tokenIn: 0, tokenOut: 0 };
+          }
+        }
+        return { brands: [], tokenIn: 0, tokenOut: 0 };
+      }
+      
+    } catch (error: any) {
+      attempt++;
+      lastError = error;
+      
+      // Don't retry on auth errors
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        break;
+      }
+      
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+  }
+
+  throw lastError || new Error('Gemini API failed');
 }

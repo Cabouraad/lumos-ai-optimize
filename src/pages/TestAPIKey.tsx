@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function TestPerplexityKey() {
   const [testKey, setTestKey] = useState('');
+  const [provider, setProvider] = useState('perplexity');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; model?: string } | null>(null);
 
@@ -27,7 +28,7 @@ export default function TestPerplexityKey() {
       const { data, error } = await supabase.functions.invoke('test-prompt-response', {
         body: {
           prompt: testPrompt,
-          provider: 'perplexity'
+          provider: provider
         }
       });
 
@@ -39,7 +40,7 @@ export default function TestPerplexityKey() {
       } else if (data && data.response) {
         setResult({ 
           success: true, 
-          message: `Success! Perplexity API is working correctly.`,
+          message: `Success! ${provider.charAt(0).toUpperCase() + provider.slice(1)} API is working correctly.`,
           model: data.model || 'unknown'
         });
       } else {
@@ -62,16 +63,33 @@ export default function TestPerplexityKey() {
     <div className="container max-w-2xl mx-auto p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Test Perplexity API Key</CardTitle>
+          <CardTitle>Test AI Provider API Key</CardTitle>
           <CardDescription>
-            Test your Perplexity API key to ensure it's working correctly with the application.
+            Test your AI provider API key to ensure it's working correctly with the application.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
+            <label htmlFor="provider" className="block text-sm font-medium mb-2">
+              Select Provider
+            </label>
+            <select
+              id="provider"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              disabled={isLoading}
+              className="w-full p-2 border border-gray-300 rounded-md"
+            >
+              <option value="openai">OpenAI</option>
+              <option value="perplexity">Perplexity</option>
+              <option value="gemini">Gemini</option>
+            </select>
+          </div>
+          
+          <div>
             <Input
               type="password"
-              placeholder="Enter your Perplexity API key..."
+              placeholder={`Enter your ${provider.charAt(0).toUpperCase() + provider.slice(1)} API key...`}
               value={testKey}
               onChange={(e) => setTestKey(e.target.value)}
               disabled={isLoading}
