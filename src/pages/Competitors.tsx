@@ -153,9 +153,8 @@ export default function Competitors() {
         .eq('id', orgId)
         .single();
 
-      if (orgData) {
-        setOrgName(orgData.name);
-      }
+      const currentOrgName = orgData?.name || 'Your Brand';
+      setOrgName(currentOrgName);
 
       // Get all competitor brands
       const { data: competitorsData, error } = await supabase
@@ -188,10 +187,10 @@ export default function Competitors() {
         .sort((a, b) => b.totalAppearances - a.totalAppearances)
         .slice(0, 5);
       
-      // Add org brand to top if we have data
+      // Add org brand to top if we have data - use fetched name directly
       const orgBrandData: CompetitorBrand = {
         id: 'org',
-        name: orgName,
+        name: currentOrgName,
         totalAppearances: 156, // Mock data
         averageScore: 7.5,
         firstDetectedAt: new Date().toISOString(),
