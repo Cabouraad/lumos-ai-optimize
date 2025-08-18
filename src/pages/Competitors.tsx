@@ -94,18 +94,24 @@ const CompetitorRow = ({ competitor, rank }: { competitor: CompetitorBrand; rank
   const trend = competitor.trend || (Math.random() * 20 - 10); // Mock trend for demo
 
   return (
-    <div className="flex items-center justify-between p-3 hover:bg-muted/30 rounded-lg transition-colors group">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-muted-foreground w-4">{rank}</span>
-        <BrandLogo brandName={competitor.name} />
-        <div>
-          <p className="font-medium text-foreground">{competitor.name}</p>
-          <p className="text-xs text-muted-foreground">{competitor.totalAppearances} mentions</p>
+    <div className="flex items-center justify-between p-4 hover:bg-muted/30 rounded-lg transition-colors group min-h-[72px]">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex-shrink-0 w-6 text-center">
+          <span className="text-sm font-medium text-muted-foreground">{rank}</span>
+        </div>
+        <div className="flex-shrink-0">
+          <BrandLogo brandName={competitor.name} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground text-sm truncate">{competitor.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{competitor.totalAppearances} mentions</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="font-semibold text-lg">{sharePercentage.toFixed(1)}%</span>
-        <TrendIcon trend={trend} />
+      <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="text-right">
+          <div className="font-bold text-lg text-foreground">{sharePercentage.toFixed(1)}%</div>
+          <TrendIcon trend={trend} />
+        </div>
       </div>
     </div>
   );
