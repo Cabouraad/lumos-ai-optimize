@@ -1,5 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { extractArtifacts } from '../_shared/visibility/extractArtifacts.ts';
+import { computeEnhancedVisibilityScore } from '../../lib/scoring/enhanced-visibility.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +15,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   
   if (!openaiKey) {
@@ -21,131 +26,192 @@ serve(async (req) => {
     });
   }
 
-  try {
-    const { prompt, response, provider, orgBrands } = await req.json();
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-    if (!prompt || !response) {
-      return new Response(JSON.stringify({ error: 'Missing prompt or AI response' }), {
+  try {
+    const { promptId, orgId, providerId, responseText, citations, brands } = await req.json();
+
+    if (!promptId || !orgId || !providerId || !responseText) {
+      return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Analyzing ${provider || 'AI'} response for prompt: "${prompt}"`);
+    console.log(`Analyzing response for prompt ${promptId}`);
 
-    // Extract brands from search results using OpenAI
-    const brandResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at extracting brand names, company names, product names, and service names from AI-generated text responses. Extract all brands and companies that are specifically mentioned in the AI response. Be thorough but only include actual brand names, not generic categories.'
-          },
-          {
-            role: 'user',
-            content: `Original Prompt: "${prompt}"
+    // Get organization brand catalog and prompt data
+    const [brandCatalogResult, promptResult] = await Promise.all([
+      supabase
+        .from('brand_catalog')
+        .select('name, variants_json, is_org_brand')
+        .eq('org_id', orgId),
+      supabase
+        .from('prompts')
+        .select('text')
+        .eq('id', promptId)
+        .single()
+    ]);
 
-AI Response to analyze:
-${response}
-
-Extract all brand names, company names, product names, and service names that are specifically mentioned in this AI response. Return only the names, one per line, without any additional text or explanations. Focus on:
-- Specific company names mentioned
-- Product/service brand names
-- Platform names
-- Software/tool names
-
-Do not include generic terms or categories.`
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.1,
-      }),
-    });
-
-    if (!brandResponse.ok) {
-      throw new Error(`OpenAI API error: ${brandResponse.statusText}`);
+    if (brandCatalogResult.error) {
+      console.error('Error fetching brand catalog:', brandCatalogResult.error);
+      throw new Error('Failed to fetch brand catalog');
     }
 
-    const brandData = await brandResponse.json();
-    const brandContent = brandData.choices[0].message.content || '';
-    
-    // Extract and clean brand names
-    let extractedBrands = brandContent
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => {
-        // Filter out empty lines, numbers, and obvious non-brand text
-        if (!line || line.length < 2) return false;
-        if (/^\d+\.?\s*$/.test(line)) return false;
-        if (line.includes('http') || line.includes('www.')) return false;
-        if (line.length > 50) return false;
-        
-        return /^[A-Za-z0-9\s&\-\.\(\)\/]{2,40}$/.test(line);
-      })
-      .slice(0, 15);
-
-    // Keep only brands that actually appear in the AI response text (case-insensitive, punctuation-insensitive, word-boundary aware)
-    const normalizedText = (response || '').toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-    extractedBrands = extractedBrands.filter((b: string) => {
-      const nb = b.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-      if (!nb) return false;
-      const pattern = new RegExp(`(?:^|\\s)${nb.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\s|$)`);
-      return pattern.test(normalizedText);
-    });
-
-    console.log(`Extracted brands:`, extractedBrands);
-
-    // Use enhanced artifact extraction for proper competitor analysis
-    const { extractArtifacts, createBrandGazetteer } = await import('../_shared/visibility/extractArtifacts.ts');
-    
-    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-    const normalizedOrgBrands = (orgBrands || []).map((b: string) => normalize(b)).filter(Boolean);
-    
-    // Create a simple brand catalog for the extraction
-    const brandCatalog = (orgBrands || []).map(brand => ({ name: brand, variants_json: [] }));
-    const gazetteer = createBrandGazetteer(brandCatalog);
-    
-    // Extract structured artifacts
-    const artifacts = extractArtifacts(response, normalizedOrgBrands, gazetteer);
-
-    const orgBrandPresent = artifacts.brands.length > 0;
-    const orgBrandPosition = orgBrandPresent ? 0 : null; // First position for org brands
-    const competitorCount = artifacts.competitors.length;
-
-    // Calculate enhanced score
-    let score = 1; // Base score
-
-    if (orgBrandPresent) {
-      score = 5; // Base score for being present
-      
-      // Position bonus for user brands
-      score += 3; // Bonus for being present (artifacts separates properly)
-      
-      // Competitor penalty (only actual competitors, not all brands)
-      if (competitorCount > 3) score -= 2;
-      else if (competitorCount > 1) score -= 1;
+    if (promptResult.error) {
+      console.error('Error fetching prompt:', promptResult.error);
+      throw new Error('Failed to fetch prompt');
     }
 
-    score = Math.max(1, Math.min(10, score));
+    const brandCatalog = brandCatalogResult.data;
+    const prompt = promptResult.data;
 
-    const result = {
-      brands: [...artifacts.brands.map(b => b.name), ...artifacts.competitors.map(c => c.name)],
-      orgBrandPresent,
-      orgBrandPosition,
-      score,
-      competitorCount,
-      competitors: artifacts.competitors.map(c => c.name),
-      userBrands: artifacts.brands.map(b => b.name),
-      metadata: artifacts.metadata
+    // Extract enhanced artifacts
+    const userBrandNorms = brandCatalog
+      .filter(b => b.is_org_brand)
+      .flatMap(b => [b.name.toLowerCase(), ...(b.variants_json || []).map((v: string) => v.toLowerCase())]);
+    
+    const gazetteer = brandCatalog.map(b => b.name);
+    const artifacts = extractArtifacts(responseText, userBrandNorms, gazetteer);
+
+    // Calculate brand presence and prominence
+    const orgBrandPresent = artifacts.brands.some(b => 
+      userBrandNorms.includes(b.normalized)
+    );
+    
+    const orgBrandProminence = orgBrandPresent 
+      ? Math.max(...artifacts.brands
+          .filter(b => userBrandNorms.includes(b.normalized))
+          .map(b => b.first_pos_ratio * 100))
+      : 0;
+
+    // Calculate visibility score using enhanced scoring
+    const visibilityMetrics = {
+      brandPresent: orgBrandPresent,
+      brandPosition: orgBrandProminence,
+      brandMentions: artifacts.brands.filter(b => userBrandNorms.includes(b.normalized)).length,
+      competitorCount: artifacts.competitors.length,
+      competitorMentions: artifacts.competitors.reduce((sum, c) => sum + c.mentions, 0),
+      sentiment: artifacts.brands.find(b => userBrandNorms.includes(b.normalized))?.sentiment || 'neutral',
+      contextRelevance: artifacts.metadata.analysis_confidence,
+      responseLength: artifacts.metadata.response_length
     };
 
-    console.log('Analysis result:', result);
+    const visibilityScore = Math.round(computeEnhancedVisibilityScore({
+      brandPresent: orgBrandPresent,
+      brandPosition: orgBrandProminence / 100,
+      brandMentions: visibilityMetrics.brandMentions,
+      competitorCount: visibilityMetrics.competitorCount,
+      competitorMentions: visibilityMetrics.competitorMentions,
+      sentiment: visibilityMetrics.sentiment as 'positive' | 'negative' | 'neutral',
+      contextRelevance: visibilityMetrics.contextRelevance,
+      responseLength: visibilityMetrics.responseLength
+    }).overallScore * 100);
+
+    // Create prompt run record
+    const { data: promptRun, error: runError } = await supabase
+      .from('prompt_runs')
+      .insert({
+        prompt_id: promptId,
+        provider_id: providerId,
+        status: 'completed',
+        citations: citations || artifacts.citations,
+        brands: artifacts.brands,
+        competitors: artifacts.competitors,
+        token_in: 0, // Would need to calculate from actual usage
+        token_out: 0,
+        cost_est: 0
+      })
+      .select()
+      .single();
+
+    if (runError) {
+      console.error('Error creating prompt run:', runError);
+      throw new Error('Failed to create prompt run');
+    }
+
+    // Create visibility results
+    const { error: visibilityError } = await supabase
+      .from('visibility_results')
+      .insert({
+        prompt_run_id: promptRun.id,
+        org_brand_present: orgBrandPresent,
+        org_brand_prominence: Math.round(orgBrandProminence),
+        score: visibilityScore,
+        competitors_count: artifacts.competitors.length,
+        brands_json: artifacts.brands,
+        raw_ai_response: responseText.substring(0, 5000), // Truncate if too long
+        raw_evidence: JSON.stringify(artifacts.citations)
+      });
+
+    if (visibilityError) {
+      console.error('Error creating visibility results:', visibilityError);
+      throw new Error('Failed to create visibility results');
+    }
+
+    // Persist competitor mentions with proper tracking
+    for (const competitor of artifacts.competitors) {
+      try {
+        const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+          p_org_id: orgId,
+          p_prompt_id: promptId,
+          p_competitor_name: competitor.name,
+          p_normalized_name: competitor.normalized,
+          p_position: competitor.first_pos_ratio,
+          p_sentiment: competitor.sentiment || 'neutral'
+        });
+
+        if (mentionError) {
+          console.error('Error upserting competitor mention:', mentionError);
+        }
+
+        // Also update brand catalog
+        const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
+          p_org_id: orgId,
+          p_brand_name: competitor.name,
+          p_score: Math.round(competitor.confidence * 100)
+        });
+
+        if (brandError) {
+          console.error('Error upserting competitor brand:', brandError);
+        }
+      } catch (error) {
+        console.error('Error processing competitor:', error);
+      }
+    }
+
+    // Update org brand tracking if mentioned
+    for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
+      try {
+        const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+          p_org_id: orgId,
+          p_prompt_id: promptId,
+          p_competitor_name: brand.name,
+          p_normalized_name: brand.normalized,
+          p_position: brand.first_pos_ratio,
+          p_sentiment: brand.sentiment || 'neutral'
+        });
+
+        if (mentionError) {
+          console.error('Error upserting org brand mention:', mentionError);
+        }
+      } catch (error) {
+        console.error('Error processing org brand mention:', error);
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      promptRunId: promptRun.id,
+      visibilityScore,
+      orgBrandPresent,
+      orgBrandProminence: Math.round(orgBrandProminence),
+      competitorsCount: artifacts.competitors.length,
+      brandsFound: artifacts.brands.length,
+      citationsCount: artifacts.citations.length
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

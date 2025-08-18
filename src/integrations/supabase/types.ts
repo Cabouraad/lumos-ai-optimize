@@ -58,6 +58,51 @@ export type Database = {
           },
         ]
       }
+      competitor_mentions: {
+        Row: {
+          average_position: number | null
+          competitor_name: string
+          created_at: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          mention_count: number
+          normalized_name: string
+          org_id: string
+          prompt_id: string
+          sentiment: string | null
+          updated_at: string
+        }
+        Insert: {
+          average_position?: number | null
+          competitor_name: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          mention_count?: number
+          normalized_name: string
+          org_id: string
+          prompt_id: string
+          sentiment?: string | null
+          updated_at?: string
+        }
+        Update: {
+          average_position?: number | null
+          competitor_name?: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          mention_count?: number
+          normalized_name?: string
+          org_id?: string
+          prompt_id?: string
+          sentiment?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       llm_providers: {
         Row: {
           enabled: boolean
@@ -478,6 +523,17 @@ export type Database = {
       }
       upsert_competitor_brand: {
         Args: { p_brand_name: string; p_org_id: string; p_score?: number }
+        Returns: undefined
+      }
+      upsert_competitor_mention: {
+        Args: {
+          p_competitor_name: string
+          p_normalized_name: string
+          p_org_id: string
+          p_position?: number
+          p_prompt_id: string
+          p_sentiment?: string
+        }
         Returns: undefined
       }
     }
