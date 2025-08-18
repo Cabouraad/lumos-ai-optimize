@@ -434,101 +434,85 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string) {
-  const models = [
-    'sonar-pro',
-    'sonar', 
-    'llama-3.1-sonar-small-128k-online',
-    'llama-3.1-8b-instruct'
-  ];
-
+  const model = 'sonar'; // Using official model as per documentation
+  const maxAttempts = 3;
+  
+  let attempt = 0;
   let lastError: any = null;
   
-  for (const model of models) {
-    let attempt = 0;
-    const maxAttempts = 2;
-    
-    while (attempt < maxAttempts) {
-      try {
-        const response = await fetch('https://api.perplexity.ai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an extraction API. Given a user prompt, output ONLY a JSON object with a single key brands as an array of brand or company names you would include in your answer. No explanations.'
-              },
-              {
-                role: 'user',
-                content: promptText
-              }
-            ],
-            max_tokens: 1000,
-            stream: false,
-            return_images: false,
-            return_related_questions: false,
-          }),
-        });
+  while (attempt < maxAttempts) {
+    try {
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: promptText + '\n\nOutput ONLY a JSON object with a single key "brands" as an array of brand or company names you would include in your answer.'
+            }
+          ]
+        }),
+      });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          const error = new Error(`Perplexity ${model} error: ${response.status} - ${errorText}`);
-          
-          // Don't retry on auth/bad request errors
-          if (response.status === 401 || response.status === 403 || response.status === 400) {
-            throw error;
-          }
-          
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Perplexity ${model} error: ${response.status} - ${errorText}`);
+        
+        // Don't retry on auth/bad request errors
+        if (response.status === 401 || response.status === 403 || response.status === 400) {
           throw error;
         }
+        
+        throw error;
+      }
 
-        const data = await response.json();
-        const content = data.choices[0]?.message?.content || '';
-        const usage = data.usage || {};
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content || '';
+      const usage = data.usage || {};
 
-        try {
-          const parsed = JSON.parse(content);
-          return {
-            brands: Array.isArray(parsed.brands) ? parsed.brands : [],
-            tokenIn: usage.prompt_tokens || 0,
-            tokenOut: usage.completion_tokens || 0,
-          };
-        } catch (parseError) {
-          const match = content.match(/\["[^"]*"(?:,\s*"[^"]*")*\]/);
-          if (match) {
-            try {
-              const brands = JSON.parse(match[0]);
-              return {
-                brands: Array.isArray(brands) ? brands : [],
-                tokenIn: usage.prompt_tokens || 0,
-                tokenOut: usage.completion_tokens || 0,
-              };
-            } catch {
-              return { brands: [], tokenIn: 0, tokenOut: 0 };
-            }
+      try {
+        const parsed = JSON.parse(content);
+        return {
+          brands: Array.isArray(parsed.brands) ? parsed.brands : [],
+          tokenIn: usage.prompt_tokens || 0,
+          tokenOut: usage.completion_tokens || 0,
+        };
+      } catch (parseError) {
+        const match = content.match(/\["[^"]*"(?:,\s*"[^"]*")*\]/);
+        if (match) {
+          try {
+            const brands = JSON.parse(match[0]);
+            return {
+              brands: Array.isArray(brands) ? brands : [],
+              tokenIn: usage.prompt_tokens || 0,
+              tokenOut: usage.completion_tokens || 0,
+            };
+          } catch {
+            return { brands: [], tokenIn: 0, tokenOut: 0 };
           }
-          return { brands: [], tokenIn: 0, tokenOut: 0 };
         }
-        
-      } catch (error: any) {
-        attempt++;
-        lastError = error;
-        
-        // Don't retry on auth errors
-        if (error.message?.includes('401') || error.message?.includes('403')) {
-          break;
-        }
-        
-        if (attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        }
+        return { brands: [], tokenIn: 0, tokenOut: 0 };
+      }
+      
+    } catch (error: any) {
+      attempt++;
+      lastError = error;
+      
+      // Don't retry on auth errors
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        break;
+      }
+      
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
   }
 
-  throw lastError || new Error('All Perplexity models failed');
+  throw lastError || new Error('Perplexity API failed');
 }

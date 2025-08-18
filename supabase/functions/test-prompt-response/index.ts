@@ -74,32 +74,22 @@ serve(async (req) => {
         });
       }
 
-      // Perplexity with standardized model names and retry logic
+      // Perplexity using official model as per documentation
       const endpoint = 'https://api.perplexity.ai/chat/completions';
-      const models = [
-        'sonar-pro',
-        'sonar',
-        'llama-3.1-sonar-small-128k-online',
-        'llama-3.1-8b-instruct'
-      ];
+      const model = 'sonar';
 
-      let lastError: any = null;
+      let attempt = 0;
+      const maxAttempts = 3;
       
-      for (const model of models) {
-        let attempt = 0;
-        const maxAttempts = 2;
-        
-        while (attempt < maxAttempts) {
-          try {
-            console.log(`[Perplexity:test] Trying model: ${model}, attempt ${attempt + 1}`);
-            
-            // Use exact payload structure from Perplexity documentation
-            const payload = {
-              model,
-              messages: [ { role: 'user', content: prompt } ],
-              max_tokens: 1000,
-              stream: false
-            };
+      while (attempt < maxAttempts) {
+        try {
+          console.log(`[Perplexity:test] Trying model: ${model}, attempt ${attempt + 1}`);
+          
+          // Use exact payload structure from Perplexity documentation
+          const payload = {
+            model,
+            messages: [ { role: 'user', content: prompt } ]
+          };
 
             const res = await fetch(endpoint, {
               method: 'POST',
@@ -138,7 +128,6 @@ serve(async (req) => {
             
           } catch (error: any) {
             attempt++;
-            lastError = error;
             console.error(`[Perplexity:test] ${model} attempt ${attempt} error:`, error.message);
             
             // Don't retry on auth errors
@@ -151,9 +140,8 @@ serve(async (req) => {
             }
           }
         }
-      }
 
-      throw lastError || new Error('Perplexity error: all models failed');
+      throw new Error('Perplexity error: all attempts failed');
     } else {
       throw new Error('Invalid provider specified');
     }

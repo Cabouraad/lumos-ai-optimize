@@ -10,12 +10,7 @@ export type BrandExtraction = {
 };
 
 export async function extractBrands(promptText: string, apiKey: string): Promise<BrandExtraction> {
-  const models = [
-    'sonar-pro',
-    'sonar',
-    'llama-3.1-sonar-small-128k-online',
-    'llama-3.1-8b-instruct'
-  ];
+  const models = ['sonar']; // Using official Perplexity model as per their docs
 
   let lastError: Error | null = null;
   
@@ -35,18 +30,10 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
             model,
             messages: [
               {
-                role: 'system',
-                content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively with web search. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-              },
-              {
                 role: 'user',
-                content: promptText
+                content: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
               }
-            ],
-            max_tokens: 2000,
-            stream: false,
-            return_images: false,
-            return_related_questions: false,
+            ]
           }),
         });
 

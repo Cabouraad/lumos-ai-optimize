@@ -421,81 +421,70 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<any> {
   const endpoint = 'https://api.perplexity.ai/chat/completions';
-  // Use the correct model names with fallbacks
-  const modelFallbacks = [
-    'sonar-pro',
-    'sonar',
-    'llama-3.1-sonar-small-128k-online',
-    'llama-3.1-8b-instruct'
-  ];
+  // Use official model as per documentation
+  const model = 'sonar';
 
-  async function callPerplexity(messages: any[], model: string, maxTokens: number = 800) {
-    // Use the exact payload structure from Perplexity documentation
+  async function callPerplexity(messages: any[], maxAttempts: number = 3) {
+    // Use exact payload structure from Perplexity documentation
     const payload = {
       model,
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
-      stream: false
+      messages
     };
 
-    console.log(`[Perplexity] Trying model: ${model} with payload:`, JSON.stringify(payload, null, 2));
-    
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const bodyText = await res.text().catch(() => '');
-      console.error(`[Perplexity] Model ${model} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
-      throw new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
-    }
-
-    const data = await res.json();
-    console.log(`[Perplexity] Raw response data:`, JSON.stringify(data, null, 2));
-    const content = data?.choices?.[0]?.message?.content ?? '';
-    return { content, modelUsed: model };
-  }
-
-  // 1) Get the raw AI response with fallback and retry logic
-  let aiResponse = '';
-  let modelUsed = '';
-  let lastError: any = null;
-
-  for (const model of modelFallbacks) {
     let attempt = 0;
-    const maxAttempts = 2;
     
     while (attempt < maxAttempts) {
       try {
-        const result = await callPerplexity([
-          { role: 'user', content: promptText }
-        ], model, 800);
+        console.log(`[Perplexity] Trying model: ${model}, attempt ${attempt + 1}`);
         
-        aiResponse = result.content;
-        modelUsed = result.modelUsed;
-        break;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const bodyText = await res.text().catch(() => '');
+          console.error(`[Perplexity] Model ${model} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
+          throw new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
+        }
+
+        const data = await res.json();
+        const content = data?.choices?.[0]?.message?.content ?? '';
+        return { content, modelUsed: model };
+        
       } catch (error: any) {
         attempt++;
-        lastError = error;
-        
-        // Don't retry on auth errors
         if (error.message?.includes('401') || error.message?.includes('403')) {
-          break;
+          throw error; // Don't retry auth errors
         }
         
-        if (attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        if (attempt >= maxAttempts) {
+          throw error;
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
+  }
+
+  // 1) Get the raw AI response with retry logic
+  let aiResponse = '';
+  let modelUsed = '';
+  
+  try {
+    const result = await callPerplexity([
+      { role: 'user', content: promptText }
+    ]);
     
-    if (aiResponse) break;
+    aiResponse = result.content;
+    modelUsed = result.modelUsed;
+  } catch (error: any) {
+    console.error(`[Perplexity] Failed to get AI response:`, error.message);
+    throw error;
   }
 
   if (!aiResponse) {
