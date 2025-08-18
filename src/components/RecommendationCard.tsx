@@ -33,6 +33,9 @@ interface Recommendation {
     sourcePromptIds?: string[];
     sourceRunIds?: string[];
     citations?: Array<{type: 'url' | 'ref', value: string}>;
+    impact?: 'high' | 'medium' | 'low';
+    category?: string;
+    competitors?: string;
   };
 }
 
@@ -118,162 +121,181 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
   return (
     <>
       <Card className="rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-200 h-fit">
-        <CardContent className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={getKindColor(recommendation.type)}>
-                {getKindIcon(recommendation.type)}
-                <span className="ml-1 capitalize">{recommendation.type}</span>
-              </Badge>
-              {recommendation.status !== 'open' && (
-                <Badge variant="outline" className={getStatusColor(recommendation.status)}>
-                  {recommendation.status}
+        <CardContent className="p-0">
+          {/* Header with Impact and Category Labels */}
+          <div className="px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {recommendation.metadata?.impact === 'high' && (
+                  <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 font-medium">
+                    High Impact
+                  </Badge>
+                )}
+                <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-medium">
+                  Owned
                 </Badge>
-              )}
-              {estLift > 0 && (
-                <Badge className={getLiftColor(estLift)}>
-                  +{(estLift * 100).toFixed(0)}%
+                <Badge className={getKindColor(recommendation.type)}>
+                  {getKindIcon(recommendation.type)}
+                  <span className="ml-1 capitalize">{recommendation.type}</span>
                 </Badge>
-              )}
+                {recommendation.status !== 'open' && (
+                  <Badge variant="outline" className={getStatusColor(recommendation.status)}>
+                    {recommendation.status}
+                  </Badge>
+                )}
+                {estLift > 0 && (
+                  <Badge className={getLiftColor(estLift)}>
+                    +{(estLift * 100).toFixed(0)}%
+                  </Badge>
+                )}
+              </div>
             </div>
+
+            {/* Title */}
+            <h3 className="font-semibold text-foreground mb-3 text-lg leading-tight">
+              {recommendation.title}
+            </h3>
+
+            {/* Rationale */}
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-4">
+              {recommendation.rationale}
+            </p>
           </div>
 
-          {/* Title */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <h3 className="font-semibold text-foreground mb-2 line-clamp-1 cursor-help">
-                  {recommendation.title}
-                </h3>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-sm">
-                <p>{recommendation.title}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          {/* Rationale */}
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-            {recommendation.rationale}
-            {sourcePromptIds.length > 0 && (
+          {/* Implementation Details - Expandable */}
+          {steps.length > 0 && (
+            <div className="border-t bg-muted/20">
               <button
-                onClick={() => setPromptModalOpen(true)}
-                className="ml-2 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
-                aria-label="View linked prompts"
+                onClick={() => setShowSteps(!showSteps)}
+                className="w-full px-6 py-4 flex items-center justify-between text-left text-sm font-medium text-foreground hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset transition-colors"
+                aria-expanded={showSteps}
+                aria-controls="implementation-details"
               >
-                (linked prompts)
+                <span>Implementation Details</span>
+                {showSteps ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
-            )}
-          </p>
-
-          {/* Citations */}
-          {citations.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {citations.slice(0, 3).map((citation, index) => (
-                <Badge 
-                  key={index}
-                  variant="outline" 
-                  className="text-xs cursor-pointer hover:bg-muted"
-                  onClick={() => {
-                    if (citation.type === 'url') {
-                      window.open(citation.value, '_blank', 'noopener,noreferrer');
-                    } else {
-                      copyToClipboard(citation.value);
-                    }
-                  }}
-                  title={citation.value}
-                >
-                  {citation.type === 'url' ? (
-                    <>
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      {new URL(citation.value).hostname}
-                    </>
-                  ) : (
-                    <>
-                      [{citation.value}]
-                    </>
-                  )}
-                </Badge>
-              ))}
-              {citations.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{citations.length - 3} more
-                </Badge>
+              
+              {showSteps && (
+                <div id="implementation-details" className="px-6 pb-4">
+                  <div className="space-y-3">
+                    {steps.map((step, index) => (
+                      <div key={index} className="flex items-start gap-3 text-sm">
+                        <span className="text-xs bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 font-medium">
+                          {index + 1}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-foreground leading-relaxed">{step}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(step)}
+                          className="h-6 w-6 p-0 flex-shrink-0"
+                          aria-label={`Copy step ${index + 1}`}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
 
-          {/* Steps */}
-          {steps.length > 0 && (
-            <div className="mb-4">
-              <button
-                onClick={() => setShowSteps(!showSteps)}
-                className="flex items-center text-sm font-medium text-foreground hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
-                aria-expanded={showSteps}
-                aria-controls="recommendation-steps"
-              >
-                {showSteps ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
-                Steps ({steps.length})
-              </button>
-              
-              {showSteps && (
-                <ul id="recommendation-steps" className="mt-2 space-y-2">
-                  {steps.map((step, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="text-xs bg-muted text-muted-foreground rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        {index + 1}
+          {/* Related Prompts */}
+          {sourcePromptIds.length > 0 && (
+            <div className="border-t bg-muted/10">
+              <div className="px-6 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-foreground">Related Prompts</h4>
+                  <button
+                    onClick={() => setPromptModalOpen(true)}
+                    className="text-xs text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
+                    aria-label="View all related prompts"
+                  >
+                    View all ({sourcePromptIds.length})
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This recommendation is for the entire topic area based on {sourcePromptIds.length} related {sourcePromptIds.length === 1 ? 'query' : 'queries'}.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Related Citations */}
+          {citations.length > 0 && (
+            <div className="border-t bg-muted/10">
+              <div className="px-6 py-4">
+                <h4 className="text-sm font-medium text-foreground mb-3">Related Citations</h4>
+                <div className="space-y-2">
+                  {citations.slice(0, 4).map((citation, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-card hover:bg-muted/50 cursor-pointer transition-colors group"
+                      onClick={() => {
+                        if (citation.type === 'url') {
+                          window.open(citation.value, '_blank', 'noopener,noreferrer');
+                        } else {
+                          copyToClipboard(citation.value);
+                        }
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground truncate flex-1">
+                        {citation.type === 'url' ? new URL(citation.value).hostname : citation.value}
                       </span>
-                      <span className="flex-1">{step}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(step)}
-                        className="h-6 w-6 p-0 flex-shrink-0"
-                        aria-label={`Copy step ${index + 1}`}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </li>
+                    </div>
                   ))}
-                </ul>
-              )}
+                  {citations.length > 4 && (
+                    <div className="text-xs text-muted-foreground pt-1">
+                      +{citations.length - 4} more citations available
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
           {/* Actions */}
           {recommendation.status === 'open' && (
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleUpdateStatus('done')}
-                disabled={updating}
-                aria-label="Mark recommendation as done"
-              >
-                <Check className="mr-1 h-3 w-3" />
-                Done
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleUpdateStatus('dismissed', 14)}
-                disabled={updating}
-                aria-label="Snooze recommendation for 14 days"
-              >
-                <Clock className="mr-1 h-3 w-3" />
-                Snooze 14d
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleUpdateStatus('dismissed')}
-                disabled={updating}
-                aria-label="Dismiss recommendation"
-              >
-                <X className="mr-1 h-3 w-3" />
-                Dismiss
-              </Button>
+            <div className="border-t px-6 py-4 bg-card">
+              <div className="flex justify-between items-center">
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => handleUpdateStatus('done')}
+                  disabled={updating}
+                  aria-label="Mark recommendation as complete"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Mark Complete
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleUpdateStatus('dismissed', 14)}
+                    disabled={updating}
+                    aria-label="Snooze recommendation for 14 days"
+                  >
+                    <Clock className="mr-1 h-3 w-3" />
+                    Snooze 14d
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleUpdateStatus('dismissed')}
+                    disabled={updating}
+                    aria-label="Dismiss recommendation"
+                  >
+                    <X className="mr-1 h-3 w-3" />
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

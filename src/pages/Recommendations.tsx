@@ -24,6 +24,10 @@ interface Recommendation {
     sourcePromptIds?: string[];
     sourceRunIds?: string[];
     citations?: Array<{type: 'url' | 'ref', value: string}>;
+    impact?: 'high' | 'medium' | 'low';
+    category?: string;
+    competitors?: string;
+    relatedQueries?: string[];
   };
 }
 
