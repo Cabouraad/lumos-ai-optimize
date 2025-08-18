@@ -172,19 +172,25 @@ export default function Recommendations() {
     
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reco-refresh', {
-        body: { accountId: orgData.organizations.id }
+      // Use the new advanced recommendations function
+      const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
+        body: { orgId: orgData.organizations.id }
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: `Generated ${data.created} new recommendations`,
-      });
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: `Generated ${data.created} new recommendations from analysis of ${data.analysisResults?.visibilityPromptsAnalyzed || 0} prompts`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to generate recommendations');
+      }
 
       await loadRecommendations();
     } catch (error: any) {
+      console.error('Recommendation generation error:', error);
       toast({
         title: "Error",
         description: error.message || 'Failed to generate recommendations',

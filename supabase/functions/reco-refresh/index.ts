@@ -43,27 +43,52 @@ serve(async (req) => {
       });
     }
 
-    // Store recommendations using the reco_upsert function
+    // Store recommendations directly (bypassing problematic reco_upsert function)
     let created = 0;
     for (const reco of recommendations) {
       try {
-        const { error } = await supabase.rpc('reco_upsert', {
-          p_org_id: accountId,
-          p_kind: reco.kind,
-          p_title: reco.title,
-          p_rationale: reco.rationale,
-          p_steps: reco.steps,
-          p_est_lift: reco.estLift,
-          p_source_prompt_ids: reco.sourcePromptIds,
-          p_source_run_ids: reco.sourceRunIds,
-          p_citations: reco.citations,
-          p_cooldown_days: reco.cooldownDays || 14
-        });
+        // Check for existing recommendation within cooldown period
+        const cooldownDate = new Date();
+        cooldownDate.setDate(cooldownDate.getDate() - (reco.cooldownDays || 14));
+        
+        const { data: existing } = await supabase
+          .from('recommendations')
+          .select('id')
+          .eq('org_id', accountId)
+          .eq('type', reco.kind)
+          .eq('title', reco.title)
+          .in('status', ['open', 'snoozed'])
+          .gte('created_at', cooldownDate.toISOString())
+          .limit(1);
 
-        if (error) {
-          console.error('Error upserting recommendation:', error);
+        if (!existing || existing.length === 0) {
+          // Insert new recommendation directly
+          const { error: insertError } = await supabase
+            .from('recommendations')
+            .insert({
+              org_id: accountId,
+              type: reco.kind,
+              title: reco.title,
+              rationale: reco.rationale,
+              status: 'open',
+              metadata: {
+                steps: reco.steps,
+                estLift: reco.estLift,
+                sourcePromptIds: reco.sourcePromptIds,
+                sourceRunIds: reco.sourceRunIds,
+                citations: reco.citations,
+                cooldownDays: reco.cooldownDays || 14
+              }
+            });
+
+          if (insertError) {
+            console.error('Error inserting recommendation:', insertError);
+          } else {
+            created++;
+            console.log(`Created recommendation: ${reco.title}`);
+          }
         } else {
-          created++;
+          console.log(`Skipping duplicate recommendation: ${reco.title}`);
         }
       } catch (error) {
         console.error('Error processing recommendation:', error);

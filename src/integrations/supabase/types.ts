@@ -521,6 +521,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      test_reco_insert: {
+        Args: { p_org_id: string; p_test_title?: string }
+        Returns: string
+      }
       upsert_competitor_brand: {
         Args: { p_brand_name: string; p_org_id: string; p_score?: number }
         Returns: undefined

@@ -64,7 +64,7 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       `)
       .eq('prompts.org_id', accountId)
       .gte('run_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      .eq('status', 'success')
+      .in('status', ['success', 'completed'])
       .order('run_at', { ascending: false });
 
     if (!promptVisibility || !competitorShare || !recentRuns) {
@@ -118,9 +118,9 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
 
     // 3) Apply heuristic rules
 
-    // R1: Missing presence on head prompts
+    // R1: Missing presence on head prompts (adjusted threshold)
     const headPrompts = promptVisibility.filter(p => 
-      p.avg_score_7d < 0.2 && isHeadPrompt(p.text)
+      p.avg_score_7d < 5.0 && isHeadPrompt(p.text)  // Changed from 0.2 to 5.0 for actual score range
     );
 
     for (const prompt of headPrompts) {
@@ -146,10 +146,10 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       });
     }
 
-    // R2: Single competitor dominates
+    // R2: Single competitor dominates (adjusted threshold for 1-10 score range)
     const competitorDominance = new Map<string, string[]>();
     for (const [promptId, competitors] of competitorMap.entries()) {
-      const dominant = competitors.find(c => c.mean_score >= 0.6);
+      const dominant = competitors.find(c => c.mean_score >= 6.0);  // Changed from 0.6 to 6.0
       if (dominant) {
         if (!competitorDominance.has(dominant.brand_norm)) {
           competitorDominance.set(dominant.brand_norm, []);
@@ -220,7 +220,7 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       `)
       .eq('prompt_runs.prompts.org_id', accountId)
       .gte('prompt_runs.run_at', sixDaysAgo.toISOString())
-      .eq('prompt_runs.status', 'success');
+      .in('prompt_runs.status', ['success', 'completed']);
 
     if (recentVisibilityRuns) {
       const scoresByPrompt = new Map<string, {recent: number[], older: number[], text: string}>();
@@ -271,8 +271,8 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       }
     }
 
-    // R5: Prompt coverage gap + adjacency
-    const lowPrompts = promptVisibility.filter(p => p.avg_score_7d < 0.3 && p.runs_7d >= 2);
+    // R5: Prompt coverage gap + adjacency (adjusted threshold)
+    const lowPrompts = promptVisibility.filter(p => p.avg_score_7d < 6.0 && p.runs_7d >= 2);  // Changed from 0.3 to 6.0
     
     for (const lowPrompt of lowPrompts) {
       // Extract head keywords (first 2-3 significant words)
@@ -286,7 +286,7 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       // Find adjacent prompts with same head keywords but better performance
       const adjacentPrompts = promptVisibility.filter(other => {
         if (other.prompt_id === lowPrompt.prompt_id) return false;
-        if (other.avg_score_7d < 0.4) return false;
+        if (other.avg_score_7d < 7.0) return false;  // Changed from 0.4 to 7.0
         
         const otherKeywords = other.text.toLowerCase().split(/\s+/);
         return headKeywords.some(kw => otherKeywords.includes(kw));
