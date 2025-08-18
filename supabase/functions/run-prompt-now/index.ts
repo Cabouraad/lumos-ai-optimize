@@ -219,8 +219,18 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
           runsCreated++;
         }
 
-      } catch (providerError) {
+      } catch (providerError: any) {
         console.error(`Error running provider ${provider.name}:`, providerError);
+        
+        // Determine error status
+        let status = 'error';
+        if (providerError.message?.includes('429')) {
+          status = 'rate_limit';
+        } else if (providerError.message?.includes('401') || providerError.message?.includes('403')) {
+          status = 'auth_error';
+        } else if (providerError.message?.includes('timeout')) {
+          status = 'timeout';
+        }
         
         // Insert failed run
         await supabase
@@ -228,7 +238,7 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
           .insert({
             prompt_id: promptId,
             provider_id: provider.id,
-            status: 'error',
+            status,
             run_at: new Date().toISOString(),
             token_in: 0,
             token_out: 0,
@@ -411,7 +421,7 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string): Promise<any> {
   const endpoint = 'https://api.perplexity.ai/chat/completions';
-  // Use the correct model names from Perplexity docs
+  // Use the correct model names with fallbacks
   const modelFallbacks = [
     'sonar-pro',
     'sonar',
@@ -452,25 +462,40 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string): Prom
     return { content, modelUsed: model };
   }
 
-  // 1) Get the raw AI response with fallback
+  // 1) Get the raw AI response with fallback and retry logic
   let aiResponse = '';
   let modelUsed = '';
   let lastError: any = null;
 
   for (const model of modelFallbacks) {
-    try {
-      const result = await callPerplexity([
-        { role: 'user', content: promptText }
-      ], model, 800);
-      
-      aiResponse = result.content;
-      modelUsed = result.modelUsed;
-      break;
-    } catch (error) {
-      console.error(`[Perplexity] Failed with model ${model}:`, error);
-      lastError = error;
-      continue;
+    let attempt = 0;
+    const maxAttempts = 2;
+    
+    while (attempt < maxAttempts) {
+      try {
+        const result = await callPerplexity([
+          { role: 'user', content: promptText }
+        ], model, 800);
+        
+        aiResponse = result.content;
+        modelUsed = result.modelUsed;
+        break;
+      } catch (error: any) {
+        attempt++;
+        lastError = error;
+        
+        // Don't retry on auth errors
+        if (error.message?.includes('401') || error.message?.includes('403')) {
+          break;
+        }
+        
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
+    
+    if (aiResponse) break;
   }
 
   if (!aiResponse) {

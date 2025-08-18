@@ -74,50 +74,83 @@ serve(async (req) => {
         });
       }
 
-      // Perplexity with correct model names and payload structure
+      // Perplexity with standardized model names and retry logic
       const endpoint = 'https://api.perplexity.ai/chat/completions';
       const models = [
         'sonar-pro',
-        'sonar', 
+        'sonar',
         'llama-3.1-sonar-small-128k-online',
         'llama-3.1-8b-instruct'
       ];
 
       let lastError: any = null;
+      
       for (const model of models) {
-        console.log(`[Perplexity:test] Trying model: ${model}`);
+        let attempt = 0;
+        const maxAttempts = 2;
         
-        // Use exact payload structure from Perplexity documentation
-        const payload = {
-          model,
-          messages: [ { role: 'user', content: prompt } ],
-          max_tokens: 1000,
-          temperature: 0.7,
-          stream: false
-        };
+        while (attempt < maxAttempts) {
+          try {
+            console.log(`[Perplexity:test] Trying model: ${model}, attempt ${attempt + 1}`);
+            
+            // Use exact payload structure from Perplexity documentation
+            const payload = {
+              model,
+              messages: [ { role: 'user', content: prompt } ],
+              max_tokens: 1000,
+              stream: false
+            };
 
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${perplexityKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${perplexityKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+            });
 
-        if (!res.ok) {
-          const bodyText = await res.text().catch(() => '');
-          console.error(`[Perplexity:test] ${model} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
-          lastError = new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
-          continue;
+            if (!res.ok) {
+              const bodyText = await res.text().catch(() => '');
+              const error = new Error(`Perplexity ${model} error: ${res.status} ${res.statusText} — ${bodyText}`);
+              console.error(`[Perplexity:test] ${model} attempt ${attempt + 1} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
+              
+              // Don't retry on auth/bad request errors
+              if (res.status === 401 || res.status === 403 || res.status === 400) {
+                lastError = error;
+                break;
+              }
+              
+              throw error;
+            }
+
+            const data = await res.json();
+            console.log(`[Perplexity:test] Success with model: ${model}`);
+            const aiResponse = data?.choices?.[0]?.message?.content || '';
+            
+            return new Response(JSON.stringify({ 
+              response: aiResponse,
+              provider: 'perplexity',
+              model: model
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+            
+          } catch (error: any) {
+            attempt++;
+            lastError = error;
+            console.error(`[Perplexity:test] ${model} attempt ${attempt} error:`, error.message);
+            
+            // Don't retry on auth errors
+            if (error.message?.includes('401') || error.message?.includes('403')) {
+              break;
+            }
+            
+            if (attempt < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+          }
         }
-
-        const data = await res.json();
-        console.log(`[Perplexity:test] Success with model: ${model}`);
-        const aiResponse = data?.choices?.[0]?.message?.content || '';
-        return new Response(JSON.stringify({ response: aiResponse }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
       }
 
       throw lastError || new Error('Perplexity error: all models failed');

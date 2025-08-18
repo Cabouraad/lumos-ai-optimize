@@ -95,65 +95,102 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string) {
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively with web search. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-        },
-        {
-          role: 'user',
-          content: promptText
+  const models = [
+    'sonar-pro',
+    'sonar',
+    'llama-3.1-sonar-small-128k-online',
+    'llama-3.1-8b-instruct'
+  ];
+
+  let lastError: any = null;
+  
+  for (const model of models) {
+    let attempt = 0;
+    const maxAttempts = 2;
+    
+    while (attempt < maxAttempts) {
+      try {
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively with web search. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+              },
+              {
+                role: 'user',
+                content: promptText
+              }
+            ],
+            max_tokens: 1000,
+            stream: false,
+            return_images: false,
+            return_related_questions: false,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Perplexity ${model} error: ${response.status} - ${errorText}`);
+          
+          // Don't retry on auth/bad request errors
+          if (response.status === 401 || response.status === 403 || response.status === 400) {
+            throw error;
+          }
+          
+          throw error;
         }
-      ],
-      temperature: 0.2,
-      top_p: 0.9,
-      max_tokens: 1000,
-      return_images: false,
-      return_related_questions: false,
-      search_recency_filter: 'month',
-      frequency_penalty: 1,
-      presence_penalty: 0
-    }),
-  });
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content || '';
-  
-  // Try to extract JSON from the end of the response
-  const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
-  let brands: string[] = [];
-  
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      brands = Array.isArray(parsed.brands) ? parsed.brands : [];
-    } catch {
-      // If JSON parsing fails, extract brands from text content
-      brands = extractBrandsFromText(content);
+        const data = await response.json();
+        const content = data.choices[0]?.message?.content || '';
+        
+        // Try to extract JSON from the end of the response
+        const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
+        let brands: string[] = [];
+        
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+          } catch {
+            // If JSON parsing fails, extract brands from text content
+            brands = extractBrandsFromText(content);
+          }
+        } else {
+          // No JSON found, extract from text
+          brands = extractBrandsFromText(content);
+        }
+        
+        return {
+          brands,
+          responseText: content,
+          tokenIn: data.usage?.prompt_tokens || 0,
+          tokenOut: data.usage?.completion_tokens || 0,
+        };
+        
+      } catch (error: any) {
+        attempt++;
+        lastError = error;
+        
+        // Don't retry on auth errors
+        if (error.message?.includes('401') || error.message?.includes('403')) {
+          break;
+        }
+        
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
-  } else {
-    // No JSON found, extract from text
-    brands = extractBrandsFromText(content);
   }
-  
-  return {
-    brands,
-    responseText: content,
-    tokenIn: data.usage?.prompt_tokens || 0,
-    tokenOut: data.usage?.completion_tokens || 0,
-  };
+
+  throw lastError || new Error('All Perplexity models failed');
 }
 
 // Fallback brand extraction from text content
@@ -418,8 +455,18 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
               // Small delay to prevent rate limiting
               await new Promise(resolve => setTimeout(resolve, 1000));
 
-            } catch (providerError) {
+            } catch (providerError: any) {
               console.error(`Provider ${provider.name} error for prompt ${prompt.id}:`, providerError);
+              
+              // Determine error status
+              let status = 'error';
+              if (providerError.message?.includes('429')) {
+                status = 'rate_limit';
+              } else if (providerError.message?.includes('401') || providerError.message?.includes('403')) {
+                status = 'auth_error';
+              } else if (providerError.message?.includes('timeout')) {
+                status = 'timeout';
+              }
               
               // Log failed run with empty artifacts
               await supabase
@@ -427,7 +474,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                 .insert({
                   prompt_id: prompt.id,
                   provider_id: provider.id,
-                  status: 'error',
+                  status,
                   token_in: 0,
                   token_out: 0,
                   cost_est: 0,

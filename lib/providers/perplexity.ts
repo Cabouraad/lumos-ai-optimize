@@ -10,71 +10,122 @@ export type BrandExtraction = {
 };
 
 export async function extractBrands(promptText: string, apiKey: string): Promise<BrandExtraction> {
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively with web search. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-        },
-        {
-          role: 'user',
-          content: promptText
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-      return_images: false,
-      return_related_questions: false,
-    }),
-  });
+  const models = [
+    'sonar-pro',
+    'sonar',
+    'llama-3.1-sonar-small-128k-online',
+    'llama-3.1-8b-instruct'
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0].message.content;
-  const usage = data.usage || {};
-
-  try {
-    // Try to extract JSON from the end of the response
-    const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
-    let brands: string[] = [];
+  let lastError: Error | null = null;
+  
+  for (const model of models) {
+    let attempt = 0;
+    const maxAttempts = 3;
     
-    if (jsonMatch) {
+    while (attempt < maxAttempts) {
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        brands = Array.isArray(parsed.brands) ? parsed.brands : [];
-      } catch {
-        // If JSON parsing fails, extract brands from text content
-        brands = extractBrandsFromText(content);
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively with web search. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+              },
+              {
+                role: 'user',
+                content: promptText
+              }
+            ],
+            max_tokens: 2000,
+            stream: false,
+            return_images: false,
+            return_related_questions: false,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Perplexity API error: ${response.status} ${response.statusText} - ${errorText}`);
+          
+          // Don't retry on authentication errors
+          if (response.status === 401 || response.status === 403) {
+            throw error;
+          }
+          
+          // Don't retry on bad request errors
+          if (response.status === 400) {
+            throw error;
+          }
+          
+          throw error;
+        }
+
+        const data = await response.json();
+        const content = data.choices[0]?.message?.content || '';
+        const usage = data.usage || {};
+
+        try {
+          // Try to extract JSON from the end of the response
+          const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
+          let brands: string[] = [];
+          
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+            } catch {
+              // If JSON parsing fails, extract brands from text content
+              brands = extractBrandsFromText(content);
+            }
+          } else {
+            // No JSON found, extract from text
+            brands = extractBrandsFromText(content);
+          }
+          
+          return {
+            brands,
+            responseText: content,
+            tokenIn: usage.prompt_tokens || 0,
+            tokenOut: usage.completion_tokens || 0,
+          };
+          
+        } catch (parseError) {
+          return { 
+            brands: extractBrandsFromText(content), 
+            responseText: content,
+            tokenIn: usage.prompt_tokens || 0,
+            tokenOut: usage.completion_tokens || 0
+          };
+        }
+        
+      } catch (error: any) {
+        attempt++;
+        lastError = error;
+        
+        console.error(`Perplexity ${model} attempt ${attempt}/${maxAttempts} failed:`, error.message);
+        
+        // Don't retry on auth errors
+        if (error.message?.includes('401') || error.message?.includes('403')) {
+          break;
+        }
+        
+        if (attempt < maxAttempts) {
+          // Exponential backoff: 1s, 2s, 4s
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        }
       }
-    } else {
-      // No JSON found, extract from text
-      brands = extractBrandsFromText(content);
     }
-    
-    return {
-      brands,
-      responseText: content,
-      tokenIn: usage.prompt_tokens || 0,
-      tokenOut: usage.completion_tokens || 0,
-    };
-  } catch (parseError) {
-    return { 
-      brands: extractBrandsFromText(content), 
-      responseText: content,
-      tokenIn: usage.prompt_tokens || 0,
-      tokenOut: usage.completion_tokens || 0
-    };
   }
+
+  // All models and retries failed
+  throw lastError || new Error('All Perplexity models failed');
 }
 
 /**
