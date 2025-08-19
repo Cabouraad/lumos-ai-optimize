@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,12 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { getSafePromptsData } from '@/lib/prompts/safe-data';
-
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
-import { useToast } from '@/hooks/use-toast';
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
 import { AIPromptSuggestions } from '@/components/AIPromptSuggestions';
+import TestSchedulerAPIs from '@/components/TestSchedulerAPIs';
 import { AlertCircle } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
@@ -354,10 +354,11 @@ export default function Prompts() {
             </div>
 
             <Tabs defaultValue="prompts" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-white shadow-soft p-1 border border-gray-100">
+              <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-white shadow-soft p-1 border border-gray-100">
                 <TabsTrigger value="prompts" className="rounded-xl">My Prompts</TabsTrigger>
                 <TabsTrigger value="suggestions" className="rounded-xl">AI Suggestions</TabsTrigger>
                 <TabsTrigger value="keywords" className="rounded-xl">Business Context</TabsTrigger>
+                <TabsTrigger value="test" className="rounded-xl">Test APIs</TabsTrigger>
               </TabsList>
               
               <TabsContent value="prompts" className="mt-6">
@@ -386,6 +387,10 @@ export default function Prompts() {
 
               <TabsContent value="keywords" className="mt-6">
                 <KeywordManagement />
+              </TabsContent>
+
+              <TabsContent value="test" className="mt-6">
+                <TestSchedulerAPIs />
               </TabsContent>
             </Tabs>
 
