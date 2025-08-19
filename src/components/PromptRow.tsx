@@ -241,7 +241,7 @@ export function PromptRow({
             {/* Visibility Score */}
             <div className="flex items-center gap-1">
               <Badge className={`text-xs h-5 px-2 rounded-full border ${getScoreColor(prompt.visibilityScore)}`}>
-                {prompt.visibilityScore.toFixed(1)}
+                {prompt.visibilityScore > 0 ? prompt.visibilityScore.toFixed(1) : '0.0'}
               </Badge>
             </div>
 

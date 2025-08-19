@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { getSafePromptsData } from '@/lib/prompts/safe-data';
+import { getPromptsWithScores } from '@/lib/prompts/data-with-scores';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
@@ -28,10 +28,10 @@ const transformPromptData = (prompts: any[]) => {
       { name: 'perplexity', enabled: true, lastRun: prompt.created_at },
     ],
     lastRunAt: prompt.created_at,
-    visibilityScore: Math.random() * 10, // Mock data - replace with actual score
-    brandPct: Math.floor(Math.random() * 30) + 10, // Mock data
-    competitorPct: Math.floor(Math.random() * 15) + 5, // Mock data
-    sentimentDelta: (Math.random() - 0.5) * 0.4, // Mock data between -0.2 and +0.2
+    visibilityScore: prompt.visibilityScore, // Use actual data from database
+    brandPct: prompt.brandPct, // Use actual data from database
+    competitorPct: prompt.competitorPct, // Use actual data from database
+    sentimentDelta: 0, // Start at 0 until we have actual sentiment data
     active: prompt.active,
   }));
 };
@@ -81,7 +81,7 @@ export default function Prompts() {
   const loadPromptsData = async () => {
     try {
       setLoading(true);
-      const data = await getSafePromptsData();
+      const data = await getPromptsWithScores();
       setRawPrompts(data);
       setError(null);
     } catch (err: any) {

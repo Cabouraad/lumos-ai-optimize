@@ -96,23 +96,24 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert at generating natural search prompts that real users would type into AI assistants like ChatGPT, Claude, or Perplexity when looking for business solutions.
 
-Your task is to create realistic search queries that potential customers of the given business might use. These should sound like genuine questions people ask AI assistants.
+Your task is to create realistic search queries that potential customers might use when looking for solutions in this business space. These should sound like genuine questions people ask AI assistants.
 
-Business Context:
-- Company: ${orgData.name}
+CRITICAL: NEVER include the company name "${orgData.name}" or domain "${orgData.domain}" in any of the generated prompts. Focus on the industry, problems, and solutions without mentioning the specific company.
+
+Business Context (for understanding the industry, not for including in prompts):
 - Industry/Description: ${orgData.business_description || 'Not specified'}
 - Products/Services: ${orgData.products_services || 'Not specified'}
 - Keywords: ${orgData.keywords?.join(', ') || 'Not specified'}
 - Target Audience: ${orgData.target_audience || 'Not specified'}
-- Domain: ${orgData.domain}
 
-Generate 15 diverse, natural search prompts that potential customers might use when looking for solutions in this space. Each prompt should:
+Generate 15 diverse, natural search prompts that potential customers might use when looking for solutions in this industry. Each prompt should:
 
 1. Sound like a real question someone would ask an AI assistant
-2. Be relevant to the business context
+2. Be relevant to the business context and industry
 3. Help monitor brand visibility or competitor analysis
 4. Be conversational and natural (not keyword-stuffed)
 5. Cover different aspects: comparison, recommendations, best practices, selection criteria
+6. NEVER mention the company name, brand name, or domain
 
 Examples of good prompts:
 - "What are the best available AI search tools"
