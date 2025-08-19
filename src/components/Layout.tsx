@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { FAQ } from '@/components/FAQ';
 import { 
   LayoutDashboard, 
   MessageSquare,
@@ -19,6 +20,10 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { signOut, orgData } = useAuth();
   const location = useLocation();
+
+  // Pages that should show the FAQ button
+  const pagesWithFAQ = ['/prompts', '/competitors', '/llms-txt', '/recommendations'];
+  const showFAQ = pagesWithFAQ.includes(location.pathname);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -77,7 +82,14 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Main content */}
         <div className="flex-1">
-          <main className="p-8">
+          {/* Top bar with FAQ */}
+          {showFAQ && (
+            <div className="flex justify-end p-4 pb-0">
+              <FAQ page={location.pathname} />
+            </div>
+          )}
+          
+          <main className={`p-8 ${showFAQ ? 'pt-4' : ''}`}>
             {children}
           </main>
         </div>
