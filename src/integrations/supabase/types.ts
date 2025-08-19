@@ -133,6 +133,7 @@ export type Database = {
           name: string
           plan_tier: string
           products_services: string | null
+          subscription_tier: string | null
           target_audience: string | null
         }
         Insert: {
@@ -146,6 +147,7 @@ export type Database = {
           name: string
           plan_tier: string
           products_services?: string | null
+          subscription_tier?: string | null
           target_audience?: string | null
         }
         Update: {
@@ -159,6 +161,7 @@ export type Database = {
           name?: string
           plan_tier?: string
           products_services?: string | null
+          subscription_tier?: string | null
           target_audience?: string | null
         }
         Relationships: []
@@ -352,6 +355,45 @@ export type Database = {
           last_daily_run_at?: string | null
           last_daily_run_key?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscribed: boolean
+          subscription_end: string | null
+          subscription_tier: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
