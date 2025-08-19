@@ -7,6 +7,12 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   orgData: any | null;
+  subscriptionData: {
+    subscribed: boolean;
+    subscription_tier: string | null;
+    subscription_end: string | null;
+  } | null;
+  checkSubscription: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -17,6 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [orgData, setOrgData] = useState<any | null>(null);
+  const [subscriptionData, setSubscriptionData] = useState<{
+    subscribed: boolean;
+    subscription_tier: string | null;
+    subscription_end: string | null;
+  } | null>(null);
 
   useEffect(() => {
     // Set up auth state listener
@@ -43,6 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               
               setOrgData(data);
+              
+              // Check subscription status
+              await checkSubscriptionStatus();
+              
               setLoading(false);
             } catch (err) {
               console.error('Exception in org data fetch:', err);
@@ -52,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, 0);
         } else {
           setOrgData(null);
+          setSubscriptionData(null);
           setLoading(false);
         }
       }
@@ -69,12 +85,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const checkSubscriptionStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      if (error) {
+        console.error('Error checking subscription:', error);
+        return;
+      }
+      setSubscriptionData({
+        subscribed: data.subscribed,
+        subscription_tier: data.subscription_tier,
+        subscription_end: data.subscription_end,
+      });
+    } catch (err) {
+      console.error('Exception checking subscription:', err);
+    }
+  };
+
+  const checkSubscription = async () => {
+    await checkSubscriptionStatus();
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, orgData, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, orgData, subscriptionData, checkSubscription, signOut }}>
       {children}
     </AuthContext.Provider>
   );

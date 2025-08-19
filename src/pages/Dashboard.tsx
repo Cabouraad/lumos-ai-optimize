@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { SubscriptionBanner } from '@/components/SubscriptionBanner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -165,6 +166,8 @@ export default function Dashboard() {
                     AI search optimization performance overview
                   </p>
                 </div>
+                
+                <SubscriptionBanner />
                 
                 {/* Scheduler Status */}
                 <SchedulerStatus />

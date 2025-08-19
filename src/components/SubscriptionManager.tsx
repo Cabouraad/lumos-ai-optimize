@@ -1,0 +1,170 @@
+import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { ExternalLink, Crown, Zap, Shield } from 'lucide-react';
+
+export function SubscriptionManager() {
+  const { subscriptionData, checkSubscription } = useAuth();
+  const { currentTier, limits } = useSubscriptionGate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const handleManageSubscription = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error: any) {
+      console.error('Customer portal error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to open customer portal",
+        variant: "destructive",
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleRefreshSubscription = async () => {
+    setLoading(true);
+    await checkSubscription();
+    toast({
+      title: "Subscription Refreshed",
+      description: "Your subscription status has been updated.",
+    });
+    setLoading(false);
+  };
+
+  const getTierIcon = (tier: string) => {
+    switch (tier) {
+      case 'pro':
+        return <Crown className="h-5 w-5 text-purple-500" />;
+      case 'growth':
+        return <Zap className="h-5 w-5 text-blue-500" />;
+      case 'starter':
+        return <Shield className="h-5 w-5 text-green-500" />;
+      default:
+        return <Shield className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case 'pro':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'growth':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'starter':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {getTierIcon(currentTier)}
+            <div>
+              <CardTitle className="flex items-center space-x-2">
+                <span>Current Plan</span>
+                <Badge className={getTierColor(currentTier)}>
+                  {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
+                </Badge>
+              </CardTitle>
+              {subscriptionData?.subscription_end && (
+                <CardDescription>
+                  {subscriptionData.subscribed 
+                    ? `Renews on ${new Date(subscriptionData.subscription_end).toLocaleDateString()}`
+                    : `Expired on ${new Date(subscriptionData.subscription_end).toLocaleDateString()}`
+                  }
+                </CardDescription>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshSubscription}
+            disabled={loading}
+          >
+            {loading ? 'Refreshing...' : 'Refresh Status'}
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-medium mb-2">Current Plan Features</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">Daily Prompts</span>
+                <Badge variant="secondary">{limits.promptsPerDay}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">AI Providers</span>
+                <Badge variant="secondary">{limits.providersPerPrompt}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">Recommendations</span>
+                <Badge variant={limits.hasRecommendations ? "default" : "outline"}>
+                  {limits.hasRecommendations ? 'Included' : 'Not Available'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">Competitor Analysis</span>
+                <Badge variant={limits.hasCompetitorAnalysis ? "default" : "outline"}>
+                  {limits.hasCompetitorAnalysis ? 'Included' : 'Not Available'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">Priority Support</span>
+                <Badge variant={limits.hasPrioritySupport ? "default" : "outline"}>
+                  {limits.hasPrioritySupport ? 'Included' : 'Standard'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">API Access</span>
+                <Badge variant={limits.hasApiAccess ? "default" : "outline"}>
+                  {limits.hasApiAccess ? 'Included' : 'Not Available'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+
+      <CardFooter className="flex space-x-3">
+        {subscriptionData?.subscribed && (
+          <Button 
+            onClick={handleManageSubscription} 
+            disabled={loading}
+            className="flex-1"
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+            {loading ? 'Loading...' : 'Manage Subscription'}
+          </Button>
+        )}
+        <Button 
+          variant={subscriptionData?.subscribed ? "outline" : "default"} 
+          onClick={() => window.open('/pricing', '_blank')}
+          className="flex-1"
+        >
+          {subscriptionData?.subscribed ? 'Change Plan' : 'Upgrade Plan'}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
+import { SubscriptionManager } from '@/components/SubscriptionManager';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -114,6 +115,8 @@ export default function Settings() {
     <Layout>
       <div className="p-6 space-y-8">
         <h1 className="text-3xl font-semibold">Settings</h1>
+        
+        <SubscriptionManager />
 
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Organization</h2>
