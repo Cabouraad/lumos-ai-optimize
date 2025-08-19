@@ -276,8 +276,8 @@ export default function Recommendations() {
   return (
     <Layout>
       <div className="space-y-6">
-        {showTrialBanner && (
-          <TrialBanner daysRemaining={recommendationsAccess.daysRemainingInTrial!} />
+        {recommendationsAccess.daysRemainingInTrial && recommendationsAccess.daysRemainingInTrial > 0 && (
+          <TrialBanner daysRemaining={recommendationsAccess.daysRemainingInTrial} />
         )}
         
         <div className="flex justify-between items-start">
