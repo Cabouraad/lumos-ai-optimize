@@ -12,7 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Prompts from "./pages/Prompts";
 import Recommendations from "./pages/Recommendations";
 import Competitors from "./pages/Competitors";
-import BrandAnalysis from "./pages/BrandAnalysis";
+import LLMsText from "./pages/LLMsText";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -44,9 +44,9 @@ const App = () => (
                 <Competitors />
               </ProtectedRoute>
             } />
-            <Route path="/analysis" element={
+            <Route path="/llms-txt" element={
               <ProtectedRoute>
-                <BrandAnalysis />
+                <LLMsText />
               </ProtectedRoute>
             } />
             <Route path="/recommendations" element={
