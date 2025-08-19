@@ -46,7 +46,7 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       messages: [
         {
           role: 'system',
@@ -95,12 +95,7 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string) {
-  const models = [
-    'sonar-pro',
-    'sonar',
-    'llama-3.1-sonar-small-128k-online',
-    'llama-3.1-8b-instruct'
-  ];
+  const models = ['sonar']; // Use official Perplexity model as per their docs
 
   let lastError: any = null;
   
@@ -193,6 +188,95 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
   throw lastError || new Error('All Perplexity models failed');
 }
 
+async function extractBrandsGemini(promptText: string, apiKey: string) {
+  const maxAttempts = 3;
+  let attempt = 0;
+  let lastError: any = null;
+  
+  while (attempt < maxAttempts) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1000,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Gemini API error: ${response.status} - ${errorText}`);
+        
+        // Don't retry on authentication errors
+        if (response.status === 401 || response.status === 403 || response.status === 400) {
+          throw error;
+        }
+        
+        throw error;
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Try to extract JSON from the end of the response
+      const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
+      let brands: string[] = [];
+      
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+        } catch {
+          // If JSON parsing fails, extract brands from text content
+          brands = extractBrandsFromText(content);
+        }
+      } else {
+        // No JSON found, extract from text
+        brands = extractBrandsFromText(content);
+      }
+      
+      return {
+        brands,
+        responseText: content,
+        tokenIn: data.usageMetadata?.promptTokenCount || 0,
+        tokenOut: data.usageMetadata?.candidatesTokenCount || 0,
+      };
+      
+    } catch (error: any) {
+      attempt++;
+      lastError = error;
+      
+      // Don't retry on auth errors
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        break;
+      }
+      
+      if (attempt < maxAttempts) {
+        // Exponential backoff: 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+
+  throw lastError || new Error('Gemini API failed');
+}
+
 // Fallback brand extraction from text content
 function extractBrandsFromText(text: string): string[] {
   const brandPatterns = [
@@ -244,8 +328,9 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
     // Get API keys from environment
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
     
-    if (!openaiKey && !perplexityKey) {
+    if (!openaiKey && !perplexityKey && !geminiKey) {
       console.log('No API keys configured, skipping scan');
       return { success: false, error: 'No API keys configured' };
     }
@@ -394,6 +479,8 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
                 extraction = await extractBrandsOpenAI(prompt.text, openaiKey);
               } else if (provider.name === 'perplexity' && perplexityKey) {
                 extraction = await extractBrandsPerplexity(prompt.text, perplexityKey);
+              } else if (provider.name === 'gemini' && geminiKey) {
+                extraction = await extractBrandsGemini(prompt.text, geminiKey);
               } else {
                 continue; // Skip if no API key
               }
