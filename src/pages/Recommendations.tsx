@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { TrialBanner } from '@/components/TrialBanner';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,8 +42,11 @@ interface Filters {
 }
 
 export default function Recommendations() {
+  const { canAccessRecommendations } = useSubscriptionGate();
   const { orgData } = useAuth();
   const { toast } = useToast();
+  const recommendationsAccess = canAccessRecommendations();
+  
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +60,36 @@ export default function Recommendations() {
     minImpact: 0,
     search: ''
   });
+
+  // Show upgrade prompt if no access
+  if (!recommendationsAccess.hasAccess) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Trial banner if user is on trial */}
+          {recommendationsAccess.daysRemainingInTrial && recommendationsAccess.daysRemainingInTrial > 0 && (
+            <TrialBanner daysRemaining={recommendationsAccess.daysRemainingInTrial} />
+          )}
+          
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Recommendations</h1>
+            <p className="text-muted-foreground">
+              AI-powered suggestions to improve your search visibility
+            </p>
+          </div>
+
+          <div className="max-w-md mx-auto">
+            <UpgradePrompt 
+              feature="AI Recommendations"
+              reason={recommendationsAccess.reason || ''}
+              isTrialExpired={recommendationsAccess.isTrialExpired}
+              daysRemainingInTrial={recommendationsAccess.daysRemainingInTrial}
+            />
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -240,6 +276,10 @@ export default function Recommendations() {
   return (
     <Layout>
       <div className="space-y-6">
+        {showTrialBanner && (
+          <TrialBanner daysRemaining={recommendationsAccess.daysRemainingInTrial!} />
+        )}
+        
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Recommendations</h1>
@@ -264,6 +304,7 @@ export default function Recommendations() {
           filteredCount={filteredRecommendations.length}
         />
 
+        {/* Rest of the original component logic */}
         {filteredRecommendations.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

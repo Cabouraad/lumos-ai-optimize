@@ -11,6 +11,9 @@ interface AuthContextType {
     subscribed: boolean;
     subscription_tier: string | null;
     subscription_end: string | null;
+    trial_expires_at?: string;
+    trial_started_at?: string;
+    payment_collected?: boolean;
   } | null;
   checkSubscription: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -27,6 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     subscribed: boolean;
     subscription_tier: string | null;
     subscription_end: string | null;
+    trial_expires_at?: string;
+    trial_started_at?: string;
+    payment_collected?: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -96,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscribed: data.subscribed,
         subscription_tier: data.subscription_tier,
         subscription_end: data.subscription_end,
+        trial_expires_at: data.trial_expires_at,
+        trial_started_at: data.trial_started_at,
+        payment_collected: data.payment_collected,
       });
     } catch (err) {
       console.error('Exception checking subscription:', err);

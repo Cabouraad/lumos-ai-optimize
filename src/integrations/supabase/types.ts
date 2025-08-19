@@ -363,11 +363,14 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          payment_collected: boolean | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscribed: boolean
           subscription_end: string | null
           subscription_tier: string | null
+          trial_expires_at: string | null
+          trial_started_at: string | null
           updated_at: string
           user_id: string | null
         }
@@ -375,11 +378,14 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          payment_collected?: boolean | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscribed?: boolean
           subscription_end?: string | null
           subscription_tier?: string | null
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -387,11 +393,14 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          payment_collected?: boolean | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscribed?: boolean
           subscription_end?: string | null
           subscription_tier?: string | null
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string | null
         }

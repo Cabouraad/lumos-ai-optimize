@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { TrialBanner } from '@/components/TrialBanner';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
-import { getCompetitorsData } from '@/lib/competitors/data';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -119,6 +121,8 @@ const CompetitorRow = ({ competitor, rank }: { competitor: CompetitorBrand; rank
 };
 
 export default function Competitors() {
+  const { canAccessCompetitorAnalysis } = useSubscriptionGate();
+  const competitorAccess = canAccessCompetitorAnalysis();
   const [topBrands, setTopBrands] = useState<CompetitorBrand[]>([]);
   const [nearestCompetitors, setNearestCompetitors] = useState<CompetitorBrand[]>([]);
   const [upcomingBrands, setUpcomingBrands] = useState<CompetitorBrand[]>([]);
@@ -323,6 +327,36 @@ export default function Competitors() {
     }
   };
 
+  if (!competitorAccess.hasAccess) {
+    return (
+      <Layout>
+        <div className="container mx-auto p-6">
+          {/* Trial banner if user is on trial */}
+          {competitorAccess.daysRemainingInTrial && competitorAccess.daysRemainingInTrial > 0 && (
+            <TrialBanner daysRemaining={competitorAccess.daysRemainingInTrial} />
+          )}
+          
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Brand Competition</h1>
+            <p className="text-muted-foreground">Competition analysis for your organization</p>
+          </div>
+
+          <div className="max-w-md mx-auto">
+            <UpgradePrompt 
+              feature="Competitor Analysis"
+              reason={competitorAccess.reason || ''}
+              isTrialExpired={competitorAccess.isTrialExpired}
+              daysRemainingInTrial={competitorAccess.daysRemainingInTrial}
+            />
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // If user has access, show trial banner if on trial
+  const showTrialBanner = competitorAccess.daysRemainingInTrial && competitorAccess.daysRemainingInTrial > 0;
+
   if (loading) {
     return (
       <Layout>
@@ -362,6 +396,10 @@ export default function Competitors() {
       <Layout>
         <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
           <div className="container mx-auto p-6">
+            {showTrialBanner && (
+              <TrialBanner daysRemaining={competitorAccess.daysRemainingInTrial!} />
+            )}
+            
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div className="space-y-2">

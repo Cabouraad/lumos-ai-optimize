@@ -5,6 +5,9 @@ export interface FeatureGate {
   hasAccess: boolean;
   reason?: string;
   upgradeRequired?: boolean;
+  isTrialExpired?: boolean;
+  trialExpiresAt?: string;
+  daysRemainingInTrial?: number;
 }
 
 export interface TierLimits {
@@ -23,6 +26,14 @@ export function useSubscriptionGate() {
   
   const currentTier = subscriptionData?.subscription_tier || 'free';
   const isSubscribed = subscriptionData?.subscribed || false;
+  
+  // Trial logic
+  const trialExpiresAt = subscriptionData?.trial_expires_at;
+  const isOnTrial = currentTier === 'starter' && trialExpiresAt && !subscriptionData?.payment_collected;
+  const trialExpired = isOnTrial && new Date() > new Date(trialExpiresAt);
+  const daysRemainingInTrial = isOnTrial && !trialExpired 
+    ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
   
   // Get tier limits
   const getTierLimits = (tier: string): TierLimits => {
@@ -80,8 +91,22 @@ export function useSubscriptionGate() {
 
   // Feature gate functions
   const canAccessRecommendations = (): FeatureGate => {
-    if (limits.hasRecommendations) {
-      return { hasAccess: true };
+    // Check trial expiry first
+    if (trialExpired) {
+      return {
+        hasAccess: false,
+        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        upgradeRequired: true,
+        isTrialExpired: true,
+      };
+    }
+    
+    if (limits.hasRecommendations || (isOnTrial && !trialExpired)) {
+      return { 
+        hasAccess: true,
+        trialExpiresAt: isOnTrial ? trialExpiresAt : undefined,
+        daysRemainingInTrial: isOnTrial ? daysRemainingInTrial : undefined,
+      };
     }
     return {
       hasAccess: false,
@@ -91,8 +116,22 @@ export function useSubscriptionGate() {
   };
 
   const canAccessCompetitorAnalysis = (): FeatureGate => {
-    if (limits.hasCompetitorAnalysis) {
-      return { hasAccess: true };
+    // Check trial expiry first
+    if (trialExpired) {
+      return {
+        hasAccess: false,
+        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        upgradeRequired: true,
+        isTrialExpired: true,
+      };
+    }
+    
+    if (limits.hasCompetitorAnalysis || (isOnTrial && !trialExpired)) {
+      return { 
+        hasAccess: true,
+        trialExpiresAt: isOnTrial ? trialExpiresAt : undefined,
+        daysRemainingInTrial: isOnTrial ? daysRemainingInTrial : undefined,
+      };
     }
     return {
       hasAccess: false,
@@ -124,8 +163,22 @@ export function useSubscriptionGate() {
   };
 
   const canCreatePrompts = (currentCount: number): FeatureGate => {
+    // Check trial expiry first
+    if (trialExpired) {
+      return {
+        hasAccess: false,
+        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        upgradeRequired: true,
+        isTrialExpired: true,
+      };
+    }
+    
     if (currentCount < limits.promptsPerDay) {
-      return { hasAccess: true };
+      return { 
+        hasAccess: true,
+        trialExpiresAt: isOnTrial ? trialExpiresAt : undefined,
+        daysRemainingInTrial: isOnTrial ? daysRemainingInTrial : undefined,
+      };
     }
     return {
       hasAccess: false,
@@ -134,14 +187,31 @@ export function useSubscriptionGate() {
     };
   };
 
+  const hasAccessToApp = (): FeatureGate => {
+    if (trialExpired) {
+      return {
+        hasAccess: false,
+        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        upgradeRequired: true,
+        isTrialExpired: true,
+      };
+    }
+    return { hasAccess: true };
+  };
+
   return {
     currentTier,
     isSubscribed,
     limits,
+    isOnTrial,
+    trialExpired,
+    daysRemainingInTrial,
+    trialExpiresAt,
     canAccessRecommendations,
     canAccessCompetitorAnalysis,
     canAccessAdvancedScoring,
     canAccessApiFeatures,
     canCreatePrompts,
+    hasAccessToApp,
   };
 }
