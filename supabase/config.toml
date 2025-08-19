@@ -10,7 +10,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.run-prompt-now]
-verify_jwt = false
+verify_jwt = true
 
 [functions.suggest-prompts-now]
 verify_jwt = true
@@ -22,7 +22,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.generate-recommendations]
-verify_jwt = false
+verify_jwt = true
 
 [functions.advanced-recommendations]
+verify_jwt = true
+
+[functions.test-prompt-response]
+verify_jwt = true
+
+[functions.daily-scheduler]
 verify_jwt = false

@@ -28,7 +28,8 @@ export default function TestPerplexityKey() {
       const { data, error } = await supabase.functions.invoke('test-prompt-response', {
         body: {
           prompt: testPrompt,
-          provider: provider
+          provider: provider,
+          testKey: testKey
         }
       });
 

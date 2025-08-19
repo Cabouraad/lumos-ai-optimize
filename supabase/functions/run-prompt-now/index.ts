@@ -1,6 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getUserOrgId } from '../_shared/auth.ts';
+import { computeVisibilityScore } from '../_shared/scoring.ts';
+import { extractCitations } from '../_shared/citations.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,10 +25,11 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { promptId, orgId } = await req.json();
+    const { promptId } = await req.json();
+    const orgId = await getUserOrgId(supabase);
 
-    if (!promptId || !orgId) {
-      return new Response(JSON.stringify({ error: 'Missing promptId or orgId' }), {
+    if (!promptId) {
+      return new Response(JSON.stringify({ error: 'Missing promptId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -168,7 +172,8 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
         const orgBrandIndex = normalizedBrands.findIndex(brand => isOrgBrand(brand, brandCatalog));
         const competitorsCount = normalizedBrands.filter(brand => !isOrgBrand(brand, brandCatalog)).length;
         
-        const score = computeScore(orgBrandPresent, orgBrandIndex >= 0 ? orgBrandIndex : null, competitorsCount);
+        const score = computeVisibilityScore(orgBrandPresent, orgBrandIndex >= 0 ? orgBrandIndex : null, competitorsCount);
+        const citations = extractCitations(rawResponse);
 
         // Insert prompt run
         const { data: promptRun, error: runError } = await supabase
@@ -180,7 +185,10 @@ async function runPrompt(promptId: string, orgId: string, supabase: any, openaiK
             run_at: new Date().toISOString(),
             token_in: Math.floor(prompt.text.length / 4), // Rough estimate
             token_out: Math.floor(brands.join(' ').length / 4),
-            cost_est: 0.001 // Rough estimate
+            cost_est: 0.001, // Rough estimate
+            citations: citations,
+            brands: brands,
+            competitors: brands.filter(brand => !isOrgBrand(normalize(brand), brandCatalog))
           })
           .select('id')
           .single();
@@ -303,24 +311,7 @@ function isOrgBrand(token: string, catalog: Array<{ name: string; variants_json:
   return false;
 }
 
-function computeScore(orgPresent: boolean, prominenceIdx: number | null, competitorsCount: number): number {
-  if (!orgPresent) return 1;
-  
-  let score = 6; // Base score when org brand is present
-  
-  // Prominence bonus (earlier = better)
-  if (prominenceIdx !== null) {
-    if (prominenceIdx === 0) score += 3; // First position gets big bonus
-    else if (prominenceIdx <= 2) score += 2; // Top 3 gets good bonus
-    else if (prominenceIdx <= 5) score += 1; // Top 6 gets small bonus
-  }
-  
-  // Competitor penalty (more competitors = lower visibility)
-  if (competitorsCount > 8) score -= 2;
-  else if (competitorsCount > 4) score -= 1;
-  
-  return Math.max(1, Math.min(10, score));
-}
+// Removed - using shared scoring function
 
 async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<any> {
   // First, get the actual AI response to the prompt

@@ -17,7 +17,7 @@ serve(async (req) => {
   const geminiKey = Deno.env.get('GEMINI_API_KEY');
   
   try {
-    const { prompt, provider } = await req.json();
+    const { prompt, provider, testKey } = await req.json();
 
     if (!prompt || !provider) {
       return new Response(JSON.stringify({ error: 'Missing prompt or provider' }), {
@@ -30,7 +30,8 @@ serve(async (req) => {
     let apiKey;
 
     if (provider === 'openai') {
-      if (!openaiKey) {
+      const keyToUse = testKey || openaiKey;
+      if (!keyToUse) {
         return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -40,7 +41,7 @@ serve(async (req) => {
       response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openaiKey}`,
+          'Authorization': `Bearer ${keyToUse}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -68,7 +69,8 @@ serve(async (req) => {
       });
 
     } else if (provider === 'perplexity') {
-      if (!perplexityKey) {
+      const keyToUse = testKey || perplexityKey;
+      if (!keyToUse) {
         return new Response(JSON.stringify({ error: 'Perplexity API key not configured' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -95,7 +97,7 @@ serve(async (req) => {
             const res = await fetch(endpoint, {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${perplexityKey}`,
+                'Authorization': `Bearer ${keyToUse}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify(payload),
@@ -108,8 +110,7 @@ serve(async (req) => {
               
               // Don't retry on auth/bad request errors
               if (res.status === 401 || res.status === 403 || res.status === 400) {
-                lastError = error;
-                break;
+                throw error;
               }
               
               throw error;
@@ -144,7 +145,8 @@ serve(async (req) => {
 
       throw new Error('Perplexity error: all attempts failed');
     } else if (provider === 'gemini') {
-      if (!geminiKey) {
+      const keyToUse = testKey || geminiKey;
+      if (!keyToUse) {
         return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -176,7 +178,7 @@ serve(async (req) => {
             }
           };
 
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${keyToUse}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
