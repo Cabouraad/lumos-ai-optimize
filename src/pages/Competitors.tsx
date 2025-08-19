@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
+import { getCompetitorsData } from '@/lib/competitors/data';
 import { 
   TrendingUp, 
   TrendingDown, 

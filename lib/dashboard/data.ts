@@ -26,9 +26,9 @@ export async function getDashboardData(orgId: string) {
     .gte('prompt_runs.run_at', `${today}T00:00:00Z`)
     .lt('prompt_runs.run_at', `${today}T23:59:59Z`);
 
-  // Calculate today's average score
+  // Calculate today's average score (convert to 0-100 scale for UI display)
   const todayAvg = todayScores && todayScores.length > 0 
-    ? Math.round(todayScores.reduce((sum, r) => sum + r.score, 0) / todayScores.length)
+    ? Math.round((todayScores.reduce((sum, r) => sum + r.score, 0) / todayScores.length) * 10) // Convert 0-10 to 0-100
     : 0;
 
   // Get 7-day daily averages for sparkline

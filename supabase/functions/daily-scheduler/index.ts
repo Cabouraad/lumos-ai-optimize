@@ -116,33 +116,30 @@ serve(async (req) => {
           continue;
         }
 
-        // Run each prompt on each provider
+        // Run each prompt once (it will internally handle all providers)
         for (const prompt of prompts || []) {
-          for (const provider of providers || []) {
-            try {
-              totalRuns++;
+          try {
+            totalRuns++;
 
-              // Call the existing run-prompt-now function for each prompt/provider combination
-              const { data: runResult, error: runError } = await supabase.functions.invoke('run-prompt-now', {
-                body: {
-                  promptId: prompt.id,
-                  providerId: provider.id
-                }
-              });
-
-              if (runError) {
-                console.error(`Failed to run prompt ${prompt.id} on ${provider.name}:`, runError);
-              } else {
-                successfulRuns++;
-                console.log(`Successfully ran prompt "${prompt.text}" on ${provider.name}`);
+            // Call the existing run-prompt-now function for each prompt
+            const { data: runResult, error: runError } = await supabase.functions.invoke('run-prompt-now', {
+              body: {
+                promptId: prompt.id
               }
+            });
 
-              // Small delay to prevent overwhelming the providers
-              await new Promise(resolve => setTimeout(resolve, 1000));
-
-            } catch (error) {
-              console.error(`Error running prompt ${prompt.id} on provider ${provider.name}:`, error);
+            if (runError) {
+              console.error(`Failed to run prompt ${prompt.id}:`, runError);
+            } else {
+              successfulRuns++;
+              console.log(`Successfully ran prompt "${prompt.text}"`);
             }
+
+            // Small delay to prevent overwhelming the providers
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+          } catch (error) {
+            console.error(`Error running prompt ${prompt.id}:`, error);
           }
         }
 

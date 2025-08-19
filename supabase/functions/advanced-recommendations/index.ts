@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireOwnerRole } from '../_shared/auth.ts';
+import { getScoreThresholds } from '../_shared/scoring.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,17 +20,12 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { orgId } = await req.json();
-
-    if (!orgId) {
-      return new Response(JSON.stringify({ error: 'Missing orgId' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Generating enhanced recommendations for org ${orgId}`);
+    // Parse request body and get authenticated user's org
+    const orgId = await requireOwnerRole(supabase);
     
+    console.log(`[advanced-recommendations] Processing for org: ${orgId}`);
+    
+    // Generate enhanced recommendations
     const result = await generateEnhancedRecommendations(orgId, supabase);
     
     return new Response(JSON.stringify(result), {
@@ -260,7 +257,7 @@ function analyzeVisibilityData(results: any[], promptSummary: any[], org: any) {
 
     if (orgMentionRate === 0) {
       noMentionPrompts.push(promptData);
-    } else if (avgScore < 6) {
+    } else if (avgScore < getScoreThresholds().fair) {
       lowVisibilityPrompts.push(promptData);
     }
   }

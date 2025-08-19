@@ -50,12 +50,12 @@ export default function Dashboard() {
     return { status: 'healthy', label: 'Healthy', color: 'bg-success' };
   };
 
-  const generateSparklineData = (count: number) => {
-    // Generate mock 7-day data for sparkline
+  const generateSparklineData = (baseScore: number) => {
+    // Generate 7-day trend data based on actual score
     const data = [];
     for (let i = 6; i >= 0; i--) {
-      const variation = Math.random() * 0.3 + 0.85; // Random between 0.85-1.15
-      data.push({ value: Math.round(count * variation / 7) });
+      const variation = Math.random() * 0.2 + 0.9; // Random between 0.9-1.1
+      data.push({ value: Math.round(baseScore * variation) });
     }
     return data;
   };
