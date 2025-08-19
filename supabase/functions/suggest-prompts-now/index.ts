@@ -203,11 +203,21 @@ Return ONLY a JSON array with this exact format:
       );
     }
 
+    // Map AI-generated sources to valid database values
+    const mapSourceToDatabase = (aiSource: string): string => {
+      const mapping = {
+        'competitor_analysis': 'competitors',
+        'brand_visibility': 'industry', 
+        'market_research': 'trends'
+      };
+      return mapping[aiSource as keyof typeof mapping] || 'gap';
+    };
+
     // Insert suggestions into database
     const insertData = newSuggestions.map(suggestion => ({
       org_id: userData.org_id,
       text: suggestion.text.trim(),
-      source: suggestion.source,
+      source: mapSourceToDatabase(suggestion.source),
     }));
 
     const { error: insertError } = await supabase
