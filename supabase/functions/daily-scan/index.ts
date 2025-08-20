@@ -2,13 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { todayKeyNY, isPastThreeAMNY } from "../_shared/time.ts";
 
-// Import the runPrompt function from client library (need to adapt for server-side)
-import { normalize, isOrgBrand } from "../../../lib/brand/match.ts";
-import { computeScore } from "../../../lib/scoring/visibility.ts";
-import { extractBrands as extractBrandsOpenAI } from "../../../lib/providers/openai.ts";
-import { extractBrands as extractBrandsPerplexity } from "../../../lib/providers/perplexity.ts";
-import { getQuotasForTier } from "../../../lib/tiers/quotas.ts";
-import { extractArtifacts, createBrandGazetteer } from "../../../lib/visibility/extractArtifacts.ts";
+// Import shared functions for edge function
+import { normalize, isOrgBrand } from "../_shared/brand-matching.ts";
+import { computeVisibilityScore } from "../_shared/scoring.ts";
+import { extractBrandsOpenAI, extractBrandsPerplexity } from "../_shared/providers.ts";
+import { getQuotasForTier } from "../_shared/quotas.ts";
+import { extractArtifacts, createBrandGazetteer } from "../_shared/artifacts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -211,7 +210,7 @@ async function runPromptServerSide(promptId: string, orgId: string, supabase: an
       ) : null;
       
       const competitorsCount = normalizedBrands.length - orgBrands.length;
-      const score = computeScore(orgPresent, orgBrandIdx, competitorsCount);
+      const score = computeVisibilityScore(orgPresent, orgBrandIdx, competitorsCount);
 
       // Insert prompt_runs with structured artifacts
       const { data: newRun } = await supabase
