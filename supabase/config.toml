@@ -12,6 +12,10 @@ verify_jwt = true
 [functions.daily-run]
 verify_jwt = true
 
+[functions.daily-scan]
+verify_jwt = false
+schedule = "0 7 * * *"
+
 [functions.weekly-suggestions]
 verify_jwt = true
 

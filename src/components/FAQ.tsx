@@ -33,10 +33,10 @@ const faqContent: Record<string, { title: string; sections: Array<{ question: st
         ]
       },
       {
-        question: 'How do I run prompts and check results?',
-        answer: 'Click the "Run Now" button next to any prompt to test it against enabled AI providers. You\'ll see visibility scores, brand mentions, and competitor analysis.',
+        question: 'How do prompts get analyzed?',
+        answer: 'All active prompts run automatically every day at 3:00 AM ET against enabled AI providers. You\'ll see visibility scores, brand mentions, and competitor analysis in your dashboard.',
         tips: [
-          'Run prompts regularly to track changes over time',
+          'Results update automatically - no manual runs needed',
           'Check results across different AI providers for comprehensive coverage',
           'Look for patterns in low-scoring prompts to identify content gaps'
         ]
