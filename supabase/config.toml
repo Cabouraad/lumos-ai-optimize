@@ -14,7 +14,7 @@ verify_jwt = true
 
 [functions.daily-scan]
 verify_jwt = false
-schedule = "0 7 * * *"
+schedule = ["0 7 * * *", "0 8 * * *"]
 
 [functions.weekly-suggestions]
 verify_jwt = true
@@ -44,4 +44,4 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.daily-scheduler]
-verify_jwt = true
+verify_jwt = false
