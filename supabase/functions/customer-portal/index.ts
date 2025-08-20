@@ -49,10 +49,32 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Create billing portal session with validated return URL
+    const referer = req.headers.get('referer');
+    const origin = req.headers.get('origin') || "https://cgocsffxqyhojtyzniyz.supabase.co";
+    let returnUrl = `${origin}/settings`;
+    
+    // Validate return URL to prevent open redirects
+    if (referer) {
+      try {
+        const refererUrl = new URL(referer);
+        const allowedOrigins = [
+          "http://localhost:3000",
+          "https://llumos.app",
+          "https://cgocsffxqyhojtyzniyz.supabase.co"
+        ];
+        
+        if (allowedOrigins.includes(refererUrl.origin)) {
+          returnUrl = `${refererUrl.origin}/settings`;
+        }
+      } catch (e) {
+        // Invalid URL, use default
+      }
+    }
+    
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${origin}/settings`,
+      return_url: returnUrl,
     });
     logStep("Customer portal session created", { sessionId: portalSession.id, url: portalSession.url });
 

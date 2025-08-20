@@ -2,6 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const CRON_SECRET = Deno.env.get('CRON_SECRET');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -21,8 +23,20 @@ interface Database {
 }
 
 serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Verify cron secret for security
+  const authHeader = req.headers.get('Authorization');
+  const cronSecret = req.headers.get('x-cron-secret');
+  
+  if (!authHeader && (!cronSecret || !CRON_SECRET || cronSecret !== CRON_SECRET)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }), 
+      { status: 401, headers: corsHeaders }
+    );
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

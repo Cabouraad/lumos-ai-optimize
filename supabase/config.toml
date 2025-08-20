@@ -10,13 +10,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.daily-run]
-verify_jwt = false
+verify_jwt = true
 
 [functions.weekly-suggestions]
-verify_jwt = false
+verify_jwt = true
 
 [functions.verify-domain]
-verify_jwt = false
+verify_jwt = true
 
 [functions.run-prompt-now]
 verify_jwt = true
@@ -40,4 +40,4 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.daily-scheduler]
-verify_jwt = false
+verify_jwt = true
