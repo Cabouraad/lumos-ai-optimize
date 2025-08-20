@@ -94,7 +94,7 @@ const TrendIcon = ({ trend }: { trend: number }) => {
 
 const CompetitorRow = ({ competitor, rank }: { competitor: CompetitorBrand; rank: number }) => {
   const sharePercentage = competitor.sharePercentage || ((competitor.averageScore / 10) * 100);
-  const trend = competitor.trend || (Math.random() * 20 - 10); // Mock trend for demo
+  const trend = competitor.trend || 0; // Use actual trend data only
 
   return (
     <div className="flex items-center justify-between p-4 hover:bg-muted/30 rounded-lg transition-colors group min-h-[72px]">
@@ -192,64 +192,42 @@ export default function Competitors() {
         .sort((a, b) => b.totalAppearances - a.totalAppearances)
         .slice(0, 5);
       
-      // Add org brand to top if we have data - use fetched name directly
-      const orgBrandData: CompetitorBrand = {
-        id: 'org',
-        name: currentOrgName,
-        totalAppearances: 156, // Mock data
-        averageScore: 7.5,
-        firstDetectedAt: new Date().toISOString(),
-        lastSeenAt: new Date().toISOString(),
-        trend: 8.2,
-        sharePercentage: 52.7,
+      // Get actual org brand data from brand_catalog
+      const { data: orgBrandData } = await supabase
+        .from('brand_catalog')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('is_org_brand', true)
+        .single();
+
+      const orgBrand: CompetitorBrand | null = orgBrandData ? {
+        id: orgBrandData.id,
+        name: orgBrandData.name,
+        totalAppearances: orgBrandData.total_appearances || 0,
+        averageScore: Number(orgBrandData.average_score) || 0,
+        firstDetectedAt: orgBrandData.first_detected_at,
+        lastSeenAt: orgBrandData.last_seen_at,
+        trend: calculateTrend(orgBrandData.last_seen_at, orgBrandData.first_detected_at, orgBrandData.total_appearances || 0),
+        sharePercentage: ((Number(orgBrandData.average_score) || 0) / 10) * 100,
         isManuallyAdded: false
-      };
+      } : null;
       
-      setTopBrands([orgBrandData, ...top]);
+      setTopBrands(orgBrand ? [orgBrand, ...top] : top);
 
       // Nearest competitors - similar to top but excluding org brand
       const nearest = competitors
         .filter(c => c.averageScore > 0)
         .sort((a, b) => b.averageScore - a.averageScore)
         .slice(0, 5);
-      setNearestCompetitors([orgBrandData, ...nearest]);
+      setNearestCompetitors(orgBrand ? [orgBrand, ...nearest] : nearest);
 
-      // Up and coming - sorted by positive trend
+      // Up and coming - sorted by positive trend, only show real data
       const upcoming = competitors
-        .filter(c => c.trend && c.trend > -5)
+        .filter(c => c.trend && c.trend > 0 && c.totalAppearances > 0)
         .sort((a, b) => (b.trend || 0) - (a.trend || 0))
         .slice(0, 4);
       
-      // Add some mock trending data for better UX
-      const upcomingWithOrg = [
-        orgBrandData,
-        ...upcoming,
-        // Add some mock competitors if we don't have enough data
-        ...(upcoming.length < 4 ? [
-          {
-            id: 'mock-zoho',
-            name: 'Zoho',
-            totalAppearances: 45,
-            averageScore: 6.2,
-            firstDetectedAt: new Date().toISOString(),
-            lastSeenAt: new Date().toISOString(),
-            trend: 8.1,
-            sharePercentage: 24.5,
-            isManuallyAdded: false
-          },
-          {
-            id: 'mock-wordpress',
-            name: 'WordPress',
-            totalAppearances: 23,
-            averageScore: 4.1,
-            firstDetectedAt: new Date().toISOString(),
-            lastSeenAt: new Date().toISOString(),
-            trend: 12.2,
-            sharePercentage: 6.6,
-            isManuallyAdded: false
-          }
-        ] : [])
-      ].slice(0, 5);
+      const upcomingWithOrg = orgBrand ? [orgBrand, ...upcoming] : upcoming;
       
       setUpcomingBrands(upcomingWithOrg);
 

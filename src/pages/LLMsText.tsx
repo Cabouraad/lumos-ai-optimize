@@ -70,7 +70,7 @@ export default function LLMsText() {
       setData(prev => ({
         ...prev,
         siteName: orgData.organizations.name || '',
-        siteUrl: `https://${orgData.organizations.domain || 'example.com'}`,
+        siteUrl: orgData.organizations.domain ? `https://${orgData.organizations.domain}` : '',
         description: orgKeywords.business_description || '',
         products: orgKeywords.products_services || '',
         targetAudience: orgKeywords.target_audience || '',

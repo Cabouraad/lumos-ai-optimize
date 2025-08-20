@@ -163,20 +163,14 @@ export function AIPromptSuggestions({
                       </p>
                     </div>
 
-                    {/* AI reasoning (mock) */}
+                    {/* Source-based insight */}
                     <div className="text-xs text-gray-600 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
                       <div className="flex items-start gap-2">
                         <Zap className="h-3 w-3 text-blue-600 mt-0.5 flex-shrink-0" />
                         <div>
-                          <span className="font-medium text-blue-900">AI Insight:</span>
+                          <span className="font-medium text-blue-900">Source:</span>
                           <span className="ml-1">
-                            This prompt targets 
-                            {suggestion.source === 'competitor_analysis' ? ' competitor comparison queries and helps monitor competitive positioning.' : 
-                             suggestion.source === 'brand_visibility' ? ' search queries where your brand should appear prominently.' : 
-                             suggestion.source === 'market_research' ? ' industry-wide search queries for market insights.' :
-                             suggestion.source === 'competitors' ? ' competitor comparison queries.' :
-                             suggestion.source === 'industry' ? ' industry-specific searches.' : 
-                             ' underperforming search categories.'}
+                            {getSourceDisplayName(suggestion.source)} analysis
                           </span>
                         </div>
                       </div>

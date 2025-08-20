@@ -18,15 +18,8 @@ export function QuickInsights({
   isOpen,
   onToggle 
 }: QuickInsightsProps) {
-  const mockTrendData = trendData.length > 0 ? trendData : [
-    { date: '2024-01-01', score: 6.2 },
-    { date: '2024-01-02', score: 6.5 },
-    { date: '2024-01-03', score: 6.1 },
-    { date: '2024-01-04', score: 6.8 },
-    { date: '2024-01-05', score: 7.2 },
-    { date: '2024-01-06', score: 6.9 },
-    { date: '2024-01-07', score: 7.4 },
-  ];
+  // Only show chart if we have real trend data
+  const hasRealTrendData = trendData.length > 0;
 
   if (!isOpen) {
     return (
@@ -110,38 +103,56 @@ export function QuickInsights({
           </CardContent>
         </Card>
 
-        {/* Mini Trend Chart */}
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-success" />
-              7-Day Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-20 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mockTrendData}>
-                  <XAxis dataKey="date" hide />
-                  <YAxis hide />
-                  <Line 
-                    type="monotone" 
-                    dataKey="score" 
-                    stroke="hsl(var(--success))" 
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-2 text-center">
-              <div className="text-lg font-semibold text-success">
-                +12%
+        {/* Mini Trend Chart - Only show if we have real data */}
+        {hasRealTrendData ? (
+          <Card className="shadow-soft">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-success" />
+                7-Day Trend
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-20 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <XAxis dataKey="date" hide />
+                    <YAxis hide />
+                    <Line 
+                      type="monotone" 
+                      dataKey="score" 
+                      stroke="hsl(var(--success))" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <div className="text-xs text-muted-foreground">vs last week</div>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="mt-2 text-center">
+                <div className="text-xs text-muted-foreground">Real trend data available</div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="shadow-soft">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                7-Day Trend
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-4">
+                <div className="text-sm text-muted-foreground">
+                  No trend data available yet
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Run some prompts to see trends
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

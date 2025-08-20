@@ -22,7 +22,7 @@ export async function getCompetitorsData() {
       firstDetectedAt: brand.first_detected_at,
       lastSeenAt: brand.last_seen_at,
       sharePercentage: Math.min(100, Math.max(0, (brand.average_score || 0) * 10)),
-      trend: Math.random() * 20 - 10, // TODO: Calculate actual trend from historical data
+      trend: 0, // Trend calculation will be implemented with historical data
       isManuallyAdded: false
     })) || [];
 
