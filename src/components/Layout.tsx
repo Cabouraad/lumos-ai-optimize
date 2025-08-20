@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
 import { FAQ } from '@/components/FAQ';
 import { 
@@ -10,7 +11,8 @@ import {
   FileText,
   Lightbulb, 
   Settings,
-  LogOut
+  LogOut,
+  Crown
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -20,6 +22,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { signOut, orgData } = useAuth();
   const location = useLocation();
+  const { canAccessCompetitorAnalysis, canAccessRecommendations } = useSubscriptionGate();
 
   // Pages that should show the FAQ button
   const pagesWithFAQ = ['/prompts', '/competitors', '/llms-txt', '/recommendations'];
@@ -50,6 +53,30 @@ export function Layout({ children }: LayoutProps) {
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
+              
+              // Check if this feature is restricted
+              const isRestricted = 
+                (item.href === '/competitors' && !canAccessCompetitorAnalysis().hasAccess) ||
+                (item.href === '/recommendations' && !canAccessRecommendations().hasAccess);
+              
+              if (isRestricted) {
+                return (
+                  <div key={item.name} className="relative mb-1">
+                    <div className={`flex items-center px-3 py-2 rounded-md text-sm font-medium opacity-50 cursor-not-allowed text-muted-foreground`}>
+                      <Icon className="mr-3 h-4 w-4" />
+                      {item.name}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2 bg-yellow-500 hover:bg-yellow-600 text-yellow-950"
+                      onClick={() => window.open('/pricing', '_blank')}
+                    >
+                      <Crown className="h-3 w-3 mr-1" />
+                      Upgrade
+                    </Button>
+                  </div>
+                );
+              }
               
               return (
                 <Link
