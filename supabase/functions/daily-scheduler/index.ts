@@ -33,7 +33,8 @@ serve(async (req) => {
       day: '2-digit'
     });
     
-    const todayKey = nyTime.split(',')[0].split('/').reverse().join('-'); // Convert MM/DD/YYYY to YYYY-MM-DD
+    const dateParts = nyTime.split(',')[0].split('/'); // Split MM/DD/YYYY
+    const todayKey = `${dateParts[2]}-${dateParts[0]}-${dateParts[1]}`; // Convert to YYYY-MM-DD
     
     console.log(`Daily scheduler triggered for ${todayKey} (NY time: ${nyTime})`);
 
