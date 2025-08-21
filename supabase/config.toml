@@ -45,3 +45,9 @@ verify_jwt = true
 
 [functions.daily-scheduler]
 verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.llms-generate]
+verify_jwt = true
