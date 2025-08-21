@@ -261,20 +261,19 @@ export function PromptRow({
     };
 
     const fetchTrend = async () => {
-      const { data, error } = await supabase
-        .from('v_prompt_visibility_7d')
-        .select('avg_score_7d, runs_7d')
-        .eq('prompt_id', prompt.id)
-        .limit(1);
+      const { data, error } = await supabase.rpc('get_prompt_visibility_7d');
+      
       if (error) {
         console.error('Error fetching trend:', error);
         setTrendAvg(null);
         setTrendRuns(0);
         return;
       }
-      if (data && data.length > 0) {
-        setTrendAvg(data[0].avg_score_7d ?? null);
-        setTrendRuns(Number(data[0].runs_7d) || 0);
+      
+      const promptData = data?.find(item => item.prompt_id === prompt.id);
+      if (promptData) {
+        setTrendAvg(promptData.avg_score_7d ?? null);
+        setTrendRuns(Number(promptData.runs_7d) || 0);
       } else {
         setTrendAvg(null);
         setTrendRuns(0);
