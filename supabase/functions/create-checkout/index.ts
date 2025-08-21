@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://llumos.app, http://localhost:3000, https://cgocsffxqyhojtyzniyz.supabase.co",
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -62,15 +62,9 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
-    // Validate origin to prevent open redirects
-    const origin = req.headers.get("origin");
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "https://llumos.app",
-      "https://cgocsffxqyhojtyzniyz.supabase.co"
-    ];
-    
-    const baseUrl = origin && allowedOrigins.includes(origin) ? origin : "https://llumos.app";
+    // Determine redirect base URL from request origin (fallback to production)
+    const origin = req.headers.get("origin") || "https://llumos.app";
+    const baseUrl = origin;
 
     // Create subscription with trial for starter tier
     const sessionConfig: any = {

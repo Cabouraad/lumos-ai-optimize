@@ -43,49 +43,69 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id }); // Removed email logging
 
-    // Check for existing subscriber record
-    const { data: existingSubscriber } = await supabaseClient
-      .from('subscribers')
-      .select('*')
-      .eq('email', user.email)
-      .single();
+// Check for existing subscriber record
+const { data: existingSubscriber } = await supabaseClient
+  .from('subscribers')
+  .select('*')
+  .eq('email', user.email)
+  .maybeSingle();
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    
-    // Check if this is a new user (first check)
-    const isNewUser = !existingSubscriber;
-    
-    if (customers.data.length === 0) {
-      logStep("No customer found, subscription required");
-      
-      // No free tier - users must have a subscription
-      await supabaseClient.from("subscribers").upsert({
-        email: user.email,
-        user_id: user.id,
-        stripe_customer_id: null,
-        subscribed: false,
-        subscription_tier: null,
-        subscription_end: null,
-        trial_started_at: null,
-        trial_expires_at: null,
-        payment_collected: false,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' });
-      
-      return new Response(JSON.stringify({ 
-        subscribed: false,
-        subscription_tier: null,
-        subscription_end: null,
-        trial_expires_at: null,
-        trial_started_at: null,
-        payment_collected: false,
-        requires_subscription: true,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
+// Manual override: honor existing active subscription or active trial in DB
+const now = new Date();
+const manualSubscribed = !!existingSubscriber?.subscribed;
+const manualTrialActive = !!(existingSubscriber?.trial_expires_at && new Date(existingSubscriber.trial_expires_at) > now);
+if (manualSubscribed || manualTrialActive) {
+  logStep("Using manual subscription override from DB", {
+    subscribed: existingSubscriber?.subscribed,
+    trial_expires_at: existingSubscriber?.trial_expires_at,
+    subscription_tier: existingSubscriber?.subscription_tier,
+    subscription_end: existingSubscriber?.subscription_end
+  });
+  return new Response(JSON.stringify({
+    subscribed: true,
+    subscription_tier: existingSubscriber?.subscription_tier ?? null,
+    subscription_end: existingSubscriber?.subscription_end ?? null,
+    trial_expires_at: existingSubscriber?.trial_expires_at ?? null,
+    trial_started_at: existingSubscriber?.trial_started_at ?? null,
+    payment_collected: existingSubscriber?.payment_collected ?? false,
+    requires_subscription: false,
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 200,
+  });
+}
+
+const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+
+// If no Stripe customer and no manual override, mark as unsubscribed (no free tier)
+if (customers.data.length === 0) {
+  logStep("No Stripe customer found, marking unsubscribed");
+  await supabaseClient.from("subscribers").upsert({
+    email: user.email,
+    user_id: user.id,
+    stripe_customer_id: null,
+    subscribed: false,
+    subscription_tier: null,
+    subscription_end: null,
+    trial_started_at: null,
+    trial_expires_at: null,
+    payment_collected: false,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'email' });
+  return new Response(JSON.stringify({ 
+    subscribed: false,
+    subscription_tier: null,
+    subscription_end: null,
+    trial_expires_at: null,
+    trial_started_at: null,
+    payment_collected: false,
+    requires_subscription: true,
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 200,
+  });
+}
 
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
@@ -96,22 +116,22 @@ serve(async (req) => {
       limit: 1,
     });
     const hasActiveSub = subscriptions.data.length > 0;
-    let subscriptionTier = null;
-    let subscriptionEnd = null;
+
+    let subscriptionTier: string | null = null;
+    let subscriptionEnd: string | null = null;
     let paymentCollected = false;
+    let trialStartedAt: string | null = null;
+    let trialExpiresAt: string | null = null;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       paymentCollected = true; // Active subscription means payment was collected
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      
       // Determine subscription tier from price
       const priceId = subscription.items.data[0].price.id;
       const price = await stripe.prices.retrieve(priceId);
       const amount = price.unit_amount || 0;
-      
-      // Map price to tier based on our pricing structure
       if (amount >= 19900) {
         subscriptionTier = "pro";
       } else if (amount >= 6900) {
@@ -122,30 +142,21 @@ serve(async (req) => {
       logStep("Determined subscription tier", { priceId, amount, subscriptionTier });
     } else {
       logStep("No active subscription found");
-      
       // Check for trial subscription (trialing status)
       const trialingSubscriptions = await stripe.subscriptions.list({
         customer: customerId,
         status: "trialing",
         limit: 1,
       });
-      
       if (trialingSubscriptions.data.length > 0) {
         const trialSubscription = trialingSubscriptions.data[0];
         subscriptionTier = "starter"; // Trial is only for starter tier
         subscriptionEnd = new Date(trialSubscription.current_period_end * 1000).toISOString();
-        logStep("Found trialing subscription", { 
-          subscriptionId: trialSubscription.id, 
-          trialEnd: subscriptionEnd 
-        });
-        
-        // Update with trial info
-        updateData.trial_started_at = new Date(trialSubscription.created * 1000).toISOString();
-        updateData.trial_expires_at = subscriptionEnd;
-        updateData.subscribed = true; // User has access during trial
-        updateData.payment_collected = true; // Payment method was collected
+        trialStartedAt = new Date(trialSubscription.created * 1000).toISOString();
+        trialExpiresAt = subscriptionEnd;
+        paymentCollected = true; // Payment method was collected
+        logStep("Found trialing subscription", { subscriptionId: trialSubscription.id, trialEnd: subscriptionEnd });
       } else {
-        // No active or trialing subscription - no access
         subscriptionTier = null;
       }
     }
@@ -155,31 +166,30 @@ serve(async (req) => {
       email: user.email,
       user_id: user.id,
       stripe_customer_id: customerId,
-      subscribed: hasActiveSub,
+      subscribed: hasActiveSub || !!trialExpiresAt,
       subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,
+      trial_started_at: trialStartedAt ?? (existingSubscriber?.trial_started_at ?? null),
+      trial_expires_at: trialExpiresAt ?? (existingSubscriber?.trial_expires_at ?? null),
       payment_collected: paymentCollected,
       updated_at: new Date().toISOString(),
     };
-    
-    // Preserve existing trial data if no active subscription
-    if (!hasActiveSub && existingSubscriber) {
-      updateData.trial_started_at = existingSubscriber.trial_started_at;
-      updateData.trial_expires_at = existingSubscriber.trial_expires_at;
-    }
 
     await supabaseClient.from("subscribers").upsert(updateData, { onConflict: 'email' });
 
-    logStep("Updated database with subscription info", { subscribed: hasActiveSub, subscriptionTier });
-    
+    logStep("Updated database with subscription info", { subscribed: updateData.subscribed, subscriptionTier });
+
+    const nowDate = new Date();
+    const trialActive = updateData.trial_expires_at && new Date(updateData.trial_expires_at) > nowDate;
+
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub || (updateData.trial_expires_at && new Date(updateData.trial_expires_at) > new Date()),
+      subscribed: !!(hasActiveSub || trialActive),
       subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,
       trial_expires_at: updateData.trial_expires_at || null,
       trial_started_at: updateData.trial_started_at || null,
       payment_collected: updateData.payment_collected || false,
-      requires_subscription: !subscriptionTier, // True if no subscription at all
+      requires_subscription: !(hasActiveSub || trialActive),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

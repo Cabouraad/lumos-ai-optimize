@@ -59,15 +59,9 @@ serve(async (req) => {
       logStep("New customer created", { customerId });
     }
 
-    // Validate origin to prevent open redirects
-    const origin = req.headers.get("origin");
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "https://llumos.app", 
-      "https://cgocsffxqyhojtyzniyz.supabase.co"
-    ];
-    
-    const baseUrl = origin && allowedOrigins.includes(origin) ? origin : "https://llumos.app";
+    // Determine redirect base URL from request origin (fallback to production)
+    const origin = req.headers.get("origin") || "https://llumos.app";
+    const baseUrl = origin;
 
     // Create checkout session for trial with payment method collection
     const session = await stripe.checkout.sessions.create({
