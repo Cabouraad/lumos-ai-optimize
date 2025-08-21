@@ -24,7 +24,9 @@ import {
   Tag,
   Users,
   Target,
-  Lightbulb
+  Lightbulb,
+  Wand2,
+  Clock
 } from 'lucide-react';
 
 interface LLMsTextData {
@@ -56,6 +58,9 @@ export default function LLMsText() {
   const [loading, setLoading] = useState(true);
   const [newKeyPage, setNewKeyPage] = useState('');
   const [generatedContent, setGeneratedContent] = useState('');
+  const [autoGenerating, setAutoGenerating] = useState(false);
+  const [lastGenerated, setLastGenerated] = useState<string | null>(null);
+  const [generationSource, setGenerationSource] = useState<string | null>(null);
 
   useEffect(() => {
     loadOrganizationData();
@@ -66,6 +71,19 @@ export default function LLMsText() {
 
     try {
       const orgKeywords = await getOrganizationKeywords();
+      
+      // Load existing llms.txt data
+      const { data: orgDetails, error } = await supabase
+        .from('organizations')
+        .select('llms_txt, llms_last_generated_at, llms_generation_source')
+        .eq('id', orgData.organizations.id)
+        .single();
+
+      if (!error && orgDetails) {
+        setGeneratedContent(orgDetails.llms_txt || '');
+        setLastGenerated(orgDetails.llms_last_generated_at);
+        setGenerationSource(orgDetails.llms_generation_source);
+      }
       
       setData(prev => ({
         ...prev,
@@ -175,6 +193,48 @@ Learn more at: https://llmstxt.org/`;
       title: "Downloaded!",
       description: "Your llms.txt file has been downloaded.",
     });
+  };
+
+  const handleAutoGenerate = async () => {
+    if (!orgData?.organizations?.domain) {
+      toast({
+        title: "Error",
+        description: "Please set your organization domain in settings first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAutoGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('llms-generate', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setGeneratedContent(data.content);
+        setLastGenerated(data.generatedAt);
+        setGenerationSource(data.source);
+        
+        toast({
+          title: "Success!",
+          description: `Generated llms.txt using ${data.source} (${data.pagesFound} pages analyzed)`,
+        });
+      } else {
+        throw new Error(data.error || 'Generation failed');
+      }
+    } catch (error) {
+      console.error('Auto-generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Could not automatically generate llms.txt. Please try manual generation.",
+        variant: "destructive",
+      });
+    } finally {
+      setAutoGenerating(false);
+    }
   };
 
   if (loading) {
@@ -375,9 +435,37 @@ Learn more at: https://llmstxt.org/`;
               </CardContent>
             </Card>
 
-            <Button onClick={generateLLMsText} className="w-full" size="lg">
-              Generate llms.txt File
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={generateLLMsText} variant="outline" className="flex-1">
+                Manual Generation
+              </Button>
+              <Button 
+                onClick={handleAutoGenerate} 
+                disabled={autoGenerating || !orgData?.organizations?.domain}
+                className="flex-1"
+              >
+                {autoGenerating ? (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Auto-Generate
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {!orgData?.organizations?.domain && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Set your organization domain in Settings to enable auto-generation.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Generated Content */}
@@ -387,9 +475,20 @@ Learn more at: https://llmstxt.org/`;
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5" />
                   Generated llms.txt
+                  {lastGenerated && (
+                    <Badge variant="secondary" className="ml-auto">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {new Date(lastGenerated).toLocaleDateString()}
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Copy this content to a file named "llms.txt" in your website root
+                  {generationSource && (
+                    <span className="text-xs text-muted-foreground ml-1">
+                      (Generated via {generationSource})
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
