@@ -3,16 +3,22 @@ import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Trash2 } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orgData, setOrgData] = useState<any>(null);
   const [providers, setProviders] = useState<any[]>([]);
   const [retention, setRetention] = useState('30');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -62,6 +68,47 @@ export default function Settings() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data.')) {
+      return;
+    }
+
+    if (!confirm('This will permanently delete your account and all associated data. Type "DELETE" to confirm.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been permanently deleted.",
+        });
+        
+        // Sign out and redirect
+        await supabase.auth.signOut();
+        navigate('/auth');
+      } else {
+        throw new Error(data.error || 'Deletion failed');
+      }
+    } catch (error: any) {
+      console.error('Account deletion error:', error);
+      toast({
+        title: "Deletion Failed",
+        description: error.message || "Could not delete account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -176,6 +223,27 @@ export default function Settings() {
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Data Retention</h2>
           <div className="text-sm">Current: {retention} days</div>
+        </section>
+
+        <section className="rounded-xl border border-destructive/20 p-4">
+          <h2 className="font-medium mb-3 text-destructive">Danger Zone</h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium mb-1">Delete Account</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </p>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleting ? 'Deleting...' : 'Delete Account'}
+              </Button>
+            </div>
+          </div>
         </section>
       </div>
     </Layout>
