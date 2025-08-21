@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@14.21.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,15 +22,17 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
 
     console.log('Environment check:', {
       hasUrl: !!supabaseUrl,
       hasServiceKey: !!supabaseServiceKey,
       hasAnonKey: !!supabaseAnonKey,
+      hasStripeKey: !!stripeSecretKey,
       urlStart: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'missing'
     });
 
-    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey || !stripeSecretKey) {
       console.error('Missing required environment variables');
       return new Response(JSON.stringify({ 
         success: false, 
@@ -152,6 +155,75 @@ serve(async (req) => {
     }
 
     console.log('Starting data cleanup...');
+
+    // Cancel Stripe subscriptions first
+    console.log('Checking for Stripe subscriptions to cancel...');
+    
+    try {
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
+      
+      // Get user's subscription data
+      const { data: subscriberData, error: subscriberFetchError } = await supabaseAdmin
+        .from('subscribers')
+        .select('stripe_customer_id, stripe_subscription_id, email')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (subscriberFetchError) {
+        console.error('Error fetching subscriber data:', subscriberFetchError.message);
+      } else if (subscriberData?.stripe_customer_id) {
+        console.log(`Found Stripe customer: ${subscriberData.stripe_customer_id}`);
+        
+        // Get all subscriptions for this customer
+        const subscriptions = await stripe.subscriptions.list({
+          customer: subscriberData.stripe_customer_id,
+          status: 'active'
+        });
+
+        console.log(`Found ${subscriptions.data.length} active subscriptions`);
+
+        // Cancel all active subscriptions
+        for (const subscription of subscriptions.data) {
+          console.log(`Canceling subscription: ${subscription.id}`);
+          try {
+            await stripe.subscriptions.cancel(subscription.id, {
+              invoice_now: false,
+              prorate: false,
+            });
+            console.log(`Successfully canceled subscription: ${subscription.id}`);
+          } catch (subError) {
+            console.error(`Error canceling subscription ${subscription.id}:`, subError);
+          }
+        }
+
+        // Also check for any upcoming invoices and void them
+        try {
+          const upcomingInvoices = await stripe.invoices.list({
+            customer: subscriberData.stripe_customer_id,
+            status: 'draft'
+          });
+
+          for (const invoice of upcomingInvoices.data) {
+            console.log(`Voiding draft invoice: ${invoice.id}`);
+            try {
+              await stripe.invoices.voidInvoice(invoice.id);
+              console.log(`Successfully voided invoice: ${invoice.id}`);
+            } catch (invoiceError) {
+              console.error(`Error voiding invoice ${invoice.id}:`, invoiceError);
+            }
+          }
+        } catch (invoiceError) {
+          console.error('Error handling invoices:', invoiceError);
+        }
+
+        console.log('Stripe subscription cancellation completed');
+      } else {
+        console.log('No Stripe customer found for this user');
+      }
+    } catch (stripeError) {
+      console.error('Error during Stripe cleanup:', stripeError);
+      // Continue with account deletion even if Stripe cleanup fails
+    }
 
     // Clean up organization data if user has an org
     if (orgId) {
