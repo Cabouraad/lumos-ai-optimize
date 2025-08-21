@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://llumos.app, http://localhost:3000, https://cgocsffxqyhojtyzniyz.supabase.co",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -38,7 +38,7 @@ serve(async (req) => {
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    logStep("User authenticated", { userId: user.id });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     
@@ -59,13 +59,23 @@ serve(async (req) => {
       logStep("New customer created", { customerId });
     }
 
+    // Validate origin to prevent open redirects
+    const origin = req.headers.get("origin");
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "https://llumos.app", 
+      "https://cgocsffxqyhojtyzniyz.supabase.co"
+    ];
+    
+    const baseUrl = origin && allowedOrigins.includes(origin) ? origin : "https://llumos.app";
+
     // Create checkout session for trial with payment method collection
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
       mode: 'setup', // Setup mode to collect payment method without immediate charge
-      success_url: `${req.headers.get("origin")}/trial-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/pricing`,
+      success_url: `${baseUrl}/trial-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/pricing`,
       metadata: {
         user_id: user.id,
         trial_setup: 'true'

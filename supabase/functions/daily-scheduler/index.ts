@@ -20,13 +20,12 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify cron secret for security
-  const authHeader = req.headers.get('Authorization');
+  // Verify cron secret for security (CRITICAL FIX)
   const cronSecret = req.headers.get('x-cron-secret');
   
-  if (!authHeader && (!cronSecret || !CRON_SECRET || cronSecret !== CRON_SECRET)) {
+  if (!CRON_SECRET || !cronSecret || cronSecret !== CRON_SECRET) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized' }), 
+      JSON.stringify({ error: 'Unauthorized: Invalid or missing cron secret' }), 
       { status: 401, headers: corsHeaders }
     );
   }
