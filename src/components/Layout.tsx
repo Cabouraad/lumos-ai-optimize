@@ -62,17 +62,19 @@ export function Layout({ children }: LayoutProps) {
               if (isRestricted) {
                 return (
                   <div key={item.name} className="relative mb-1">
-                    <div className={`flex items-center px-3 py-2 rounded-md text-sm font-medium opacity-50 cursor-not-allowed text-muted-foreground`}>
+                    <div className={`flex items-center px-3 py-2 pr-10 rounded-md text-sm font-medium opacity-50 cursor-not-allowed text-muted-foreground`}>
                       <Icon className="mr-3 h-4 w-4" />
                       {item.name}
                     </div>
                     <Button
-                      size="sm"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2 bg-yellow-500 hover:bg-yellow-600 text-yellow-950"
-                      onClick={() => window.open('/pricing', '_blank')}
+                      size="icon"
+                      variant="secondary"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 p-0 pointer-events-auto"
+                      onClick={(e) => { e.stopPropagation(); window.open('/pricing', '_blank'); }}
+                      aria-label="Upgrade plan"
+                      title="Upgrade plan"
                     >
-                      <Crown className="h-3 w-3 mr-1" />
-                      Upgrade
+                      <Crown className="h-3 w-3" />
                     </Button>
                   </div>
                 );
