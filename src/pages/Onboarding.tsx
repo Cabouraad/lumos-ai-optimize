@@ -58,8 +58,8 @@ export default function Onboarding() {
         // Store onboarding data temporarily to complete after payment
         sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
         
-        // Open checkout in new tab for all tiers
-        window.open(data.url, '_blank');
+        // Redirect to Stripe checkout in the same tab for reliability
+        window.location.href = data.url;
         toast({
           title: selectedPlan === 'starter' ? "Starting Free Trial" : "Processing Payment",
           description: selectedPlan === 'starter' 

@@ -63,7 +63,8 @@ export function PricingCard({
       if (error) throw error;
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        // Redirect to Stripe checkout in the same tab for reliability
+        window.location.href = data.url;
       }
     } catch (error: any) {
       console.error('Subscription error:', error);
