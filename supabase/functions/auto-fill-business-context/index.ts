@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
+          status: 200
         }
       )
     }
@@ -152,7 +152,7 @@ Please try manually entering your business information in the form fields below,
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
+          status: 200
         }
       )
     }
