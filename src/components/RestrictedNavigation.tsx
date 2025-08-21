@@ -31,10 +31,9 @@ export function RestrictedNavigation({ children, feature, className = '' }: Rest
           size="sm" 
           variant="outline"
           onClick={handleUpgrade}
-          className="text-xs px-2 py-1"
+          className="text-xs px-1.5 py-0.5 h-6 min-w-0"
         >
-          <Crown className="w-3 h-3 mr-1" />
-          Upgrade
+          <Crown className="w-3 h-3" />
         </Button>
       </div>
     );
