@@ -15,6 +15,7 @@ export default function Onboarding() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [autoFillLoading, setAutoFillLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [businessContextStep, setBusinessContextStep] = useState(false);
   const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
@@ -147,6 +148,60 @@ export default function Onboarding() {
     setLoading(false);
   };
 
+  const handleAutoFill = async () => {
+    if (!formData.domain) {
+      toast({
+        title: "Domain Required",
+        description: "Please enter your domain first to auto-fill business context.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAutoFillLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-fill-business-context');
+
+      if (error) throw error;
+
+      if (data?.success && data?.businessContext) {
+        const context = data.businessContext;
+        
+        setFormData(prev => ({
+          ...prev,
+          business_description: context.business_description || prev.business_description,
+          products_services: context.products_services || prev.products_services,
+          target_audience: context.target_audience || prev.target_audience,
+        }));
+
+        toast({
+          title: "Auto-fill Complete!",
+          description: "Business context has been populated from your website.",
+        });
+      } else if (data?.missingApiKey) {
+        toast({
+          title: "OpenAI API Key Required",
+          description: "Please contact support to enable auto-fill functionality.",
+          variant: "destructive",
+        });
+      } else if (data?.manualFill) {
+        toast({
+          title: "Manual Input Needed",
+          description: "We couldn't automatically extract business context. Please fill in the fields manually.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Auto-fill error:", error);
+      toast({
+        title: "Auto-fill Failed",
+        description: error.message || "Failed to auto-fill business context",
+        variant: "destructive",
+      });
+    }
+    setAutoFillLoading(false);
+  };
+
   const handleFinishOnboarding = () => {
     toast({
       title: "Welcome to Llumos!",
@@ -223,6 +278,25 @@ export default function Onboarding() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-dashed">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-sm">Save time with auto-fill</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Let AI analyze your website ({formData.domain}) and automatically fill in your business context.
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleAutoFill}
+                  disabled={autoFillLoading || !formData.domain}
+                >
+                  {autoFillLoading ? "Auto-filling..." : "Auto-fill from Website"}
+                </Button>
+              </div>
+            </div>
+            
             <form onSubmit={(e) => { e.preventDefault(); handleGeneratePromptSuggestions(); }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="business_description">Business Description</Label>
