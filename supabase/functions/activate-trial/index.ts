@@ -17,24 +17,54 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
-  );
-
   try {
-    logStep("Function started");
+    // Get authorization header for authenticated requests
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      logStep('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verify the user is authenticated
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      logStep('Authentication failed', { error: authError });
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
 
     const { sessionId } = await req.json();
-    if (!sessionId) throw new Error("Session ID is required");
+    if (!sessionId) {
+      throw new Error("Session ID is required");
+    }
+    logStep('Processing session for authenticated user', { sessionId, userId: user.id });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
     
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     
-    // Retrieve the setup session
+    // Retrieve the checkout session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     logStep("Retrieved checkout session", { sessionId, status: session.status });
     
@@ -46,47 +76,73 @@ serve(async (req) => {
       throw new Error("Invalid session for trial activation");
     }
 
-    const customerId = session.customer as string;
-    const userId = session.metadata.user_id;
+    // Retrieve customer details
+    const customer = await stripe.customers.retrieve(session.customer as string);
+    logStep('Retrieved customer', { customerId: customer.id });
+
+    if (!customer || customer.deleted) {
+      throw new Error('Customer not found or deleted');
+    }
+
+    const customerEmail = (customer as any).email;
     
-    // Get customer details
-    const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
-    if (!customer.email) throw new Error("Customer email not found");
+    // Security validation: ensure the authenticated user matches the customer
+    if (user.email !== customerEmail) {
+      logStep('Email mismatch security check failed', { 
+        userEmail: user.email, 
+        customerEmail: customerEmail 
+      });
+      return new Response(
+        JSON.stringify({ error: 'User email does not match customer email' }),
+        { status: 403, headers: corsHeaders }
+      );
+    }
+
+    // Additional validation: check session metadata if available
+    const sessionMetadata = session.metadata;
+    if (sessionMetadata?.user_id && sessionMetadata.user_id !== user.id) {
+      logStep('User ID mismatch security check failed', {
+        sessionUserId: sessionMetadata.user_id,
+        authenticatedUserId: user.id
+      });
+      return new Response(
+        JSON.stringify({ error: 'User ID mismatch' }),
+        { status: 403, headers: corsHeaders }
+      );
+    }
+
+    // Use secure function to update subscriber data
+    const trialStartedAt = new Date();
+    const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
     
-    logStep("Customer verified", { customerId, email: customer.email });
-
-    // Start the trial - user has provided payment method
-    const trialStart = new Date();
-    const trialEnd = new Date(trialStart);
-    trialEnd.setDate(trialEnd.getDate() + 7); // 7-day trial
-
-    await supabaseClient.from("subscribers").upsert({
-      email: customer.email,
-      user_id: userId,
-      stripe_customer_id: customerId,
-      subscribed: false,
-      subscription_tier: 'starter',
-      subscription_end: null,
-      trial_started_at: trialStart.toISOString(),
-      trial_expires_at: trialEnd.toISOString(),
-      payment_collected: true, // Payment method collected
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'email' });
-
-    logStep("Trial activated successfully", { 
-      email: customer.email, 
-      trialStart: trialStart.toISOString(), 
-      trialEnd: trialEnd.toISOString() 
+    const { error } = await supabaseAdmin.rpc('update_subscriber_safe', {
+      p_user_id: user.id,
+      p_email: customerEmail,
+      p_stripe_customer_id: customer.id,
+      p_subscription_tier: 'starter',
+      p_trial_started_at: trialStartedAt.toISOString(),
+      p_trial_expires_at: trialExpiresAt.toISOString(),
+      p_payment_collected: true
     });
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      trial_expires_at: trialEnd.toISOString(),
-      trial_started_at: trialStart.toISOString() 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
+    if (error) {
+      logStep('Database update failed', { error });
+      throw new Error(`Failed to update subscriber: ${error.message}`);
+    }
+
+    logStep('Trial activated successfully', { 
+      userId: user.id,
+      trialExpires: trialExpiresAt.toISOString()
     });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        trial_expires_at: trialExpiresAt.toISOString(),
+        trial_started_at: trialStartedAt.toISOString()
+      }),
+      { headers: corsHeaders }
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in activate-trial", { message: errorMessage });

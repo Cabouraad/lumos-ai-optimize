@@ -41,7 +41,7 @@ serve(async (req) => {
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    logStep("User authenticated", { userId: user.id }); // Removed email logging
 
     // Check for existing subscriber record
     const { data: existingSubscriber } = await supabaseClient
