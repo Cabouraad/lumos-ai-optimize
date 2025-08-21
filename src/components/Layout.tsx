@@ -70,7 +70,7 @@ export function Layout({ children }: LayoutProps) {
                       size="icon"
                       variant="secondary"
                       className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 p-0 pointer-events-auto"
-                      onClick={(e) => { e.stopPropagation(); window.open('/pricing', '_blank'); }}
+                      onClick={(e) => { e.stopPropagation(); window.location.href = '/pricing'; }}
                       aria-label="Upgrade plan"
                       title="Upgrade plan"
                     >
