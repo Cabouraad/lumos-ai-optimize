@@ -16,6 +16,8 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [businessContextStep, setBusinessContextStep] = useState(false);
+  const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>('growth');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [formData, setFormData] = useState({
@@ -23,7 +25,10 @@ export default function Onboarding() {
     domain: '',
     industry: '',
     keywords: '',
-    competitors: ''
+    competitors: '',
+    business_description: '',
+    products_services: '',
+    target_audience: ''
   });
 
   if (!user) {
@@ -83,7 +88,10 @@ export default function Onboarding() {
           domain: formData.domain,
           industry: formData.industry,
           keywords: formData.keywords,
-          competitors: formData.competitors
+          competitors: formData.competitors,
+          business_description: formData.business_description,
+          products_services: formData.products_services,
+          target_audience: formData.target_audience
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -94,15 +102,15 @@ export default function Onboarding() {
       if (data?.error) throw new Error(data.error);
 
       toast({
-        title: "Welcome to Llumos!",
-        description: "Your organization has been set up successfully.",
+        title: "Organization Setup Complete!",
+        description: "Now let's add your business context for better AI suggestions.",
       });
 
       // Clear temporary storage
       sessionStorage.removeItem('onboarding-data');
       
-      // Force refresh auth context
-      window.location.reload();
+      // Move to business context step
+      setBusinessContextStep(true);
     } catch (error: any) {
       console.error("Onboarding error:", error);
       toast({
@@ -113,6 +121,40 @@ export default function Onboarding() {
     }
 
     setLoading(false);
+  };
+
+  const handleGeneratePromptSuggestions = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-prompts-now');
+      
+      if (error) throw error;
+      
+      toast({
+        title: "AI Suggestions Generated!",
+        description: `Generated ${data?.suggestionsCreated || 0} prompt suggestions based on your business context.`,
+      });
+      
+      setPromptSuggestionsGenerated(true);
+    } catch (error: any) {
+      console.error("Prompt suggestions error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate suggestions",
+        variant: "destructive",
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleFinishOnboarding = () => {
+    toast({
+      title: "Welcome to Llumos!",
+      description: "Your setup is complete. Start tracking your AI visibility now!",
+    });
+    
+    // Force refresh auth context to load org data
+    window.location.href = '/dashboard';
   };
 
   const pricingTiers = [
@@ -169,6 +211,113 @@ export default function Onboarding() {
     }
   ];
 
+  // Show business context step after org setup
+  if (businessContextStep && !promptSuggestionsGenerated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle>Tell us about your business</CardTitle>
+            <CardDescription>
+              Add detailed information about your business to get highly relevant AI prompt suggestions.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => { e.preventDefault(); handleGeneratePromptSuggestions(); }} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="business_description">Business Description</Label>
+                <Textarea
+                  id="business_description"
+                  placeholder="Describe what your business does, your main products/services, and what makes you unique..."
+                  value={formData.business_description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, business_description: e.target.value }))}
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="products_services">Key Products/Services</Label>
+                <Textarea
+                  id="products_services"
+                  placeholder="List your main products or services that customers search for..."
+                  value={formData.products_services}
+                  onChange={(e) => setFormData(prev => ({ ...prev, products_services: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target_audience">Target Audience</Label>
+                <Textarea
+                  id="target_audience"
+                  placeholder="Describe your ideal customers - who are they, what do they need, how do they search..."
+                  value={formData.target_audience}
+                  onChange={(e) => setFormData(prev => ({ ...prev, target_audience: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button 
+                  variant="outline" 
+                  type="button"
+                  onClick={() => setBusinessContextStep(false)}
+                  disabled={loading}
+                >
+                  Back
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Generating..." : "Generate AI Suggestions"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show completion step after suggestions are generated
+  if (promptSuggestionsGenerated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-green-600">🎉 Setup Complete!</CardTitle>
+            <CardDescription>
+              Your Llumos account is ready to help you track and improve your AI search visibility.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">What we've set up for you:</h3>
+              <ul className="text-sm space-y-1 text-muted-foreground">
+                <li>✓ Organization profile created</li>
+                <li>✓ Business context saved</li>
+                <li>✓ AI prompt suggestions generated</li>
+                <li>✓ Ready to track your visibility</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-medium">Next steps:</h4>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>1. <strong>Review AI Suggestions:</strong> Check the prompts we generated for you</p>
+                <p>2. <strong>Run Your First Test:</strong> See how visible you are in AI responses</p>
+                <p>3. <strong>Track Competitors:</strong> Monitor how you compare to competition</p>
+              </div>
+            </div>
+
+            <Button onClick={handleFinishOnboarding} className="w-full" size="lg">
+              Go to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Step 1: Basic organization info
   if (currentStep === 1) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -250,6 +399,7 @@ export default function Onboarding() {
     );
   }
 
+  // Step 2: Plan selection
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-6xl">
@@ -363,7 +513,7 @@ export default function Onboarding() {
             {loading 
               ? 'Processing...' 
               : selectedPlan === 'starter' 
-                ? 'Start Free Trial' 
+                ? 'Continue Setup' 
                 : `Subscribe to ${pricingTiers.find(t => t.tier === selectedPlan)?.title}`
             }
           </Button>

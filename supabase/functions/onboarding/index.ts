@@ -12,6 +12,9 @@ type Body = {
   industry?: string;
   keywords?: string;
   competitors?: string;
+  business_description?: string;
+  products_services?: string;
+  target_audience?: string;
 };
 
 function getJwtSubAndEmail(req: Request) {
@@ -46,7 +49,7 @@ serve(async (req) => {
     });
   }
 
-  const { name, domain, industry, keywords, competitors }: Body = await req.json().catch(() => ({}));
+  const { name, domain, industry, keywords, competitors, business_description, products_services, target_audience }: Body = await req.json().catch(() => ({}));
   if (!name || !domain) {
     return new Response(JSON.stringify({ error: "Missing name/domain" }), { 
       status: 400,
@@ -71,6 +74,10 @@ serve(async (req) => {
         domain: normDomain,
         plan_tier: "starter",
         domain_verification_method: "file",
+        business_description: business_description || null,
+        products_services: products_services || null,
+        target_audience: target_audience || null,
+        keywords: keywords ? keywords.split(',').map(k => k.trim()).filter(Boolean) : []
       })
       .select()
       .single();
