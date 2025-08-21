@@ -581,6 +581,21 @@ export type Database = {
         Args: { p_org_id: string; p_test_title?: string }
         Returns: string
       }
+      update_subscriber_safe: {
+        Args: {
+          p_email: string
+          p_payment_collected?: boolean
+          p_stripe_customer_id?: string
+          p_stripe_subscription_id?: string
+          p_subscribed?: boolean
+          p_subscription_end?: string
+          p_subscription_tier?: string
+          p_trial_expires_at?: string
+          p_trial_started_at?: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       upsert_competitor_brand: {
         Args: { p_brand_name: string; p_org_id: string; p_score?: number }
         Returns: undefined
