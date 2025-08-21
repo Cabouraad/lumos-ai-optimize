@@ -52,12 +52,9 @@ serve(async (req) => {
         .order('mention_count', { ascending: false })
         .limit(10),
         
-      supabase
-        .from('v_prompt_visibility_7d')
-        .select('*')
-        .eq('org_id', orgId)
-        .order('avg_score_7d', { ascending: true })
-        .limit(10)
+      supabase.rpc('get_prompt_visibility_7d', {
+        requesting_org_id: orgId
+      })
     ]);
 
     if (orgResult.error) {

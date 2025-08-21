@@ -605,6 +605,26 @@ export type Database = {
       }
     }
     Functions: {
+      get_competitor_share_7d: {
+        Args: { requesting_org_id?: string }
+        Returns: {
+          brand_norm: string
+          mean_score: number
+          n: number
+          org_id: string
+          prompt_id: string
+        }[]
+      }
+      get_prompt_visibility_7d: {
+        Args: { requesting_org_id?: string }
+        Returns: {
+          avg_score_7d: number
+          org_id: string
+          prompt_id: string
+          runs_7d: number
+          text: string
+        }[]
+      }
       reco_upsert: {
         Args: {
           p_citations: Json

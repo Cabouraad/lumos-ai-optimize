@@ -41,16 +41,14 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
   const recommendations: Reco[] = [];
 
   try {
-    // 1) Pull inputs (last 7d)
-    const { data: promptVisibility } = await supabase
-      .from('v_prompt_visibility_7d')
-      .select('*')
-      .eq('org_id', accountId);
+    // 1) Pull inputs (last 7d) using secure functions
+    const { data: promptVisibility } = await supabase.rpc('get_prompt_visibility_7d', {
+      requesting_org_id: accountId
+    });
 
-    const { data: competitorShare } = await supabase
-      .from('v_competitor_share_7d')
-      .select('*')
-      .eq('org_id', accountId);
+    const { data: competitorShare } = await supabase.rpc('get_competitor_share_7d', {
+      requesting_org_id: accountId
+    });
 
     const { data: recentRuns } = await supabase
       .from('prompt_runs')

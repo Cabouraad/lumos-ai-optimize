@@ -81,11 +81,10 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
         .order('prompt_runs.run_at', { ascending: false })
         .limit(50),
       
-      // Recent prompt performance summary
-      supabase
-        .from('v_prompt_visibility_7d')
-        .select('*')
-        .eq('org_id', orgId)
+      // Recent prompt performance summary using secure function
+      supabase.rpc('get_prompt_visibility_7d', {
+        requesting_org_id: orgId
+      })
     ]);
 
     const org = orgData.data;
