@@ -101,11 +101,10 @@ export function useSubscriptionGate() {
       };
     }
     
-    if (limits.hasRecommendations || (isOnTrial && !trialExpired)) {
+    // Only allow access if they have a growth/pro plan - remove trial access
+    if (limits.hasRecommendations) {
       return { 
         hasAccess: true,
-        trialExpiresAt: isOnTrial ? trialExpiresAt : undefined,
-        daysRemainingInTrial: isOnTrial ? daysRemainingInTrial : undefined,
       };
     }
     return {
@@ -126,11 +125,10 @@ export function useSubscriptionGate() {
       };
     }
     
-    if (limits.hasCompetitorAnalysis || (isOnTrial && !trialExpired)) {
+    // Only allow access if they have a growth/pro plan - remove trial access
+    if (limits.hasCompetitorAnalysis) {
       return { 
         hasAccess: true,
-        trialExpiresAt: isOnTrial ? trialExpiresAt : undefined,
-        daysRemainingInTrial: isOnTrial ? daysRemainingInTrial : undefined,
       };
     }
     return {
