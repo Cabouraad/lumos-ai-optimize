@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { signInWithCleanup } from '@/lib/auth-cleanup';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,21 +24,16 @@ export default function Auth() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+
+    const { error } = await signInWithCleanup(email, password);
 
     if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Show friendly error and stop loading
+      const message = (error as any)?.message || 'Invalid email or password';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+      setLoading(false);
     }
-    
-    setLoading(false);
+    // On success, signInWithCleanup will redirect and reload the app
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
