@@ -3,16 +3,43 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Clock } from 'lucide-react';
+import { Zap, CreditCard } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+import { useState } from 'react';
 
 export function SubscriptionBanner() {
   const { subscriptionData } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
   // Don't show banner if user has an active subscription
   if (subscriptionData?.subscribed) {
     return null;
   }
+
+  const handleStartTrial = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-trial-checkout');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Error starting trial:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start trial. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Card className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
@@ -24,21 +51,26 @@ export function SubscriptionBanner() {
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                You're on the Free Trial
+                Start Your Free Trial
               </h3>
               <Badge variant="secondary" className="bg-amber-200 text-amber-800">
-                Limited Features
+                Payment Required
               </Badge>
             </div>
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Upgrade to unlock competitor analysis, AI recommendations, and more prompts
+              Get 7 days free access to all features. Credit card required - no charges during trial.
             </p>
           </div>
         </div>
-        <Button onClick={() => navigate('/pricing')} size="sm">
-          <Clock className="mr-2 h-4 w-4" />
-          Upgrade Now
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleStartTrial} disabled={loading} size="sm">
+            <CreditCard className="mr-2 h-4 w-4" />
+            {loading ? "Starting..." : "Start Free Trial"}
+          </Button>
+          <Button onClick={() => navigate('/pricing')} variant="outline" size="sm">
+            View Plans
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

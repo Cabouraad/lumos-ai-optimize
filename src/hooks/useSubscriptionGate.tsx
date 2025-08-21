@@ -27,9 +27,9 @@ export function useSubscriptionGate() {
   const currentTier = subscriptionData?.subscription_tier || 'free';
   const isSubscribed = subscriptionData?.subscribed || false;
   
-  // Trial logic
+  // Trial logic - only valid if payment method was collected
   const trialExpiresAt = subscriptionData?.trial_expires_at;
-  const isOnTrial = currentTier === 'starter' && trialExpiresAt && !subscriptionData?.payment_collected;
+  const isOnTrial = currentTier === 'starter' && trialExpiresAt && subscriptionData?.payment_collected === true;
   const trialExpired = isOnTrial && new Date() > new Date(trialExpiresAt);
   const daysRemainingInTrial = isOnTrial && !trialExpired 
     ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
@@ -44,8 +44,8 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay,
           providersPerPrompt: quotas.providersPerPrompt,
-          hasRecommendations: false,
-          hasCompetitorAnalysis: false,
+          hasRecommendations: true,
+          hasCompetitorAnalysis: true,
           hasAdvancedScoring: false,
           hasApiAccess: false,
           hasPrioritySupport: false,

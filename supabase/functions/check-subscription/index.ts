@@ -57,32 +57,28 @@ serve(async (req) => {
     const isNewUser = !existingSubscriber;
     
     if (customers.data.length === 0) {
-      logStep("No customer found, setting up new user with trial");
+      logStep("No customer found, no trial without payment");
       
-      // New users get starter trial by default
-      const trialStart = new Date();
-      const trialEnd = new Date(trialStart);
-      trialEnd.setDate(trialEnd.getDate() + 7); // 7-day trial
-      
+      // New users get free tier by default - no trial without payment
       await supabaseClient.from("subscribers").upsert({
         email: user.email,
         user_id: user.id,
         stripe_customer_id: null,
         subscribed: false,
-        subscription_tier: 'starter',
+        subscription_tier: 'free',
         subscription_end: null,
-        trial_started_at: trialStart.toISOString(),
-        trial_expires_at: trialEnd.toISOString(),
+        trial_started_at: null,
+        trial_expires_at: null,
         payment_collected: false,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'email' });
       
       return new Response(JSON.stringify({ 
         subscribed: false,
-        subscription_tier: 'starter',
+        subscription_tier: 'free',
         subscription_end: null,
-        trial_expires_at: trialEnd.toISOString(),
-        trial_started_at: trialStart.toISOString(),
+        trial_expires_at: null,
+        trial_started_at: null,
         payment_collected: false,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -126,38 +122,8 @@ serve(async (req) => {
     } else {
       logStep("No active subscription found");
       
-      // For new users without active subscriptions, set up trial if they don't have one
-      if (isNewUser || (!existingSubscriber?.trial_started_at && !existingSubscriber?.subscribed)) {
-        subscriptionTier = "starter";
-        const trialStart = new Date();
-        const trialEnd = new Date(trialStart);
-        trialEnd.setDate(trialEnd.getDate() + 7);
-        
-        await supabaseClient.from("subscribers").upsert({
-          email: user.email,
-          user_id: user.id,
-          stripe_customer_id: customerId,
-          subscribed: false,
-          subscription_tier: subscriptionTier,
-          subscription_end: null,
-          trial_started_at: trialStart.toISOString(),
-          trial_expires_at: trialEnd.toISOString(),
-          payment_collected: false,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'email' });
-        
-        return new Response(JSON.stringify({
-          subscribed: false,
-          subscription_tier: subscriptionTier,
-          subscription_end: null,
-          trial_expires_at: trialEnd.toISOString(),
-          trial_started_at: trialStart.toISOString(),
-          payment_collected: false,
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        });
-      }
+      // Users without active subscriptions get free tier - no auto trial
+      subscriptionTier = "free";
     }
 
     // Update subscriber record with current status
