@@ -263,20 +263,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "prompt_runs_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "v_competitor_share_7d"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "prompt_runs_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "v_prompt_visibility_7d"
-            referencedColumns: ["prompt_id"]
-          },
-          {
             foreignKeyName: "prompt_runs_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
@@ -365,20 +351,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recommendations_prompt_ref_fkey"
-            columns: ["prompt_ref"]
-            isOneToOne: false
-            referencedRelation: "v_competitor_share_7d"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "recommendations_prompt_ref_fkey"
-            columns: ["prompt_ref"]
-            isOneToOne: false
-            referencedRelation: "v_prompt_visibility_7d"
-            referencedColumns: ["prompt_id"]
           },
         ]
       }
@@ -567,42 +539,7 @@ export type Database = {
       }
     }
     Views: {
-      v_competitor_share_7d: {
-        Row: {
-          brand_norm: string | null
-          mean_score: number | null
-          n: number | null
-          org_id: string | null
-          prompt_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prompts_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      v_prompt_visibility_7d: {
-        Row: {
-          avg_score_7d: number | null
-          org_id: string | null
-          prompt_id: string | null
-          runs_7d: number | null
-          text: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prompts_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       get_competitor_share_7d: {
