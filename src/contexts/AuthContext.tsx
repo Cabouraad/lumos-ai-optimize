@@ -14,6 +14,7 @@ interface AuthContextType {
     trial_expires_at?: string;
     trial_started_at?: string;
     payment_collected?: boolean;
+    requires_subscription?: boolean;
   } | null;
   checkSubscription: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     trial_expires_at?: string;
     trial_started_at?: string;
     payment_collected?: boolean;
+    requires_subscription?: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -61,21 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               setOrgData(data);
               
-              // Check subscription status
-              await checkSubscriptionStatus();
-              
-              setLoading(false);
-            } catch (err) {
-              console.error('Exception in org data fetch:', err);
-              setOrgData(null);
-              setLoading(false);
-            }
-          }, 0);
-        } else {
-          setOrgData(null);
-          setSubscriptionData(null);
-          setLoading(false);
-        }
+               // Check subscription status
+               await checkSubscriptionStatus();
+               
+               setLoading(false);
+             } catch (err) {
+               console.error('Exception in org data fetch:', err);
+               setOrgData(null);
+               setLoading(false);
+             }
+           }, 0);
+         } else {
+           setOrgData(null);
+           setSubscriptionData(null);
+           setLoading(false);
+         }
       }
     );
 
@@ -105,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         trial_expires_at: data.trial_expires_at,
         trial_started_at: data.trial_started_at,
         payment_collected: data.payment_collected,
+        requires_subscription: data.requires_subscription,
       });
     } catch (err) {
       console.error('Exception checking subscription:', err);

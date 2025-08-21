@@ -142,9 +142,16 @@ export function PricingCard({
             ? 'Loading...'
             : isCurrentTier
             ? 'Current Plan'
+            : tier === 'starter'
+            ? 'Start 7-Day Free Trial'
             : `Subscribe to ${title}`
           }
         </Button>
+        {tier === 'starter' && !isCurrentTier && (
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            No charge until trial ends
+          </p>
+        )}
       </CardFooter>
     </Card>
   );

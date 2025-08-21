@@ -62,7 +62,8 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // Create subscription with trial for starter tier
+    const sessionConfig: any = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [
@@ -83,13 +84,28 @@ serve(async (req) => {
       ],
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/dashboard?subscription=success`,
-      cancel_url: `${req.headers.get("origin")}/pricing?subscription=cancelled`,
+      cancel_url: `${req.headers.get("origin")}/onboarding?subscription=cancelled`,
       metadata: {
         user_id: user.id,
         tier: tier,
         billing_cycle: billingCycle
       }
-    });
+    };
+
+    // Add 7-day trial for starter tier only
+    if (tier === 'starter') {
+      sessionConfig.subscription_data = {
+        trial_period_days: 7,
+        metadata: {
+          user_id: user.id,
+          tier: tier,
+          billing_cycle: billingCycle,
+          trial_tier: 'starter'
+        }
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

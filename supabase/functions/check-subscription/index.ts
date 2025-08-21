@@ -57,15 +57,15 @@ serve(async (req) => {
     const isNewUser = !existingSubscriber;
     
     if (customers.data.length === 0) {
-      logStep("No customer found, no trial without payment");
+      logStep("No customer found, subscription required");
       
-      // New users get free tier by default - no trial without payment
+      // No free tier - users must have a subscription
       await supabaseClient.from("subscribers").upsert({
         email: user.email,
         user_id: user.id,
         stripe_customer_id: null,
         subscribed: false,
-        subscription_tier: 'free',
+        subscription_tier: null,
         subscription_end: null,
         trial_started_at: null,
         trial_expires_at: null,
@@ -75,11 +75,12 @@ serve(async (req) => {
       
       return new Response(JSON.stringify({ 
         subscribed: false,
-        subscription_tier: 'free',
+        subscription_tier: null,
         subscription_end: null,
         trial_expires_at: null,
         trial_started_at: null,
         payment_collected: false,
+        requires_subscription: true,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -122,8 +123,31 @@ serve(async (req) => {
     } else {
       logStep("No active subscription found");
       
-      // Users without active subscriptions get free tier - no auto trial
-      subscriptionTier = "free";
+      // Check for trial subscription (trialing status)
+      const trialingSubscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "trialing",
+        limit: 1,
+      });
+      
+      if (trialingSubscriptions.data.length > 0) {
+        const trialSubscription = trialingSubscriptions.data[0];
+        subscriptionTier = "starter"; // Trial is only for starter tier
+        subscriptionEnd = new Date(trialSubscription.current_period_end * 1000).toISOString();
+        logStep("Found trialing subscription", { 
+          subscriptionId: trialSubscription.id, 
+          trialEnd: subscriptionEnd 
+        });
+        
+        // Update with trial info
+        updateData.trial_started_at = new Date(trialSubscription.created * 1000).toISOString();
+        updateData.trial_expires_at = subscriptionEnd;
+        updateData.subscribed = true; // User has access during trial
+        updateData.payment_collected = true; // Payment method was collected
+      } else {
+        // No active or trialing subscription - no access
+        subscriptionTier = null;
+      }
     }
 
     // Update subscriber record with current status
@@ -149,12 +173,13 @@ serve(async (req) => {
     logStep("Updated database with subscription info", { subscribed: hasActiveSub, subscriptionTier });
     
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
-      subscription_tier: subscriptionTier || existingSubscriber?.subscription_tier || 'starter',
+      subscribed: hasActiveSub || (updateData.trial_expires_at && new Date(updateData.trial_expires_at) > new Date()),
+      subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,
-      trial_expires_at: existingSubscriber?.trial_expires_at || null,
-      trial_started_at: existingSubscriber?.trial_started_at || null,
-      payment_collected: paymentCollected,
+      trial_expires_at: updateData.trial_expires_at || null,
+      trial_started_at: updateData.trial_started_at || null,
+      payment_collected: updateData.payment_collected || false,
+      requires_subscription: !subscriptionTier, // True if no subscription at all
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

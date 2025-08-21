@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SubscriptionGate } from "@/components/SubscriptionGate";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -34,34 +34,34 @@ const App = () => (
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/trial-success" element={<TrialSuccess />} />
             <Route path="/dashboard" element={
-              <ProtectedRoute>
+              <SubscriptionGate>
                 <Dashboard />
-              </ProtectedRoute>
+              </SubscriptionGate>
             } />
             <Route path="/prompts" element={
-              <ProtectedRoute>
+              <SubscriptionGate>
                 <Prompts />
-              </ProtectedRoute>
+              </SubscriptionGate>
             } />
             <Route path="/competitors" element={
-              <ProtectedRoute>
+              <SubscriptionGate>
                 <Competitors />
-              </ProtectedRoute>
+              </SubscriptionGate>
             } />
             <Route path="/llms-txt" element={
-              <ProtectedRoute>
+              <SubscriptionGate>
                 <LLMsText />
-              </ProtectedRoute>
+              </SubscriptionGate>
             } />
             <Route path="/recommendations" element={
-              <ProtectedRoute>
+              <SubscriptionGate>
                 <Recommendations />
-              </ProtectedRoute>
+              </SubscriptionGate>
             } />
             <Route path="/settings" element={
-              <ProtectedRoute>
+              <SubscriptionGate>
                 <Settings />
-              </ProtectedRoute>
+              </SubscriptionGate>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>

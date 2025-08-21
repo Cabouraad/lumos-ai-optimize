@@ -79,9 +79,14 @@ export default function Pricing() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-          <p className="text-lg text-muted-foreground mb-6">
-            Scale your AI search visibility tracking with plans designed for every business size
+          <p className="text-lg text-muted-foreground mb-4">
+            Start tracking your AI search visibility today. All plans require a payment method.
           </p>
+          <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg border border-green-200 dark:border-green-800 mb-6">
+            <p className="text-sm text-green-800 dark:text-green-200">
+              <strong>Starter Plan Special:</strong> Get a 7-day free trial! No charge until your trial ends.
+            </p>
+          </div>
           
           {/* Billing Toggle */}
           <div className="flex items-center justify-center space-x-4 mb-8">
@@ -143,10 +148,19 @@ export default function Pricing() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">What happens if I exceed my prompt limit?</CardTitle>
+                <CardTitle className="text-lg">Do you offer a free trial?</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>If you approach your daily prompt limit, we'll notify you. You can either upgrade your plan or additional prompts will queue for the next day. We never surprise you with overage charges.</p>
+                <p>Yes! The Starter plan includes a 7-day free trial. You'll need to provide a payment method, but you won't be charged until your trial period ends. You can cancel anytime during the trial at no cost.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Is there a free plan?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>We don't offer a free tier to ensure we can provide the best AI search visibility tracking experience. However, our Starter plan includes a 7-day free trial so you can fully evaluate our platform risk-free.</p>
               </CardContent>
             </Card>
 

@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PricingCard } from '@/components/PricingCard';
 
 export default function Onboarding() {
-  const { user, orgData } = useAuth();
+  const { user, orgData, subscriptionData } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,7 @@ export default function Onboarding() {
   const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>('growth');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [subscriptionCompleted, setSubscriptionCompleted] = useState(false);
   const [formData, setFormData] = useState({
     orgName: '',
     domain: '',
@@ -36,8 +37,9 @@ export default function Onboarding() {
     return <Navigate to="/auth" replace />;
   }
 
-  if (orgData) {
-    return <Navigate to="/dashboard" replace />;
+  // If user is onboarded but doesn't have a subscription, they should be redirected to pricing
+  if (orgData && !subscriptionData?.subscribed && subscriptionData?.requires_subscription) {
+    return <Navigate to="/pricing" replace />;
   }
 
   const handleSubscriptionSetup = async () => {
@@ -51,15 +53,22 @@ export default function Onboarding() {
       });
 
       if (error) throw error;
+      
       if (data?.url) {
         // Store onboarding data temporarily to complete after payment
         sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
+        
+        // Open checkout in new tab for all tiers
         window.open(data.url, '_blank');
-        // Don't redirect immediately - let them complete payment first
         toast({
-          title: "Payment processing",
-          description: "Complete your payment to finish setting up your account.",
+          title: selectedPlan === 'starter' ? "Starting Free Trial" : "Processing Payment",
+          description: selectedPlan === 'starter' 
+            ? "Complete setup to start your 7-day free trial."
+            : "Complete your payment to activate your subscription.",
         });
+        
+        // Set a flag that subscription is in progress
+        setSubscriptionCompleted(true);
       }
     } catch (error: any) {
       console.error("Subscription error:", error);
@@ -580,24 +589,27 @@ export default function Onboarding() {
           </Button>
           
           <Button 
-            onClick={selectedPlan === 'starter' ? handleCompleteOnboarding : handleSubscriptionSetup}
+            onClick={handleSubscriptionSetup}
             disabled={loading}
             size="lg"
           >
             {loading 
               ? 'Processing...' 
-              : selectedPlan === 'starter' 
-                ? 'Continue Setup' 
-                : `Subscribe to ${pricingTiers.find(t => t.tier === selectedPlan)?.title}`
+              : `Start ${selectedPlan === 'starter' ? '7-Day Free Trial' : 'Subscription'} - ${pricingTiers.find(t => t.tier === selectedPlan)?.title} Plan`
             }
           </Button>
         </div>
         
-        {selectedPlan === 'starter' && (
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Start with our free tier - upgrade anytime as you grow
+        <div className="text-center space-y-2 mt-4">
+          {selectedPlan === 'starter' && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-green-600">7-day free trial</span> - No charge until trial ends
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Payment method required for all plans. Cancel anytime.
           </p>
-        )}
+        </div>
       </div>
     </div>
   );
