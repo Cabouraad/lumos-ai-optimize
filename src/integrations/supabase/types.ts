@@ -121,6 +121,42 @@ export type Database = {
         }
         Relationships: []
       }
+      llms_generations: {
+        Row: {
+          content_extracted: boolean | null
+          created_at: string
+          generated_at: string
+          id: string
+          llms_txt_content: string | null
+          metadata: Json | null
+          org_id: string
+          pages_found: number | null
+          source: string
+        }
+        Insert: {
+          content_extracted?: boolean | null
+          created_at?: string
+          generated_at?: string
+          id?: string
+          llms_txt_content?: string | null
+          metadata?: Json | null
+          org_id: string
+          pages_found?: number | null
+          source: string
+        }
+        Update: {
+          content_extracted?: boolean | null
+          created_at?: string
+          generated_at?: string
+          id?: string
+          llms_txt_content?: string | null
+          metadata?: Json | null
+          org_id?: string
+          pages_found?: number | null
+          source?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           business_description: string | null
@@ -130,6 +166,10 @@ export type Database = {
           domain_verification_method: string | null
           id: string
           keywords: string[] | null
+          llms_generation_source: string | null
+          llms_last_generated_at: string | null
+          llms_pages: Json | null
+          llms_txt: string | null
           name: string
           plan_tier: string
           products_services: string | null
@@ -144,6 +184,10 @@ export type Database = {
           domain_verification_method?: string | null
           id?: string
           keywords?: string[] | null
+          llms_generation_source?: string | null
+          llms_last_generated_at?: string | null
+          llms_pages?: Json | null
+          llms_txt?: string | null
           name: string
           plan_tier: string
           products_services?: string | null
@@ -158,6 +202,10 @@ export type Database = {
           domain_verification_method?: string | null
           id?: string
           keywords?: string[] | null
+          llms_generation_source?: string | null
+          llms_last_generated_at?: string | null
+          llms_pages?: Json | null
+          llms_txt?: string | null
           name?: string
           plan_tier?: string
           products_services?: string | null
