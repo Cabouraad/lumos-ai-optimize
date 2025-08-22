@@ -75,7 +75,7 @@ const Features = () => {
                     <Eye className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <h4 className="font-medium text-foreground">Multi-Platform Coverage</h4>
-                      <p className="text-sm text-muted-foreground">Monitor ChatGPT, Claude, Gemini, Perplexity, and more</p>
+                      <p className="text-sm text-muted-foreground">Monitor ChatGPT, Gemini, Perplexity, and more</p>
                     </div>
                   </div>
                   
@@ -211,21 +211,13 @@ const Features = () => {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             <Card className="p-6 text-center">
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                 <Search className="w-6 h-6 text-primary" />
               </div>
               <h3 className="font-semibold text-foreground mb-1">ChatGPT</h3>
               <p className="text-sm text-muted-foreground">OpenAI's flagship model</p>
-            </Card>
-            
-            <Card className="p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Search className="w-6 h-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-foreground mb-1">Claude</h3>
-              <p className="text-sm text-muted-foreground">Anthropic's AI assistant</p>
             </Card>
             
             <Card className="p-6 text-center">
