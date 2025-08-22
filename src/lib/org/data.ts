@@ -6,6 +6,10 @@ export interface OrganizationKeywords {
   products_services?: string;
   target_audience?: string;
   business_description?: string;
+  business_city?: string;
+  business_state?: string;
+  business_country?: string;
+  enable_localized_prompts?: boolean;
 }
 
 export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
@@ -14,7 +18,7 @@ export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
 
     const { data, error } = await supabase
       .from("organizations")
-      .select("keywords, products_services, target_audience, business_description")
+      .select("keywords, products_services, target_audience, business_description, business_city, business_state, business_country, enable_localized_prompts")
       .eq("id", orgId)
       .single();
 
@@ -25,6 +29,10 @@ export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
       products_services: data?.products_services || "",
       target_audience: data?.target_audience || "",
       business_description: data?.business_description || "",
+      business_city: data?.business_city || "",
+      business_state: data?.business_state || "",
+      business_country: data?.business_country || "United States",
+      enable_localized_prompts: data?.enable_localized_prompts || false,
     };
   } catch (error) {
     console.error("Error fetching organization keywords:", error);
@@ -43,6 +51,10 @@ export async function updateOrganizationKeywords(keywords: OrganizationKeywords)
         products_services: keywords.products_services,
         target_audience: keywords.target_audience,
         business_description: keywords.business_description,
+        business_city: keywords.business_city,
+        business_state: keywords.business_state,
+        business_country: keywords.business_country,
+        enable_localized_prompts: keywords.enable_localized_prompts,
       })
       .eq("id", orgId);
 

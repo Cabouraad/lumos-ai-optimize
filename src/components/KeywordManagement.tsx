@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Save, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { X, Plus, Save, Sparkles, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from "@/lib/org/data";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,10 @@ export function KeywordManagement() {
     products_services: "",
     target_audience: "",
     business_description: "",
+    business_city: "",
+    business_state: "",
+    business_country: "United States",
+    enable_localized_prompts: false,
   });
   const [newKeyword, setNewKeyword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -112,6 +117,9 @@ export function KeywordManagement() {
           business_description: data.data.business_description || prev.business_description,
           products_services: data.data.products_services || prev.products_services,
           target_audience: data.data.target_audience || prev.target_audience,
+          business_city: data.data.business_city || prev.business_city,
+          business_state: data.data.business_state || prev.business_state,
+          business_country: data.data.business_country || prev.business_country,
         }));
         
         toast({
@@ -253,6 +261,63 @@ export function KeywordManagement() {
             onChange={(e) => setKeywords(prev => ({ ...prev, target_audience: e.target.value }))}
             rows={3}
           />
+        </div>
+
+        {/* Business Location Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-medium">Business Location</Label>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="business-city">City</Label>
+              <Input
+                id="business-city"
+                placeholder="e.g., New York"
+                value={keywords.business_city}
+                onChange={(e) => setKeywords(prev => ({ ...prev, business_city: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="business-state">State/Province</Label>
+              <Input
+                id="business-state"
+                placeholder="e.g., Pennsylvania"
+                value={keywords.business_state}
+                onChange={(e) => setKeywords(prev => ({ ...prev, business_state: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="business-country">Country</Label>
+              <Input
+                id="business-country"
+                placeholder="e.g., United States"
+                value={keywords.business_country}
+                onChange={(e) => setKeywords(prev => ({ ...prev, business_country: e.target.value }))}
+              />
+            </div>
+          </div>
+          
+          {/* Localization Toggle */}
+          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="space-y-1">
+              <Label htmlFor="enable-localized-prompts" className="text-sm font-medium">
+                Enable Localized Prompts
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Generate location-specific prompts (e.g., "best AI shops in {keywords.business_state || 'your state'}" vs "best AI shops")
+              </p>
+            </div>
+            <Switch
+              id="enable-localized-prompts"
+              checked={keywords.enable_localized_prompts}
+              onCheckedChange={(checked) => setKeywords(prev => ({ ...prev, enable_localized_prompts: checked }))}
+            />
+          </div>
         </div>
 
         <Button onClick={handleSave} disabled={saving} className="w-full">

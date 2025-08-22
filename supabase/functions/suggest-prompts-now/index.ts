@@ -54,7 +54,7 @@ serve(async (req) => {
     // Get organization details
     const { data: orgData, error: orgError } = await supabase
       .from('organizations')
-      .select('name, business_description, products_services, keywords, target_audience, domain')
+      .select('name, business_description, products_services, keywords, target_audience, domain, business_city, business_state, business_country, enable_localized_prompts')
       .eq('id', userData.org_id)
       .single();
 
@@ -94,17 +94,45 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
+    // Add location context if available and localization is enabled
+    let locationInstructions = '';
+    let locationContext = '';
+    if (orgData.enable_localized_prompts && (orgData.business_city || orgData.business_state)) {
+      const locationParts = [];
+      if (orgData.business_city) locationParts.push(orgData.business_city);
+      if (orgData.business_state) locationParts.push(orgData.business_state);
+      if (orgData.business_country && orgData.business_country !== 'United States') {
+        locationParts.push(orgData.business_country);
+      }
+      
+      if (locationParts.length > 0) {
+        const location = locationParts.join(', ');
+        locationContext = `\n- Business Location: ${location}`;
+        locationInstructions = `
+LOCALIZATION ENABLED: This business has enabled localized prompts. Include their location (${location}) in some prompts where it makes sense. Mix localized and non-localized prompts (about 40% localized, 60% general).
+
+Examples of localized prompts:
+- "best [service] in ${orgData.business_state || orgData.business_city}"
+- "top [industry] companies in ${orgData.business_city || orgData.business_state}"
+- "[service type] near ${orgData.business_city || orgData.business_state}"
+- "where to find [solution] in ${locationParts.join(' ')}"
+
+Make sure localized prompts sound natural and are relevant to the business type.`;
+      }
+    }
+
     const systemPrompt = `You are an expert at generating natural search prompts that real users would type into AI assistants like ChatGPT, Claude, or Perplexity when looking for business solutions.
 
 Your task is to create realistic search queries that potential customers might use when looking for solutions in this business space. These should sound like genuine questions people ask AI assistants.
 
 CRITICAL: NEVER include the company name "${orgData.name}" or domain "${orgData.domain}" in any of the generated prompts. Focus on the industry, problems, and solutions without mentioning the specific company.
+${locationInstructions}
 
 Business Context (for understanding the industry, not for including in prompts):
 - Industry/Description: ${orgData.business_description || 'Not specified'}
 - Products/Services: ${orgData.products_services || 'Not specified'}
 - Keywords: ${orgData.keywords?.join(', ') || 'Not specified'}
-- Target Audience: ${orgData.target_audience || 'Not specified'}
+- Target Audience: ${orgData.target_audience || 'Not specified'}${locationContext}
 
 Generate 15 diverse, natural search prompts that potential customers might use when looking for solutions in this industry. Each prompt should:
 

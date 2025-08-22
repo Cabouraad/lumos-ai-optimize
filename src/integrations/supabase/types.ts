@@ -159,11 +159,15 @@ export type Database = {
       }
       organizations: {
         Row: {
+          business_city: string | null
+          business_country: string | null
           business_description: string | null
+          business_state: string | null
           created_at: string
           domain: string
           domain_locked_at: string | null
           domain_verification_method: string | null
+          enable_localized_prompts: boolean | null
           id: string
           keywords: string[] | null
           llms_generation_source: string | null
@@ -177,11 +181,15 @@ export type Database = {
           target_audience: string | null
         }
         Insert: {
+          business_city?: string | null
+          business_country?: string | null
           business_description?: string | null
+          business_state?: string | null
           created_at?: string
           domain: string
           domain_locked_at?: string | null
           domain_verification_method?: string | null
+          enable_localized_prompts?: boolean | null
           id?: string
           keywords?: string[] | null
           llms_generation_source?: string | null
@@ -195,11 +203,15 @@ export type Database = {
           target_audience?: string | null
         }
         Update: {
+          business_city?: string | null
+          business_country?: string | null
           business_description?: string | null
+          business_state?: string | null
           created_at?: string
           domain?: string
           domain_locked_at?: string | null
           domain_verification_method?: string | null
+          enable_localized_prompts?: boolean | null
           id?: string
           keywords?: string[] | null
           llms_generation_source?: string | null
