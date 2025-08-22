@@ -5,7 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { X, Plus, Save, Sparkles, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from "@/lib/org/data";
@@ -300,23 +299,6 @@ export function KeywordManagement() {
                 onChange={(e) => setKeywords(prev => ({ ...prev, business_country: e.target.value }))}
               />
             </div>
-          </div>
-          
-          {/* Localization Toggle */}
-          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
-            <div className="space-y-1">
-              <Label htmlFor="enable-localized-prompts" className="text-sm font-medium">
-                Enable Localized Prompts
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Generate location-specific prompts (e.g., "best AI shops in {keywords.business_state || 'your state'}" vs "best AI shops")
-              </p>
-            </div>
-            <Switch
-              id="enable-localized-prompts"
-              checked={keywords.enable_localized_prompts}
-              onCheckedChange={(checked) => setKeywords(prev => ({ ...prev, enable_localized_prompts: checked }))}
-            />
           </div>
         </div>
 

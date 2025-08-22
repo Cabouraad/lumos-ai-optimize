@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Lightbulb, 
   Users, 
@@ -13,6 +16,8 @@ import {
   Zap,
   Award
 } from 'lucide-react';
+import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from '@/lib/org/data';
+import { useToast } from '@/hooks/use-toast';
 
 interface Suggestion {
   id: string;
@@ -38,6 +43,62 @@ export function AIPromptSuggestions({
   onDismiss,
   onGenerate
 }: AIPromptSuggestionsProps) {
+  const { toast } = useToast();
+  const [orgSettings, setOrgSettings] = useState<OrganizationKeywords>({
+    keywords: [],
+    products_services: "",
+    target_audience: "",
+    business_description: "",
+    business_city: "",
+    business_state: "",
+    business_country: "United States",
+    enable_localized_prompts: false,
+  });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
+  useEffect(() => {
+    loadOrgSettings();
+  }, []);
+
+  const loadOrgSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      const data = await getOrganizationKeywords();
+      setOrgSettings(data);
+    } catch (error) {
+      console.error('Failed to load organization settings:', error);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleToggleLocalization = async (enabled: boolean) => {
+    try {
+      setSettingsSaving(true);
+      const updatedSettings = {
+        ...orgSettings,
+        enable_localized_prompts: enabled
+      };
+      
+      await updateOrganizationKeywords(updatedSettings);
+      setOrgSettings(updatedSettings);
+      
+      toast({
+        title: "Settings Updated",
+        description: `Localized prompts ${enabled ? 'enabled' : 'disabled'}`,
+      });
+    } catch (error) {
+      console.error('Failed to update localization setting:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update settings",
+        variant: "destructive",
+      });
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
   const getSourceIcon = (source: string) => {
     switch (source) {
       case 'market_research':
@@ -99,6 +160,42 @@ export function AIPromptSuggestions({
 
   return (
     <div className="space-y-6">
+      {/* Localization Settings */}
+      <Card className="shadow-soft rounded-2xl border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            AI Prompt Generation Settings
+          </CardTitle>
+          <CardDescription>
+            Configure how AI-generated prompts are created for your business
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="space-y-1">
+              <Label htmlFor="enable-localized-prompts" className="text-sm font-medium">
+                Enable Localized Prompts
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Generate location-specific prompts (e.g., "best AI shops in {orgSettings.business_state || 'your state'}" vs "best AI shops")
+              </p>
+              {!orgSettings.business_city && !orgSettings.business_state && (
+                <p className="text-xs text-orange-600">
+                  Add your business location in Business Context to enable this feature
+                </p>
+              )}
+            </div>
+            <Switch
+              id="enable-localized-prompts"
+              checked={orgSettings.enable_localized_prompts}
+              onCheckedChange={handleToggleLocalization}
+              disabled={settingsSaving || (!orgSettings.business_city && !orgSettings.business_state)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Header Card */}
       <Card className="shadow-soft rounded-2xl border-0">
         <CardHeader>
