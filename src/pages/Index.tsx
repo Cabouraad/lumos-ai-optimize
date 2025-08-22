@@ -53,11 +53,11 @@ const Index = () => {
       <section className="py-24 px-4">
         <div className="container mx-auto text-center max-w-4xl">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
-            AI Search Optimization
-            <span className="text-primary block">Without the Bloat</span>
+            Help Local Businesses Get Found on
+            <span className="text-primary block">AI Search Results</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            While others add endless features that don't move the needle, we've distilled AI search optimization down to what actually works. Monitor, analyze, and improve your brand's visibility where it matters most.
+            Optimize your local business for AI-powered search engines like ChatGPT, Claude, and Perplexity. Monitor, analyze, and improve your visibility in localized AI search results that drive real customers to your door.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button size="lg" asChild className="text-lg px-8 py-6">
@@ -87,11 +87,11 @@ const Index = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
-                  <span>Complex dashboards that confuse more than help</span>
+                  <span>Generic global insights with no local focus</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
-                  <span>Generic insights that don't drive action</span>
+                  <span>Miss local search opportunities entirely</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
@@ -104,15 +104,15 @@ const Index = () => {
               <ul className="text-left space-y-3 text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Essential features that actually impact revenue</span>
+                  <span>Localized AI search optimization that drives foot traffic</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Clear, actionable insights you can act on today</span>
+                  <span>Track local competitors in AI search results</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Focused on AI search optimization only</span>
+                  <span>City and region-specific visibility insights</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -139,25 +139,25 @@ const Index = () => {
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="p-8 text-center hover:shadow-lg transition-shadow">
               <Target className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">Brand Visibility Monitoring</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">Local AI Search Monitoring</h3>
               <p className="text-muted-foreground">
-                Track how often and how well your brand appears in AI search results across all major platforms.
+                Track how your local business appears in AI search results for location-based queries in your city and region.
               </p>
             </Card>
             
             <Card className="p-8 text-center hover:shadow-lg transition-shadow">
               <TrendingUp className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">Competitive Analysis</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">Local Competitive Analysis</h3>
               <p className="text-muted-foreground">
-                See exactly where competitors are winning and identify the gaps you can exploit.
+                See which local competitors are winning in AI search results and discover opportunities to outrank them.
               </p>
             </Card>
             
             <Card className="p-8 text-center hover:shadow-lg transition-shadow">
               <Zap className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">Actionable Recommendations</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">Location-Based Optimization</h3>
               <p className="text-muted-foreground">
-                Get specific, prioritized actions you can take today to improve your AI search presence.
+                Get specific recommendations to improve your visibility in local AI searches that drive customers to your business.
               </p>
             </Card>
           </div>
@@ -207,10 +207,10 @@ const Index = () => {
           
           <Card className="p-8 max-w-2xl mx-auto">
             <blockquote className="text-lg text-foreground mb-4">
-              "Finally, a tool that does one thing exceptionally well instead of a hundred things poorly. 
-              Our AI search visibility improved 340% in just 8 weeks."
+              "Our local restaurant started appearing in AI search results for 'best pizza in downtown' after just 3 weeks. 
+              Customer inquiries from AI searches increased by 180%."
             </blockquote>
-            <cite className="text-muted-foreground">— Marketing Director, Fortune 500 Company</cite>
+            <cite className="text-muted-foreground">— Owner, Local Restaurant Chain</cite>
           </Card>
         </div>
       </section>
