@@ -40,22 +40,13 @@ export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
   }
 }
 
-export async function updateOrganizationKeywords(keywords: OrganizationKeywords) {
+export async function updateOrganizationKeywords(keywords: Partial<OrganizationKeywords>) {
   try {
     const orgId = await getOrgId();
 
     const { error } = await supabase
       .from("organizations")
-      .update({
-        keywords: keywords.keywords,
-        products_services: keywords.products_services,
-        target_audience: keywords.target_audience,
-        business_description: keywords.business_description,
-        business_city: keywords.business_city,
-        business_state: keywords.business_state,
-        business_country: keywords.business_country,
-        enable_localized_prompts: keywords.enable_localized_prompts,
-      })
+      .update(keywords)
       .eq("id", orgId);
 
     if (error) throw error;

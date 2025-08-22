@@ -19,7 +19,6 @@ export function KeywordManagement() {
     business_city: "",
     business_state: "",
     business_country: "United States",
-    enable_localized_prompts: false,
   });
   const [newKeyword, setNewKeyword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,15 +49,26 @@ export function KeywordManagement() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await updateOrganizationKeywords(keywords);
+      // Only update business context fields, not localization settings
+      const businessContextUpdate = {
+        keywords: keywords.keywords,
+        products_services: keywords.products_services,
+        target_audience: keywords.target_audience,
+        business_description: keywords.business_description,
+        business_city: keywords.business_city,
+        business_state: keywords.business_state,
+        business_country: keywords.business_country,
+      };
+      
+      await updateOrganizationKeywords(businessContextUpdate);
       toast({
         title: "Success",
-        description: "Keywords and business context updated successfully",
+        description: "Business context updated successfully",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save keywords",
+        description: "Failed to save business context",
         variant: "destructive",
       });
     } finally {
