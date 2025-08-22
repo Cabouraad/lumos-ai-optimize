@@ -100,37 +100,76 @@ export function AIPromptSuggestions({
     }
   };
   const getSourceIcon = (source: string) => {
-    switch (source) {
+    // Handle enhanced-ai prefixed sources
+    const category = source.startsWith('enhanced-ai-') ? source.substring(12) : source;
+    
+    switch (category) {
       case 'market_research':
-      case 'industry': return <Lightbulb className="h-4 w-4 text-chart-4" />;
+      case 'industry':
+      case 'gap-analysis': return <Lightbulb className="h-4 w-4 text-chart-4" />;
       case 'competitor_analysis':
-      case 'competitors': return <Users className="h-4 w-4 text-chart-5" />;
+      case 'competitors':
+      case 'competitor-defense': return <Users className="h-4 w-4 text-chart-5" />;
       case 'brand_visibility':
-      case 'gap': return <Target className="h-4 w-4 text-warning" />;
+      case 'gap':
+      case 'comparison':
+      case 'long-tail': return <Target className="h-4 w-4 text-warning" />;
+      case 'local-discovery':
+      case 'local-recommendations':
+      case 'geographic-targeting': return <Target className="h-4 w-4 text-primary" />;
+      case 'area-comparison':
+      case 'local-problem-solving': return <Users className="h-4 w-4 text-primary" />;
+      case 'problem-solving': return <Zap className="h-4 w-4 text-success" />;
       default: return <Sparkles className="h-4 w-4 text-success" />;
     }
   };
 
   const getSourceColor = (source: string) => {
-    switch (source) {
+    // Handle enhanced-ai prefixed sources
+    const category = source.startsWith('enhanced-ai-') ? source.substring(12) : source;
+    
+    switch (category) {
       case 'market_research':
-      case 'industry': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'industry':
+      case 'gap-analysis': return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'competitor_analysis':
-      case 'competitors': return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'competitors':
+      case 'competitor-defense': return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'brand_visibility':
-      case 'gap': return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 'gap':
+      case 'comparison':
+      case 'long-tail': return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 'local-discovery':
+      case 'local-recommendations':
+      case 'geographic-targeting': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'area-comparison':
+      case 'local-problem-solving': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      case 'problem-solving': return 'bg-green-50 text-green-700 border-green-200';
       default: return 'bg-green-50 text-green-700 border-green-200';
     }
   };
 
   const getSourceDisplayName = (source: string) => {
-    switch (source) {
+    // Handle enhanced-ai prefixed sources
+    const category = source.startsWith('enhanced-ai-') ? source.substring(12) : source;
+    
+    switch (category) {
       case 'market_research': return 'Market Research';
       case 'competitor_analysis': return 'Competitor Analysis';  
       case 'brand_visibility': return 'Brand Visibility';
       case 'industry': return 'Industry';
       case 'competitors': return 'Competitors';
       case 'gap': return 'Gap Analysis';
+      case 'gap-analysis': return 'Gap Analysis';
+      case 'competitor-defense': return 'Competitor Defense';
+      case 'long-tail': return 'Long-tail Opportunity';
+      case 'comparison': return 'Comparison';
+      case 'problem-solving': return 'Problem Solving';
+      case 'local-discovery': return 'Local Discovery';
+      case 'area-comparison': return 'Area Comparison';
+      case 'local-recommendations': return 'Local Recommendations';
+      case 'geographic-targeting': return 'Geographic Targeting';
+      case 'local-problem-solving': return 'Local Problem Solving';
       default: return source.charAt(0).toUpperCase() + source.slice(1);
     }
   };
@@ -312,24 +351,46 @@ export function AIPromptSuggestions({
               </h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 Click "Generate Suggestions" to get AI-powered prompt recommendations 
-                tailored to your brand, industry, and existing prompt performance.
+                tailored to your {orgSettings.enable_localized_prompts ? 'local business area' : 'brand, industry,'} and existing prompt performance.
               </p>
               <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                  <Lightbulb className="h-6 w-6 text-amber-600 mx-auto mb-2" />
-                  <div className="text-xs font-medium text-amber-900">Market Research</div>
-                  <div className="text-xs text-amber-700">Industry insights</div>
-                </div>
-                <div className="p-3 bg-purple-50 rounded-xl border border-purple-100">
-                  <Users className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-                  <div className="text-xs font-medium text-purple-900">Competitor Analysis</div>
-                  <div className="text-xs text-purple-700">Competitive queries</div>
-                </div>
-                <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
-                  <Target className="h-6 w-6 text-orange-600 mx-auto mb-2" />
-                  <div className="text-xs font-medium text-orange-900">Brand Visibility</div>
-                  <div className="text-xs text-orange-700">Visibility opportunities</div>
-                </div>
+                {orgSettings.enable_localized_prompts ? (
+                  <>
+                    <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                      <Target className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                      <div className="text-xs font-medium text-blue-900">Local Discovery</div>
+                      <div className="text-xs text-blue-700">Best in your area</div>
+                    </div>
+                    <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                      <Users className="h-6 w-6 text-indigo-600 mx-auto mb-2" />
+                      <div className="text-xs font-medium text-indigo-900">Area Comparison</div>
+                      <div className="text-xs text-indigo-700">Regional insights</div>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-xl border border-green-100">
+                      <Zap className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                      <div className="text-xs font-medium text-green-900">Local Solutions</div>
+                      <div className="text-xs text-green-700">Location-based help</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                      <Lightbulb className="h-6 w-6 text-amber-600 mx-auto mb-2" />
+                      <div className="text-xs font-medium text-amber-900">Market Research</div>
+                      <div className="text-xs text-amber-700">Industry insights</div>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded-xl border border-purple-100">
+                      <Users className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                      <div className="text-xs font-medium text-purple-900">Competitor Analysis</div>
+                      <div className="text-xs text-purple-700">Competitive queries</div>
+                    </div>
+                    <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
+                      <Target className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+                      <div className="text-xs font-medium text-orange-900">Brand Visibility</div>
+                      <div className="text-xs text-orange-700">Visibility opportunities</div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>

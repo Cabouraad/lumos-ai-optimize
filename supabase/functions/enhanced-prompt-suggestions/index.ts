@@ -34,7 +34,7 @@ serve(async (req) => {
     const [orgResult, promptsResult, competitorsResult, visibilityResult] = await Promise.all([
       supabase
         .from('organizations')
-        .select('name, business_description, keywords, products_services, target_audience')
+        .select('name, business_description, keywords, products_services, target_audience, business_city, business_state, business_country, enable_localized_prompts')
         .eq('id', orgId)
         .single(),
       
@@ -67,8 +67,27 @@ serve(async (req) => {
     const topCompetitors = competitorsResult.data || [];
     const lowPerformingPrompts = visibilityResult.data || [];
 
-    // Build context for AI
-    const context = `
+    // Generate nearby locations for localized prompts
+    const nearbyLocations = generateNearbyLocations(org.business_city, org.business_state, org.business_country);
+
+    // Build context for AI - exclude organization name if localized prompts are enabled
+    const context = org.enable_localized_prompts ? `
+Business Type: ${org.business_description || 'Not specified'}
+Products/Services: ${org.products_services || 'Not specified'}
+Target Audience: ${org.target_audience || 'Not specified'}
+Keywords: ${org.keywords?.join(', ') || 'Not specified'}
+Location: ${org.business_city || 'Not specified'}, ${org.business_state || 'Not specified'}, ${org.business_country || 'United States'}
+Nearby Areas: ${nearbyLocations.join(', ')}
+
+Existing Prompts (${existingPrompts.length}):
+${existingPrompts.slice(0, 10).map((p, i) => `${i+1}. ${p.text}`).join('\n')}
+
+Top Competitors (by mentions):
+${topCompetitors.map(c => `- ${c.competitor_name} (${c.mention_count} mentions)`).join('\n')}
+
+Low Performing Prompts (need attention):
+${lowPerformingPrompts.map((p, i) => `${i+1}. ${p.text} (Score: ${p.avg_score_7d})`).join('\n')}
+` : `
 Organization: ${org.name}
 Business: ${org.business_description || 'Not specified'}
 Products/Services: ${org.products_services || 'Not specified'}
@@ -85,7 +104,34 @@ Low Performing Prompts (need attention):
 ${lowPerformingPrompts.map((p, i) => `${i+1}. ${p.text} (Score: ${p.avg_score_7d})`).join('\n')}
 `;
 
-    const systemPrompt = `You are an AI visibility expert helping organizations improve their presence in AI-generated responses. Based on the organization data provided, generate strategic prompt suggestions.
+    const systemPrompt = org.enable_localized_prompts ? `You are an AI visibility expert helping local businesses improve their presence in location-based AI search results. Based on the business data provided, generate strategic localized prompt suggestions.
+
+IMPORTANT RULES FOR LOCALIZED PROMPTS:
+- DO NOT mention any specific business names or brands
+- Focus on location-based queries (city, state, nearby areas)
+- Use generic business types (e.g., "restaurants", "shops", "services")
+- Include variety by incorporating nearby towns and areas
+- Make prompts sound natural and conversational
+
+Focus on these categories:
+1. **Local Discovery**: "Best [business type] in [location]" style queries
+2. **Area Comparison**: Compare services across different nearby locations
+3. **Local Recommendations**: Ask for local recommendations without naming brands
+4. **Geographic Targeting**: Include nearby cities and neighborhoods for variety
+5. **Local Problem-solving**: Location-specific problems that local businesses solve
+
+Generate 15-20 high-quality, location-focused prompts that would help local businesses get discovered WITHOUT mentioning any specific business names. Use the provided location and nearby areas for variety.
+
+Format as JSON array with this structure:
+[
+  {
+    "text": "Specific localized prompt text here (NO brand names)",
+    "category": "local-discovery|area-comparison|local-recommendations|geographic-targeting|local-problem-solving",
+    "rationale": "Why this prompt would help local businesses",
+    "priority": "high|medium|low",
+    "expectedMentions": 1-3
+  }
+]` : `You are an AI visibility expert helping organizations improve their presence in AI-generated responses. Based on the organization data provided, generate strategic prompt suggestions.
 
 Focus on these categories:
 1. **Gap Analysis**: Identify missing coverage areas based on business description and keywords
@@ -198,6 +244,46 @@ Format as JSON array with this structure:
     });
   }
 });
+
+// Generate nearby locations for localized prompts
+function generateNearbyLocations(city: string, state: string, country: string): string[] {
+  const locations = [];
+  
+  // If we have city and state, generate some common nearby variations
+  if (city && state) {
+    // Add the main city
+    locations.push(`${city}, ${state}`);
+    
+    // Common nearby area patterns for US locations
+    if (country === 'United States' || !country) {
+      // Metro area variations
+      locations.push(`${city} area, ${state}`);
+      locations.push(`greater ${city}, ${state}`);
+      locations.push(`${city} metro area, ${state}`);
+      
+      // Directional variations
+      locations.push(`north ${city}, ${state}`);
+      locations.push(`south ${city}, ${state}`);
+      locations.push(`east ${city}, ${state}`);
+      locations.push(`west ${city}, ${state}`);
+      
+      // Downtown/suburb variations
+      locations.push(`downtown ${city}, ${state}`);
+      locations.push(`${city} suburbs, ${state}`);
+      
+      // Add state-level queries
+      locations.push(state);
+      locations.push(`${state} area`);
+    }
+  } else if (state) {
+    // If we only have state, use state-level locations
+    locations.push(state);
+    locations.push(`${state} area`);
+  }
+  
+  // Remove duplicates and return up to 8 locations
+  return [...new Set(locations)].slice(0, 8);
+}
 
 // Simple text similarity calculation
 function calculateTextSimilarity(text1: string, text2: string): number {
