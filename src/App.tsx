@@ -15,6 +15,7 @@ import Competitors from "./pages/Competitors";
 import LLMsText from "./pages/LLMsText";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
+import Features from "./pages/Features";
 import TrialSuccess from "./pages/TrialSuccess";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/features" element={<Features />} />
             <Route path="/trial-success" element={<TrialSuccess />} />
             <Route path="/dashboard" element={
               <SubscriptionGate>

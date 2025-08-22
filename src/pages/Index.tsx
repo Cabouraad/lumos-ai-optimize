@@ -37,8 +37,8 @@ const Index = () => {
             <span className="text-2xl font-bold text-foreground">Llumos</span>
           </div>
           <nav className="hidden md:flex items-center space-x-6">
-            <Link to="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
-            <Link to="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
+            <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+            <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
             <Button variant="outline" asChild>
               <Link to="/auth">Sign In</Link>
             </Button>
