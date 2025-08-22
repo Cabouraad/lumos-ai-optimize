@@ -23,9 +23,10 @@ serve(async (req) => {
   try {
     console.log('Starting llms.txt generation process');
 
+    // Create client with service role for database operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
           persistSession: false,
@@ -39,17 +40,26 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    // Set the auth token
-    supabaseClient.auth.setSession({
-      access_token: authHeader.replace('Bearer ', ''),
-      refresh_token: '',
-    } as any);
+    // Create another client for user authentication
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false,
+        },
+      }
+    );
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Get current user using the token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) {
+      console.error('Authentication error:', userError);
       throw new Error('Authentication failed');
     }
+
+    console.log('User authenticated:', user.id);
 
     // Get user's org
     const { data: userData, error: orgError } = await supabaseClient
