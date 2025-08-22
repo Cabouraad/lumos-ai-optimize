@@ -438,6 +438,42 @@ export type Database = {
         }
         Relationships: []
       }
+      subscribers_audit: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          id: string
+          ip_address: unknown | null
+          new_values: Json | null
+          old_values: Json | null
+          subscriber_user_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          subscriber_user_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          subscriber_user_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       suggested_prompts: {
         Row: {
           accepted: boolean
@@ -551,7 +587,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_subscription_safe: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          payment_status: string | null
+          subscribed: boolean | null
+          subscription_end: string | null
+          subscription_tier: string | null
+          trial_expires_at: string | null
+          trial_started_at: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          payment_status?: never
+          subscribed?: boolean | null
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          payment_status?: never
+          subscribed?: boolean | null
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_competitor_share_7d: {
@@ -572,6 +646,16 @@ export type Database = {
           prompt_id: string
           runs_7d: number
           text: string
+        }[]
+      }
+      get_user_subscription_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          payment_collected: boolean
+          subscribed: boolean
+          subscription_end: string
+          subscription_tier: string
+          trial_expires_at: string
         }[]
       }
       reco_upsert: {
