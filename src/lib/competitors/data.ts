@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { getOrgId } from "@/lib/auth";
 
@@ -5,10 +6,13 @@ export async function getCompetitorsData() {
   try {
     const orgId = await getOrgId();
     
-    // Get competitor brands from database
+    // Get competitor brands from database using proper foreign key relationship
     const { data: competitorBrands } = await supabase
       .from('brand_catalog')
-      .select('*')
+      .select(`
+        *,
+        organizations!brand_catalog_org_id_fkey (name)
+      `)
       .eq('org_id', orgId)
       .eq('is_org_brand', false)
       .order('total_appearances', { ascending: false });
@@ -18,24 +22,20 @@ export async function getCompetitorsData() {
       id: brand.id,
       name: brand.name,
       totalAppearances: brand.total_appearances || 0,
-      averageScore: Math.round((brand.average_score || 0) * 10), // Convert 0-10 to 0-100
+      averageScore: Math.round((brand.average_score || 0) * 10) / 10, // Keep proper 0-10 scale
       firstDetectedAt: brand.first_detected_at,
       lastSeenAt: brand.last_seen_at,
-      sharePercentage: Math.min(100, Math.max(0, (brand.average_score || 0) * 10)),
+      sharePercentage: Math.min(100, Math.max(0, (brand.average_score || 0) * 10)), // Convert 0-10 to 0-100 for percentage
       trend: 0, // Trend calculation will be implemented with historical data
       isManuallyAdded: false
     })) || [];
 
-    // Get organization name for "Your Brand"
-    const { data: orgData } = await supabase
-      .from('organizations')
-      .select('name')
-      .eq('id', orgId)
-      .single();
+    // Get organization name for "Your Brand" using the foreign key relationship
+    const orgName = competitorBrands?.[0]?.organizations?.name || 'Your Brand';
 
     return {
       competitors: transformedData,
-      yourBrandName: orgData?.name || 'Your Brand'
+      yourBrandName: orgName
     };
   } catch (error) {
     console.error('Error fetching competitors data:', error);

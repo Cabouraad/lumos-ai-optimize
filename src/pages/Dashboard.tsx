@@ -1,143 +1,128 @@
+
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
-import { CircularGauge } from '@/components/CircularGauge';
-import { QuickInsights } from '@/components/QuickInsights';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, FileText, Users, Zap, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Play } from 'lucide-react';
 import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
-  const { hasAccessToApp, isOnTrial, daysRemainingInTrial } = useSubscriptionGate();
+  const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [insightsOpen, setInsightsOpen] = useState(false);
-  const [isRunningAll, setIsRunningAll] = useState(false);
+  const [manualRunLoading, setManualRunLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleRunAllPrompts = async () => {
-    setIsRunningAll(true);
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('daily-scan', {
+      setLoading(true);
+      const data = await getSafeDashboardData();
+      setDashboardData({
+        ...data,
+        // Ensure we have default values to prevent rendering issues
+        chartData: data.chartData || [],
+        providers: data.providers || [],
+        prompts: data.prompts || []
+      });
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      toast({
+        title: 'Error loading dashboard',
+        description: 'Failed to load dashboard data. Please refresh the page.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualRun = async () => {
+    setManualRunLoading(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('daily-scan', {
         body: { manualRun: true }
       });
+      
       if (error) throw error;
-      const result = (data as any)?.result;
+      
       toast({
         title: 'Manual run completed',
-        description: result
+        description: result?.organizations 
           ? `Processed ${result.organizations} orgs · ${result.successfulRuns}/${result.totalRuns} successful`
           : 'Completed successfully',
       });
       
-      // Wait a moment for database to fully propagate changes
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Refresh dashboard data after successful run
+      setTimeout(async () => {
+        await loadDashboardData();
+        toast({
+          title: 'Dashboard refreshed',
+          description: 'Latest visibility data has been loaded.',
+        });
+      }, 2000);
       
-      // Refresh dashboard data
-      const refreshed = await getSafeDashboardData();
-      setDashboardData(refreshed);
-      
-      // Force a page reload to ensure fresh data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } catch (e: any) {
       console.error('Manual run failed:', e);
       toast({ title: 'Manual run failed', description: e.message || 'Unknown error' });
     } finally {
-      setIsRunningAll(false);
+      setManualRunLoading(false);
     }
   };
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        setLoading(true);
-        const data = await getSafeDashboardData();
-        setDashboardData(data);
-      } catch (err) {
-        console.error('Dashboard data error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (appAccess.hasAccess) {
-      loadDashboardData();
-    }
-  }, [appAccess.hasAccess]);
-
-  // Block access if trial expired
   if (!appAccess.hasAccess) {
     return (
       <Layout>
         <div className="container mx-auto p-6">
-          <div className="max-w-md mx-auto text-center py-12">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-              <h2 className="text-xl font-bold text-red-800 mb-2">Trial Expired</h2>
-              <p className="text-red-600 mb-4">
-                Your 7-day free trial has ended. Upgrade to continue using Llumos.
-              </p>
-              <button 
-                onClick={() => window.location.href = '/pricing'}
-                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Upgrade to Continue
-              </button>
-            </div>
+          {/* Trial banner if user is on trial */}
+          {appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0 && (
+            <TrialBanner daysRemaining={appAccess.daysRemainingInTrial} />
+          )}
+          
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">AI visibility insights for your organization</p>
+          </div>
+
+          <div className="max-w-md mx-auto">
+            <UpgradePrompt 
+              feature="Dashboard"
+              reason={appAccess.reason || ''}
+              isTrialExpired={appAccess.isTrialExpired}
+              daysRemainingInTrial={appAccess.daysRemainingInTrial}
+            />
           </div>
         </div>
       </Layout>
     );
   }
+
+  const showTrialBanner = appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0;
 
   if (loading) {
     return (
       <Layout>
-        <div className="space-y-6">
-          {isOnTrial && daysRemainingInTrial && daysRemainingInTrial > 0 && (
-            <TrialBanner daysRemaining={daysRemainingInTrial} />
-          )}
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-muted rounded w-1/3"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-muted rounded"></div>
-              ))}
-            </div>
-            <div className="h-64 bg-muted rounded"></div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="space-y-6">
-          {isOnTrial && daysRemainingInTrial && daysRemainingInTrial > 0 && (
-            <TrialBanner daysRemaining={daysRemainingInTrial} />
-          )}
-          <div className="text-center py-12">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-              <h3 className="text-lg font-medium text-red-800 mb-2">Unable to Load Dashboard</h3>
-              <p className="text-red-600 text-sm mb-4">{error}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-              >
-                Retry
-              </button>
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+          <div className="container mx-auto p-6">
+            <div className="animate-pulse space-y-8">
+              <div className="h-8 bg-muted rounded w-1/3"></div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-32 bg-muted rounded-lg"></div>
+                ))}
+              </div>
+              <div className="h-64 bg-muted rounded-lg"></div>
             </div>
           </div>
         </div>
@@ -145,181 +130,198 @@ export default function Dashboard() {
     );
   }
 
-  const trendIcon = dashboardData?.trend > 0 ? TrendingUp : TrendingDown;
-  const trendColor = dashboardData?.trend > 0 ? 'text-success' : 'text-destructive';
+  const formatScore = (score: number) => Math.round(score * 10) / 10;
+  const getTrendIcon = (trend: number) => {
+    if (trend > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
+    if (trend < 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
+    return null;
+  };
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Show trial banner if user is on trial */}
-        {isOnTrial && daysRemainingInTrial && daysRemainingInTrial > 0 && (
-          <TrialBanner daysRemaining={daysRemainingInTrial} />
-        )}
-        
-        {/* Dashboard Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Your brand visibility performance overview
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5" />
-              Manual Run All Prompts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={handleRunAllPrompts}
-              disabled={isRunningAll}
-              className="w-full"
-              variant="secondary"
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+        <div className="container mx-auto p-6 space-y-8">
+          {showTrialBanner && (
+            <TrialBanner daysRemaining={appAccess.daysRemainingInTrial!} />
+          )}
+          
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-muted-foreground">AI visibility insights for your organization</p>
+            </div>
+            
+            <Button 
+              onClick={handleManualRun}
+              disabled={manualRunLoading}
+              className="shadow-sm"
             >
-              {isRunningAll ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Running All Prompts...
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-2 h-4 w-4" />
-                  Run All Prompts Now
-                </>
-              )}
+              <Play className="h-4 w-4 mr-2" />
+              {manualRunLoading ? 'Running...' : 'Run All Prompts Now'}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Today's Average Score */}
-          <Card>
-            <CardContent className="flex items-center justify-center p-6">
-              <CircularGauge
-                value={dashboardData?.avgScore || 0}
-                maxValue={10}
-                size={100}
-                label="Today's Avg"
-                showValue={true}
-              />
-            </CardContent>
-          </Card>
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Visibility Score</CardTitle>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-2">
+                  <div className="text-2xl font-bold">{formatScore(dashboardData?.avgScore || 0)}/10</div>
+                  {getTrendIcon(dashboardData?.trend || 0)}
+                  {(dashboardData?.trend || 0) !== 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {Math.abs(dashboardData.trend).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Overall Score */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overall Score</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.overallScore?.toFixed(1) || '0.0'}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                {dashboardData?.trend > 0 ? (
-                  <TrendingUp className={`w-3 h-3 mr-1 ${trendColor}`} />
-                ) : (
-                  <TrendingDown className={`w-3 h-3 mr-1 ${trendColor}`} />
-                )}
-                <span className={trendColor}>
-                  {Math.abs(dashboardData?.trend || 0).toFixed(1)}% vs last week
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Overall Score</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatScore(dashboardData?.overallScore || 0)}/10</div>
+                <p className="text-xs text-muted-foreground">Last 7 days average</p>
+              </CardContent>
+            </Card>
 
-          {/* Active Prompts */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.promptCount || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                {dashboardData?.totalRuns || 0} total runs
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{dashboardData?.promptCount || 0}</div>
+                <p className="text-xs text-muted-foreground">Being monitored</p>
+              </CardContent>
+            </Card>
 
-          {/* LLM Providers */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">LLM Providers</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {dashboardData?.providers?.filter((p: any) => p.enabled).length || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                of {dashboardData?.providers?.length || 0} available
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Data Points</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{dashboardData?.totalRuns || 0}</div>
+                <p className="text-xs text-muted-foreground">Last 30 days</p>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Chart */}
-        {dashboardData?.chartData?.length > 0 ? (
-          <Card>
+          {/* Visibility Trend Chart */}
+          <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
             <CardHeader>
-              <CardTitle>Visibility Trend (30 Days)</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Visibility Trend
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData.chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    />
-                    <YAxis 
-                      domain={[0, 10]}
-                      tick={{ fontSize: 12 }}
-                    />
-                    <Tooltip 
-                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                      formatter={(value: any) => [value.toFixed(1), 'Score']}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
-                      dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {dashboardData?.chartData && dashboardData.chartData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dashboardData.chartData}>
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      />
+                      <YAxis 
+                        domain={[0, 10]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip 
+                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                        formatter={(value: any) => [`${formatScore(value)}/10`, 'Visibility Score']}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No visibility data available</p>
+                    <p className="text-sm text-muted-foreground mt-2">Run prompts to start collecting data</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
-        ) : (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Data Yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Run some prompts to start seeing your visibility trends
-              </p>
-              <button 
-                onClick={() => window.location.href = '/prompts'}
-                className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 transition-colors"
-              >
-                Create Your First Prompt
-              </button>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Quick Insights Sidebar */}
-        <QuickInsights
-          isOpen={insightsOpen}
-          onToggle={() => setInsightsOpen(!insightsOpen)}
-          trendData={dashboardData?.chartData || []}
-        />
+          {/* System Status */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+              <CardHeader>
+                <CardTitle>System Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">LLM Providers</span>
+                  <div className="flex gap-1">
+                    {dashboardData?.providers?.map((provider: any) => (
+                      <Badge 
+                        key={provider.id}
+                        variant={provider.enabled ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {provider.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Recent Data Points</span>
+                  <Badge variant="outline">{dashboardData?.recentRunsCount || 0} in last 7 days</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.location.href = '/prompts'}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View All Prompts
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.location.href = '/competitors'}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Analyze Competitors
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </Layout>
   );

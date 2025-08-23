@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { getOrgId } from "@/lib/auth";
 
@@ -5,31 +6,27 @@ export async function getSafeDashboardData() {
   try {
     const orgId = await getOrgId();
 
-    // Get all data in parallel
+    // Get all data using proper foreign key relationships
     const [promptsResult, providersResult, todayRunsResult, historicalResult] = await Promise.all([
       supabase.from("prompts").select("id, text, active, created_at").eq("org_id", orgId).order("created_at", { ascending: false }),
       supabase.from("llm_providers").select("id, name, enabled"),
       supabase.from("prompt_runs")
         .select(`
           id, status, run_at,
-          visibility_results (score)
+          prompts!prompt_runs_prompt_id_fkey (org_id),
+          visibility_results!visibility_results_prompt_run_id_fkey (score)
         `)
         .gte('run_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
         .lt('run_at', new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
-        .eq('status', 'success')
-        .in('prompt_id', 
-          (await supabase.from("prompts").select("id").eq("org_id", orgId)).data?.map(p => p.id) || []
-        ),
+        .eq('status', 'success'),
       supabase.from("prompt_runs")
         .select(`
           id, status, run_at,
-          visibility_results (score)
+          prompts!prompt_runs_prompt_id_fkey (org_id),
+          visibility_results!visibility_results_prompt_run_id_fkey (score)
         `)
         .gte('run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
         .eq('status', 'success')
-        .in('prompt_id', 
-          (await supabase.from("prompts").select("id").eq("org_id", orgId)).data?.map(p => p.id) || []
-        )
         .order('run_at', { ascending: true })
     ]);
 
@@ -38,8 +35,17 @@ export async function getSafeDashboardData() {
     if (todayRunsResult.error) throw todayRunsResult.error;
     if (historicalResult.error) throw historicalResult.error;
 
+    // Filter runs to only include those from our org
+    const todayOrgRuns = todayRunsResult.data?.filter(run => 
+      run.prompts?.org_id === orgId
+    ) || [];
+    
+    const historicalOrgRuns = historicalResult.data?.filter(run => 
+      run.prompts?.org_id === orgId
+    ) || [];
+
     // Calculate today's average score
-    const todayScores = todayRunsResult.data
+    const todayScores = todayOrgRuns
       ?.filter(run => run.visibility_results?.length > 0)
       ?.map(run => run.visibility_results[0].score) || [];
     
@@ -49,7 +55,7 @@ export async function getSafeDashboardData() {
 
     // Calculate overall visibility score (last 7 days average)
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentScores = historicalResult.data
+    const recentScores = historicalOrgRuns
       ?.filter(run => {
         const runDate = new Date(run.run_at);
         return runDate >= last7Days && run.visibility_results?.length > 0;
@@ -63,7 +69,7 @@ export async function getSafeDashboardData() {
     // Process historical data for the chart (group by day)
     const dailyScores = new Map<string, { scores: number[], date: string }>();
     
-    historicalResult.data?.forEach(run => {
+    historicalOrgRuns?.forEach(run => {
       if (run.visibility_results?.length > 0) {
         const date = new Date(run.run_at).toISOString().split('T')[0];
         if (!dailyScores.has(date)) {
@@ -80,7 +86,7 @@ export async function getSafeDashboardData() {
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // Calculate trend (comparing last 7 days to previous 7 days)
-    const previous7Days = historicalResult.data
+    const previous7Days = historicalOrgRuns
       ?.filter(run => {
         const runDate = new Date(run.run_at);
         const startRange = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
@@ -103,7 +109,7 @@ export async function getSafeDashboardData() {
       providers: providersResult.data || [],
       prompts: promptsResult.data || [],
       chartData,
-      totalRuns: historicalResult.data?.length || 0,
+      totalRuns: historicalOrgRuns?.length || 0,
       recentRunsCount: recentScores.length
     };
 

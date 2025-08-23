@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { getOrgId } from "@/lib/auth";
 
@@ -16,7 +17,7 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
   try {
     const orgId = await getOrgId();
 
-    // Get prompts with their latest visibility results
+    // Get prompts with their latest visibility results using proper foreign key relationships
     const { data: prompts, error } = await supabase
       .from("prompts")
       .select(`
@@ -24,11 +25,11 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
         text, 
         active, 
         created_at,
-        prompt_runs (
+        prompt_runs!prompts_prompt_id_fkey (
           id,
           run_at,
           status,
-          visibility_results (
+          visibility_results!visibility_results_prompt_run_id_fkey (
             score,
             org_brand_present,
             competitors_count
@@ -36,7 +37,6 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
         )
       `)
       .eq("org_id", orgId)
-      .eq("prompt_runs.status", "success")
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -54,7 +54,7 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
       const hasData = visibilityResults.length > 0;
 
       if (hasData) {
-        // Calculate average visibility score
+        // Calculate average visibility score (scores are already 0-10, no need to divide by 10)
         const scores = visibilityResults.map(r => r.score || 0);
         visibilityScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
         
@@ -72,7 +72,7 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
         text: prompt.text,
         active: prompt.active,
         created_at: prompt.created_at,
-        visibilityScore: hasData ? visibilityScore / 10 : 0, // Convert from 0-100 to 0-10 scale
+        visibilityScore: Math.round(visibilityScore * 10) / 10, // Keep 0-10 scale, just round to 1 decimal
         brandPct: Math.round(brandPct),
         competitorPct: Math.round(competitorPct),
         hasData,

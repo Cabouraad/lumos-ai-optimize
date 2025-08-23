@@ -1,377 +1,149 @@
-import React, { useState } from 'react';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Play, CheckCircle, XCircle, Clock, AlertTriangle, Zap } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { SchedulerTestAdmin } from './SchedulerTestAdmin';
+import { useToast } from '@/hooks/use-toast';
 
-interface APITestResult {
-  provider: string;
-  success: boolean;
-  response?: string;
-  model?: string;
-  tokenIn?: number;
-  tokenOut?: number;
-  error?: string;
-  duration?: number;
-}
-
-interface TestSummary {
-  timestamp: string;
-  nyTime: string;
-  isPast3AM: boolean;
-  testPrompt: string;
-  apiTests: APITestResult[];
-  schedulerReady: boolean;
-  databaseStatus: {
-    organizations: number;
-    activePrompts: number;
-    enabledProviders: string[];
-  };
-  recommendations: {
-    readyForScheduledRun: boolean;
-    issues: string[];
-  };
-}
-
-export default function TestSchedulerAPIs() {
+export function TestSchedulerAPIs() {
   const [loading, setLoading] = useState(false);
-  const [isManualRunning, setIsManualRunning] = useState(false);
-  const [results, setResults] = useState<TestSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [manualRunResult, setManualRunResult] = useState<any | null>(null);
-  const [manualRunError, setManualRunError] = useState<string | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [results, setResults] = useState<any>(null);
+  const [auditResults, setAuditResults] = useState<any>(null);
+  const { toast } = useToast();
 
-  const runTest = async () => {
+  const testSchedulerAPIs = async () => {
     setLoading(true);
-    setError(null);
-    setResults(null);
-
     try {
-      const { data, error: invocationError } = await supabase.functions.invoke('test-scheduler-apis', {});
-
-      if (invocationError) {
-        throw invocationError;
+      const { data, error } = await supabase.functions.invoke('test-scheduler-apis');
+      
+      if (error) {
+        throw error;
       }
-
-      setResults(data as TestSummary);
-    } catch (err: any) {
-      setError(err.message || 'Failed to run API tests');
-      console.error('Test error:', err);
+      
+      setResults(data);
+      toast({
+        title: "API Test Complete",
+        description: "Check the results below for detailed information.",
+      });
+    } catch (error: any) {
+      console.error('Test failed:', error);
+      toast({
+        title: "Test Failed",
+        description: error.message || "Unknown error occurred",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const runAllPrompts = async () => {
-    setIsManualRunning(true);
-    setManualRunError(null);
-    setManualRunResult(null);
-
+  const auditVisibilityData = async () => {
+    setAuditLoading(true);
     try {
-      const { data, error: invocationError } = await supabase.functions.invoke('daily-scan', {
-        body: { manualRun: true }
-      });
-
-      if (invocationError) {
-        throw invocationError;
+      const { data, error } = await supabase.functions.invoke('audit-visibility');
+      
+      if (error) {
+        throw error;
       }
-
-      setManualRunResult(data);
-    } catch (err: any) {
-      setManualRunError(err.message || 'Failed to run all prompts');
-      console.error('Manual run error:', err);
+      
+      setAuditResults(data);
+      toast({
+        title: "Visibility Audit Complete",
+        description: `Status: ${data.summary?.status || 'Unknown'}`,
+        variant: data.summary?.status === 'HEALTHY' ? 'default' : 'destructive',
+      });
+    } catch (error: any) {
+      console.error('Audit failed:', error);
+      toast({
+        title: "Audit Failed",
+        description: error.message || "Unknown error occurred",
+        variant: "destructive",
+      });
     } finally {
-      setIsManualRunning(false);
+      setAuditLoading(false);
     }
-  };
-
-  const getProviderIcon = (result: APITestResult) => {
-    if (result.success) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-    return <XCircle className="h-4 w-4 text-red-500" />;
-  };
-
-  const getProviderBadge = (result: APITestResult) => {
-    return (
-      <Badge variant={result.success ? 'default' : 'destructive'}>
-        {result.success ? 'Working' : 'Failed'}
-      </Badge>
-    );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5" />
-            Scheduler API Tests
-          </CardTitle>
-          <CardDescription>
-            Test all three AI provider APIs (OpenAI, Perplexity, Gemini) to ensure the scheduler can run properly at 3AM EST.
-          </CardDescription>
+          <CardTitle>API Testing & Diagnostics</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={runTest} 
-            disabled={loading}
-            className="w-full"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running Tests...
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                Test All APIs
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {error && (
-        <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {results && (
-        <div className="space-y-4">
-          {/* Overall Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Scheduler Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current NY Time</p>
-                  <p className="font-mono">{results.nyTime}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Past 3AM EST</p>
-                  <Badge variant={results.isPast3AM ? 'default' : 'secondary'}>
-                    {results.isPast3AM ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-sm text-muted-foreground">Ready for Scheduled Run</p>
-                <Badge variant={results.recommendations.readyForScheduledRun ? 'default' : 'destructive'}>
-                  {results.recommendations.readyForScheduledRun ? 'Ready' : 'Not Ready'}
-                </Badge>
-              </div>
-
-              {results.recommendations.issues.length > 0 && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Issues Found:</strong>
-                    <ul className="mt-2 space-y-1">
-                      {results.recommendations.issues.map((issue, index) => (
-                        <li key={index} className="text-sm">• {issue}</li>
-                      ))}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* API Test Results */}
-          <Card>
-            <CardHeader>
-              <CardTitle>API Provider Tests</CardTitle>
-              <CardDescription>Test prompt: "{results.testPrompt}"</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {results.apiTests.map((result) => (
-                  <div key={result.provider} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {getProviderIcon(result)}
-                        <span className="font-medium capitalize">{result.provider}</span>
-                        {result.model && (
-                          <Badge variant="outline">{result.model}</Badge>
-                        )}
-                      </div>
-                      {getProviderBadge(result)}
-                    </div>
-
-                    {result.success ? (
-                      <div className="space-y-2 text-sm text-muted-foreground">
-                        <p>
-                          <strong>Duration:</strong> {result.duration}ms
-                        </p>
-                        <p>
-                          <strong>Tokens:</strong> {result.tokenIn} in / {result.tokenOut} out
-                        </p>
-                        {result.response && (
-                          <div>
-                            <strong>Response Preview:</strong>
-                            <p className="mt-1 p-2 bg-muted rounded text-xs max-h-24 overflow-y-auto">
-                              {result.response.substring(0, 200)}
-                              {result.response.length > 200 && '...'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-red-600">
-                        <strong>Error:</strong> {result.error}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Database Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Database Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Organizations</p>
-                  <p className="text-2xl font-bold">{results.databaseStatus.organizations}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Active Prompts</p>
-                  <p className="text-2xl font-bold">{results.databaseStatus.activePrompts}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Enabled Providers</p>
-                  <p className="text-2xl font-bold">{results.databaseStatus.enabledProviders.length}</p>
-                </div>
-              </div>
-              
-              {results.databaseStatus.enabledProviders.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm text-muted-foreground mb-2">Enabled Providers:</p>
-                  <div className="flex gap-2">
-                    {results.databaseStatus.enabledProviders.map((provider) => (
-                      <Badge key={provider} variant="outline">
-                        {provider}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="text-xs text-muted-foreground">
-            Last tested: {new Date(results.timestamp).toLocaleString()}
-          </div>
-        </div>
-      )}
-
-      {/* Manual Run All Prompts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Manual Run All Prompts
-          </CardTitle>
-          <CardDescription>
-            Manually trigger the daily scan to run all active prompts across all organizations immediately. This bypasses the 3AM EST schedule and idempotency checks.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={runAllPrompts} 
-            disabled={isManualRunning}
-            className="w-full"
-            variant="secondary"
-          >
-            {isManualRunning ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running All Prompts...
-              </>
-            ) : (
-              <>
-                <Zap className="mr-2 h-4 w-4" />
-                Run All Prompts Now
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {manualRunError && (
-        <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
-          <AlertDescription>{manualRunError}</AlertDescription>
-        </Alert>
-      )}
-
-      {manualRunResult && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              Manual Run Results
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge variant="default">{manualRunResult.status}</Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Run Type</p>
-                <Badge variant="outline">
-                  {manualRunResult.manualRun ? 'Manual' : manualRunResult.testMode ? 'Test' : 'Scheduled'}
-                </Badge>
-              </div>
-            </div>
+        <CardContent className="space-y-4">
+          <div className="flex gap-4">
+            <Button 
+              onClick={testSchedulerAPIs}
+              disabled={loading}
+              variant="outline"
+            >
+              {loading ? "Testing..." : "Test Scheduler APIs"}
+            </Button>
             
-            {manualRunResult.result && (
-              <>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Organizations Processed</p>
-                    <p className="text-2xl font-bold">{manualRunResult.result.organizations}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Runs</p>
-                    <p className="text-2xl font-bold">{manualRunResult.result.totalRuns}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Successful Runs</p>
-                    <p className="text-2xl font-bold text-green-600">{manualRunResult.result.successfulRuns}</p>
-                  </div>
+            <Button 
+              onClick={auditVisibilityData}
+              disabled={auditLoading}
+              variant="outline"
+            >
+              {auditLoading ? "Auditing..." : "Audit Visibility Data"}
+            </Button>
+          </div>
+
+          {auditResults && (
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Visibility Data Audit Results:</h4>
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Status:</span>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    auditResults.summary?.status === 'HEALTHY' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {auditResults.summary?.status || 'Unknown'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Message:</span>
+                  <span className="ml-2">{auditResults.summary?.message}</span>
                 </div>
                 
-                <div className="text-sm text-muted-foreground">
-                  <p><strong>Success Rate:</strong> {manualRunResult.result.totalRuns > 0 ? Math.round((manualRunResult.result.successfulRuns / manualRunResult.result.totalRuns) * 100) : 0}%</p>
-                  <p><strong>Completed at:</strong> {new Date(manualRunResult.timestamp).toLocaleString()}</p>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                {auditResults.summary?.recommendations && auditResults.summary.recommendations.length > 0 && (
+                  <div>
+                    <span className="font-medium">Recommendations:</span>
+                    <ul className="ml-4 mt-1 list-disc">
+                      {auditResults.summary.recommendations.map((rec: string, idx: number) => (
+                        <li key={idx} className="text-sm">{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-      <SchedulerTestAdmin />
+                <details className="mt-4">
+                  <summary className="cursor-pointer font-medium">View Detailed Checks</summary>
+                  <div className="mt-2 space-y-2 text-sm">
+                    <div>Prompts: {auditResults.checks?.prompts?.count || 0} total, {auditResults.checks?.prompts?.active || 0} active</div>
+                    <div>Recent Runs (24h): {auditResults.checks?.recentRuns?.successful || 0} successful, {auditResults.checks?.recentRuns?.failed || 0} failed</div>
+                    <div>Visibility Results: {auditResults.checks?.visibilityResults?.count || 0} results, avg score {auditResults.checks?.visibilityResults?.avgScore || 0}</div>
+                    <div>Competitor Mentions: {auditResults.checks?.competitorMentions?.count || 0} total, {auditResults.checks?.competitorMentions?.recentMentions || 0} recent</div>
+                    <div>Brand Catalog: {auditResults.checks?.brandCatalog?.totalBrands || 0} brands ({auditResults.checks?.brandCatalog?.competitorBrands || 0} competitors)</div>
+                  </div>
+                </details>
+              </div>
+            </div>
+          )}
+
+          {results && (
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">API Test Results:</h4>
+              <pre className="bg-muted/50 p-4 rounded-lg text-xs overflow-auto max-h-96">
+                {JSON.stringify(results, null, 2)}
+              </pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
