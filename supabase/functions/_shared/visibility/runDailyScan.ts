@@ -547,6 +547,57 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                     score: score,
                     raw_ai_response: extraction.responseText || ''
                   });
+
+                // Persist competitor mentions with proper tracking
+                for (const competitor of artifacts.competitors) {
+                  try {
+                    const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+                      p_org_id: org.id,
+                      p_prompt_id: prompt.id,
+                      p_competitor_name: competitor.name,
+                      p_normalized_name: competitor.normalized,
+                      p_position: competitor.first_pos_ratio,
+                      p_sentiment: competitor.sentiment || 'neutral'
+                    });
+
+                    if (mentionError) {
+                      console.error('Error upserting competitor mention:', mentionError);
+                    }
+
+                    // Also update brand catalog
+                    const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
+                      p_org_id: org.id,
+                      p_brand_name: competitor.name,
+                      p_score: Math.round((competitor.confidence || 0.5) * 100)
+                    });
+
+                    if (brandError) {
+                      console.error('Error upserting competitor brand:', brandError);
+                    }
+                  } catch (error) {
+                    console.error('Error processing competitor:', error);
+                  }
+                }
+
+                // Update org brand tracking if mentioned
+                for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
+                  try {
+                    const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+                      p_org_id: org.id,
+                      p_prompt_id: prompt.id,
+                      p_competitor_name: brand.name,
+                      p_normalized_name: brand.normalized,
+                      p_position: brand.first_pos_ratio,
+                      p_sentiment: brand.sentiment || 'neutral'
+                    });
+
+                    if (mentionError) {
+                      console.error('Error upserting org brand mention:', mentionError);
+                    }
+                  } catch (error) {
+                    console.error('Error processing org brand mention:', error);
+                  }
+                }
                 
                 successfulRuns++;
                 console.log(`Successfully processed prompt ${prompt.id} on ${provider.name}`);
