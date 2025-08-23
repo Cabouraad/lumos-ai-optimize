@@ -170,8 +170,8 @@ serve(async (req) => {
 
     console.log(`${isTestMode ? 'Test mode:' : isManualRun ? 'Manual run:' : 'Successfully claimed daily run,'} starting scan...`);
     
-    // Use the existing runDailyScan function with optional organization filter
-    const result = await runDailyScan(supabase, testOrganizationId);
+    // Use the existing runDailyScan function with optional organization filter and quota bypass
+    const result = await runDailyScan(supabase, testOrganizationId, isTestMode || isManualRun);
 
     console.log('Daily scan completed:', result);
 

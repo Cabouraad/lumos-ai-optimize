@@ -321,7 +321,7 @@ function getQuotasForTier(tier: string) {
   }
 }
 
-export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
+export async function runDailyScan(supabase: ReturnType<typeof createClient>, organizationId?: string, bypassQuotas: boolean = false) {
   try {
     console.log('Starting daily scan...');
     
@@ -335,8 +335,8 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
       return { success: false, error: 'No API keys configured' };
     }
 
-    // Get all organizations with active prompts
-    const { data: organizations } = await supabase
+    // Get all organizations with active prompts (optionally filter by organizationId)
+    let orgQuery = supabase
       .from('organizations')
       .select(`
         id, 
@@ -344,6 +344,12 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
         plan_tier,
         brand_catalog!inner(name, variants_json)
       `);
+    
+    if (organizationId) {
+      orgQuery = orgQuery.eq('id', organizationId);
+    }
+    
+    const { data: organizations } = await orgQuery;
 
     if (!organizations?.length) {
       console.log('No organizations found');
@@ -391,24 +397,31 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>) {
 
         console.log(`Found ${prompts.length} active prompts for ${org.name}`);
 
-        // Check today's runs to respect quotas
-        const today = new Date().toISOString().split('T')[0];
-        const { data: todayRuns } = await supabase
-          .from('prompt_runs')
-          .select('id')
-          .gte('run_at', `${today}T00:00:00Z`)
-          .lt('run_at', `${today}T23:59:59Z`)
-          .in('prompt_id', prompts.map(p => p.id));
+        // Check today's runs to respect quotas (unless bypassing quotas)
+        let todayRuns: any[] = [];
+        if (!bypassQuotas) {
+          const today = new Date().toISOString().split('T')[0];
+          const { data } = await supabase
+            .from('prompt_runs')
+            .select('id')
+            .gte('run_at', `${today}T00:00:00Z`)
+            .lt('run_at', `${today}T23:59:59Z`)
+            .in('prompt_id', prompts.map(p => p.id));
+          
+          todayRuns = data || [];
 
-        if (todayRuns && todayRuns.length >= quotas.promptsPerDay) {
-          console.log(`Daily quota exceeded for ${org.name}`);
-          continue;
+          if (todayRuns.length >= quotas.promptsPerDay) {
+            console.log(`Daily quota exceeded for ${org.name}`);
+            continue;
+          }
         }
 
         // Process each prompt
         for (const prompt of prompts) {
-          const remainingQuota = quotas.promptsPerDay - (todayRuns?.length || 0);
-          if (remainingQuota <= 0) break;
+          if (!bypassQuotas) {
+            const remainingQuota = quotas.promptsPerDay - (todayRuns?.length || 0);
+            if (remainingQuota <= 0) break;
+          }
 
           // Process providers for this prompt
           for (const provider of providers.slice(0, quotas.providersPerPrompt)) {
