@@ -39,19 +39,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Authenticate with CRON_SECRET
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  const auth = req.headers.get("authorization");
-  
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }), 
-      { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
-  }
+  // No authentication required - function is triggered by Supabase scheduler
+  console.log('Daily scan function invoked by scheduler at', new Date().toISOString());
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

@@ -1,89 +1,91 @@
-# Scheduler Setup Instructions
+# Scheduler Setup - Automated Daily Runs
 
-The daily scheduler system has been implemented and requires setting up Supabase cron jobs to trigger the `daily-scan` Edge Function.
+The daily scheduler system is **automatically configured** and runs without manual setup. This document explains how it works and provides verification steps.
 
-## Automatic Setup via SQL Migration
+## 🚀 Automatic Operation
 
-The scheduler state table and Edge Function have been created automatically. You need to set up the cron jobs in your Supabase project:
+The scheduler is **already running** and configured to:
 
-## Manual Cron Setup in Supabase Dashboard
+- ✅ **Run automatically at 3:00 AM Eastern Time** every day
+- ✅ **Handle Daylight Saving Time** with dual UTC triggers (7:00 AM & 8:00 AM UTC)
+- ✅ **Prevent duplicate runs** with built-in idempotency
+- ✅ **Process all active prompts** for all organizations
+- ✅ **Respect quota limits** and use intelligent caching
 
-1. **Go to your Supabase project dashboard**
-2. **Navigate to**: SQL Editor
-3. **Run the following SQL commands** to create the cron jobs:
+## 📋 How It Works
 
-```sql
--- Enable the pg_cron extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
--- Schedule the daily-scheduler function to run at 7:00 AM UTC (covers EDT - Eastern Daylight Time)
-SELECT cron.schedule(
-  'daily-scheduler-edt',
-  '0 7 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-scheduler',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk"}'::jsonb,
-    body := '{"trigger": "cron-edt"}'::jsonb
-  );
-  $$
-);
-
--- Schedule the daily-scheduler function to run at 8:00 AM UTC (covers EST - Eastern Standard Time)
-SELECT cron.schedule(
-  'daily-scheduler-est',
-  '0 8 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-scheduler',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk"}'::jsonb,
-    body := '{"trigger": "cron-est"}'::jsonb
-  );
-  $$
-);
+### Automatic Scheduling
+The `daily-scan` Edge Function is automatically scheduled via `supabase/config.toml`:
+```toml
+[functions.daily-scan]
+verify_jwt = false
+schedule = ["0 7 * * *", "0 8 * * *"]  # 7 AM & 8 AM UTC
 ```
 
-## How It Works
+### Time Gate Protection  
+The function only executes after 3:00 AM Eastern Time, regardless of when triggered:
+- **During EDT (March-November)**: Triggered at 7:00 AM UTC = 3:00 AM EDT
+- **During EST (November-March)**: Triggered at 8:00 AM UTC = 3:00 AM EST
 
-1. **Dual Scheduling**: Two cron jobs run at 7 AM and 8 AM UTC to handle both EDT and EST timezones
-2. **Idempotency**: The Edge Function uses the `scheduler_state` table to ensure only one run per day
-3. **Time Check**: The function only executes after 3:00 AM Eastern Time
-4. **Automatic Execution**: All active prompts are run automatically with the existing caching and quota logic
+### Idempotency Protection
+Using the `scheduler_state` table, the system ensures only one run per day:
+- Creates a unique daily key (e.g., "2024-08-23")  
+- Uses atomic database operations to prevent race conditions
+- Skips execution if already completed for the day
 
-## Verify Setup
+## 🔍 Verify Operation
 
-After setting up the cron jobs, you can verify they're working by:
+### 1. Check Scheduler Status
+The UI automatically displays current status in the dashboard.
 
-1. **Check cron jobs**: 
-   ```sql
-   SELECT * FROM cron.job;
-   ```
+### 2. View Function Logs
+Monitor execution in [Supabase Functions Dashboard](https://supabase.com/dashboard/project/cgocsffxqyhojtyzniyz/functions/daily-scan/logs)
 
-2. **Monitor scheduler state**:
-   ```sql
-   SELECT * FROM scheduler_state;
-   ```
+### 3. Check Database State
+```sql
+SELECT * FROM scheduler_state WHERE id = 'global';
+```
 
-3. **Check Edge Function logs** in the Supabase Dashboard under Functions > daily-scan > Logs
-
-## Features
-
-- ✅ **Automated daily runs** at 3:00 AM Eastern Time
-- ✅ **Idempotent execution** (runs once per day maximum)
-- ✅ **DST-aware** with dual UTC scheduling
-- ✅ **Cost optimization** with caching and quota limits
-- ✅ **No manual intervention** required
-- ✅ **Real-time status display** in the UI
-- ✅ **Error handling and logging**
-
-## Manual Testing
-
-To manually test the Edge Function (outside the time window):
+### 4. Test Function Manually
 ```bash
 curl -X POST https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-scan \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"test": true}'
+  -H "Content-Type: application/json"
 ```
 
-The function will return status information including whether it's outside the execution window.
+## 🛠 Architecture
+
+```
+Supabase Scheduler (UTC)
+    ↓
+daily-scan Edge Function
+    ↓
+Time Gate Check (3 AM ET)
+    ↓
+Idempotency Check
+    ↓
+Process All Organizations
+    ↓
+Run Active Prompts
+    ↓
+Store Results
+```
+
+## 📊 Features
+
+- **Zero Configuration**: No manual cron setup required
+- **DST Aware**: Automatically handles time zone changes  
+- **Fault Tolerant**: Handles errors gracefully with retries
+- **Cost Optimized**: Respects quotas and uses caching
+- **Real-time Status**: UI shows last run and next run times
+- **Comprehensive Logging**: Full audit trail in Supabase logs
+
+## 🔧 Troubleshooting
+
+If the scheduler appears to not be running:
+
+1. **Check Function Status**: [Edge Functions Dashboard](https://supabase.com/dashboard/project/cgocsffxqyhojtyzniyz/functions)
+2. **Review Logs**: [Daily Scan Logs](https://supabase.com/dashboard/project/cgocsffxqyhojtyzniyz/functions/daily-scan/logs)  
+3. **Verify Database**: Check `scheduler_state` table for recent updates
+4. **Test API Keys**: Use the "Test Scheduler APIs" feature in settings
+
+The system is designed to be completely autonomous - no manual intervention should be required.

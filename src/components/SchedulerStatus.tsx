@@ -23,11 +23,7 @@ export function SchedulerStatus() {
 
   const loadSchedulerState = async () => {
     try {
-      const { data, error } = await supabase
-        .from('scheduler_state')
-        .select('*')
-        .eq('id', 'global')
-        .single();
+      const { data, error } = await supabase.functions.invoke('scheduler-status');
 
       if (error) {
         console.error('Failed to load scheduler state:', error);
