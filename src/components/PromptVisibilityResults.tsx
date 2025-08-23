@@ -43,14 +43,14 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     try {
       setLoading(true);
 
-      // 1) Get recent successful runs for this prompt
+      // Simplified: Get recent successful runs and their visibility results
       const { data: runs, error: runsError } = await supabase
         .from('prompt_runs')
         .select('id, provider_id, status, run_at')
         .eq('prompt_id', promptId)
         .eq('status', 'success')
         .order('run_at', { ascending: false })
-        .limit(30);
+        .limit(20);
 
       if (runsError) {
         console.error('Error fetching runs:', runsError);
@@ -58,48 +58,53 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
         return;
       }
 
-      const runIds = (runs || []).map(r => r.id);
-      const providerIds = Array.from(new Set((runs || []).map(r => r.provider_id)));
-
-      // 2) Fetch visibility results for these runs
-      const { data: visRes, error: visError } = await supabase
-        .from('visibility_results')
-        .select('id, score, org_brand_present, org_brand_prominence, competitors_count, brands_json, raw_evidence, raw_ai_response, prompt_run_id')
-        .in('prompt_run_id', runIds);
-
-      if (visError) {
-        console.error('Error fetching visibility results:', visError);
+      if (!runs || runs.length === 0) {
+        setResults([]);
+        return;
       }
 
-      // 3) Fetch provider names
-      let providerMap = new Map<string, string>();
-      if (providerIds.length > 0) {
-        const { data: providers, error: provError } = await supabase
+      const runIds = runs.map(r => r.id);
+
+      // Get visibility results and provider info in parallel
+      const [visibilityRes, providersRes] = await Promise.all([
+        supabase
+          .from('visibility_results')
+          .select('*')
+          .in('prompt_run_id', runIds),
+        supabase
           .from('llm_providers')
           .select('id, name')
-          .in('id', providerIds);
-        if (provError) {
-          console.error('Error fetching providers:', provError);
-        } else {
-          (providers || []).forEach(p => providerMap.set(p.id, p.name));
-        }
+      ]);
+
+      if (visibilityRes.error) {
+        console.error('Error fetching visibility results:', visibilityRes.error);
+        setResults([]);
+        return;
       }
 
-      // 4) Merge runs + visibility + provider name
-      const visByRun = new Map((visRes || []).map(v => [v.prompt_run_id, v] as const));
-      const merged = (runs || [])
+      const providerMap = new Map();
+      (providersRes.data || []).forEach(p => providerMap.set(p.id, p.name));
+
+      // Merge data
+      const visibilityByRun = new Map();
+      (visibilityRes.data || []).forEach(v => {
+        visibilityByRun.set(v.prompt_run_id, v);
+      });
+
+      const results = runs
         .map(run => {
-          const v = visByRun.get(run.id);
-          if (!v) return null;
+          const visibility = visibilityByRun.get(run.id);
+          if (!visibility) return null;
+
           return {
-            id: v.id,
-            score: v.score,
-            org_brand_present: v.org_brand_present,
-            org_brand_prominence: v.org_brand_prominence,
-            competitors_count: v.competitors_count,
-            brands_json: v.brands_json,
-            raw_evidence: v.raw_evidence,
-            raw_ai_response: v.raw_ai_response,
+            id: visibility.id,
+            score: visibility.score,
+            org_brand_present: visibility.org_brand_present,
+            org_brand_prominence: visibility.org_brand_prominence,
+            competitors_count: visibility.competitors_count,
+            brands_json: visibility.brands_json,
+            raw_evidence: visibility.raw_evidence,
+            raw_ai_response: visibility.raw_ai_response,
             prompt_runs: {
               id: run.id,
               status: run.status,
@@ -110,10 +115,10 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
         })
         .filter(Boolean) as VisibilityResult[];
 
-      // Keep only latest 10
-      setResults(merged.slice(0, 10));
+      setResults(results.slice(0, 10));
     } catch (error) {
       console.error('Error fetching results:', error);
+      setResults([]);
     } finally {
       setLoading(false);
     }

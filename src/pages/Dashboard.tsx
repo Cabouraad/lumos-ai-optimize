@@ -51,9 +51,9 @@ export default function Dashboard() {
   const handleManualRun = async () => {
     setManualRunLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('daily-scan', {
-        body: { manualRun: true }
-      });
+    const { data: result, error } = await supabase.functions.invoke('run-all-prompts', {
+      body: { manualRun: true }
+    });
       
       if (error) throw error;
       
