@@ -65,42 +65,46 @@ export async function runPrompt(promptId: string, orgId: string): Promise<RunPro
           continue;
         }
 
-        // Store successful run
-        const { data: run } = await supabase
-          .from('prompt_runs')
-          .insert({
-            prompt_id: promptId,
-            provider_id: provider.id,
-            status: 'success',
-            token_in: response.tokenIn || 0,
-            token_out: response.tokenOut || 0,
-            cost_est: 0
-          })
-          .select()
-          .single();
+// Store successful run
+const { data: run } = await supabase
+  .from('prompt_runs')
+  .insert({
+    prompt_id: promptId,
+    provider_id: provider.id,
+    status: 'success',
+    token_in: response.tokenIn || 0,
+    token_out: response.tokenOut || 0,
+    cost_est: 0,
+    brands: response.brands || [],
+    competitors: response.competitors || []
+  })
+  .select()
+  .single();
 
-        if (run) {
-          // Calculate and store visibility results
-          const visibilityScore = calculateVisibilityScore(response.brands, response.responseText, orgId);
-          
-          await supabase
-            .from('visibility_results')
-            .insert({
-              prompt_run_id: run.id,
-              org_brand_present: visibilityScore.brandPresent,
-              org_brand_prominence: visibilityScore.brandPosition,
-              competitors_count: visibilityScore.competitorCount,
-              brands_json: response.brands,
-              score: visibilityScore.score,
-              raw_ai_response: response.responseText,
-              raw_evidence: JSON.stringify({
-                brands: response.brands,
-                analysis: visibilityScore.analysis
-              })
-            });
+if (run) {
+  // Use edge function's enhanced scoring and classification
+  const s = response.score || { brandPresent: false, brandPosition: null, competitorCount: 0, score: 0 };
 
-          runsCreated++;
-        }
+  await supabase
+    .from('visibility_results')
+    .insert({
+      prompt_run_id: run.id,
+      org_brand_present: s.brandPresent,
+      org_brand_prominence: s.brandPosition,
+      competitors_count: s.competitorCount,
+      brands_json: response.brands,
+      score: s.score,
+      raw_ai_response: response.responseText,
+      raw_evidence: JSON.stringify({
+        brands: response.brands,
+        orgBrands: response.orgBrands,
+        competitors: response.competitors,
+        score: s
+      })
+    });
+
+  runsCreated++;
+}
 
       } catch (providerError) {
         console.error(`Provider ${provider.name} error:`, providerError);
@@ -128,19 +132,16 @@ export async function runPrompt(promptId: string, orgId: string): Promise<RunPro
 
 /**
  * Calculate visibility score based on brand analysis
+ * (No longer used; keeping for reference)
  */
 function calculateVisibilityScore(brands: string[], responseText: string, orgId: string) {
-  // Simple scoring logic - will be enhanced
   const brandPresent = brands.length > 0;
-  const competitorCount = Math.max(0, brands.length - 1); // Assume first brand is user's
-  const brandPosition = brandPresent ? 0 : null; // First position if present
-  
-  // Basic scoring: 10 if brand present in first position, decreasing based on competitors
+  const competitorCount = Math.max(0, brands.length - 1);
+  const brandPosition = brandPresent ? 0 : null;
   let score = 0;
   if (brandPresent) {
     score = Math.max(1, 10 - competitorCount);
   }
-
   return {
     brandPresent,
     brandPosition,
