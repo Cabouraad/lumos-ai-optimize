@@ -167,7 +167,7 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
         const { data: brandCatalog } = await supabase
           .from('brand_catalog')
           .select('name, variants_json, is_org_brand')
-          .eq('org_id', org.id);
+          .eq('org_id', orgId);
 
         // Classify brands as org brands vs competitors
         const { orgBrands, competitors } = classifyBrands(brandAnalysis.brands, brandCatalog || []);
@@ -292,29 +292,43 @@ async function extractBrandsPerplexity(promptText: string) {
     },
     body: JSON.stringify({
       model: 'llama-3.1-sonar-small-128k-online',
+      temperature: 0.1,
+      max_tokens: 1000,
+      return_images: false,
+      return_related_questions: false,
       messages: [
         {
+          role: 'system',
+          content: 'You are an extraction API. Given a user prompt, output ONLY a JSON object with a single key brands as an array of brand or company names you would include in your answer. No explanations.'
+        },
+        {
           role: 'user',
-          content: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+          content: promptText
         }
-      ],
-      max_tokens: 1000,
-      temperature: 0.2
+      ]
     }),
   });
 
   if (!response.ok) throw new Error(`Perplexity API error: ${response.status}`);
 
   const data = await response.json();
-  const content = data.choices[0]?.message?.content || '';
-  
-  const brands = extractBrandsFromResponse(content);
+  const content = data.choices?.[0]?.message?.content || '';
+  const usage = data.usage || {};
+
+  // Prefer direct JSON content when present, else fallback
+  let brands: string[] = [];
+  try {
+    const parsed = JSON.parse(content);
+    brands = Array.isArray(parsed.brands) ? parsed.brands : extractBrandsFromResponse(content);
+  } catch {
+    brands = extractBrandsFromResponse(content);
+  }
 
   return {
     brands,
     responseText: content,
-    tokenIn: 0,
-    tokenOut: 0
+    tokenIn: usage.prompt_tokens || 0,
+    tokenOut: usage.completion_tokens || 0
   };
 }
 
@@ -322,17 +336,27 @@ async function extractBrandsGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not found');
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-        }]
-      }]
+      contents: [
+        {
+          parts: [
+            {
+              text: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2000,
+      }
     }),
   });
 
@@ -340,14 +364,15 @@ async function extractBrandsGemini(promptText: string) {
 
   const data = await response.json();
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  
+  const usage = data.usageMetadata || {};
+
   const brands = extractBrandsFromResponse(content);
 
   return {
     brands,
     responseText: content,
-    tokenIn: 0,
-    tokenOut: 0
+    tokenIn: usage.promptTokenCount || 0,
+    tokenOut: usage.candidatesTokenCount || 0
   };
 }
 
