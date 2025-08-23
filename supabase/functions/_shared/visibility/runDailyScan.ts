@@ -467,7 +467,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                       .single();
 
                     if (cachedRun) {
-                      await supabase
+                      const { error: cachedVisibilityError } = await supabase
                         .from('visibility_results')
                         .insert({
                           prompt_run_id: cachedRun.id,
@@ -476,10 +476,16 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                           brands_json: lastResult[0].brands_json,
                           competitors_count: lastResult[0].competitors_count,
                           raw_evidence: 'Cached result',
-                          score: lastResult[0].score
+                          score: Math.round(lastResult[0].score || 0),
+                          raw_ai_response: 'Cached from previous run'
                         });
-                      successfulRuns++;
-                      console.log(`Used cached result for prompt ${prompt.id} on ${provider.name}`);
+                      
+                      if (cachedVisibilityError) {
+                        console.error('Error inserting cached visibility result:', cachedVisibilityError);
+                      } else {
+                        successfulRuns++;
+                        console.log(`Used cached result for prompt ${prompt.id} on ${provider.name}`);
+                      }
                     }
                     continue;
                   }
@@ -529,13 +535,16 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
 
               if (newRun) {
                   // Insert visibility_results using enhanced competitor analysis
-                await supabase
+                const { error: visibilityError } = await supabase
                   .from('visibility_results')
                   .insert({
                     prompt_run_id: newRun.id,
                     org_brand_present: orgPresent,
-                    org_brand_prominence: orgBrandIdx ?? 0,
-                    brands_json: [...artifacts.brands.map(b => b.name), ...artifacts.competitors.map(c => c.name)],
+                    org_brand_prominence: orgBrandIdx ?? null,
+                    brands_json: [
+                      ...artifacts.brands.map(b => ({ brand_name: b.name, score: Math.round((b.confidence || 0.5) * 10) })),
+                      ...artifacts.competitors.map(c => ({ brand_name: c.name, score: Math.round((c.confidence || 0.5) * 10) }))
+                    ],
                     competitors_count: competitorsCount,
                     raw_evidence: JSON.stringify({ 
                       userBrands: artifacts.brands,
@@ -548,59 +557,65 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                     raw_ai_response: extraction.responseText || ''
                   });
 
-                // Persist competitor mentions with proper tracking
-                for (const competitor of artifacts.competitors) {
-                  try {
-                    const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
-                      p_org_id: org.id,
-                      p_prompt_id: prompt.id,
-                      p_competitor_name: competitor.name,
-                      p_normalized_name: competitor.normalized,
-                      p_position: competitor.first_pos_ratio,
-                      p_sentiment: competitor.sentiment || 'neutral'
-                    });
+                if (visibilityError) {
+                  console.error('Error inserting visibility result:', visibilityError);
+                } else {
 
-                    if (mentionError) {
-                      console.error('Error upserting competitor mention:', mentionError);
+                  // Persist competitor mentions with proper tracking
+                  for (const competitor of artifacts.competitors) {
+                    try {
+                      const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+                        p_org_id: org.id,
+                        p_prompt_id: prompt.id,
+                        p_competitor_name: competitor.name,
+                        p_normalized_name: competitor.normalized,
+                        p_position: competitor.first_pos_ratio,
+                        p_sentiment: competitor.sentiment || 'neutral'
+                      });
+
+                      if (mentionError) {
+                        console.error('Error upserting competitor mention:', mentionError);
+                      }
+
+                      // Also update brand catalog
+                      const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
+                        p_org_id: org.id,
+                        p_brand_name: competitor.name,
+                        p_score: Math.round((competitor.confidence || 0.5) * 100)
+                      });
+
+                      if (brandError) {
+                        console.error('Error upserting competitor brand:', brandError);
+                      }
+                    } catch (error) {
+                      console.error('Error processing competitor:', error);
                     }
-
-                    // Also update brand catalog
-                    const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
-                      p_org_id: org.id,
-                      p_brand_name: competitor.name,
-                      p_score: Math.round((competitor.confidence || 0.5) * 100)
-                    });
-
-                    if (brandError) {
-                      console.error('Error upserting competitor brand:', brandError);
-                    }
-                  } catch (error) {
-                    console.error('Error processing competitor:', error);
                   }
-                }
 
-                // Update org brand tracking if mentioned
-                for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
-                  try {
-                    const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
-                      p_org_id: org.id,
-                      p_prompt_id: prompt.id,
-                      p_competitor_name: brand.name,
-                      p_normalized_name: brand.normalized,
-                      p_position: brand.first_pos_ratio,
-                      p_sentiment: brand.sentiment || 'neutral'
-                    });
+                  // Update org brand tracking if mentioned
+                  for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
+                    try {
+                      const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+                        p_org_id: org.id,
+                        p_prompt_id: prompt.id,
+                        p_competitor_name: brand.name,
+                        p_normalized_name: brand.normalized,
+                        p_position: brand.first_pos_ratio,
+                        p_sentiment: brand.sentiment || 'neutral'
+                      });
 
-                    if (mentionError) {
-                      console.error('Error upserting org brand mention:', mentionError);
+                      if (mentionError) {
+                        console.error('Error upserting org brand mention:', mentionError);
+                      }
+                    } catch (error) {
+                      console.error('Error processing org brand mention:', error);
                     }
-                  } catch (error) {
-                    console.error('Error processing org brand mention:', error);
                   }
+                  
+                  console.log(`Successfully processed prompt ${prompt.id} on ${provider.name}`);
                 }
                 
                 successfulRuns++;
-                console.log(`Successfully processed prompt ${prompt.id} on ${provider.name}`);
               }
 
               // Small delay to prevent rate limiting

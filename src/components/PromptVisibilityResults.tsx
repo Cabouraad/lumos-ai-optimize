@@ -222,7 +222,11 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
               <div className="mt-4 pt-4 border-t">
                 <p className="text-sm font-medium mb-2">Detected Brands:</p>
                 <div className="flex flex-wrap gap-2">
-                  {result.brands_json.map((brand: string, index: number) => {
+                  {result.brands_json.map((brandData: any, index: number) => {
+                    // Handle both old string format and new object format
+                    const brandName = typeof brandData === 'string' ? brandData : brandData.brand_name;
+                    const brandScore = typeof brandData === 'object' ? brandData.score : null;
+                    
                     // Try to determine if this is a user brand or competitor from raw_evidence
                     let isUserBrand = false;
                     let isCompetitor = false;
@@ -231,10 +235,10 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                       if (result.raw_evidence) {
                         const evidence = JSON.parse(result.raw_evidence);
                         if (evidence.userBrands) {
-                          isUserBrand = evidence.userBrands.some((ub: any) => ub.name === brand);
+                          isUserBrand = evidence.userBrands.some((ub: any) => ub.name === brandName);
                         }
                         if (evidence.competitors) {
-                          isCompetitor = evidence.competitors.some((c: any) => c.name === brand);
+                          isCompetitor = evidence.competitors.some((c: any) => c.name === brandName);
                         }
                       }
                     } catch (e) {
@@ -248,7 +252,8 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                     
                     return (
                       <Badge key={index} variant={badgeVariant} className="text-xs">
-                        {brand}
+                        {brandName}
+                        {brandScore !== null && ` (${brandScore}/10)`}
                         {isUserBrand && " (You)"}
                         {isCompetitor && " (Competitor)"}
                       </Badge>
