@@ -6,9 +6,12 @@ import { CircularGauge } from '@/components/CircularGauge';
 import { QuickInsights } from '@/components/QuickInsights';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, FileText, Users } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, FileText, Users, Zap, Loader2 } from 'lucide-react';
 import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
   const { hasAccessToApp, isOnTrial, daysRemainingInTrial } = useSubscriptionGate();
@@ -17,6 +20,33 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [isRunningAll, setIsRunningAll] = useState(false);
+  const { toast } = useToast();
+
+  const handleRunAllPrompts = async () => {
+    setIsRunningAll(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('daily-scan', {
+        body: { manualRun: true }
+      });
+      if (error) throw error;
+      const result = (data as any)?.result;
+      toast({
+        title: 'Manual run completed',
+        description: result
+          ? `Processed ${result.organizations} orgs · ${result.successfulRuns}/${result.totalRuns} successful`
+          : 'Completed successfully',
+      });
+      // Refresh dashboard data
+      const refreshed = await getSafeDashboardData();
+      setDashboardData(refreshed);
+    } catch (e: any) {
+      console.error('Manual run failed:', e);
+      toast({ title: 'Manual run failed', description: e.message || 'Unknown error' });
+    } finally {
+      setIsRunningAll(false);
+    }
+  };
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -124,7 +154,36 @@ export default function Dashboard() {
             Your brand visibility performance overview
           </p>
         </div>
-        
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Manual Run All Prompts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleRunAllPrompts}
+              disabled={isRunningAll}
+              className="w-full"
+              variant="secondary"
+            >
+              {isRunningAll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Running All Prompts...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Run All Prompts Now
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Today's Average Score */}
