@@ -144,28 +144,36 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
     // Run prompt on each provider
     for (const provider of providers) {
       try {
-        // Execute prompt based on provider
-        let response;
+        // Execute prompt based on provider with enhanced brand extraction
+        let brandAnalysis;
         switch (provider.name) {
           case 'openai':
-            response = await executeOpenAI(prompt.text);
+            brandAnalysis = await extractBrandsOpenAI(prompt.text);
             break;
           case 'perplexity':
-            response = await executePerplexity(prompt.text);
+            brandAnalysis = await extractBrandsPerplexity(prompt.text);
             break;
           case 'gemini':
-            response = await executeGemini(prompt.text);
+            brandAnalysis = await extractBrandsGemini(prompt.text);
             break;
           default:
             console.log(`Unknown provider: ${provider.name}`);
             continue;
         }
 
-        if (!response) continue;
+        if (!brandAnalysis) continue;
 
-        // Extract brands and calculate score
-        const brands = extractBrands(response.text);
-        const score = calculateVisibilityScore(brands, response.text);
+        // Get organization's brand catalog for proper identification
+        const { data: brandCatalog } = await supabase
+          .from('brand_catalog')
+          .select('name, variants_json, is_org_brand')
+          .eq('org_id', org.id);
+
+        // Classify brands as org brands vs competitors
+        const { orgBrands, competitors } = classifyBrands(brandAnalysis.brands, brandCatalog || []);
+        
+        // Calculate enhanced visibility score
+        const score = calculateEnhancedVisibilityScore(orgBrands, competitors, brandAnalysis.responseText);
 
         // Store run
         const { data: run } = await supabase
@@ -174,8 +182,8 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
             prompt_id: promptId,
             provider_id: provider.id,
             status: 'success',
-            token_in: response.tokenIn || 0,
-            token_out: response.tokenOut || 0,
+            token_in: brandAnalysis.tokenIn || 0,
+            token_out: brandAnalysis.tokenOut || 0,
             cost_est: 0
           })
           .select()
@@ -190,10 +198,15 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
               org_brand_present: score.brandPresent,
               org_brand_prominence: score.brandPosition,
               competitors_count: score.competitorCount,
-              brands_json: brands,
+              brands_json: brandAnalysis.brands,
               score: score.score,
-              raw_ai_response: response.text,
-              raw_evidence: JSON.stringify({ brands, analysis: score })
+              raw_ai_response: brandAnalysis.responseText,
+              raw_evidence: JSON.stringify({ 
+                allBrands: brandAnalysis.brands,
+                orgBrands,
+                competitors,
+                analysis: score 
+              })
             });
 
           runsCreated++;
@@ -223,8 +236,8 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
   }
 }
 
-// Provider execution functions (same as in execute-prompt)
-async function executeOpenAI(promptText: string) {
+// Enhanced provider execution functions with brand extraction
+async function extractBrandsOpenAI(promptText: string) {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('OpenAI API key not found');
 
@@ -236,7 +249,16 @@ async function executeOpenAI(promptText: string) {
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: promptText }],
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively and naturally. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned in your answer.'
+        },
+        {
+          role: 'user',
+          content: promptText
+        }
+      ],
       max_tokens: 1000,
       temperature: 0.7
     }),
@@ -245,14 +267,20 @@ async function executeOpenAI(promptText: string) {
   if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
 
   const data = await response.json();
+  const content = data.choices[0].message.content;
+  const usage = data.usage || {};
+
+  const brands = extractBrandsFromResponse(content);
+
   return {
-    text: data.choices[0].message.content,
-    tokenIn: data.usage?.prompt_tokens || 0,
-    tokenOut: data.usage?.completion_tokens || 0
+    brands,
+    responseText: content,
+    tokenIn: usage.prompt_tokens || 0,
+    tokenOut: usage.completion_tokens || 0,
   };
 }
 
-async function executePerplexity(promptText: string) {
+async function extractBrandsPerplexity(promptText: string) {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) throw new Error('Perplexity API key not found');
 
@@ -264,7 +292,12 @@ async function executePerplexity(promptText: string) {
     },
     body: JSON.stringify({
       model: 'llama-3.1-sonar-small-128k-online',
-      messages: [{ role: 'user', content: promptText }],
+      messages: [
+        {
+          role: 'user',
+          content: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+        }
+      ],
       max_tokens: 1000,
       temperature: 0.2
     }),
@@ -273,75 +306,187 @@ async function executePerplexity(promptText: string) {
   if (!response.ok) throw new Error(`Perplexity API error: ${response.status}`);
 
   const data = await response.json();
+  const content = data.choices[0]?.message?.content || '';
+  
+  const brands = extractBrandsFromResponse(content);
+
   return {
-    text: data.choices[0].message.content,
+    brands,
+    responseText: content,
     tokenIn: 0,
     tokenOut: 0
   };
 }
 
-async function executeGemini(promptText: string) {
+async function extractBrandsGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not found');
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: promptText }] }]
+      contents: [{
+        parts: [{
+          text: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+        }]
+      }]
     }),
   });
 
   if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
 
   const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  
+  const brands = extractBrandsFromResponse(content);
+
   return {
-    text: data.candidates?.[0]?.content?.parts?.[0]?.text || '',
+    brands,
+    responseText: content,
     tokenIn: 0,
     tokenOut: 0
   };
 }
 
-function extractBrands(text: string): string[] {
-  const brands: string[] = [];
-  const words = text.split(/\s+/);
-  const brandPattern = /^[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*$/;
+// Shared utility functions
+function extractBrandsFromResponse(text: string): string[] {
+  const jsonMatch = text.match(/\{[^}]*"brands"[^}]*\}/);
+  let brands: string[] = [];
   
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i].replace(/[.,!?;:]$/, '');
-    
-    if (brandPattern.test(word) && word.length > 2) {
-      brands.push(word);
-    }
-    
-    if (i < words.length - 1) {
-      const twoWord = `${word} ${words[i + 1].replace(/[.,!?;:]$/, '')}`;
-      if (brandPattern.test(twoWord)) {
-        brands.push(twoWord);
-        i++;
-      }
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+    } catch {
+      // JSON parsing failed
     }
   }
   
-  const commonWords = ['The', 'This', 'That', 'And', 'Or', 'But', 'With', 'For', 'On', 'In', 'At', 'To', 'From'];
-  return [...new Set(brands)]
-    .filter(brand => !commonWords.includes(brand))
-    .filter(brand => brand.length > 1)
-    .slice(0, 10);
+  if (brands.length === 0) {
+    brands = extractBrandsFromText(text);
+  }
+  
+  return brands;
 }
 
-function calculateVisibilityScore(brands: string[], responseText: string) {
-  const brandPresent = brands.length > 0;
-  const competitorCount = Math.max(0, brands.length - 1);
-  const brandPosition = brandPresent ? 0 : null;
+function extractBrandsFromText(text: string): string[] {
+  const brandPatterns = [
+    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g,
+    /\b[A-Z][a-z]{2,}\b/g,
+  ];
+  
+  const brands = new Set<string>();
+  
+  for (const pattern of brandPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        if (!isCommonWord(match) && match.length > 2) {
+          brands.add(match);
+        }
+      });
+    }
+  }
+  
+  return Array.from(brands).slice(0, 15);
+}
+
+function isCommonWord(word: string): boolean {
+  const commonWords = [
+    'The', 'This', 'That', 'Here', 'There', 'When', 'Where', 'What', 'How',
+    'Some', 'Many', 'Most', 'All', 'Best', 'Good', 'Better', 'Great',
+    'First', 'Last', 'Next', 'New', 'Old', 'Other', 'Another', 'Each', 'Every'
+  ];
+  return commonWords.includes(word);
+}
+
+function classifyBrands(extractedBrands: string[], brandCatalog: any[]) {
+  const orgBrands: string[] = [];
+  const competitors: string[] = [];
+  
+  for (const brand of extractedBrands) {
+    const normalizedBrand = normalize(brand);
+    
+    const isOrgBrand = brandCatalog.some(catalogBrand => {
+      if (catalogBrand.is_org_brand) {
+        const normalizedCatalogBrand = normalize(catalogBrand.name);
+        
+        if (normalizedBrand === normalizedCatalogBrand) return true;
+        if (normalizedBrand.includes(normalizedCatalogBrand)) return true;
+        
+        for (const variant of catalogBrand.variants_json || []) {
+          const normalizedVariant = normalize(variant);
+          if (normalizedBrand === normalizedVariant || normalizedBrand.includes(normalizedVariant)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+    
+    if (isOrgBrand) {
+      orgBrands.push(brand);
+    } else {
+      competitors.push(brand);
+    }
+  }
+  
+  return { orgBrands, competitors };
+}
+
+function normalize(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function calculateEnhancedVisibilityScore(orgBrands: string[], competitors: string[], responseText: string) {
+  const orgBrandPresent = orgBrands.length > 0;
+  const competitorCount = competitors.length;
+  
+  let brandPosition = null;
+  if (orgBrandPresent) {
+    const responseWords = responseText.toLowerCase().split(/\s+/);
+    for (const orgBrand of orgBrands) {
+      const brandWords = orgBrand.toLowerCase().split(/\s+/);
+      for (let i = 0; i <= responseWords.length - brandWords.length; i++) {
+        const match = brandWords.every((word, index) => 
+          responseWords[i + index]?.includes(word.substring(0, Math.min(word.length, 4)))
+        );
+        if (match) {
+          brandPosition = i;
+          break;
+        }
+      }
+      if (brandPosition !== null) break;
+    }
+  }
   
   let score = 0;
-  if (brandPresent) {
-    score = Math.max(1, 10 - competitorCount);
+  
+  if (orgBrandPresent) {
+    score = 5;
+    
+    if (brandPosition !== null) {
+      const positionBonus = Math.max(0, 3 - Math.floor(brandPosition / 10));
+      score += positionBonus;
+    }
+    
+    const competitorPenalty = Math.min(3, competitorCount * 0.5);
+    score -= competitorPenalty;
+    
+    score = Math.max(1, score);
   }
-
+  
+  score = Math.min(10, Math.round(score));
+  
   return {
-    brandPresent,
+    brandPresent: orgBrandPresent,
     brandPosition,
     competitorCount,
     score
