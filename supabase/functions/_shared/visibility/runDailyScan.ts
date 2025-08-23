@@ -433,7 +433,15 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                 .from('prompt_runs')
                 .select(`
                   id,
-                  visibility_results (brands_json)
+                  visibility_results (
+                    org_brand_present,
+                    org_brand_prominence,
+                    brands_json,
+                    competitors_count,
+                    score,
+                    raw_evidence,
+                    raw_ai_response
+                  )
                 `)
                 .eq('prompt_id', prompt.id)
                 .eq('provider_id', provider.id)
@@ -450,6 +458,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                   // Use cached result
                   const lastResult = recentRuns[0].visibility_results as any;
                   if (lastResult && lastResult[0]) {
+                    const cachedVisibilityData = lastResult[0];
                     const { data: cachedRun } = await supabase
                       .from('prompt_runs')
                       .insert({
@@ -471,12 +480,12 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                         .from('visibility_results')
                         .insert({
                           prompt_run_id: cachedRun.id,
-                          org_brand_present: lastResult[0].org_brand_present,
-                          org_brand_prominence: lastResult[0].org_brand_prominence,
-                          brands_json: lastResult[0].brands_json,
-                          competitors_count: lastResult[0].competitors_count,
+                          org_brand_present: cachedVisibilityData.org_brand_present || false,
+                          org_brand_prominence: cachedVisibilityData.org_brand_prominence,
+                          brands_json: cachedVisibilityData.brands_json || [],
+                          competitors_count: cachedVisibilityData.competitors_count || 0,
                           raw_evidence: 'Cached result',
-                          score: Math.round(lastResult[0].score || 0),
+                          score: Math.round(cachedVisibilityData.score || 0),
                           raw_ai_response: 'Cached from previous run'
                         });
                       
