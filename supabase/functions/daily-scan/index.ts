@@ -61,6 +61,18 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Ensure scheduler_state 'global' row exists to avoid lockout on first run
+    try {
+      const { error: ensureErr } = await supabase
+        .from("scheduler_state")
+        .upsert({ id: "global" }, { onConflict: "id", ignoreDuplicates: true });
+      if (ensureErr) {
+        console.warn("Could not ensure scheduler_state row:", ensureErr.message);
+      }
+    } catch (e) {
+      console.warn("Error ensuring scheduler_state row:", e);
+    }
+
     // Skip time gate in test mode
     if (!isTestMode && !isPastThreeAMNY()) {
       const currentTime = new Date().toLocaleString("en-US", {
@@ -133,15 +145,24 @@ serve(async (req) => {
         );
       }
 
-      // If no rows were updated, another instance already claimed it
+      // If no rows were updated, check actual state to disambiguate
       if (!updateResult || updateResult.length === 0) {
-        console.log('Another instance already claimed the run');
+        const { data: refreshed } = await supabase
+          .from("scheduler_state")
+          .select("last_daily_run_key, last_daily_run_at")
+          .eq("id", "global")
+          .single();
+        if (refreshed?.last_daily_run_key === key) {
+          console.log(`Already ran today (post-check): ${key}`);
+          return new Response(
+            JSON.stringify({ status: "already-ran", key, lastRun: refreshed.last_daily_run_at }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          );
+        }
+        console.log('Another instance already claimed the run (locked)');
         return new Response(
           JSON.stringify({ status: "locked", key }),
-          { 
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200
-          }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
       }
     }
