@@ -1,11 +1,10 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export function TestSchedulerAPIs() {
+export default function TestSchedulerAPIs() {
   const [loading, setLoading] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
