@@ -37,9 +37,18 @@ export default function Dashboard() {
           ? `Processed ${result.organizations} orgs · ${result.successfulRuns}/${result.totalRuns} successful`
           : 'Completed successfully',
       });
+      
+      // Wait a moment for database to fully propagate changes
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Refresh dashboard data
       const refreshed = await getSafeDashboardData();
       setDashboardData(refreshed);
+      
+      // Force a page reload to ensure fresh data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (e: any) {
       console.error('Manual run failed:', e);
       toast({ title: 'Manual run failed', description: e.message || 'Unknown error' });

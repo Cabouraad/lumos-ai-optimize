@@ -91,6 +91,15 @@ export default function Prompts() {
     }
   };
 
+  // Refresh prompts data when returning from other tabs or manual refresh
+  const refreshPromptsData = async () => {
+    await loadPromptsData();
+    toast({
+      title: 'Prompts refreshed',
+      description: 'Latest visibility data has been loaded.',
+    });
+  };
+
   const handleAddPrompt = async () => {
     if (!newPromptText.trim() || !orgData?.organizations?.id) return;
 
@@ -332,11 +341,20 @@ export default function Prompts() {
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div className="space-y-4">
-              <div className="space-y-2">
-                <h1 className="text-4xl font-display font-bold text-gray-900">Prompts</h1>
-                <p className="text-lg text-gray-600">
-                  Manage search prompts and discover AI-suggested improvements
-                </p>
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-display font-bold text-gray-900">Prompts</h1>
+                  <p className="text-lg text-gray-600">
+                    Manage search prompts and discover AI-suggested improvements
+                  </p>
+                </div>
+                <Button 
+                  onClick={refreshPromptsData}
+                  variant="outline"
+                  className="rounded-xl"
+                >
+                  Refresh Data
+                </Button>
               </div>
               
               {/* Scheduler Status */}
