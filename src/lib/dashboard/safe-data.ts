@@ -6,111 +6,141 @@ export async function getSafeDashboardData() {
   try {
     const orgId = await getOrgId();
 
-    // Get all data using proper foreign key relationships
-    const [promptsResult, providersResult, todayRunsResult, historicalResult] = await Promise.all([
-      supabase.from("prompts").select("id, text, active, created_at").eq("org_id", orgId).order("created_at", { ascending: false }),
+    // 1) Load prompts for this org (IDs only)
+    const { data: prompts, error: promptsError } = await supabase
+      .from("prompts")
+      .select("id, text, active, created_at")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false });
+
+    if (promptsError) throw promptsError;
+
+    const promptIds = (prompts || []).map(p => p.id);
+
+    // Early return with empty defaults if no prompts yet
+    if (promptIds.length === 0) {
+      return {
+        avgScore: 0,
+        overallScore: 0,
+        trend: 0,
+        promptCount: 0,
+        providers: [],
+        prompts: [],
+        chartData: [],
+        totalRuns: 0,
+        recentRunsCount: 0,
+      };
+    }
+
+    // 2) Parallel fetch: providers, today's runs, historical runs (last 30 days)
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [providersRes, todayRunsRes, historicalRunsRes] = await Promise.all([
       supabase.from("llm_providers").select("id, name, enabled"),
-      supabase.from("prompt_runs")
-        .select(`
-          id, status, run_at,
-          prompts!prompt_runs_prompt_id_fkey (org_id),
-          visibility_results!visibility_results_prompt_run_id_fkey (score)
-        `)
-        .gte('run_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
-        .lt('run_at', new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
-        .eq('status', 'success'),
-      supabase.from("prompt_runs")
-        .select(`
-          id, status, run_at,
-          prompts!prompt_runs_prompt_id_fkey (org_id),
-          visibility_results!visibility_results_prompt_run_id_fkey (score)
-        `)
-        .gte('run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
-        .eq('status', 'success')
-        .order('run_at', { ascending: true })
+      supabase
+        .from("prompt_runs")
+        .select("id, prompt_id, status, run_at")
+        .in("prompt_id", promptIds)
+        .eq("status", "success")
+        .gte("run_at", startOfToday.toISOString())
+        .lt("run_at", endOfToday.toISOString()),
+      supabase
+        .from("prompt_runs")
+        .select("id, prompt_id, status, run_at")
+        .in("prompt_id", promptIds)
+        .eq("status", "success")
+        .gte("run_at", thirtyDaysAgo.toISOString())
+        .order("run_at", { ascending: true }),
     ]);
 
-    if (promptsResult.error) throw promptsResult.error;
-    if (providersResult.error) throw providersResult.error;
-    if (todayRunsResult.error) throw todayRunsResult.error;
-    if (historicalResult.error) throw historicalResult.error;
+    if (providersRes.error) throw providersRes.error;
+    if (todayRunsRes.error) throw todayRunsRes.error;
+    if (historicalRunsRes.error) throw historicalRunsRes.error;
 
-    // Filter runs to only include those from our org
-    const todayOrgRuns = todayRunsResult.data?.filter(run => 
-      run.prompts?.org_id === orgId
-    ) || [];
-    
-    const historicalOrgRuns = historicalResult.data?.filter(run => 
-      run.prompts?.org_id === orgId
-    ) || [];
+    const providers = providersRes.data || [];
+    const todayRuns = todayRunsRes.data || [];
+    const historicalRuns = historicalRunsRes.data || [];
 
-    // Calculate today's average score
-    const todayScores = todayOrgRuns
-      ?.filter(run => run.visibility_results?.length > 0)
-      ?.map(run => run.visibility_results[0].score) || [];
-    
-    const todayAvg = todayScores.length > 0 
-      ? Math.round((todayScores.reduce((sum, score) => sum + score, 0) / todayScores.length) * 10) / 10
+    // 3) Fetch visibility_results for the union of run ids
+    const allRunIds = Array.from(new Set([...todayRuns, ...historicalRuns].map(r => r.id)));
+
+    let visibilityByRun = new Map<string, number>();
+    if (allRunIds.length > 0) {
+      const { data: visResults, error: visError } = await supabase
+        .from("visibility_results")
+        .select("prompt_run_id, score")
+        .in("prompt_run_id", allRunIds);
+      if (visError) throw visError;
+      (visResults || []).forEach(v => visibilityByRun.set(v.prompt_run_id, v.score));
+    }
+
+    // 4) Compute today's average
+    const todayScores = todayRuns
+      .map(r => visibilityByRun.get(r.id))
+      .filter((s): s is number => typeof s === "number");
+
+    const todayAvg = todayScores.length > 0
+      ? Math.round((todayScores.reduce((sum, s) => sum + s, 0) / todayScores.length) * 10) / 10
       : 0;
 
-    // Calculate overall visibility score (last 7 days average)
-    const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentScores = historicalOrgRuns
-      ?.filter(run => {
-        const runDate = new Date(run.run_at);
-        return runDate >= last7Days && run.visibility_results?.length > 0;
-      })
-      ?.map(run => run.visibility_results[0].score) || [];
+    // 5) Compute overall (last 7 days) average and trend
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
-    const overallScore = recentScores.length > 0
-      ? Math.round((recentScores.reduce((sum, score) => sum + score, 0) / recentScores.length) * 10) / 10
+    const last7Runs = historicalRuns.filter(r => new Date(r.run_at) >= sevenDaysAgo);
+    const prev7Runs = historicalRuns.filter(r => new Date(r.run_at) < sevenDaysAgo && new Date(r.run_at) >= fourteenDaysAgo);
+
+    const last7Scores = last7Runs
+      .map(r => visibilityByRun.get(r.id))
+      .filter((s): s is number => typeof s === "number");
+
+    const prev7Scores = prev7Runs
+      .map(r => visibilityByRun.get(r.id))
+      .filter((s): s is number => typeof s === "number");
+
+    const overallScore = last7Scores.length > 0
+      ? Math.round((last7Scores.reduce((sum, s) => sum + s, 0) / last7Scores.length) * 10) / 10
       : 0;
 
-    // Process historical data for the chart (group by day)
-    const dailyScores = new Map<string, { scores: number[], date: string }>();
-    
-    historicalOrgRuns?.forEach(run => {
-      if (run.visibility_results?.length > 0) {
-        const date = new Date(run.run_at).toISOString().split('T')[0];
-        if (!dailyScores.has(date)) {
-          dailyScores.set(date, { scores: [], date });
-        }
-        dailyScores.get(date)!.scores.push(run.visibility_results[0].score);
-      }
+    const prevAvg = prev7Scores.length > 0
+      ? prev7Scores.reduce((sum, s) => sum + s, 0) / prev7Scores.length
+      : 0;
+
+    const trend = prevAvg > 0 ? Math.round((((overallScore - prevAvg) / prevAvg) * 100) * 10) / 10 : 0;
+
+    // 6) Build chart data (daily averages across last 30 days)
+    const byDay = new Map<string, number[]>();
+    historicalRuns.forEach(r => {
+      const score = visibilityByRun.get(r.id);
+      if (typeof score !== "number") return;
+      const day = new Date(r.run_at).toISOString().split("T")[0];
+      if (!byDay.has(day)) byDay.set(day, []);
+      byDay.get(day)!.push(score);
     });
 
-    const chartData = Array.from(dailyScores.values()).map(day => ({
-      date: day.date,
-      score: Math.round((day.scores.reduce((sum, score) => sum + score, 0) / day.scores.length) * 10) / 10,
-      runs: day.scores.length
-    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Calculate trend (comparing last 7 days to previous 7 days)
-    const previous7Days = historicalOrgRuns
-      ?.filter(run => {
-        const runDate = new Date(run.run_at);
-        const startRange = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-        const endRange = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        return runDate >= startRange && runDate < endRange && run.visibility_results?.length > 0;
-      })
-      ?.map(run => run.visibility_results[0].score) || [];
-
-    const previousAvg = previous7Days.length > 0
-      ? previous7Days.reduce((sum, score) => sum + score, 0) / previous7Days.length
-      : 0;
-
-    const trend = previousAvg > 0 ? ((overallScore - previousAvg) / previousAvg) * 100 : 0;
+    const chartData = Array.from(byDay.entries())
+      .map(([date, scores]) => ({
+        date,
+        score: Math.round((scores.reduce((sum, s) => sum + s, 0) / scores.length) * 10) / 10,
+        runs: scores.length,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return {
       avgScore: todayAvg,
       overallScore,
-      trend: Math.round(trend * 10) / 10,
-      promptCount: promptsResult.data?.length || 0,
-      providers: providersResult.data || [],
-      prompts: promptsResult.data || [],
+      trend,
+      promptCount: prompts?.length || 0,
+      providers,
+      prompts: prompts || [],
       chartData,
-      totalRuns: historicalOrgRuns?.length || 0,
-      recentRunsCount: recentScores.length
+      totalRuns: historicalRuns.length,
+      recentRunsCount: last7Scores.length,
     };
 
   } catch (error) {

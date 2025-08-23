@@ -42,35 +42,76 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
   const fetchResults = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('visibility_results')
-        .select(`
-          id,
-          score,
-          org_brand_present,
-          org_brand_prominence,
-          competitors_count,
-          brands_json,
-          raw_evidence,
-          raw_ai_response,
-          prompt_runs!inner (
-            id,
-            status,
-            run_at,
-            llm_providers (name)
-          )
-        `)
-        .eq('prompt_runs.prompt_id', promptId)
-        .eq('prompt_runs.status', 'success')
-        .order('run_at', { ascending: false, foreignTable: 'prompt_runs' })
-        .limit(10);
 
-      if (error) {
-        console.error('Error fetching visibility results:', error);
+      // 1) Get recent successful runs for this prompt
+      const { data: runs, error: runsError } = await supabase
+        .from('prompt_runs')
+        .select('id, provider_id, status, run_at')
+        .eq('prompt_id', promptId)
+        .eq('status', 'success')
+        .order('run_at', { ascending: false })
+        .limit(30);
+
+      if (runsError) {
+        console.error('Error fetching runs:', runsError);
+        setResults([]);
         return;
       }
 
-      setResults(data || []);
+      const runIds = (runs || []).map(r => r.id);
+      const providerIds = Array.from(new Set((runs || []).map(r => r.provider_id)));
+
+      // 2) Fetch visibility results for these runs
+      const { data: visRes, error: visError } = await supabase
+        .from('visibility_results')
+        .select('id, score, org_brand_present, org_brand_prominence, competitors_count, brands_json, raw_evidence, raw_ai_response, prompt_run_id')
+        .in('prompt_run_id', runIds);
+
+      if (visError) {
+        console.error('Error fetching visibility results:', visError);
+      }
+
+      // 3) Fetch provider names
+      let providerMap = new Map<string, string>();
+      if (providerIds.length > 0) {
+        const { data: providers, error: provError } = await supabase
+          .from('llm_providers')
+          .select('id, name')
+          .in('id', providerIds);
+        if (provError) {
+          console.error('Error fetching providers:', provError);
+        } else {
+          (providers || []).forEach(p => providerMap.set(p.id, p.name));
+        }
+      }
+
+      // 4) Merge runs + visibility + provider name
+      const visByRun = new Map((visRes || []).map(v => [v.prompt_run_id, v] as const));
+      const merged = (runs || [])
+        .map(run => {
+          const v = visByRun.get(run.id);
+          if (!v) return null;
+          return {
+            id: v.id,
+            score: v.score,
+            org_brand_present: v.org_brand_present,
+            org_brand_prominence: v.org_brand_prominence,
+            competitors_count: v.competitors_count,
+            brands_json: v.brands_json,
+            raw_evidence: v.raw_evidence,
+            raw_ai_response: v.raw_ai_response,
+            prompt_runs: {
+              id: run.id,
+              status: run.status,
+              run_at: run.run_at,
+              llm_providers: { name: providerMap.get(run.provider_id) || 'unknown' }
+            }
+          } as VisibilityResult;
+        })
+        .filter(Boolean) as VisibilityResult[];
+
+      // Keep only latest 10
+      setResults(merged.slice(0, 10));
     } catch (error) {
       console.error('Error fetching results:', error);
     } finally {
