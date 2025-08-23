@@ -49,11 +49,12 @@ serve(async (req) => {
     // Ignore JSON parsing errors for non-JSON requests
   }
 
-  // Check for test override
+  // Check for test override or manual admin run
   const isTestMode = requestBody?.test === true;
+  const isManualRun = requestBody?.manualRun === true;
   const testOrganizationId = requestBody?.organizationId;
 
-  console.log(`Daily scan function invoked ${isTestMode ? '(TEST MODE)' : 'by scheduler'} at`, new Date().toISOString());
+  console.log(`Daily scan function invoked ${isTestMode ? '(TEST MODE)' : isManualRun ? '(MANUAL RUN)' : 'by scheduler'} at`, new Date().toISOString());
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -73,8 +74,8 @@ serve(async (req) => {
       console.warn("Error ensuring scheduler_state row:", e);
     }
 
-    // Skip time gate in test mode
-    if (!isTestMode && !isPastThreeAMNY()) {
+    // Skip time gate in test mode or manual admin runs
+    if (!isTestMode && !isManualRun && !isPastThreeAMNY()) {
       const currentTime = new Date().toLocaleString("en-US", {
         timeZone: "America/New_York",
         hour: "2-digit",
@@ -95,11 +96,11 @@ serve(async (req) => {
       );
     }
 
-    // Read current state for idempotency (skip in test mode)
-    const key = isTestMode ? `test-${Date.now()}` : todayKeyNY();
-    console.log(`Checking for key: ${key}${isTestMode ? ' (TEST MODE)' : ''}`);
+    // Read current state for idempotency (skip in test mode and manual runs)
+    const key = isTestMode ? `test-${Date.now()}` : isManualRun ? `manual-${Date.now()}` : todayKeyNY();
+    console.log(`Checking for key: ${key}${isTestMode ? ' (TEST MODE)' : isManualRun ? ' (MANUAL RUN)' : ''}`);
     
-    if (!isTestMode) {
+    if (!isTestMode && !isManualRun) {
       const { data: state } = await supabase
         .from("scheduler_state")
         .select("*")
@@ -122,8 +123,8 @@ serve(async (req) => {
       }
     }
 
-    // Update scheduler state (skip mutex logic in test mode)
-    if (!isTestMode) {
+    // Update scheduler state (skip mutex logic in test mode and manual runs)
+    if (!isTestMode && !isManualRun) {
       const { data: updateResult, error: updateError } = await supabase
         .from("scheduler_state")
         .update({ 
@@ -167,7 +168,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`${isTestMode ? 'Test mode:' : 'Successfully claimed daily run,'} starting scan...`);
+    console.log(`${isTestMode ? 'Test mode:' : isManualRun ? 'Manual run:' : 'Successfully claimed daily run,'} starting scan...`);
     
     // Use the existing runDailyScan function with optional organization filter
     const result = await runDailyScan(supabase, testOrganizationId);
@@ -178,6 +179,7 @@ serve(async (req) => {
       JSON.stringify({ 
         status: "success", 
         testMode: isTestMode,
+        manualRun: isManualRun,
         organizationId: testOrganizationId,
         key,
         timestamp: new Date().toISOString(),

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Play, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, Play, CheckCircle, XCircle, Clock, AlertTriangle, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { SchedulerTestAdmin } from './SchedulerTestAdmin';
 
@@ -38,8 +38,11 @@ interface TestSummary {
 
 export default function TestSchedulerAPIs() {
   const [loading, setLoading] = useState(false);
+  const [isManualRunning, setIsManualRunning] = useState(false);
   const [results, setResults] = useState<TestSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [manualRunResult, setManualRunResult] = useState<any | null>(null);
+  const [manualRunError, setManualRunError] = useState<string | null>(null);
 
   const runTest = async () => {
     setLoading(true);
@@ -59,6 +62,29 @@ export default function TestSchedulerAPIs() {
       console.error('Test error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runAllPrompts = async () => {
+    setIsManualRunning(true);
+    setManualRunError(null);
+    setManualRunResult(null);
+
+    try {
+      const { data, error: invocationError } = await supabase.functions.invoke('daily-scan', {
+        body: { manualRun: true }
+      });
+
+      if (invocationError) {
+        throw invocationError;
+      }
+
+      setManualRunResult(data);
+    } catch (err: any) {
+      setManualRunError(err.message || 'Failed to run all prompts');
+      console.error('Manual run error:', err);
+    } finally {
+      setIsManualRunning(false);
     }
   };
 
@@ -254,6 +280,95 @@ export default function TestSchedulerAPIs() {
             Last tested: {new Date(results.timestamp).toLocaleString()}
           </div>
         </div>
+      )}
+
+      {/* Manual Run All Prompts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            Manual Run All Prompts
+          </CardTitle>
+          <CardDescription>
+            Manually trigger the daily scan to run all active prompts across all organizations immediately. This bypasses the 3AM EST schedule and idempotency checks.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={runAllPrompts} 
+            disabled={isManualRunning}
+            className="w-full"
+            variant="secondary"
+          >
+            {isManualRunning ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Running All Prompts...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-4 w-4" />
+                Run All Prompts Now
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {manualRunError && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>{manualRunError}</AlertDescription>
+        </Alert>
+      )}
+
+      {manualRunResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Manual Run Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge variant="default">{manualRunResult.status}</Badge>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Run Type</p>
+                <Badge variant="outline">
+                  {manualRunResult.manualRun ? 'Manual' : manualRunResult.testMode ? 'Test' : 'Scheduled'}
+                </Badge>
+              </div>
+            </div>
+            
+            {manualRunResult.result && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Organizations Processed</p>
+                    <p className="text-2xl font-bold">{manualRunResult.result.organizations}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Runs</p>
+                    <p className="text-2xl font-bold">{manualRunResult.result.totalRuns}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Successful Runs</p>
+                    <p className="text-2xl font-bold text-green-600">{manualRunResult.result.successfulRuns}</p>
+                  </div>
+                </div>
+                
+                <div className="text-sm text-muted-foreground">
+                  <p><strong>Success Rate:</strong> {manualRunResult.result.totalRuns > 0 ? Math.round((manualRunResult.result.successfulRuns / manualRunResult.result.totalRuns) * 100) : 0}%</p>
+                  <p><strong>Completed at:</strong> {new Date(manualRunResult.timestamp).toLocaleString()}</p>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <SchedulerTestAdmin />
