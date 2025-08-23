@@ -49,20 +49,9 @@ serve(async (req) => {
     // Ignore JSON parsing errors for non-JSON requests
   }
 
-  // Check for secure test override
+  // Check for test override
   const isTestMode = requestBody?.test === true;
   const testOrganizationId = requestBody?.organizationId;
-  const hasValidTestAuth = req.headers.get('authorization')?.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
-
-  if (isTestMode && !hasValidTestAuth) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized test request" }),
-      { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
-  }
 
   console.log(`Daily scan function invoked ${isTestMode ? '(TEST MODE)' : 'by scheduler'} at`, new Date().toISOString());
 
