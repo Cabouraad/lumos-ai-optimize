@@ -1,181 +1,276 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
-import { corsHeaders } from '../_shared/cors.ts';
-import { authenticateUser } from '../_shared/auth.ts';
-import { runPromptAgainstProviders } from '../_shared/visibility/runPrompt.ts';
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { promptId, orgId } = await req.json();
-    console.log('=== run-prompt-now edge function called ===');
-    console.log('promptId:', promptId);
-    console.log('orgId:', orgId);
+    console.log('Running single prompt:', { promptId, orgId });
 
     if (!promptId || !orgId) {
       throw new Error('Missing promptId or orgId');
     }
 
-    // Authenticate user
-    const user = await authenticateUser(req);
-    console.log('Authenticated user:', user.id);
-
-    // Verify user has access to this org
-    const { data: userData } = await supabase
-      .from('users')
-      .select('org_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!userData || userData.org_id !== orgId) {
-      throw new Error('Access denied: User does not belong to this organization');
-    }
-
-    // Get the prompt
-    const { data: prompt, error: promptError } = await supabase
+    // Get prompt
+    const { data: prompt } = await supabase
       .from('prompts')
-      .select('*')
+      .select('text')
       .eq('id', promptId)
       .eq('org_id', orgId)
       .single();
 
-    if (promptError || !prompt) {
-      throw new Error(`Prompt not found: ${promptError?.message}`);
+    if (!prompt) {
+      throw new Error('Prompt not found');
     }
-
-    console.log('Found prompt:', prompt.text);
 
     // Get enabled providers
     const { data: providers } = await supabase
       .from('llm_providers')
-      .select('*')
+      .select('id, name')
       .eq('enabled', true);
 
     if (!providers || providers.length === 0) {
-      throw new Error('No enabled providers found');
+      throw new Error('No enabled providers');
     }
 
-    console.log('Running against providers:', providers.map(p => p.name));
+    let totalRuns = 0;
+    let successfulRuns = 0;
 
-    // Run the prompt against all enabled providers
-    const results = await runPromptAgainstProviders(
-      supabase,
-      orgId,
-      promptId,
-      prompt.text,
-      providers
-    );
-
-    console.log('Prompt run results:', results);
-
-    // Process competitor mentions from the results
-    if (results && results.length > 0) {
-      for (const result of results) {
-        if (result.success && result.visibilityResult) {
-          const brands = result.visibilityResult.brands_json;
-          
-          if (Array.isArray(brands) && brands.length > 0) {
-            // Process each brand mention
-            for (let i = 0; i < brands.length; i++) {
-              const brand = brands[i];
-              let brandName: string;
-              let brandScore: number = 0;
-              
-              // Handle both old string format and new object format
-              if (typeof brand === 'string') {
-                brandName = brand;
-              } else if (typeof brand === 'object' && brand.brand_name) {
-                brandName = brand.brand_name;
-                brandScore = brand.score || 0;
-              } else {
-                continue; // Skip invalid brand entries
-              }
-              
-              // Skip empty brand names
-              if (!brandName || brandName.trim().length === 0) {
-                continue;
-              }
-              
-              // Upsert competitor mention for this prompt
-              try {
-                const { error: mentionError } = await supabase.rpc(
-                  'upsert_competitor_mention',
-                  {
-                    p_org_id: orgId,
-                    p_prompt_id: promptId,
-                    p_competitor_name: brandName.trim(),
-                    p_normalized_name: brandName.toLowerCase().trim(),
-                    p_position: i, // Position in the response
-                    p_sentiment: 'neutral' // Default sentiment
-                  }
-                );
-                
-                if (mentionError) {
-                  console.error('Error upserting competitor mention:', mentionError);
-                }
-              } catch (mentionErr) {
-                console.error('Exception upserting competitor mention:', mentionErr);
-              }
-              
-              // Also upsert to brand catalog if it's not the org's own brand
-              try {
-                const { error: brandError } = await supabase.rpc(
-                  'upsert_competitor_brand',
-                  {
-                    p_org_id: orgId,
-                    p_brand_name: brandName.trim(),
-                    p_score: brandScore
-                  }
-                );
-                
-                if (brandError) {
-                  console.error('Error upserting competitor brand:', brandError);
-                }
-              } catch (brandErr) {
-                console.error('Exception upserting competitor brand:', brandErr);
-              }
-            }
-          }
+    // Run prompt on each provider
+    for (const provider of providers) {
+      try {
+        console.log(`Running prompt on ${provider.name}`);
+        
+        // Execute prompt based on provider
+        let response;
+        switch (provider.name) {
+          case 'openai':
+            response = await executeOpenAI(prompt.text);
+            break;
+          case 'perplexity':
+            response = await executePerplexity(prompt.text);
+            break;
+          case 'gemini':
+            response = await executeGemini(prompt.text);
+            break;
+          default:
+            console.log(`Unknown provider: ${provider.name}`);
+            continue;
         }
+
+        if (!response) continue;
+
+        // Extract brands and calculate score
+        const brands = extractBrands(response.text);
+        const score = calculateVisibilityScore(brands, response.text);
+
+        // Store run
+        const { data: run } = await supabase
+          .from('prompt_runs')
+          .insert({
+            prompt_id: promptId,
+            provider_id: provider.id,
+            status: 'success',
+            token_in: response.tokenIn || 0,
+            token_out: response.tokenOut || 0,
+            cost_est: 0
+          })
+          .select()
+          .single();
+
+        if (run) {
+          // Store visibility result
+          await supabase
+            .from('visibility_results')
+            .insert({
+              prompt_run_id: run.id,
+              org_brand_present: score.brandPresent,
+              org_brand_prominence: score.brandPosition,
+              competitors_count: score.competitorCount,
+              brands_json: brands,
+              score: score.score,
+              raw_ai_response: response.text,
+              raw_evidence: JSON.stringify({ brands, analysis: score })
+            });
+
+          console.log(`Successfully processed prompt ${promptId} on ${provider.name}`);
+          successfulRuns++;
+        }
+        totalRuns++;
+
+      } catch (providerError) {
+        console.error(`Provider ${provider.name} error:`, providerError);
+        
+        // Log failed run
+        await supabase
+          .from('prompt_runs')
+          .insert({
+            prompt_id: promptId,
+            provider_id: provider.id,
+            status: 'error',
+            token_in: 0,
+            token_out: 0,
+            cost_est: 0
+          });
+        totalRuns++;
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Prompt "${prompt.text}" executed successfully`,
-        results: results.map(r => ({
-          provider: r.provider,
-          success: r.success,
-          error: r.error,
-          hasVisibilityResult: !!r.visibilityResult
-        }))
+        message: `Prompt executed successfully`,
+        totalRuns,
+        successfulRuns,
+        timestamp: new Date().toISOString()
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error('run-prompt-now error:', error);
+  } catch (error: any) {
+    console.error('Run prompt error:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message || 'An unexpected error occurred'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+// Provider execution functions
+async function executeOpenAI(promptText: string) {
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) throw new Error('OpenAI API key not found');
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: promptText }],
+      max_tokens: 1000,
+      temperature: 0.7
+    }),
+  });
+
+  if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+
+  const data = await response.json();
+  return {
+    text: data.choices[0].message.content,
+    tokenIn: data.usage?.prompt_tokens || 0,
+    tokenOut: data.usage?.completion_tokens || 0
+  };
+}
+
+async function executePerplexity(promptText: string) {
+  const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!apiKey) throw new Error('Perplexity API key not found');
+
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-sonar-small-128k-online',
+      messages: [{ role: 'user', content: promptText }],
+      max_tokens: 1000,
+      temperature: 0.2
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Perplexity API error: ${response.status}`);
+
+  const data = await response.json();
+  return {
+    text: data.choices[0].message.content,
+    tokenIn: 0,
+    tokenOut: 0
+  };
+}
+
+async function executeGemini(promptText: string) {
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('Gemini API key not found');
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: promptText }] }]
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+
+  const data = await response.json();
+  return {
+    text: data.candidates?.[0]?.content?.parts?.[0]?.text || '',
+    tokenIn: 0,
+    tokenOut: 0
+  };
+}
+
+function extractBrands(text: string): string[] {
+  const brands: string[] = [];
+  const words = text.split(/\s+/);
+  const brandPattern = /^[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*$/;
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i].replace(/[.,!?;:]$/, '');
+    
+    if (brandPattern.test(word) && word.length > 2) {
+      brands.push(word);
+    }
+    
+    if (i < words.length - 1) {
+      const twoWord = `${word} ${words[i + 1].replace(/[.,!?;:]$/, '')}`;
+      if (brandPattern.test(twoWord)) {
+        brands.push(twoWord);
+        i++;
+      }
+    }
+  }
+  
+  const commonWords = ['The', 'This', 'That', 'And', 'Or', 'But', 'With', 'For', 'On', 'In', 'At', 'To', 'From'];
+  return [...new Set(brands)]
+    .filter(brand => !commonWords.includes(brand))
+    .filter(brand => brand.length > 1)
+    .slice(0, 10);
+}
+
+function calculateVisibilityScore(brands: string[], responseText: string) {
+  const brandPresent = brands.length > 0;
+  const competitorCount = Math.max(0, brands.length - 1);
+  const brandPosition = brandPresent ? 0 : null;
+  
+  let score = 0;
+  if (brandPresent) {
+    score = Math.max(1, 10 - competitorCount);
+  }
+
+  return {
+    brandPresent,
+    brandPosition,
+    competitorCount,
+    score
+  };
+}
