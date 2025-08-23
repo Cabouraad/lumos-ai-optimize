@@ -39,8 +39,32 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // No authentication required - function is triggered by Supabase scheduler
-  console.log('Daily scan function invoked by scheduler at', new Date().toISOString());
+  // Parse request body for test overrides
+  let requestBody: any = {};
+  try {
+    if (req.method === 'POST' && req.headers.get('content-type')?.includes('application/json')) {
+      requestBody = await req.json();
+    }
+  } catch (e) {
+    // Ignore JSON parsing errors for non-JSON requests
+  }
+
+  // Check for secure test override
+  const isTestMode = requestBody?.test === true;
+  const testOrganizationId = requestBody?.organizationId;
+  const hasValidTestAuth = req.headers.get('authorization')?.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
+
+  if (isTestMode && !hasValidTestAuth) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized test request" }),
+      { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
+  }
+
+  console.log(`Daily scan function invoked ${isTestMode ? '(TEST MODE)' : 'by scheduler'} at`, new Date().toISOString());
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -48,10 +72,8 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Daily scan function triggered at', new Date().toISOString());
-
-    // Idempotency gate using Eastern Time
-    if (!isPastThreeAMNY()) {
+    // Skip time gate in test mode
+    if (!isTestMode && !isPastThreeAMNY()) {
       const currentTime = new Date().toLocaleString("en-US", {
         timeZone: "America/New_York",
         hour: "2-digit",
@@ -72,75 +94,81 @@ serve(async (req) => {
       );
     }
 
-    // Read current state for idempotency
-    const key = todayKeyNY();
-    console.log(`Checking for today's key: ${key}`);
+    // Read current state for idempotency (skip in test mode)
+    const key = isTestMode ? `test-${Date.now()}` : todayKeyNY();
+    console.log(`Checking for key: ${key}${isTestMode ? ' (TEST MODE)' : ''}`);
     
-    const { data: state } = await supabase
-      .from("scheduler_state")
-      .select("*")
-      .eq("id", "global")
-      .single();
+    if (!isTestMode) {
+      const { data: state } = await supabase
+        .from("scheduler_state")
+        .select("*")
+        .eq("id", "global")
+        .single();
 
-    if (state && state.last_daily_run_key === key) {
-      console.log(`Already ran today: ${key}`);
-      return new Response(
-        JSON.stringify({ 
-          status: "already-ran", 
-          key,
-          lastRun: state.last_daily_run_at 
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200
-        }
-      );
+      if (state && state.last_daily_run_key === key) {
+        console.log(`Already ran today: ${key}`);
+        return new Response(
+          JSON.stringify({ 
+            status: "already-ran", 
+            key,
+            lastRun: state.last_daily_run_at 
+          }),
+          { 
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200
+          }
+        );
+      }
     }
 
-    // Lightweight mutex: atomic update to claim the run
-    const { data: updateResult, error: updateError } = await supabase
-      .from("scheduler_state")
-      .update({ 
-        last_daily_run_key: key, 
-        last_daily_run_at: new Date().toISOString() 
-      })
-      .eq("id", "global")
-      .neq("last_daily_run_key", key) // Only update if different day
-      .select();
+    // Update scheduler state (skip mutex logic in test mode)
+    if (!isTestMode) {
+      const { data: updateResult, error: updateError } = await supabase
+        .from("scheduler_state")
+        .update({ 
+          last_daily_run_key: key, 
+          last_daily_run_at: new Date().toISOString() 
+        })
+        .eq("id", "global")
+        .neq("last_daily_run_key", key) // Only update if different day
+        .select();
 
-    if (updateError) {
-      console.error('Failed to claim mutex:', updateError);
-      return new Response(
-        JSON.stringify({ status: "mutex-failed", error: updateError.message }),
-        { 
-          status: 409, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
+      if (updateError) {
+        console.error('Failed to claim mutex:', updateError);
+        return new Response(
+          JSON.stringify({ status: "mutex-failed", error: updateError.message }),
+          { 
+            status: 409, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
+      }
+
+      // If no rows were updated, another instance already claimed it
+      if (!updateResult || updateResult.length === 0) {
+        console.log('Another instance already claimed the run');
+        return new Response(
+          JSON.stringify({ status: "locked", key }),
+          { 
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200
+          }
+        );
+      }
     }
 
-    // If no rows were updated, another instance already claimed it
-    if (!updateResult || updateResult.length === 0) {
-      console.log('Another instance already claimed the run');
-      return new Response(
-        JSON.stringify({ status: "locked", key }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200
-        }
-      );
-    }
-
-    console.log('Successfully claimed daily run, starting scan...');
+    console.log(`${isTestMode ? 'Test mode:' : 'Successfully claimed daily run,'} starting scan...`);
     
-    // Use the existing runDailyScan function
-    const result = await runDailyScan(supabase);
+    // Use the existing runDailyScan function with optional organization filter
+    const result = await runDailyScan(supabase, testOrganizationId);
 
     console.log('Daily scan completed:', result);
 
     return new Response(
       JSON.stringify({ 
         status: "success", 
+        testMode: isTestMode,
+        organizationId: testOrganizationId,
         key,
         timestamp: new Date().toISOString(),
         result

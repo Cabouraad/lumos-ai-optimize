@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Play, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { SchedulerTestAdmin } from './SchedulerTestAdmin';
 
 interface APITestResult {
   provider: string;
@@ -254,6 +255,8 @@ export default function TestSchedulerAPIs() {
           </div>
         </div>
       )}
+
+      <SchedulerTestAdmin />
     </div>
   );
 }
