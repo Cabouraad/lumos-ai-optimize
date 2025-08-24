@@ -241,6 +241,72 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_provider_responses: {
+        Row: {
+          brands_json: Json
+          competitors_count: number
+          competitors_json: Json
+          error: string | null
+          id: string
+          metadata: Json
+          model: string | null
+          org_brand_present: boolean
+          org_brand_prominence: number | null
+          org_id: string
+          prompt_id: string
+          provider: string
+          raw_ai_response: string | null
+          raw_evidence: string | null
+          run_at: string
+          score: number
+          status: string
+          token_in: number
+          token_out: number
+        }
+        Insert: {
+          brands_json?: Json
+          competitors_count?: number
+          competitors_json?: Json
+          error?: string | null
+          id?: string
+          metadata?: Json
+          model?: string | null
+          org_brand_present?: boolean
+          org_brand_prominence?: number | null
+          org_id: string
+          prompt_id: string
+          provider: string
+          raw_ai_response?: string | null
+          raw_evidence?: string | null
+          run_at?: string
+          score?: number
+          status: string
+          token_in?: number
+          token_out?: number
+        }
+        Update: {
+          brands_json?: Json
+          competitors_count?: number
+          competitors_json?: Json
+          error?: string | null
+          id?: string
+          metadata?: Json
+          model?: string | null
+          org_brand_present?: boolean
+          org_brand_prominence?: number | null
+          org_id?: string
+          prompt_id?: string
+          provider?: string
+          raw_ai_response?: string | null
+          raw_evidence?: string | null
+          run_at?: string
+          score?: number
+          status?: string
+          token_in?: number
+          token_out?: number
+        }
+        Relationships: []
+      }
       prompt_runs: {
         Row: {
           brands: Json | null
@@ -602,6 +668,30 @@ export type Database = {
       }
     }
     Views: {
+      latest_prompt_provider_responses: {
+        Row: {
+          brands_json: Json | null
+          competitors_count: number | null
+          competitors_json: Json | null
+          error: string | null
+          id: string | null
+          metadata: Json | null
+          model: string | null
+          org_brand_present: boolean | null
+          org_brand_prominence: number | null
+          org_id: string | null
+          prompt_id: string | null
+          provider: string | null
+          raw_ai_response: string | null
+          raw_evidence: string | null
+          run_at: string | null
+          score: number | null
+          status: string | null
+          token_in: number | null
+          token_out: number | null
+        }
+        Relationships: []
+      }
       user_subscription_safe: {
         Row: {
           created_at: string | null
