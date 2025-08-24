@@ -644,6 +644,10 @@ export type Database = {
       }
     }
     Functions: {
+      fix_brand_classification_all_providers: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       fix_hubspot_brand_classification: {
         Args: Record<PropertyKey, never>
         Returns: string
