@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Play, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { BatchPromptRunner } from './BatchPromptRunner';
 
 interface DebugResult {
   provider: string;
@@ -104,7 +105,12 @@ export function ProviderDebugPanel({ promptId, promptText, orgId }: ProviderDebu
   };
 
   return (
-    <Card>
+    <div className="space-y-6">
+      {/* Batch Prompt Runner */}
+      <BatchPromptRunner />
+      
+      {/* Individual Prompt Debug Panel */}
+      <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Provider Debug Panel</span>
@@ -194,5 +200,6 @@ export function ProviderDebugPanel({ promptId, promptText, orgId }: ProviderDebu
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }

@@ -1,5 +1,8 @@
 project_id = "cgocsffxqyhojtyzniyz"
 
+[functions.batch-run-all-prompts]
+verify_jwt = true
+
 [functions.check-subscription]
 verify_jwt = true
 
