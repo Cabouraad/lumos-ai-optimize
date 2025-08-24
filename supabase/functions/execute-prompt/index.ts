@@ -14,8 +14,14 @@ serve(async (req) => {
 
   try {
     const { promptText, provider, orgId } = await req.json();
+    
+    console.log(`=== EXECUTE PROMPT START ===`);
+    console.log(`Provider: ${provider}`);
+    console.log(`OrgId: ${orgId}`);
+    console.log(`Prompt length: ${promptText?.length}`);
 
     if (!promptText || !provider) {
+      console.error('Missing required parameters:', { promptText: !!promptText, provider: !!provider });
       return new Response(
         JSON.stringify({ error: 'Missing promptText or provider' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -27,65 +33,107 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let response;
-    let brandAnalysis;
+    let result;
+    
+    // Execute based on provider with extensive logging
+    try {
+      switch (provider.toLowerCase()) {
+        case 'openai':
+          console.log('Executing with OpenAI...');
+          result = await executeOpenAI(promptText);
+          break;
+        case 'perplexity':
+          console.log('Executing with Perplexity...');
+          result = await executePerplexity(promptText);
+          break;
+        case 'gemini':
+          console.log('Executing with Gemini...');
+          result = await executeGemini(promptText);
+          break;
+        default:
+          throw new Error(`Unknown provider: ${provider}`);
+      }
 
-    // Execute prompt based on provider with enhanced brand extraction
-    switch (provider) {
-      case 'openai':
-        brandAnalysis = await extractBrandsOpenAI(promptText);
-        break;
-      case 'perplexity':
-        brandAnalysis = await extractBrandsPerplexity(promptText);
-        break;
-      case 'gemini':
-        brandAnalysis = await extractBrandsGemini(promptText);
-        break;
-      default:
-        throw new Error(`Unknown provider: ${provider}`);
+      console.log(`${provider} execution successful:`, { 
+        brandCount: result.brands.length, 
+        tokenIn: result.tokenIn, 
+        tokenOut: result.tokenOut,
+        responseLength: result.responseText.length,
+        brands: result.brands
+      });
+
+    } catch (providerError: any) {
+      console.error(`${provider} execution failed:`, providerError.message);
+      throw providerError;
     }
 
-    // Get organization's brand catalog for proper identification
-    let brandCatalog = [];
+    // If orgId provided, classify brands and calculate score
+    let classification = { orgBrands: [], competitors: result.brands };
+    let score = { brandPresent: false, brandPosition: null, competitorCount: result.brands.length, score: 0 };
+
     if (orgId) {
-      const { data } = await supabase
+      console.log('Getting brand catalog for classification...');
+      // Get organization's brand catalog
+      const { data: brandCatalog, error: catalogError } = await supabase
         .from('brand_catalog')
         .select('name, variants_json, is_org_brand')
         .eq('org_id', orgId);
+
+      if (catalogError) {
+        console.error('Error fetching brand catalog:', catalogError);
+      } else {
+        console.log(`Brand catalog fetched: ${brandCatalog?.length || 0} brands`);
+      }
+
+      // Classify brands
+      classification = classifyBrands(result.brands, brandCatalog || []);
       
-      brandCatalog = data || [];
+      // Calculate visibility score
+      score = calculateVisibilityScore(classification.orgBrands, classification.competitors, result.responseText);
+      
+      console.log('Classification complete:', { 
+        orgBrands: classification.orgBrands, 
+        competitorCount: classification.competitors.length,
+        competitors: classification.competitors,
+        score: score.score 
+      });
     }
 
-    // Classify brands as org brands vs competitors
-    const { orgBrands, competitors } = classifyBrands(brandAnalysis.brands, brandCatalog);
-    
-    // Calculate visibility score
-    const score = calculateEnhancedVisibilityScore(orgBrands, competitors, brandAnalysis.responseText);
+    const response = {
+      success: true,
+      responseText: result.responseText,
+      brands: result.brands,
+      orgBrands: classification.orgBrands,
+      competitors: classification.competitors,
+      score: score.score,
+      brandPresent: score.brandPresent,
+      brandPosition: score.brandPosition,
+      competitorCount: score.competitorCount,
+      tokenIn: result.tokenIn || 0,
+      tokenOut: result.tokenOut || 0
+    };
 
+    console.log(`=== EXECUTE PROMPT SUCCESS ===`);
+    
     return new Response(
-      JSON.stringify({
-        success: true,
-        responseText: brandAnalysis.responseText,
-        brands: brandAnalysis.brands,
-        orgBrands,
-        competitors,
-        score,
-        tokenIn: brandAnalysis.tokenIn || 0,
-        tokenOut: brandAnalysis.tokenOut || 0
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
-    console.error('Execute prompt error:', error);
+    console.error('=== EXECUTE PROMPT ERROR ===', error.message);
+    console.error('Stack trace:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
-async function extractBrandsOpenAI(promptText: string) {
+async function executeOpenAI(promptText: string) {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('OpenAI API key not found');
 
@@ -131,7 +179,7 @@ async function extractBrandsOpenAI(promptText: string) {
   };
 }
 
-async function extractBrandsPerplexity(promptText: string) {
+async function executePerplexity(promptText: string) {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) throw new Error('Perplexity API key not found');
 
@@ -185,7 +233,7 @@ async function extractBrandsPerplexity(promptText: string) {
   };
 }
 
-async function extractBrandsGemini(promptText: string) {
+async function executeGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not found');
 
@@ -348,7 +396,7 @@ function normalize(str: string): string {
 /**
  * Calculate enhanced visibility score based on org brand presence and competitor analysis
  */
-function calculateEnhancedVisibilityScore(orgBrands: string[], competitors: string[], responseText: string) {
+function calculateVisibilityScore(orgBrands: string[], competitors: string[], responseText: string) {
   const orgBrandPresent = orgBrands.length > 0;
   const competitorCount = competitors.length;
   

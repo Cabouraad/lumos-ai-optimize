@@ -143,90 +143,87 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
 
     // Run prompt on each provider
     for (const provider of providers) {
-      try {
-        // Execute prompt based on provider with enhanced brand extraction
-        let brandAnalysis;
-        switch (provider.name) {
-          case 'openai':
-            brandAnalysis = await extractBrandsOpenAI(prompt.text);
-            break;
-          case 'perplexity':
-            brandAnalysis = await extractBrandsPerplexity(prompt.text);
-            break;
-          case 'gemini':
-            brandAnalysis = await extractBrandsGemini(prompt.text);
-            break;
-          default:
-            console.log(`Unknown provider: ${provider.name}`);
-            continue;
-        }
-
-        if (!brandAnalysis) continue;
-
-        // Get organization's brand catalog for proper identification
-        const { data: brandCatalog } = await supabase
-          .from('brand_catalog')
-          .select('name, variants_json, is_org_brand')
-          .eq('org_id', orgId);
-
-        // Classify brands as org brands vs competitors
-        const { orgBrands, competitors } = classifyBrands(brandAnalysis.brands, brandCatalog || []);
-        
-        // Calculate enhanced visibility score
-        const score = calculateEnhancedVisibilityScore(orgBrands, competitors, brandAnalysis.responseText);
-
-        // Store run
-        const { data: run } = await supabase
-          .from('prompt_runs')
-          .insert({
-            prompt_id: promptId,
-            provider_id: provider.id,
-            status: 'success',
-            token_in: brandAnalysis.tokenIn || 0,
-            token_out: brandAnalysis.tokenOut || 0,
-            cost_est: 0
-          })
-          .select()
-          .single();
-
-        if (run) {
-          // Store visibility result
-          await supabase
-            .from('visibility_results')
-            .insert({
-              prompt_run_id: run.id,
-              org_brand_present: score.brandPresent,
-              org_brand_prominence: score.brandPosition,
-              competitors_count: score.competitorCount,
-              brands_json: brandAnalysis.brands,
-              score: score.score,
-              raw_ai_response: brandAnalysis.responseText,
-              raw_evidence: JSON.stringify({ 
-                allBrands: brandAnalysis.brands,
-                orgBrands,
-                competitors,
-                analysis: score 
-              })
-            });
-
-          runsCreated++;
-        }
-
-      } catch (providerError) {
-        console.error(`Provider ${provider.name} error:`, providerError);
-        
-        // Log failed run
-        await supabase
-          .from('prompt_runs')
-          .insert({
-            prompt_id: promptId,
-            provider_id: provider.id,
-            status: 'error',
-            token_in: 0,
-            token_out: 0,
-            cost_est: 0
+        try {
+          // Call the execute-prompt edge function for each provider
+          const { data: executeResult, error } = await supabase.functions.invoke('execute-prompt', {
+            body: {
+              promptText: prompt.text,
+              provider: provider.name,
+              orgId
+            }
           });
-      }
+
+          if (error || !executeResult) {
+            console.error(`${provider.name} execution error:`, error);
+            continue;
+          }
+
+          console.log(`${provider.name} execution successful:`, {
+            brandCount: executeResult.brands?.length || 0,
+            orgBrandCount: executeResult.orgBrands?.length || 0,
+            competitorCount: executeResult.competitorCount,
+            score: executeResult.score
+          });
+
+          // Store run result
+          const { data: run } = await supabase
+            .from('prompt_runs')
+            .insert({
+              prompt_id: promptId,
+              provider_id: provider.id,
+              status: 'success',
+              token_in: executeResult.tokenIn || 0,
+              token_out: executeResult.tokenOut || 0,
+              cost_est: 0,
+              brands: executeResult.brands || [],
+              competitors: executeResult.competitors || []
+            })
+            .select()
+            .single();
+
+          if (run) {
+            // Store visibility result using data from execute-prompt
+            await supabase
+              .from('visibility_results')
+              .insert({
+                prompt_run_id: run.id,
+                org_brand_present: executeResult.brandPresent || false,
+                org_brand_prominence: executeResult.brandPosition,
+                competitors_count: executeResult.competitorCount || 0,
+                brands_json: executeResult.brands || [],
+                score: executeResult.score || 0,
+                raw_ai_response: executeResult.responseText || '',
+                raw_evidence: JSON.stringify({
+                  allBrands: executeResult.brands || [],
+                  orgBrands: executeResult.orgBrands || [],
+                  competitors: executeResult.competitors || [],
+                  analysis: {
+                    brandPresent: executeResult.brandPresent,
+                    brandPosition: executeResult.brandPosition,
+                    competitorCount: executeResult.competitorCount,
+                    score: executeResult.score
+                  }
+                })
+              });
+
+            runsCreated++;
+          }
+
+        } catch (providerError) {
+          console.error(`Provider ${provider.name} error:`, providerError);
+          
+          // Log failed run
+          await supabase
+            .from('prompt_runs')
+            .insert({
+              prompt_id: promptId,
+              provider_id: provider.id,
+              status: 'error',
+              token_in: 0,
+              token_out: 0,
+              cost_est: 0
+            });
+        }
     }
 
     return { success: true, runsCreated };
@@ -234,286 +231,4 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
   } catch (error: any) {
     return { success: false, error: error.message };
   }
-}
-
-// Enhanced provider execution functions with brand extraction
-async function extractBrandsOpenAI(promptText: string) {
-  const apiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!apiKey) throw new Error('OpenAI API key not found');
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively and naturally. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned in your answer.'
-        },
-        {
-          role: 'user',
-          content: promptText
-        }
-      ],
-      max_tokens: 1000,
-      temperature: 0.7
-    }),
-  });
-
-  if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
-
-  const data = await response.json();
-  const content = data.choices[0].message.content;
-  const usage = data.usage || {};
-
-  const brands = extractBrandsFromResponse(content);
-
-  return {
-    brands,
-    responseText: content,
-    tokenIn: usage.prompt_tokens || 0,
-    tokenOut: usage.completion_tokens || 0,
-  };
-}
-
-async function extractBrandsPerplexity(promptText: string) {
-  const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
-  if (!apiKey) throw new Error('Perplexity API key not found');
-
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      temperature: 0.1,
-      max_tokens: 1000,
-      return_images: false,
-      return_related_questions: false,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an extraction API. Given a user prompt, output ONLY a JSON object with a single key brands as an array of brand or company names you would include in your answer. No explanations.'
-        },
-        {
-          role: 'user',
-          content: promptText
-        }
-      ]
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Perplexity API error: ${response.status}`);
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  const usage = data.usage || {};
-
-  // Prefer direct JSON content when present, else fallback
-  let brands: string[] = [];
-  try {
-    const parsed = JSON.parse(content);
-    brands = Array.isArray(parsed.brands) ? parsed.brands : extractBrandsFromResponse(content);
-  } catch {
-    brands = extractBrandsFromResponse(content);
-  }
-
-  return {
-    brands,
-    responseText: content,
-    tokenIn: usage.prompt_tokens || 0,
-    tokenOut: usage.completion_tokens || 0
-  };
-}
-
-async function extractBrandsGemini(promptText: string) {
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('Gemini API key not found');
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2000,
-      }
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const usage = data.usageMetadata || {};
-
-  const brands = extractBrandsFromResponse(content);
-
-  return {
-    brands,
-    responseText: content,
-    tokenIn: usage.promptTokenCount || 0,
-    tokenOut: usage.candidatesTokenCount || 0
-  };
-}
-
-// Shared utility functions
-function extractBrandsFromResponse(text: string): string[] {
-  const jsonMatch = text.match(/\{[^}]*"brands"[^}]*\}/);
-  let brands: string[] = [];
-  
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      brands = Array.isArray(parsed.brands) ? parsed.brands : [];
-    } catch {
-      // JSON parsing failed
-    }
-  }
-  
-  if (brands.length === 0) {
-    brands = extractBrandsFromText(text);
-  }
-  
-  return brands;
-}
-
-function extractBrandsFromText(text: string): string[] {
-  const brandPatterns = [
-    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g,
-    /\b[A-Z][a-z]{2,}\b/g,
-  ];
-  
-  const brands = new Set<string>();
-  
-  for (const pattern of brandPatterns) {
-    const matches = text.match(pattern);
-    if (matches) {
-      matches.forEach(match => {
-        if (!isCommonWord(match) && match.length > 2) {
-          brands.add(match);
-        }
-      });
-    }
-  }
-  
-  return Array.from(brands).slice(0, 15);
-}
-
-function isCommonWord(word: string): boolean {
-  const commonWords = [
-    'The', 'This', 'That', 'Here', 'There', 'When', 'Where', 'What', 'How',
-    'Some', 'Many', 'Most', 'All', 'Best', 'Good', 'Better', 'Great',
-    'First', 'Last', 'Next', 'New', 'Old', 'Other', 'Another', 'Each', 'Every'
-  ];
-  return commonWords.includes(word);
-}
-
-function classifyBrands(extractedBrands: string[], brandCatalog: any[]) {
-  const orgBrands: string[] = [];
-  const competitors: string[] = [];
-  
-  for (const brand of extractedBrands) {
-    const normalizedBrand = normalize(brand);
-    
-    const isOrgBrand = brandCatalog.some(catalogBrand => {
-      if (catalogBrand.is_org_brand) {
-        const normalizedCatalogBrand = normalize(catalogBrand.name);
-        
-        if (normalizedBrand === normalizedCatalogBrand) return true;
-        if (normalizedBrand.includes(normalizedCatalogBrand)) return true;
-        
-        for (const variant of catalogBrand.variants_json || []) {
-          const normalizedVariant = normalize(variant);
-          if (normalizedBrand === normalizedVariant || normalizedBrand.includes(normalizedVariant)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    });
-    
-    if (isOrgBrand) {
-      orgBrands.push(brand);
-    } else {
-      competitors.push(brand);
-    }
-  }
-  
-  return { orgBrands, competitors };
-}
-
-function normalize(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function calculateEnhancedVisibilityScore(orgBrands: string[], competitors: string[], responseText: string) {
-  const orgBrandPresent = orgBrands.length > 0;
-  const competitorCount = competitors.length;
-  
-  let brandPosition = null;
-  if (orgBrandPresent) {
-    const responseWords = responseText.toLowerCase().split(/\s+/);
-    for (const orgBrand of orgBrands) {
-      const brandWords = orgBrand.toLowerCase().split(/\s+/);
-      for (let i = 0; i <= responseWords.length - brandWords.length; i++) {
-        const match = brandWords.every((word, index) => 
-          responseWords[i + index]?.includes(word.substring(0, Math.min(word.length, 4)))
-        );
-        if (match) {
-          brandPosition = i;
-          break;
-        }
-      }
-      if (brandPosition !== null) break;
-    }
-  }
-  
-  let score = 0;
-  
-  if (orgBrandPresent) {
-    score = 5;
-    
-    if (brandPosition !== null) {
-      const positionBonus = Math.max(0, 3 - Math.floor(brandPosition / 10));
-      score += positionBonus;
-    }
-    
-    const competitorPenalty = Math.min(3, competitorCount * 0.5);
-    score -= competitorPenalty;
-    
-    score = Math.max(1, score);
-  }
-  
-  score = Math.min(10, Math.round(score));
-  
-  return {
-    brandPresent: orgBrandPresent,
-    brandPosition,
-    competitorCount,
-    score
-  };
 }
