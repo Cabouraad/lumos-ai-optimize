@@ -164,7 +164,6 @@ serve(async (req) => {
             competitors_json: classification.competitors || [],
             competitors_count: score.competitorCount || 0,
             score: score.score || 0,
-            citations: [],
             metadata: {
               classification,
               originalBrandPosition: score.brandPosition

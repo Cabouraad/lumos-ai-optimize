@@ -57,3 +57,12 @@ verify_jwt = true
 
 [functions.activate-trial]
 verify_jwt = true
+
+[functions.run-all-prompts]
+verify_jwt = true
+
+[functions.execute-prompt]
+verify_jwt = false
+
+[functions.trigger-test-run]
+verify_jwt = false
