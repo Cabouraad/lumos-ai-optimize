@@ -50,7 +50,7 @@ function enhancedNormalize(str: string): string {
     .trim();
 }
 
-// Advanced false positive detection
+// Enhanced false positive detection - much more aggressive filtering
 const FALSE_POSITIVE_PATTERNS = {
   // Generic tech terms often capitalized
   genericTerms: [
@@ -63,7 +63,12 @@ const FALSE_POSITIVE_PATTERNS = {
     'content', 'advertising', 'campaign', 'strategy', 'engagement',
     // Common misidentified words from AI responses
     'these', 'those', 'some', 'many', 'several', 'various', 'different',
-    'other', 'others', 'more', 'most', 'less', 'better', 'best', 'top'
+    'other', 'others', 'more', 'most', 'less', 'better', 'best', 'top',
+    // Generic action words frequently misclassified as brands
+    'provides', 'offers', 'helps', 'making', 'creating', 'choosing', 'consider',
+    'understanding', 'when', 'what', 'their', 'also', 'well', 'known',
+    'track', 'includes', 'comprehensive', 'research', 'easy', 'help',
+    'management', 'scheduling', 'calendar', 'larger', 'focuses', 'widely'
   ],
   
   // Common words that get capitalized
@@ -74,7 +79,9 @@ const FALSE_POSITIVE_PATTERNS = {
     // Additional common words that shouldn't be brands
     'features', 'pricing', 'plans', 'options', 'benefits', 'advantages',
     'capabilities', 'functionality', 'integration', 'dashboard', 'interface',
-    'reports', 'insights', 'performance', 'results', 'success', 'growth'
+    'reports', 'insights', 'performance', 'results', 'success', 'growth',
+    // Content marketing specific terms often misclassified
+    'email marketing', 'social media', 'content performance', 'campaign management'
   ],
   
   // Context patterns that indicate false positives
@@ -118,29 +125,8 @@ export async function analyzeBrands(
   const { strictFiltering = true, confidenceThreshold = 0.6 } = options;
 
   try {
-    // Enhanced HubSpot detection - check if this appears to be about marketing automation
-    const isMarketingAutomationContext = /marketing automation|email marketing|content marketing|crm|lead generation|content creation|analytics/i.test(responseText);
-    const mentionsHubSpotVariants = /\b(hubspot|hub\s*spot|marketing\s*hub)\b/i.test(responseText);
-    
-    // Special case: If response is about "content marketing automation and analytics" and mentions tools like BuzzSumo
-    const isContentMarketingTools = /content marketing automation|analytics.*2025|buzzsumo|gumloop/i.test(responseText);
-    
-    // If HubSpot variants are mentioned but not in brand catalog, add them
-    let enhancedBrandCatalog = [...brandCatalog];
-    if ((mentionsHubSpotVariants && isMarketingAutomationContext) || isContentMarketingTools) {
-      const hasHubSpotBrand = brandCatalog.some(b => 
-        b.is_org_brand && /hubspot/i.test(b.name)
-      );
-      
-      if (!hasHubSpotBrand) {
-        // Add HubSpot as org brand for this analysis
-        enhancedBrandCatalog.push({
-          name: 'HubSpot Marketing Hub',
-          variants_json: ['hubspot', 'hub-spot', 'hub spot', 'marketing hub', 'hubspot.com'],
-          is_org_brand: true
-        });
-      }
-    }
+    // Use the actual brand catalog - no hardcoded brand logic
+    const enhancedBrandCatalog = [...brandCatalog];
 
     // Step 1: Enhanced brand extraction with multiple strategies
     const extractedBrands = await extractBrandsWithConfidence(
@@ -378,23 +364,48 @@ function calculateBrandConfidence(
 }
 
 /**
- * Intelligent false positive filtering
+ * Intelligent false positive filtering with enhanced generic term detection
  */
 function filterFalsePositives(
-  brands: ExtractedBrand[],
+  extractedBrands: ExtractedBrand[],
   responseText: string,
-  strictFiltering: boolean
+  strictFiltering: boolean = true
 ): ExtractedBrand[] {
-  return brands.filter(brand => {
-    const normalized = brand.normalized;
+  return extractedBrands.filter(brand => {
+    // Enhanced filtering for single words that are clearly not brands
+    const normalizedBrand = brand.normalized.toLowerCase().trim();
     
-    // Filter out generic terms
-    if (FALSE_POSITIVE_PATTERNS.genericTerms.includes(normalized)) {
+    // Filter out very short terms or common words
+    if (normalizedBrand.length <= 2) return false;
+    
+    // Enhanced generic term filtering - exact matches and partial matches
+    if (FALSE_POSITIVE_PATTERNS.genericTerms.some(term => 
+      normalizedBrand === term || 
+      (term.length > 3 && normalizedBrand.includes(term))
+    )) {
       return false;
     }
     
-    // Filter out common words
-    if (FALSE_POSITIVE_PATTERNS.commonWords.includes(normalized)) {
+    // Enhanced common word filtering - exact matches
+    if (FALSE_POSITIVE_PATTERNS.commonWords.some(word => 
+      normalizedBrand === word.toLowerCase()
+    )) {
+      return false;
+    }
+    
+    // Filter single words that are clearly not brand names (verbs, adjectives, etc.)
+    const singleWordNonBrands = [
+      'helps', 'provides', 'offers', 'creates', 'makes', 'uses', 'includes',
+      'focuses', 'specializes', 'delivers', 'enables', 'supports', 'manages',
+      'tracks', 'monitors', 'analyzes', 'optimizes', 'integrates', 'automates',
+      'comprehensive', 'advanced', 'specific', 'professional', 'enterprise',
+      'popular', 'leading', 'effective', 'powerful', 'innovative', 'reliable',
+      'management', 'scheduling', 'calendar', 'larger', 'widely', 'known',
+      'choosing', 'when', 'what', 'their', 'also', 'well', 'track', 'consider',
+      'understanding', 'research', 'easy', 'help'
+    ];
+    
+    if (singleWordNonBrands.includes(normalizedBrand)) {
       return false;
     }
     
@@ -405,16 +416,27 @@ function filterFalsePositives(
       return false;
     }
     
+    // Filter obvious generic phrases that shouldn't be brands
+    const genericPhrases = [
+      'social media', 'email marketing', 'content marketing', 'digital marketing',
+      'search engine', 'content management', 'customer relationship', 'project management',
+      'social media management', 'content performance', 'campaign management'
+    ];
+    
+    if (genericPhrases.includes(normalizedBrand)) {
+      return false;
+    }
+    
     // In strict mode, require minimum confidence and context
     if (strictFiltering) {
-      if (brand.confidence < 0.5) return false;
+      if (brand.confidence < 0.6) return false; // Raised threshold
       
       // Require business context for unknown brands
       const hasBusinessContext = BUSINESS_CONTEXT_INDICATORS.some(indicator => 
         brand.context.toLowerCase().includes(indicator)
       );
       
-      if (!hasBusinessContext && brand.confidence < 0.7) {
+      if (!hasBusinessContext && brand.confidence < 0.8) { // Raised threshold
         return false;
       }
     }
