@@ -413,21 +413,22 @@ export function warmCacheForUser() {
   backgroundPreloader.preloadCriticalData();
 }
 
-export function preloadForPage(page: string) {
-  switch (page) {
-    case '/dashboard':
-      backgroundPreloader.preloadCriticalData();
-      break;
-    case '/competitors':
-      backgroundPreloader.preloadForUserIntent('viewing-competitors');
-      break;
-    case '/recommendations':
-      backgroundPreloader.preloadForUserIntent('checking-recommendations');
-      break;
-    case '/prompts':
-      backgroundPreloader.preloadForUserIntent('analyzing-prompts');
-      break;
-  }
+/**
+ * Cache invalidation and UI refresh after brand classification fixes
+ */
+export function refreshAfterBrandFix() {
+  // Clear all related caches
+  invalidateCache(['dashboard-data', 'prompt-data', 'provider-data', 'competitors-data']);
+  
+  // Trigger cache warming for immediate UI responsiveness
+  warmCacheForUser();
+  
+  // Emit events for real-time updates
+  const eventManager = CacheEventManager.getInstance();
+  eventManager.emit('brand-classification-updated', { 
+    timestamp: Date.now(),
+    reason: 'manual-fix-applied' 
+  });
 }
 
 /**

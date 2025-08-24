@@ -652,6 +652,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      fix_recent_brand_misclassifications: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }
         Returns: {
