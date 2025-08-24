@@ -28,15 +28,11 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
       return [];
     }
 
-    // Get recent results from the new table
+    // Get recent results from the new table using RPC call
     const promptIds = prompts.map(p => p.id);
-    const { data: results } = await supabase
-      .from('prompt_provider_responses')
-      .select('prompt_id, score, org_brand_present, competitors_count, run_at')
-      .in('prompt_id', promptIds)
-      .eq('status', 'success')
-      .order('run_at', { ascending: false })
-      .limit(1000); // Get recent results
+    const { data: results } = await supabase.rpc('get_prompt_responses_for_prompts', {
+      p_prompt_ids: promptIds
+    });
 
     // Group results by prompt
     const resultsByPrompt = new Map<string, any[]>();

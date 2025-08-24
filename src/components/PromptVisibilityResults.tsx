@@ -47,13 +47,11 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
       setLoading(true);
 
       if (showAllResults) {
-        // Get all results for this prompt
-        const { data, error } = await supabase
-          .from('prompt_provider_responses')
-          .select('*')
-          .eq('prompt_id', promptId)
-          .order('run_at', { ascending: false })
-          .limit(50);
+        // Get all results for this prompt using RPC call
+        const { data, error } = await supabase.rpc('get_prompt_responses', {
+          p_prompt_id: promptId,
+          p_limit: 50
+        });
 
         if (error) {
           console.error('Error fetching all results:', error);
@@ -63,12 +61,10 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
 
         setResults(data || []);
       } else {
-        // Get latest results per provider
-        const { data, error } = await supabase
-          .from('latest_prompt_provider_responses')
-          .select('*')
-          .eq('prompt_id', promptId)
-          .order('run_at', { ascending: false });
+        // Get latest results per provider using RPC call
+        const { data, error } = await supabase.rpc('get_latest_prompt_responses', {
+          p_prompt_id: promptId
+        });
 
         if (error) {
           console.error('Error fetching latest results:', error);

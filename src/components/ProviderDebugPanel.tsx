@@ -144,7 +144,7 @@ export function ProviderDebugPanel({ promptId, promptText, orgId }: ProviderDebu
                     <>
                       <span>Score: {result.response.score}/10</span>
                       <span>Brands: {result.response.brands?.length || 0}</span>
-                      <span>Tokens: {result.response.tokenIn + result.response.tokenOut}</span>
+                      <span>Tokens: {(result.response.tokenIn || 0) + (result.response.tokenOut || 0)}</span>
                     </>
                   )}
                   
@@ -186,7 +186,7 @@ export function ProviderDebugPanel({ promptId, promptText, orgId }: ProviderDebu
                 <div className="font-mono">
                   {results
                     .filter(r => r.response)
-                    .reduce((sum, r) => sum + (r.response.tokenIn + r.response.tokenOut), 0)}
+                    .reduce((sum, r) => sum + ((r.response.tokenIn || 0) + (r.response.tokenOut || 0)), 0)}
                 </div>
               </div>
             </div>
