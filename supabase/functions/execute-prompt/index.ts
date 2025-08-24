@@ -183,7 +183,7 @@ serve(async (req) => {
       };
     }
 
-    // Insert into database
+    // Insert into database and persist competitors
     let responseId: string | null = null;
 
     try {
@@ -230,6 +230,9 @@ serve(async (req) => {
         } else if (responseRecord) {
           responseId = responseRecord.id;
           console.log('Successfully inserted enhanced response record:', responseId);
+          
+          // Persist competitors to brand catalog and competitor mentions
+          await persistCompetitorData(supabase, orgId, promptId, brandAnalysis);
         }
       } else {
         console.log('Skipping persistence: missing orgId or promptId');
@@ -494,6 +497,57 @@ function extractBrandsFromText(text: string): string[] {
   }
   
   return Array.from(brands).slice(0, 15);
+}
+
+/**
+ * Persist competitor data to brand_catalog and competitor_mentions tables
+ */
+async function persistCompetitorData(
+  supabase: any, 
+  orgId: string, 
+  promptId: string, 
+  brandAnalysis: BrandAnalysisResult
+) {
+  console.log(`Persisting competitor data: ${brandAnalysis.competitors.length} competitors`);
+  
+  // Persist each competitor to brand catalog and mentions
+  for (const competitor of brandAnalysis.competitors) {
+    try {
+      // Add to competitor mentions table
+      const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
+        p_org_id: orgId,
+        p_prompt_id: promptId,
+        p_competitor_name: competitor.name,
+        p_normalized_name: competitor.normalized,
+        p_position: competitor.firstPosition || null,
+        p_sentiment: 'neutral'
+      });
+
+      if (mentionError) {
+        console.error('Error upserting competitor mention:', mentionError);
+      } else {
+        console.log(`✅ Persisted competitor mention: ${competitor.name}`);
+      }
+
+      // Add to brand catalog
+      const competitorScore = Math.round(competitor.confidence * 100);
+      const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
+        p_org_id: orgId,
+        p_brand_name: competitor.name,
+        p_score: competitorScore
+      });
+
+      if (brandError) {
+        console.error('Error upserting competitor brand:', brandError);
+      } else {
+        console.log(`✅ Persisted competitor brand: ${competitor.name} (score: ${competitorScore})`);
+      }
+    } catch (error) {
+      console.error(`Error processing competitor ${competitor.name}:`, error);
+    }
+  }
+  
+  console.log(`Competitor persistence complete for prompt ${promptId}`);
 }
 
 /**
