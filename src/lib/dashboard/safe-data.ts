@@ -32,8 +32,8 @@ export async function getSafeDashboardData() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     const { data: runs } = await supabase
-      .from('prompt_runs')
-      .select('id, run_at, prompt_id')
+      .from('prompt_provider_responses')
+      .select('id, run_at, prompt_id, score')
       .in('prompt_id', promptIds)
       .eq('status', 'success')
       .gte('run_at', thirtyDaysAgo.toISOString())
@@ -53,16 +53,10 @@ export async function getSafeDashboardData() {
       };
     }
 
-    // Get visibility results
-    const runIds = runs.map(r => r.id);
-    const { data: results } = await supabase
-      .from('visibility_results')
-      .select('prompt_run_id, score')
-      .in('prompt_run_id', runIds);
-
+    // Results are already in the runs data from prompt_provider_responses
     const resultsByRun = new Map();
-    (results || []).forEach(r => {
-      resultsByRun.set(r.prompt_run_id, r.score);
+    runs.forEach(r => {
+      resultsByRun.set(r.id, r.score);
     });
 
     // Calculate metrics

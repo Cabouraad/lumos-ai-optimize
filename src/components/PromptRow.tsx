@@ -143,16 +143,11 @@ export function PromptRow({
     setIsLoadingResponses(true);
     try {
       const { data, error } = await supabase
-        .from('prompt_runs')
-        .select(`
-          id,
-          run_at,
-          llm_providers!inner(name),
-          visibility_results(raw_ai_response, score)
-        `)
+        .from('prompt_provider_responses')
+        .select('*')
         .eq('prompt_id', promptId)
-        .eq('llm_providers.name', providerName)
-        .not('visibility_results.raw_ai_response', 'is', null)
+        .eq('provider', providerName.toLowerCase())
+        .not('raw_ai_response', 'is', null)
         .order('run_at', { ascending: false })
         .limit(10);
 
@@ -161,11 +156,11 @@ export function PromptRow({
         return;
       }
 
-      const responses = data?.map(run => ({
-        provider: run.llm_providers?.name || 'unknown',
-        response: run.visibility_results?.[0]?.raw_ai_response || '',
-        timestamp: run.run_at,
-        score: run.visibility_results?.[0]?.score || 0
+      const responses = data?.map(response => ({
+        provider: response.provider || 'unknown',
+        response: response.raw_ai_response || '',
+        timestamp: response.run_at,
+        score: response.score || 0
       })).filter(r => r.response) || [];
 
       setRawResponses(responses);
@@ -184,45 +179,24 @@ export function PromptRow({
       try {
         setLoadingLatest(true);
         const { data, error } = await supabase
-          .from('prompt_runs')
-          .select(`
-            run_at,
-            status,
-            llm_providers!inner(name),
-            visibility_results(
-              org_brand_present,
-              org_brand_prominence,
-              competitors_count,
-              score,
-              raw_ai_response
-            )
-          `)
+          .from('latest_prompt_provider_responses')
+          .select('*')
           .eq('prompt_id', prompt.id)
-          .eq('status', 'success')
-          .order('run_at', { ascending: false })
-          .limit(50);
+          .eq('status', 'success');
 
         if (error) {
           console.error('Error fetching latest results:', error);
           setLatestResults([]);
         } else {
-          const byProvider = new Map<string, ProviderResult>();
-          (data || []).forEach((run: any) => {
-            const provider = run.llm_providers?.name;
-            const vr = run.visibility_results?.[0];
-            if (!provider || !vr) return;
-            if (!byProvider.has(provider)) {
-              byProvider.set(provider, {
-                provider,
-                runAt: run.run_at,
-                present: !!vr.org_brand_present,
-                position: vr.org_brand_prominence ?? null,
-                competitors: vr.competitors_count ?? 0,
-                score: vr.score ?? 0,
-              });
-            }
-          });
-          setLatestResults(Array.from(byProvider.values()));
+          const results = (data || []).map((response: any) => ({
+            provider: response.provider,
+            runAt: response.run_at,
+            present: !!response.org_brand_present,
+            position: response.org_brand_prominence ?? null,
+            competitors: response.competitors_count ?? 0,
+            score: response.score ?? 0,
+          }));
+          setLatestResults(results);
         }
       } finally {
         setLoadingLatest(false);

@@ -51,13 +51,11 @@ export function PromptModal({ open, onOpenChange, promptIds, orgId }: PromptModa
       const promptsWithScores = await Promise.all(
         promptsData.map(async (prompt) => {
           const { data: visibilityData } = await supabase
-            .from('visibility_results')
-            .select(`
-              score,
-              prompt_runs!inner(prompt_id, run_at)
-            `)
-            .eq('prompt_runs.prompt_id', prompt.id)
-            .order('prompt_runs.run_at', { ascending: false })
+            .from('prompt_provider_responses')
+            .select('score, run_at')
+            .eq('prompt_id', prompt.id)
+            .eq('status', 'success')
+            .order('run_at', { ascending: false })
             .limit(10);
 
           const scores = visibilityData?.map(v => v.score) || [];
