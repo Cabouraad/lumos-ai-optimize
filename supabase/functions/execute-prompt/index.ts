@@ -183,100 +183,157 @@ async function executePerplexity(promptText: string) {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) throw new Error('Perplexity API key not found');
 
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      temperature: 0.1,
-      max_tokens: 1000,
-      return_images: false,
-      return_related_questions: false,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an extraction API. Given a user prompt, output ONLY a JSON object with a single key brands as an array of brand or company names you would include in your answer. No explanations.'
-        },
-        {
-          role: 'user',
-          content: promptText
-        }
-      ]
-    }),
+  const corsSafeHeaders = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+
+  const buildBody = () => ({
+    model: 'llama-3.1-sonar-small-128k-online',
+    messages: [
+      { role: 'system', content: 'Be precise and concise. Output ONLY a JSON object with key "brands" as an array of brand/company names you would include. No explanations.' },
+      { role: 'user', content: promptText }
+    ],
+    temperature: 0.2,
+    top_p: 0.9,
+    max_tokens: 1000,
+    return_images: false,
+    return_related_questions: false,
+    frequency_penalty: 1,
+    presence_penalty: 0,
+    // Optional search controls to satisfy online models
+    // search_recency_filter: 'month',
   });
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
+  const url = 'https://api.perplexity.ai/chat/completions';
+  let lastErr: any = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: corsSafeHeaders,
+        body: JSON.stringify(buildBody()),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        const err = new Error(`Perplexity API error: ${response.status} ${response.statusText} - ${errText}`);
+        // Do not retry on auth errors
+        if (response.status === 401 || response.status === 403) throw err;
+        lastErr = err;
+        // Retry on other errors
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+          continue;
+        }
+        throw err;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content ?? '';
+      const usage = data.usage || {};
+
+      let brands: string[] = [];
+      try {
+        const parsed = JSON.parse(content);
+        brands = Array.isArray(parsed.brands) ? parsed.brands : extractBrandsFromResponse(content);
+      } catch {
+        brands = extractBrandsFromResponse(content);
+      }
+
+      return {
+        brands,
+        responseText: content,
+        tokenIn: usage.prompt_tokens ?? 0,
+        tokenOut: usage.completion_tokens ?? 0,
+      };
+    } catch (e) {
+      lastErr = e;
+      // Backoff already handled above for non-ok
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  const usage = data.usage || {};
-
-  // Prefer direct JSON content when present, else fallback
-  let brands: string[] = [];
-  try {
-    const parsed = JSON.parse(content);
-    brands = Array.isArray(parsed.brands) ? parsed.brands : extractBrandsFromResponse(content);
-  } catch {
-    brands = extractBrandsFromResponse(content);
-  }
-
-  return {
-    brands,
-    responseText: content,
-    tokenIn: usage.prompt_tokens || 0,
-    tokenOut: usage.completion_tokens || 0
-  };
+  throw lastErr || new Error('Perplexity failed');
 }
 
 async function executeGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not found');
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2000,
+  const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-8b'];
+  let lastErr: any = null;
+
+  const buildBody = () => ({
+    contents: [
+      {
+        parts: [
+          {
+            text:
+              promptText +
+              '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
+          }
+        ]
       }
-    }),
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 2000,
+    }
   });
 
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildBody()),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          const err = new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errText}`);
+          // Don't retry on auth
+          if (response.status === 401 || response.status === 403) throw err;
+          lastErr = err;
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+            continue;
+          }
+          // break inner loop to try next model
+          break;
+        }
+
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const usage = data.usageMetadata || {};
+        const brands = extractBrandsFromResponse(content);
+
+        return {
+          brands,
+          responseText: content,
+          tokenIn: usage.promptTokenCount || 0,
+          tokenOut: usage.candidatesTokenCount || 0,
+        };
+      } catch (e) {
+        lastErr = e;
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+        }
+      }
+    }
   }
 
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const usage = data.usageMetadata || {};
-
-  const brands = extractBrandsFromResponse(content);
-
-  return {
-    brands,
-    responseText: content,
-    tokenIn: usage.promptTokenCount || 0,
-    tokenOut: usage.candidatesTokenCount || 0
-  };
+  throw lastErr || new Error('Gemini failed');
 }
 
 /**
