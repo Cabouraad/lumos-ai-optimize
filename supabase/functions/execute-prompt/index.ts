@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
@@ -18,6 +19,7 @@ serve(async (req) => {
     console.log(`=== EXECUTE PROMPT START ===`);
     console.log(`Provider: ${provider}`);
     console.log(`OrgId: ${orgId}`);
+    console.log(`PromptId: ${promptId}`);
     console.log(`Prompt length: ${promptText?.length}`);
 
     if (!promptText || !provider) {
@@ -34,6 +36,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let result;
+    let model = '';
     
     // Execute based on provider with extensive logging
     try {
@@ -41,14 +44,17 @@ serve(async (req) => {
         case 'openai':
           console.log('Executing with OpenAI...');
           result = await executeOpenAI(promptText);
+          model = 'gpt-4o-mini';
           break;
         case 'perplexity':
           console.log('Executing with Perplexity...');
           result = await executePerplexity(promptText);
+          model = 'sonar';
           break;
         case 'gemini':
           console.log('Executing with Gemini...');
           result = await executeGemini(promptText);
+          model = result.model || 'gemini-2.5-flash-lite';
           break;
         default:
           throw new Error(`Unknown provider: ${provider}`);
@@ -64,6 +70,32 @@ serve(async (req) => {
 
     } catch (providerError: any) {
       console.error(`${provider} execution failed:`, providerError.message);
+      
+      // Insert error record into new table
+      if (orgId && promptId) {
+        const { error: insertError } = await supabase
+          .from('prompt_provider_responses')
+          .insert({
+            org_id: orgId,
+            prompt_id: promptId,
+            provider: provider.toLowerCase(),
+            model,
+            status: 'error',
+            error: providerError.message,
+            token_in: 0,
+            token_out: 0,
+            brands_json: [],
+            org_brand_present: false,
+            competitors_json: [],
+            competitors_count: 0,
+            score: 0
+          });
+
+        if (insertError) {
+          console.error('Failed to insert error record:', insertError);
+        }
+      }
+
       throw providerError;
     }
 
@@ -99,78 +131,53 @@ serve(async (req) => {
       });
     }
 
-    // Persist results server-side using service role to bypass RLS
-    let runId: string | null = null;
-    let visibilityId: string | null = null;
+    // Insert into new denormalized table
+    let responseId: string | null = null;
 
     try {
       if (orgId && promptId) {
-        // Lookup provider id by name
-        const { data: providerRow, error: providerErr } = await supabase
-          .from('llm_providers')
-          .select('id')
-          .eq('name', provider)
-          .maybeSingle();
+        // Calculate prominence (1-based, safe for DB)
+        const prominence = score.brandPresent && score.brandPosition !== null
+          ? Math.max(1, Math.floor(score.brandPosition) + 1)
+          : null;
 
-        if (providerErr) {
-          console.error('Provider lookup error:', providerErr);
-        } else if (!providerRow) {
-          console.warn('Provider not found for name:', provider);
-        } else {
-          // Insert prompt_run
-          const { data: run, error: runErr } = await supabase
-            .from('prompt_runs')
-            .insert({
-              prompt_id: promptId,
-              provider_id: providerRow.id,
-              status: 'success',
-              token_in: result.tokenIn || 0,
-              token_out: result.tokenOut || 0,
-              cost_est: 0,
+        const { data: responseRecord, error: insertError } = await supabase
+          .from('prompt_provider_responses')
+          .insert({
+            org_id: orgId,
+            prompt_id: promptId,
+            provider: provider.toLowerCase(),
+            model,
+            status: 'success',
+            token_in: result.tokenIn || 0,
+            token_out: result.tokenOut || 0,
+            raw_ai_response: result.responseText || '',
+            raw_evidence: JSON.stringify({
               brands: result.brands || [],
+              orgBrands: classification.orgBrands || [],
               competitors: classification.competitors || [],
-            })
-            .select()
-            .single();
-
-          if (runErr) {
-            console.error('Failed to insert prompt_runs:', runErr);
-          } else if (run) {
-            runId = run.id;
-
-            // Normalize prominence to satisfy DB check constraint
-            const prominence = score.brandPresent
-              ? (score.brandPosition !== null
-                  ? Math.max(1, (typeof score.brandPosition === 'number' ? Math.floor(score.brandPosition) + 1 : 1))
-                  : 1)
-              : null;
-
-            const { data: vis, error: visErr } = await supabase
-              .from('visibility_results')
-              .insert({
-                prompt_run_id: run.id,
-                org_brand_present: !!score.brandPresent,
-                org_brand_prominence: prominence,
-                competitors_count: score.competitorCount || 0,
-                brands_json: result.brands || [],
-                score: score.score || 0,
-                raw_ai_response: result.responseText || '',
-                raw_evidence: JSON.stringify({
-                  brands: result.brands || [],
-                  orgBrands: classification.orgBrands || [],
-                  competitors: classification.competitors || [],
-                  score,
-                }),
-              })
-              .select()
-              .single();
-
-            if (visErr) {
-              console.error('Failed to insert visibility_results:', visErr);
-            } else if (vis) {
-              visibilityId = vis.id;
+              score,
+            }),
+            brands_json: result.brands || [],
+            org_brand_present: !!score.brandPresent,
+            org_brand_prominence: prominence,
+            competitors_json: classification.competitors || [],
+            competitors_count: score.competitorCount || 0,
+            score: score.score || 0,
+            citations: [],
+            metadata: {
+              classification,
+              originalBrandPosition: score.brandPosition
             }
-          }
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Failed to insert prompt_provider_responses:', insertError);
+        } else if (responseRecord) {
+          responseId = responseRecord.id;
+          console.log('Successfully inserted response record:', responseId);
         }
       } else {
         console.log('Skipping persistence: missing orgId or promptId');
@@ -191,9 +198,9 @@ serve(async (req) => {
       competitorCount: score.competitorCount,
       tokenIn: result.tokenIn || 0,
       tokenOut: result.tokenOut || 0,
-      runId,
-      visibilityId,
-      persisted: !!runId,
+      responseId,
+      persisted: !!responseId,
+      model
     };
 
     console.log(`=== EXECUTE PROMPT SUCCESS ===`);
@@ -373,6 +380,7 @@ async function executeGemini(promptText: string) {
           responseText: content,
           tokenIn: usage.promptTokenCount || 0,
           tokenOut: usage.candidatesTokenCount || 0,
+          model
         };
       } catch (e) {
         lastErr = e;

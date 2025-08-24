@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
@@ -166,26 +167,32 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
             score: executeResult.score
           });
 
-          // Persistence now handled inside execute-prompt
-          if (executeResult.runId) {
+          // Check if persistence was successful
+          if (executeResult.persisted) {
             runsCreated++;
           } else {
-            console.warn(`${provider.name} did not persist run (no runId returned)`);
+            console.warn(`${provider.name} did not persist run (no responseId returned)`);
           }
 
         } catch (providerError) {
           console.error(`Provider ${provider.name} error:`, providerError);
           
-          // Log failed run
+          // Log failed run directly to new table
           await supabase
-            .from('prompt_runs')
+            .from('prompt_provider_responses')
             .insert({
+              org_id: orgId,
               prompt_id: promptId,
-              provider_id: provider.id,
+              provider: provider.name.toLowerCase(),
               status: 'error',
+              error: providerError.message,
               token_in: 0,
               token_out: 0,
-              cost_est: 0
+              brands_json: [],
+              org_brand_present: false,
+              competitors_json: [],
+              competitors_count: 0,
+              score: 0
             });
         }
     }

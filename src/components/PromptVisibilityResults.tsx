@@ -1,28 +1,30 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, XCircle, Eye, Trophy, Users, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle } from 'lucide-react';
 
-interface VisibilityResult {
+interface ProviderResponse {
   id: string;
+  provider: string;
+  model: string | null;
+  status: string;
+  run_at: string;
   score: number;
   org_brand_present: boolean;
   org_brand_prominence: number | null;
   competitors_count: number;
-  brands_json: any; // JSON field from database
-  raw_evidence: string | null;
+  brands_json: any[];
+  competitors_json: any[];
   raw_ai_response: string | null;
-  prompt_runs: {
-    id: string;
-    status: string;
-    run_at: string;
-    llm_providers: {
-      name: string;
-    };
-  };
+  raw_evidence: string | null;
+  error: string | null;
+  token_in: number;
+  token_out: number;
+  metadata: any;
 }
 
 interface PromptVisibilityResultsProps {
@@ -31,9 +33,10 @@ interface PromptVisibilityResultsProps {
 }
 
 export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisibilityResultsProps) {
-  const [results, setResults] = useState<VisibilityResult[]>([]);
+  const [results, setResults] = useState<ProviderResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllResults, setShowAllResults] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   useEffect(() => {
     fetchResults();
@@ -43,79 +46,38 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     try {
       setLoading(true);
 
-      // Simplified: Get recent successful runs and their visibility results
-      const { data: runs, error: runsError } = await supabase
-        .from('prompt_runs')
-        .select('id, provider_id, status, run_at')
-        .eq('prompt_id', promptId)
-        .eq('status', 'success')
-        .order('run_at', { ascending: false })
-        .limit(20);
-
-      if (runsError) {
-        console.error('Error fetching runs:', runsError);
-        setResults([]);
-        return;
-      }
-
-      if (!runs || runs.length === 0) {
-        setResults([]);
-        return;
-      }
-
-      const runIds = runs.map(r => r.id);
-
-      // Get visibility results and provider info in parallel
-      const [visibilityRes, providersRes] = await Promise.all([
-        supabase
-          .from('visibility_results')
+      if (showAllResults) {
+        // Get all results for this prompt
+        const { data, error } = await supabase
+          .from('prompt_provider_responses')
           .select('*')
-          .in('prompt_run_id', runIds),
-        supabase
-          .from('llm_providers')
-          .select('id, name')
-      ]);
+          .eq('prompt_id', promptId)
+          .order('run_at', { ascending: false })
+          .limit(50);
 
-      if (visibilityRes.error) {
-        console.error('Error fetching visibility results:', visibilityRes.error);
-        setResults([]);
-        return;
+        if (error) {
+          console.error('Error fetching all results:', error);
+          setResults([]);
+          return;
+        }
+
+        setResults(data || []);
+      } else {
+        // Get latest results per provider
+        const { data, error } = await supabase
+          .from('latest_prompt_provider_responses')
+          .select('*')
+          .eq('prompt_id', promptId)
+          .order('run_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching latest results:', error);
+          setResults([]);
+          return;
+        }
+
+        setResults(data || []);
       }
-
-      const providerMap = new Map();
-      (providersRes.data || []).forEach(p => providerMap.set(p.id, p.name));
-
-      // Merge data
-      const visibilityByRun = new Map();
-      (visibilityRes.data || []).forEach(v => {
-        visibilityByRun.set(v.prompt_run_id, v);
-      });
-
-      const results = runs
-        .map(run => {
-          const visibility = visibilityByRun.get(run.id);
-          if (!visibility) return null;
-
-          return {
-            id: visibility.id,
-            score: visibility.score,
-            org_brand_present: visibility.org_brand_present,
-            org_brand_prominence: visibility.org_brand_prominence,
-            competitors_count: visibility.competitors_count,
-            brands_json: visibility.brands_json,
-            raw_evidence: visibility.raw_evidence,
-            raw_ai_response: visibility.raw_ai_response,
-            prompt_runs: {
-              id: run.id,
-              status: run.status,
-              run_at: run.run_at,
-              llm_providers: { name: providerMap.get(run.provider_id) || 'unknown' }
-            }
-          } as VisibilityResult;
-        })
-        .filter(Boolean) as VisibilityResult[];
-
-      setResults(results.slice(0, 10));
     } catch (error) {
       console.error('Error fetching results:', error);
       setResults([]);
@@ -130,12 +92,20 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'success': return 'bg-green-100 text-green-800';
+      case 'error': case 'failed': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const getProminenceText = (prominence: number | null) => {
     if (prominence === null) return 'Not found';
-    if (prominence === 0) return '1st position';
-    if (prominence === 1) return '2nd position';
-    if (prominence === 2) return '3rd position';
-    return `${prominence + 1}th position`;
+    if (prominence === 1) return '1st position';
+    if (prominence === 2) return '2nd position';
+    if (prominence === 3) return '3rd position';
+    return `${prominence}th position`;
   };
 
   if (loading) {
@@ -167,53 +137,63 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     );
   }
 
-  // Get the latest results (most recent run per provider)
-  const getLatestResults = () => {
-    if (showAllResults) return results;
-    
-    // Group by provider and get the latest run for each
-    const latestByProvider = new Map();
-    results.forEach(result => {
-      const provider = result.prompt_runs.llm_providers.name;
-      const existing = latestByProvider.get(provider);
-      if (!existing || new Date(result.prompt_runs.run_at) > new Date(existing.prompt_runs.run_at)) {
-        latestByProvider.set(provider, result);
-      }
-    });
-    return Array.from(latestByProvider.values());
-  };
-
-  const displayResults = getLatestResults();
+  // Group results by provider for latest view
+  const displayResults = showAllResults 
+    ? results 
+    : Array.from(new Map(results.map(r => [r.provider, r])).values());
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Eye className="h-5 w-5" />
-          {showAllResults ? 'All Visibility Results' : 'Latest Visibility Results'}
+          {showAllResults ? 'All Provider Results' : 'Latest Provider Results'}
         </h3>
         
-        {results.length > displayResults.length && (
+        <div className="flex gap-2">
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => setShowAllResults(!showAllResults)}
+            onClick={() => setDebugMode(!debugMode)}
           >
-            {showAllResults ? `Show Latest Only` : `Show All (${results.length})`}
+            <Bug className="h-4 w-4 mr-1" />
+            {debugMode ? 'Hide Debug' : 'Debug'}
           </Button>
-        )}
+          
+          {results.length > displayResults.length && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setShowAllResults(!showAllResults);
+                // Refetch when switching views
+                setTimeout(() => fetchResults(), 100);
+              }}
+            >
+              {showAllResults ? 'Show Latest Only' : `Show All (${results.length})`}
+            </Button>
+          )}
+        </div>
       </div>
       
       {displayResults.map((result) => (
-        <Card key={result.id} className="relative">
+        <Card key={`${result.id}-${result.run_at}`} className="relative">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="capitalize">
-                  {result.prompt_runs.llm_providers.name}
+                  {result.provider}
+                </Badge>
+                {result.model && (
+                  <Badge variant="secondary" className="text-xs">
+                    {result.model}
+                  </Badge>
+                )}
+                <Badge className={`text-xs ${getStatusColor(result.status)}`}>
+                  {result.status}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  {new Date(result.prompt_runs.run_at).toLocaleString()}
+                  {new Date(result.run_at).toLocaleString()}
                 </span>
               </div>
               
@@ -224,125 +204,143 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           </CardHeader>
           
           <CardContent className="pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Brand Presence */}
-              <div className="flex items-center gap-2">
-                {result.org_brand_present ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
+            {result.status === 'error' && result.error ? (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Execution Error</p>
+                    <p className="text-sm text-red-600 mt-1">{result.error}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Brand Presence */}
+                  <div className="flex items-center gap-2">
+                    {result.org_brand_present ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">Brand Present</p>
+                      <p className="text-sm text-muted-foreground">
+                        {result.org_brand_present ? 'Yes' : 'No'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Brand Position */}
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-yellow-500" />
+                    <div>
+                      <p className="text-sm font-medium">Position</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getProminenceText(result.org_brand_prominence)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Competitors */}
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    <div>
+                      <p className="text-sm font-medium">Competitors</p>
+                      <p className="text-sm text-muted-foreground">
+                        {result.competitors_count} found
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detected Brands */}
+                {result.brands_json && Array.isArray(result.brands_json) && result.brands_json.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm font-medium mb-2">All Detected Brands:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {result.brands_json.map((brand: string, index: number) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {brand}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                <div>
-                  <p className="text-sm font-medium">Brand Present</p>
-                  <p className="text-sm text-muted-foreground">
-                    {result.org_brand_present ? 'Yes' : 'No'}
-                  </p>
-                </div>
-              </div>
 
-              {/* Brand Position */}
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-yellow-500" />
-                <div>
-                  <p className="text-sm font-medium">Position</p>
-                  <p className="text-sm text-muted-foreground">
-                    {getProminenceText(result.org_brand_prominence)}
-                  </p>
-                </div>
-              </div>
+                {/* Competitors */}
+                {result.competitors_json && Array.isArray(result.competitors_json) && result.competitors_json.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm font-medium mb-2">Competitor Brands:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {result.competitors_json.map((competitor: string, index: number) => (
+                        <Badge key={index} variant="destructive" className="text-xs">
+                          {competitor}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {/* Competitors */}
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-500" />
-                <div>
-                  <p className="text-sm font-medium">Competitors</p>
-                  <p className="text-sm text-muted-foreground">
-                    {result.competitors_count} found
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Detected Brands with Enhanced Display */}
-            {result.brands_json && Array.isArray(result.brands_json) && result.brands_json.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm font-medium mb-2">Detected Brands:</p>
-                <div className="flex flex-wrap gap-2">
-                  {result.brands_json.map((brandData: any, index: number) => {
-                    // Handle both old string format and new object format
-                    const brandName = typeof brandData === 'string' ? brandData : brandData.brand_name;
-                    const brandScore = typeof brandData === 'object' ? brandData.score : null;
-                    
-                    // Try to determine if this is a user brand or competitor from raw_evidence
-                    let isUserBrand = false;
-                    let isCompetitor = false;
-                    
-                    try {
-                      if (result.raw_evidence) {
-                        const evidence = JSON.parse(result.raw_evidence);
-                        if (evidence.userBrands) {
-                          isUserBrand = evidence.userBrands.some((ub: any) => ub.name === brandName);
-                        }
-                        if (evidence.competitors) {
-                          isCompetitor = evidence.competitors.some((c: any) => c.name === brandName);
-                        }
+                {/* Raw AI Response */}
+                {result.raw_ai_response && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">AI Response:</p>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7">
+                            <FileText className="h-3 w-3 mr-1" />
+                            View Full Response
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[80vh]">
+                          <DialogHeader>
+                            <DialogTitle>Full AI Response - {result.provider}</DialogTitle>
+                            <DialogDescription>
+                              Response generated on {new Date(result.run_at).toLocaleString()}
+                              {result.model && ` using ${result.model}`}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="mt-4 max-h-96 overflow-y-auto">
+                            <div className="p-4 bg-muted rounded-lg">
+                              <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
+                                {result.raw_ai_response}
+                              </pre>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded border-l-4 border-primary/30">
+                      {result.raw_ai_response.length > 200 
+                        ? `${result.raw_ai_response.substring(0, 200)}...` 
+                        : result.raw_ai_response
                       }
-                    } catch (e) {
-                      // Fallback: assume first brand is user brand if org_brand_present is true
-                      if (result.org_brand_present && index === 0) {
-                        isUserBrand = true;
-                      }
-                    }
-                    
-                    const badgeVariant = isUserBrand ? "default" : isCompetitor ? "destructive" : "secondary";
-                    
-                    return (
-                      <Badge key={index} variant={badgeVariant} className="text-xs">
-                        {brandName}
-                        {brandScore !== null && ` (${brandScore}/10)`}
-                        {isUserBrand && " (You)"}
-                        {isCompetitor && " (Competitor)"}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Raw AI Response */}
-            {result.raw_ai_response && (
+            {/* Debug Information */}
+            {debugMode && (
               <div className="mt-4 pt-4 border-t">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium">AI Response:</p>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-7">
-                        <FileText className="h-3 w-3 mr-1" />
-                        View Full Response
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh]">
-                      <DialogHeader>
-                        <DialogTitle>Full AI Response - {result.prompt_runs.llm_providers.name}</DialogTitle>
-                        <DialogDescription>
-                          Response generated on {new Date(result.prompt_runs.run_at).toLocaleString()}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="mt-4 max-h-96 overflow-y-auto">
-                        <div className="p-4 bg-muted rounded-lg">
-                          <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
-                            {result.raw_ai_response}
-                          </pre>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded border-l-4 border-primary/30">
-                  {result.raw_ai_response.length > 200 
-                    ? `${result.raw_ai_response.substring(0, 200)}...` 
-                    : result.raw_ai_response
-                  }
+                <p className="text-sm font-medium mb-2">Debug Info:</p>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <p><strong>Response ID:</strong> {result.id}</p>
+                    <p><strong>Tokens In:</strong> {result.token_in}</p>
+                    <p><strong>Tokens Out:</strong> {result.token_out}</p>
+                  </div>
+                  <div>
+                    <p><strong>Model:</strong> {result.model || 'N/A'}</p>
+                    <p><strong>Status:</strong> {result.status}</p>
+                    {result.metadata && (
+                      <p><strong>Metadata:</strong> {JSON.stringify(result.metadata, null, 2).substring(0, 100)}...</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -15,6 +15,7 @@ import { KeywordManagement } from '@/components/KeywordManagement';
 import { AIPromptSuggestions } from '@/components/AIPromptSuggestions';
 import TestSchedulerAPIs from '@/components/TestSchedulerAPIs';
 import { AlertCircle } from 'lucide-react';
+import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 
 // Transform the existing prompt data to match the PromptList interface
 const transformPromptData = (prompts: any[]) => {
@@ -52,7 +53,6 @@ export default function Prompts() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
-  
   
   // AI Suggestions state
   const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
@@ -376,7 +376,7 @@ export default function Prompts() {
                 <TabsTrigger value="prompts" className="rounded-xl">My Prompts</TabsTrigger>
                 <TabsTrigger value="suggestions" className="rounded-xl">AI Suggestions</TabsTrigger>
                 <TabsTrigger value="keywords" className="rounded-xl">Business Context</TabsTrigger>
-                <TabsTrigger value="test" className="rounded-xl">Test APIs</TabsTrigger>
+                <TabsTrigger value="debug" className="rounded-xl">Debug Tools</TabsTrigger>
               </TabsList>
               
               <TabsContent value="prompts" className="mt-6">
@@ -407,8 +407,32 @@ export default function Prompts() {
                 <KeywordManagement />
               </TabsContent>
 
-              <TabsContent value="test" className="mt-6">
-                <TestSchedulerAPIs />
+              <TabsContent value="debug" className="mt-6">
+                {rawPrompts.length > 0 && orgData?.organizations?.id ? (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold mb-2">Debug Tools</h3>
+                      <p className="text-muted-foreground">Test individual prompts across all providers and view raw responses</p>
+                    </div>
+                    
+                    {rawPrompts.slice(0, 3).map((prompt) => (
+                      <div key={prompt.id} className="space-y-4">
+                        <div className="p-4 bg-muted rounded-lg">
+                          <h4 className="font-medium mb-2">Test Prompt: {prompt.text.substring(0, 100)}...</h4>
+                          <ProviderDebugPanel 
+                            promptId={prompt.id}
+                            promptText={prompt.text}
+                            orgId={orgData.organizations.id}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Add some prompts to use debug tools</p>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 

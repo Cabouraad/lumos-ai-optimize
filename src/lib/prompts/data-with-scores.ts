@@ -28,44 +28,23 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
       return [];
     }
 
-    // Get recent runs for these prompts
+    // Get recent results from the new table
     const promptIds = prompts.map(p => p.id);
-    const { data: runs } = await supabase
-      .from('prompt_runs')
-      .select('id, prompt_id')
+    const { data: results } = await supabase
+      .from('prompt_provider_responses')
+      .select('prompt_id, score, org_brand_present, competitors_count, run_at')
       .in('prompt_id', promptIds)
       .eq('status', 'success')
       .order('run_at', { ascending: false })
-      .limit(500);
+      .limit(1000); // Get recent results
 
-    // Get visibility results for these runs
-    const runIds = (runs || []).map(r => r.id);
-    let visibilityResults: any[] = [];
-    
-    if (runIds.length > 0) {
-      const { data: results } = await supabase
-        .from('visibility_results')
-        .select('prompt_run_id, score, org_brand_present, competitors_count')
-        .in('prompt_run_id', runIds);
-      
-      visibilityResults = results || [];
-    }
-
-    // Map results by run, then by prompt
-    const resultsByRun = new Map();
-    visibilityResults.forEach(r => {
-      resultsByRun.set(r.prompt_run_id, r);
-    });
-
+    // Group results by prompt
     const resultsByPrompt = new Map<string, any[]>();
-    (runs || []).forEach(run => {
-      const result = resultsByRun.get(run.id);
-      if (result) {
-        if (!resultsByPrompt.has(run.prompt_id)) {
-          resultsByPrompt.set(run.prompt_id, []);
-        }
-        resultsByPrompt.get(run.prompt_id)!.push(result);
+    (results || []).forEach(result => {
+      if (!resultsByPrompt.has(result.prompt_id)) {
+        resultsByPrompt.set(result.prompt_id, []);
       }
+      resultsByPrompt.get(result.prompt_id)!.push(result);
     });
 
     // Build prompt data with visibility metrics
@@ -78,7 +57,7 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
       let competitorPct = 0;
 
       if (hasData) {
-        // Calculate averages
+        // Calculate averages from recent results
         const scores = promptResults.map(r => r.score);
         visibilityScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
 

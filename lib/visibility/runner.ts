@@ -1,5 +1,6 @@
+
 /**
- * Simplified Visibility Runner - Executes prompts and stores results
+ * Simplified Visibility Runner - Executes prompts using new denormalized storage
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -10,18 +11,8 @@ export interface RunPromptResult {
   runsCreated: number;
 }
 
-export interface ProviderResponse {
-  provider: string;
-  responseText: string;
-  brands: string[];
-  tokenIn: number;
-  tokenOut: number;
-  success: boolean;
-  error?: string;
-}
-
 /**
- * Run a single prompt across all enabled providers and store results
+ * Run a single prompt across all enabled providers and store results in prompt_provider_responses
  */
 export async function runPrompt(promptId: string, orgId: string): Promise<RunPromptResult> {
   try {
@@ -65,18 +56,16 @@ export async function runPrompt(promptId: string, orgId: string): Promise<RunPro
           continue;
         }
 
-        // Persistence handled in edge function
-        if (response.runId || response.persisted) {
+        // Check persistence was successful - now using responseId instead of runId
+        if (response.responseId || response.persisted) {
           runsCreated++;
         } else {
-          console.warn(`Provider ${provider.name} did not persist run (no runId returned)`);
+          console.warn(`Provider ${provider.name} did not persist response (no responseId returned)`);
         }
 
       } catch (providerError) {
         console.error(`Provider ${provider.name} error:`, providerError);
-        
-        // Failed provider execution; persistence and error logging handled server-side.
-
+        // Error logging handled in execute-prompt function
       }
     }
 
@@ -85,28 +74,4 @@ export async function runPrompt(promptId: string, orgId: string): Promise<RunPro
   } catch (error: any) {
     return { success: false, error: error.message };
   }
-}
-
-/**
- * Calculate visibility score based on brand analysis
- * (No longer used; keeping for reference)
- */
-function calculateVisibilityScore(brands: string[], responseText: string, orgId: string) {
-  const brandPresent = brands.length > 0;
-  const competitorCount = Math.max(0, brands.length - 1);
-  const brandPosition = brandPresent ? 0 : null;
-  let score = 0;
-  if (brandPresent) {
-    score = Math.max(1, 10 - competitorCount);
-  }
-  return {
-    brandPresent,
-    brandPosition,
-    competitorCount,
-    score,
-    analysis: {
-      totalBrands: brands.length,
-      responseLength: responseText.length
-    }
-  };
 }
