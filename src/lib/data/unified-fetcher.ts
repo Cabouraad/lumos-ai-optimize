@@ -1,11 +1,13 @@
 /**
- * Unified data fetcher to eliminate redundancy and improve performance
+ * Phase 2 Enhanced: Unified data fetcher with advanced caching and ML integration
  */
 import { supabase } from "@/integrations/supabase/client";
 import { getOrgId } from "@/lib/auth";
+import { advancedCache, CacheEventManager } from "../advanced-cache/redis-cache";
+import { backgroundPreloader } from "../background-optimization/data-preloader";
 
-// Centralized cache for data
-const dataCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+// Initialize Phase 2 cache event management
+const cacheEventManager = CacheEventManager.getInstance();
 
 const CACHE_TTL = {
   dashboard: 2 * 60 * 1000, // 2 minutes
@@ -13,17 +15,15 @@ const CACHE_TTL = {
   providers: 5 * 60 * 1000,  // 5 minutes
 };
 
-function getCachedData<T>(key: string): T | null {
-  const cached = dataCache.get(key);
-  if (cached && Date.now() - cached.timestamp < cached.ttl) {
-    return cached.data as T;
-  }
-  dataCache.delete(key);
-  return null;
+// Legacy cache functions for backward compatibility
+async function getCachedData<T>(key: string): Promise<T | null> {
+  // Try advanced cache first, fallback to legacy
+  const cached = await advancedCache.get<T>(key);
+  return cached ? cached : null;
 }
 
 function setCachedData(key: string, data: any, ttl: number): void {
-  dataCache.set(key, { data, timestamp: Date.now(), ttl });
+  advancedCache.set(key, data, ttl);
 }
 
 export interface UnifiedDashboardData {
@@ -104,18 +104,21 @@ export interface ProviderResponseData {
 }
 
 /**
- * Unified data fetcher for dashboard - replaces getSafeDashboardData
+ * Phase 2 Enhanced: Unified data fetcher with background preloading
  */
 export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedDashboardData> {
-  const cacheKey = 'dashboard-data';
-  
-  if (useCache) {
-    const cached = getCachedData<UnifiedDashboardData>(cacheKey);
-    if (cached) return cached;
-  }
-
   try {
     const orgId = await getOrgId();
+    const cacheKey = `dashboard-data-${orgId}`;
+    
+    if (useCache) {
+      // Check Phase 2 advanced cache first
+      const cached = await advancedCache.get<UnifiedDashboardData>(cacheKey);
+      if (cached) return cached;
+    }
+
+    // Trigger Phase 2 background preloading for future requests
+    backgroundPreloader.preloadCriticalData();
 
     // Single query to get all prompt data
     const [promptsResult, providersResult] = await Promise.all([
@@ -251,7 +254,8 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
       prompts: promptSummaries
     };
 
-    setCachedData(cacheKey, result, CACHE_TTL.dashboard);
+    // Phase 2: Use advanced cache with event-driven invalidation
+    advancedCache.set(cacheKey, result, CACHE_TTL.dashboard);
     return result;
 
   } catch (error) {
@@ -261,27 +265,28 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
 }
 
 /**
- * Unified data fetcher for prompts page - includes detailed provider data
+ * Phase 2 Enhanced: Unified prompt data fetcher with ML integration
  */
 export async function getUnifiedPromptData(useCache = true): Promise<UnifiedPromptData> {
-  const cacheKey = 'prompt-data';
-  
-  if (useCache) {
-    const cached = getCachedData<UnifiedPromptData>(cacheKey);
-    if (cached) return cached;
-  }
-
   try {
+    const orgId = await getOrgId();
+    const cacheKey = `prompt-data-${orgId}`;
+    
+    if (useCache) {
+      // Check Phase 2 advanced cache first
+      const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
+      if (cached) return cached;
+    }
+
     // Get base dashboard data
     const dashboardData = await getUnifiedDashboardData(useCache);
-    const orgId = await getOrgId();
     
     if (dashboardData.prompts.length === 0) {
       const emptyData: UnifiedPromptData = {
         ...dashboardData,
         promptDetails: []
       };
-      setCachedData(cacheKey, emptyData, CACHE_TTL.prompts);
+      advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
       return emptyData;
     }
 
@@ -366,7 +371,8 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       promptDetails
     };
 
-    setCachedData(cacheKey, result, CACHE_TTL.prompts);
+    // Phase 2: Advanced caching with event-driven invalidation
+    advancedCache.set(cacheKey, result, CACHE_TTL.prompts);
     return result;
 
   } catch (error) {
@@ -376,13 +382,51 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
 }
 
 /**
- * Invalidate cache when new data is available
+ * Phase 2: Enhanced cache invalidation with event-driven updates
  */
 export function invalidateCache(keys?: string[]): void {
   if (keys) {
-    keys.forEach(key => dataCache.delete(key));
+    keys.forEach(key => advancedCache.invalidate(key));
+    
+    // Emit cache invalidation events for other components
+    keys.forEach(key => {
+      if (key.includes('prompt')) {
+        cacheEventManager.emit('prompt-executed', { cacheKey: key });
+      } else if (key.includes('brand')) {
+        cacheEventManager.emit('brand-updated', { cacheKey: key });
+      }
+    });
   } else {
-    dataCache.clear();
+    // Clear all cache entries
+    advancedCache.invalidate('*');
+  }
+}
+
+/**
+ * Phase 2: New advanced caching utilities
+ */
+export function getCacheStats() {
+  return advancedCache.getStats();
+}
+
+export function warmCacheForUser() {
+  backgroundPreloader.preloadCriticalData();
+}
+
+export function preloadForPage(page: string) {
+  switch (page) {
+    case '/dashboard':
+      backgroundPreloader.preloadCriticalData();
+      break;
+    case '/competitors':
+      backgroundPreloader.preloadForUserIntent('viewing-competitors');
+      break;
+    case '/recommendations':
+      backgroundPreloader.preloadForUserIntent('checking-recommendations');
+      break;
+    case '/prompts':
+      backgroundPreloader.preloadForUserIntent('analyzing-prompts');
+      break;
   }
 }
 
@@ -395,7 +439,7 @@ export async function getPromptProviderHistory(
   limit: number = 10
 ): Promise<ProviderResponseData[]> {
   const cacheKey = `history-${promptId}-${provider}`;
-  const cached = getCachedData<ProviderResponseData[]>(cacheKey);
+  const cached = await getCachedData<ProviderResponseData[]>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -410,7 +454,8 @@ export async function getPromptProviderHistory(
     if (error) throw error;
 
     const result = (data as ProviderResponseData[]) || [];
-    setCachedData(cacheKey, result, CACHE_TTL.providers);
+    // Phase 2: Advanced caching for provider history
+    advancedCache.set(cacheKey, result, CACHE_TTL.providers);
     return result;
   } catch (error) {
     console.error(`Error fetching ${provider} history for prompt ${promptId}:`, error);
