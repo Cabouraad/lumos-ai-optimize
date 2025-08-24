@@ -65,6 +65,13 @@ export default function Prompts() {
     if (orgData?.organizations?.id) {
       loadPromptsData();
       loadSuggestedPrompts();
+      
+      // Set up auto-refresh every 30 seconds to catch new provider responses
+      const interval = setInterval(() => {
+        loadPromptsData();
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
   }, [orgData]);
 
@@ -80,7 +87,7 @@ export default function Prompts() {
     }
   };
 
-  const loadPromptsData = async () => {
+  const loadPromptsData = async (showToast = false) => {
     try {
       setLoading(true);
       const [basicData, detailedData] = await Promise.all([
@@ -90,6 +97,21 @@ export default function Prompts() {
       setRawPrompts(basicData);
       setProviderData(detailedData);
       setError(null);
+      
+      if (showToast && detailedData.length > 0) {
+        const recentResponses = detailedData.filter(prompt => 
+          Object.values(prompt.providers).some(p => 
+            p && new Date(p.run_at).getTime() > Date.now() - 5 * 60 * 1000 // Last 5 minutes
+          )
+        );
+        
+        if (recentResponses.length > 0) {
+          toast({
+            title: 'New visibility data available',
+            description: `Updated ${recentResponses.length} prompt${recentResponses.length > 1 ? 's' : ''} with fresh provider responses`,
+          });
+        }
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to load prompts');
     } finally {

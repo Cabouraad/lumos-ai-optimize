@@ -51,11 +51,30 @@ export default function Dashboard() {
   const handleManualRun = async () => {
     setManualRunLoading(true);
     try {
-    const { data: result, error } = await supabase.functions.invoke('run-all-prompts', {
-      body: { manualRun: true }
-    });
+      // Start the run with a longer timeout expectation
+      toast({
+        title: 'Starting prompt execution...',
+        description: 'This may take a few minutes. Processing will continue in background.',
+      });
+
+      const { data: result, error } = await supabase.functions.invoke('run-all-prompts', {
+        body: { manualRun: true }
+      });
       
-      if (error) throw error;
+      if (error) {
+        // Even if the function times out, check if data was created
+        console.warn('Function call failed, but checking for created data:', error);
+        
+        // Wait a bit then refresh anyway - data might have been created
+        setTimeout(async () => {
+          await loadDashboardData();
+          toast({
+            title: 'Data refreshed',
+            description: 'Checking for any new visibility data from background processing.',
+          });
+        }, 3000);
+        return;
+      }
       
       toast({
         title: 'Manual run completed',
