@@ -3,13 +3,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
-import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle } from 'lucide-react';
+import { ResponseClassificationFixer } from './ResponseClassificationFixer';
 
 interface ProviderResponseCardProps {
   provider: 'openai' | 'gemini' | 'perplexity';
   response: ProviderResponseData | null;
   promptText: string;
+  onClassificationFixed?: () => void;
 }
 
 const PROVIDER_CONFIG = {
@@ -18,7 +21,7 @@ const PROVIDER_CONFIG = {
   perplexity: { name: 'Perplexity', icon: '🔍', color: 'bg-blue-50 border-blue-200 text-blue-700' }
 };
 
-export function ProviderResponseCard({ provider, response, promptText }: ProviderResponseCardProps) {
+export function ProviderResponseCard({ provider, response, promptText, onClassificationFixed }: ProviderResponseCardProps) {
   const config = PROVIDER_CONFIG[provider];
 
   if (!response) {
@@ -104,6 +107,19 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
       </CardHeader>
       
       <CardContent className="space-y-4">
+        {/* Classification Fixer - Show for responses with potential issues */}
+        {response && (
+          <ResponseClassificationFixer
+            responseId={response.id}
+            provider={response.provider}
+            currentScore={response.score}
+            brandPresent={response.org_brand_present}
+            competitorCount={response.competitors_count}
+            competitors={Array.isArray(response.competitors_json) ? response.competitors_json : []}
+            onFixed={onClassificationFixed}
+          />
+        )}
+        
         {/* Last Run Time */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
@@ -171,13 +187,43 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
             {/* Competitors Found */}
             {response.competitors_json && Array.isArray(response.competitors_json) && response.competitors_json.length > 0 && (
               <div>
-                <p className="text-xs font-medium mb-2">Competitors Found:</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-medium">Competitors Found:</p>
+                  {response.competitors_count > 20 && (
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>High competitor count may indicate classification issues</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1">
-                  {response.competitors_json.slice(0, 4).map((competitor: string, index: number) => (
-                    <Badge key={index} variant="outline" className="text-xs px-1.5 py-0.5">
-                      {competitor}
-                    </Badge>
-                  ))}
+                  {response.competitors_json.slice(0, 4).map((competitor: string, index: number) => {
+                    const isHubSpotVariant = /hubspot|marketing hub|hub.?spot/i.test(competitor);
+                    const isSuspicious = /^(seo|marketing|social media|facebook)$/i.test(competitor.trim());
+                    
+                    return (
+                      <Badge 
+                        key={index} 
+                        variant={isHubSpotVariant ? "destructive" : isSuspicious ? "secondary" : "outline"} 
+                        className={`text-xs px-1.5 py-0.5 ${
+                          isHubSpotVariant ? "animate-pulse border-red-300" : 
+                          isSuspicious ? "opacity-60" : ""
+                        }`}
+                        title={
+                          isHubSpotVariant ? "⚠️ This might be your brand!" :
+                          isSuspicious ? "Generic term - may be false positive" :
+                          competitor
+                        }
+                      >
+                        {competitor}
+                        {isHubSpotVariant && " ⚠️"}
+                      </Badge>
+                    );
+                  })}
                   {response.competitors_json.length > 4 && (
                     <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">
                       +{response.competitors_json.length - 4} more

@@ -461,16 +461,19 @@ export function PromptRow({
                           provider="openai" 
                           response={providerData.openai} 
                           promptText={prompt.text}
+                          onClassificationFixed={() => window.location.reload()}
                         />
                         <ProviderResponseCard 
                           provider="gemini" 
                           response={providerData.gemini} 
                           promptText={prompt.text}
+                          onClassificationFixed={() => window.location.reload()}
                         />
                         <ProviderResponseCard 
                           provider="perplexity" 
                           response={providerData.perplexity} 
                           promptText={prompt.text}
+                          onClassificationFixed={() => window.location.reload()}
                         />
                       </div>
                     )}

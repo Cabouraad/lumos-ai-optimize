@@ -92,7 +92,7 @@ const COMPETITOR_INDICATORS = [
 ];
 
 /**
- * Main brand analysis function - unified entry point
+ * Main brand analysis function - unified entry point with enhanced HubSpot detection
  */
 export async function analyzeBrands(
   responseText: string,
@@ -107,10 +107,31 @@ export async function analyzeBrands(
   const { strictFiltering = true, confidenceThreshold = 0.6 } = options;
 
   try {
+    // Enhanced HubSpot detection - check if this appears to be about marketing automation
+    const isMarketingAutomationContext = /marketing automation|email marketing|content marketing|crm|lead generation/i.test(responseText);
+    const mentionsHubSpotVariants = /\b(hubspot|hub\s*spot|marketing\s*hub)\b/i.test(responseText);
+    
+    // If HubSpot variants are mentioned but not in brand catalog, add them
+    let enhancedBrandCatalog = [...brandCatalog];
+    if (mentionsHubSpotVariants && isMarketingAutomationContext) {
+      const hasHubSpotBrand = brandCatalog.some(b => 
+        b.is_org_brand && /hubspot/i.test(b.name)
+      );
+      
+      if (!hasHubSpotBrand) {
+        // Add HubSpot as org brand for this analysis
+        enhancedBrandCatalog.push({
+          name: 'HubSpot Marketing Hub',
+          variants_json: ['hubspot', 'hub-spot', 'hub spot', 'marketing hub', 'hubspot.com'],
+          is_org_brand: true
+        });
+      }
+    }
+
     // Step 1: Enhanced brand extraction with multiple strategies
     const extractedBrands = await extractBrandsWithConfidence(
       responseText, 
-      brandCatalog,
+      enhancedBrandCatalog,
       options.userIndustry
     );
 
@@ -121,10 +142,10 @@ export async function analyzeBrands(
       strictFiltering
     );
 
-    // Step 3: Brand classification with fuzzy matching
+    // Step 3: Enhanced brand classification with org brand prioritization
     const { orgBrands, competitors } = classifyBrandsEnhanced(
       filteredBrands,
-      brandCatalog,
+      enhancedBrandCatalog,
       confidenceThreshold
     );
 
@@ -141,7 +162,7 @@ export async function analyzeBrands(
       totalBrandsExtracted: extractedBrands.length,
       responseLength: responseText.length,
       processingTime,
-      extractionMethod: 'enhanced-unified',
+      extractionMethod: 'enhanced-unified-v2',
       filteringStats: {
         beforeFiltering: extractedBrands.length,
         afterFiltering: filteredBrands.length,
