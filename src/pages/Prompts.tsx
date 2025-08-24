@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { getPromptsWithScores } from '@/lib/prompts/data-with-scores';
+import { getPromptsWithProviderData } from '@/lib/prompts/provider-data';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
@@ -49,6 +50,7 @@ export default function Prompts() {
   const { orgData } = useAuth();
   const { toast } = useToast();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
+  const [providerData, setProviderData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -81,8 +83,12 @@ export default function Prompts() {
   const loadPromptsData = async () => {
     try {
       setLoading(true);
-      const data = await getPromptsWithScores();
-      setRawPrompts(data);
+      const [basicData, detailedData] = await Promise.all([
+        getPromptsWithScores(),
+        getPromptsWithProviderData(),
+      ]);
+      setRawPrompts(basicData);
+      setProviderData(detailedData);
       setError(null);
     } catch (err: any) {
       setError(err?.message || 'Failed to load prompts');

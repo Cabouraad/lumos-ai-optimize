@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { ProviderResponseCard } from '@/components/ProviderResponseCard';
+import { getPromptProviderHistory, ProviderResponseData } from '@/lib/prompts/provider-data';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -85,9 +87,13 @@ export function PromptRow({
   const [isLoadingResponses, setIsLoadingResponses] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
 
-  // Live data states (no mock data)
-  const [latestResults, setLatestResults] = useState<ProviderResult[]>([]);
-  const [loadingLatest, setLoadingLatest] = useState(false);
+  // Provider-specific data states
+  const [providerData, setProviderData] = useState<{
+    openai: ProviderResponseData | null;
+    gemini: ProviderResponseData | null;
+    perplexity: ProviderResponseData | null;
+  }>({ openai: null, gemini: null, perplexity: null });
+  const [loadingProviders, setLoadingProviders] = useState(false);
   const [topCompetitors, setTopCompetitors] = useState<Array<{ name: string; share: number }>>([]);
   const [loadingCompetitors, setLoadingCompetitors] = useState(false);
   const [trendAvg, setTrendAvg] = useState<number | null>(null);
@@ -171,35 +177,31 @@ export function PromptRow({
     }
   };
 
-  // Fetch live data when expanded
+  // Fetch provider-specific data when expanded
   useEffect(() => {
     if (!isExpanded) return;
 
-    const fetchLatest = async () => {
+    const fetchProviderData = async () => {
       try {
-        setLoadingLatest(true);
+        setLoadingProviders(true);
         const { data, error } = await supabase
           .from('latest_prompt_provider_responses')
           .select('*')
-          .eq('prompt_id', prompt.id)
-          .eq('status', 'success');
+          .eq('prompt_id', prompt.id);
 
         if (error) {
-          console.error('Error fetching latest results:', error);
-          setLatestResults([]);
+          console.error('Error fetching provider data:', error);
+          setProviderData({ openai: null, gemini: null, perplexity: null });
         } else {
-          const results = (data || []).map((response: any) => ({
-            provider: response.provider,
-            runAt: response.run_at,
-            present: !!response.org_brand_present,
-            position: response.org_brand_prominence ?? null,
-            competitors: response.competitors_count ?? 0,
-            score: response.score ?? 0,
-          }));
-          setLatestResults(results);
+          const providers = {
+            openai: (data || []).find(r => r.provider === 'openai') as ProviderResponseData || null,
+            gemini: (data || []).find(r => r.provider === 'gemini') as ProviderResponseData || null,
+            perplexity: (data || []).find(r => r.provider === 'perplexity') as ProviderResponseData || null,
+          };
+          setProviderData(providers);
         }
       } finally {
-        setLoadingLatest(false);
+        setLoadingProviders(false);
       }
     };
 
@@ -254,7 +256,7 @@ export function PromptRow({
       }
     };
 
-    fetchLatest();
+    fetchProviderData();
     fetchCompetitors();
     fetchTrend();
   }, [isExpanded, prompt.id]);
@@ -444,170 +446,103 @@ export function PromptRow({
               className="overflow-hidden"
             >
               <div className="border-t border-gray-100 bg-gray-50/50 p-4">
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left Column - Latest Visibility Results */}
+                <div className="space-y-6">
+                  {/* Provider Results Grid */}
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Latest Visibility Results</h4>
-                    <div className="space-y-3">
-                      {loadingLatest ? (
+                    <h4 className="text-sm font-semibold text-gray-900 mb-4">Latest Provider Results</h4>
+                    {loadingProviders ? (
+                      <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                        <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
+                        Loading provider data...
+                      </div>
+                    ) : (
+                      <div className="grid lg:grid-cols-3 gap-4">
+                        <ProviderResponseCard 
+                          provider="openai" 
+                          response={providerData.openai} 
+                          promptText={prompt.text}
+                        />
+                        <ProviderResponseCard 
+                          provider="gemini" 
+                          response={providerData.gemini} 
+                          promptText={prompt.text}
+                        />
+                        <ProviderResponseCard 
+                          provider="perplexity" 
+                          response={providerData.perplexity} 
+                          promptText={prompt.text}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Competitor & Trend Analysis */}
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Competitors */}
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Top Competitors</h5>
+                      {loadingCompetitors ? (
                         <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                           <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
-                          Loading latest results...
-                        </div>
-                      ) : latestResults.length === 0 ? (
-                        <div className="text-sm text-muted-foreground bg-white rounded-lg border border-dashed p-4">
-                          No results yet. Run this prompt to see provider visibility.
-                        </div>
-                      ) : (
-                        latestResults.map((result, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
-                            <div className="flex items-center gap-3">
-                              <div className="text-lg">
-                                {result.provider === 'openai' ? '🤖' : result.provider === 'perplexity' ? '🔍' : '✨'}
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-900 capitalize">{result.provider}</div>
-                                <div className="text-xs text-gray-500">{getRelativeTime(result.runAt)}</div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                variant="outline" 
-                                className={`text-xs h-5 px-2 ${result.present ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
-                              >
-                                {result.present ? (result.position !== null ? `#${result.position}` : 'Found') : 'Not found'}
-                              </Badge>
-                              <Badge className={`text-xs h-5 px-2 rounded-full border ${getScoreColor(result.score)}`}>
-                                {Number.isFinite(result.score) ? result.score.toFixed(1) : '0.0'}
-                              </Badge>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-6 px-2 text-xs text-blue-600 hover:bg-blue-50"
-                                    onClick={() => fetchRawResponses(prompt.id, result.provider)}
-                                  >
-                                    <Eye className="mr-1 h-3 w-3" />
-                                    View
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl max-h-[80vh]">
-                                  <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2">
-                                      <FileText className="h-5 w-5" />
-                                      Raw {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} Responses for "{prompt.text}"
-                                    </DialogTitle>
-                                  </DialogHeader>
-                                  <ScrollArea className="max-h-[60vh]">
-                                    {isLoadingResponses ? (
-                                      <div className="flex items-center justify-center py-8">
-                                        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
-                                        <span className="ml-2 text-sm text-muted-foreground">Loading responses...</span>
-                                      </div>
-                                    ) : rawResponses.length === 0 ? (
-                                      <div className="text-center py-8 text-muted-foreground">
-                                        <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                        <p className="text-lg font-medium mb-1">No data to show</p>
-                                        <p>No raw responses found for {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} on this prompt</p>
-                                      </div>
-                                    ) : (
-                                      <div className="space-y-4">
-                                        {rawResponses.map((response, idx) => (
-                                          <div key={idx} className="border rounded-lg p-4 bg-gray-50/50">
-                                            <div className="flex items-center justify-between mb-3">
-                                              <div className="flex items-center gap-2">
-                                                <div className="text-lg">
-                                                  {response.provider === 'openai' ? '🤖' : response.provider === 'perplexity' ? '🔍' : '✨'}
-                                                </div>
-                                                <div>
-                                                  <div className="text-sm font-medium text-gray-900 capitalize">
-                                                    {response.provider}
-                                                  </div>
-                                                  <div className="text-xs text-gray-500">
-                                                    {new Date(response.timestamp).toLocaleString()}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              <Badge className={`text-xs h-5 px-2 rounded-full border ${getScoreColor(response.score)}`}>
-                                                Score: {response.score}
-                                              </Badge>
-                                            </div>
-                                            <div className="bg-white rounded border p-3">
-                                              <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                                                {response.response}
-                                              </pre>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </ScrollArea>
-                                </DialogContent>
-                              </Dialog>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Column - Performance Snapshot */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Performance Snapshot</h4>
-                    
-                    {/* Mini trend using real data */}
-                    <div className="bg-white rounded-lg border border-gray-100 p-3 mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-gray-700">7-Day Trend</span>
-                        {trendRuns > 0 ? (
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <BarChart3 className="h-3 w-3" />
-                            {trendAvg !== null ? `${trendAvg.toFixed(1)}/10` : '—'}
-                          </div>
-                        ) : null}
-                      </div>
-                      {trendRuns === 0 ? (
-                        <div className="h-8 rounded border border-dashed text-xs flex items-center justify-center text-muted-foreground">
-                          No trend data yet
-                        </div>
-                      ) : (
-                        <div className="h-2 rounded bg-gray-100 overflow-hidden">
-                          <div
-                            className="h-full bg-[hsl(var(--accent))]"
-                            style={{ width: `${Math.min(100, Math.max(0, (trendAvg || 0) * 10))}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Top competitors from real data */}
-                    <div className="bg-white rounded-lg border border-gray-100 p-3">
-                      <h5 className="text-xs font-medium text-gray-700 mb-2">Top Competitors</h5>
-                      {loadingCompetitors ? (
-                        <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
-                          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
-                          Loading…
+                          Loading competitors...
                         </div>
                       ) : topCompetitors.length === 0 ? (
-                        <div className="text-xs text-muted-foreground border border-dashed rounded p-3">
-                          No competitor mentions yet
+                        <div className="text-sm text-muted-foreground bg-white rounded-lg border border-dashed p-4">
+                          No competitor mentions found yet
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {topCompetitors.map((c) => (
-                            <div key={c.name} className="flex items-center justify-between text-xs">
-                              <span className="text-gray-900">{c.name}</span>
+                          {topCompetitors.map((competitor, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                              <span className="text-sm font-medium text-gray-900">{competitor.name}</span>
                               <div className="flex items-center gap-2">
-                                <span className="text-gray-600">{c.share}%</span>
-                                <div className="w-16 h-1 bg-gray-100 rounded overflow-hidden">
-                                  <div className="h-full bg-[hsl(var(--primary))]" style={{ width: `${c.share}%` }} />
+                                <span className="text-xs text-gray-600">{competitor.share}%</span>
+                                <div className="w-16 h-2 bg-gray-100 rounded overflow-hidden">
+                                  <div 
+                                    className="h-full bg-purple-500" 
+                                    style={{ width: `${competitor.share}%` }} 
+                                  />
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    {/* Trend Analysis */}
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">7-Day Performance</h5>
+                      
+                      {/* Mini trend using real data */}
+                      <div className="bg-white rounded-lg border border-gray-100 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-700">Average Score</span>
+                          {trendRuns > 0 ? (
+                            <div className="flex items-center gap-1 text-xs text-gray-600">
+                              <BarChart3 className="h-3 w-3" />
+                              {trendAvg !== null ? `${trendAvg.toFixed(1)}/10` : '—'}
+                            </div>
+                          ) : null}
+                        </div>
+                        {trendRuns === 0 ? (
+                          <div className="h-8 rounded border border-dashed text-xs flex items-center justify-center text-muted-foreground">
+                            No trend data yet
+                          </div>
+                        ) : (
+                          <div className="h-2 rounded bg-gray-100 overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500"
+                              style={{ width: `${Math.min(100, Math.max(0, (trendAvg || 0) * 10))}%` }}
+                            />
+                          </div>
+                        )}
+                        {trendRuns > 0 && (
+                          <div className="text-xs text-gray-500 mt-2">
+                            {trendRuns} runs in last 7 days
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

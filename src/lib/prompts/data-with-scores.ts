@@ -35,14 +35,14 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
       return [];
     }
 
-    // Get recent results from the new table - last 7 days
+    // Get recent results from prompt_provider_responses - last 7 days
     const promptIds = prompts.map(p => p.id);
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data: results } = await supabase
       .from('prompt_provider_responses')
-      .select('prompt_id, score, org_brand_present, competitors_count')
+      .select('prompt_id, score, org_brand_present, competitors_count, provider, run_at')
       .in('prompt_id', promptIds)
       .gte('run_at', sevenDaysAgo.toISOString())
       .eq('status', 'success');
@@ -68,7 +68,7 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
       let competitorPct = 0;
 
       if (hasData) {
-        // Calculate averages from recent results
+        // Calculate averages from recent results across all providers
         const scores = promptResults.map(r => r.score);
         visibilityScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
 
@@ -76,7 +76,7 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
         brandPct = (brandPresentCount / promptResults.length) * 100;
 
         const totalCompetitors = promptResults.reduce((sum, r) => sum + (r.competitors_count || 0), 0);
-        competitorPct = totalCompetitors / promptResults.length;
+        competitorPct = promptResults.length > 0 ? totalCompetitors / promptResults.length : 0;
       }
 
       return {
