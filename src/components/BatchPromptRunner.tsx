@@ -69,12 +69,17 @@ export function BatchPromptRunner() {
         description: "Running all active prompts through all providers...",
       });
 
+      console.log('Attempting to call batch-run-all-prompts function...');
+
       const { data, error } = await supabase.functions.invoke('batch-run-all-prompts', {
         body: { orgId }
       });
 
+      console.log('Function call response:', { data, error });
+
       if (error) {
-        throw new Error(error.message);
+        console.error('Supabase function error:', error);
+        throw new Error(`Function error: ${error.message || error}`);
       }
 
       setResults(data.results || []);
@@ -88,9 +93,16 @@ export function BatchPromptRunner() {
 
     } catch (error: any) {
       console.error('Batch run error:', error);
+      
+      // More detailed error message
+      let errorMessage = error.message || 'Unknown error occurred';
+      if (errorMessage.includes('Failed to send a request')) {
+        errorMessage = 'Edge function not available. It may still be deploying. Please try again in a few moments.';
+      }
+      
       toast({
-        title: "Batch Run Failed",
-        description: error.message || "Failed to run batch processing",
+        title: "Batch Run Failed", 
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
