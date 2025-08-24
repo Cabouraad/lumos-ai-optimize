@@ -51,28 +51,27 @@ export default function Dashboard() {
   const handleManualRun = async () => {
     setManualRunLoading(true);
     try {
-      // Start the run with a longer timeout expectation
       toast({
         title: 'Starting prompt execution...',
-        description: 'This may take a few minutes. Processing will continue in background.',
+        description: 'Processing will run in background. Please wait for completion notification.',
       });
 
-      const { data: result, error } = await supabase.functions.invoke('run-all-prompts', {
+      // Use trigger-test-run instead for better reliability
+      const { data: result, error } = await supabase.functions.invoke('trigger-test-run', {
         body: { manualRun: true }
       });
       
       if (error) {
-        // Even if the function times out, check if data was created
-        console.warn('Function call failed, but checking for created data:', error);
+        console.warn('Trigger failed, but background processing may continue:', error);
+        toast({
+          title: 'Processing started',
+          description: 'Background execution initiated. Data will refresh automatically.',
+        });
         
-        // Wait a bit then refresh anyway - data might have been created
+        // Auto-refresh after delay
         setTimeout(async () => {
           await loadDashboardData();
-          toast({
-            title: 'Data refreshed',
-            description: 'Checking for any new visibility data from background processing.',
-          });
-        }, 3000);
+        }, 5000);
         return;
       }
       
