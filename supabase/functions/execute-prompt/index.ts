@@ -183,27 +183,10 @@ async function executePerplexity(promptText: string) {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) throw new Error('Perplexity API key not found');
 
-  const corsSafeHeaders = {
+  const headers = {
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
-  };
-
-  const buildBody = () => ({
-    model: 'llama-3.1-sonar-small-128k-online',
-    messages: [
-      { role: 'system', content: 'Be precise and concise. Output ONLY a JSON object with key "brands" as an array of brand/company names you would include. No explanations.' },
-      { role: 'user', content: promptText }
-    ],
-    temperature: 0.2,
-    top_p: 0.9,
-    max_tokens: 1000,
-    return_images: false,
-    return_related_questions: false,
-    frequency_penalty: 1,
-    presence_penalty: 0,
-    // Optional search controls to satisfy online models
-    // search_recency_filter: 'month',
-  });
+  } as const;
 
   const url = 'https://api.perplexity.ai/chat/completions';
   let lastErr: any = null;
@@ -212,17 +195,20 @@ async function executePerplexity(promptText: string) {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: corsSafeHeaders,
-        body: JSON.stringify(buildBody()),
+        headers,
+        body: JSON.stringify({
+          model: 'sonar',
+          messages: [
+            { role: 'user', content: promptText }
+          ]
+        }),
       });
 
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         const err = new Error(`Perplexity API error: ${response.status} ${response.statusText} - ${errText}`);
-        // Do not retry on auth errors
-        if (response.status === 401 || response.status === 403) throw err;
+        if (response.status === 401 || response.status === 403) throw err; // don't retry auth
         lastErr = err;
-        // Retry on other errors
         if (attempt < 3) {
           await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
           continue;
@@ -234,13 +220,7 @@ async function executePerplexity(promptText: string) {
       const content = data.choices?.[0]?.message?.content ?? '';
       const usage = data.usage || {};
 
-      let brands: string[] = [];
-      try {
-        const parsed = JSON.parse(content);
-        brands = Array.isArray(parsed.brands) ? parsed.brands : extractBrandsFromResponse(content);
-      } catch {
-        brands = extractBrandsFromResponse(content);
-      }
+      const brands = extractBrandsFromResponse(content);
 
       return {
         brands,
@@ -250,10 +230,7 @@ async function executePerplexity(promptText: string) {
       };
     } catch (e) {
       lastErr = e;
-      // Backoff already handled above for non-ok
-      if (attempt < 3) {
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
     }
   }
 
@@ -264,20 +241,12 @@ async function executeGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not found');
 
-  const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-8b'];
+  const models = ['gemini-2.5-flash-lite', 'gemini-1.5-flash-8b'];
   let lastErr: any = null;
 
   const buildBody = () => ({
     contents: [
-      {
-        parts: [
-          {
-            text:
-              promptText +
-              '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
-          }
-        ]
-      }
+      { parts: [{ text: promptText }] }
     ],
     generationConfig: {
       temperature: 0.7,
@@ -302,15 +271,13 @@ async function executeGemini(promptText: string) {
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           const err = new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errText}`);
-          // Don't retry on auth
-          if (response.status === 401 || response.status === 403) throw err;
+          if (response.status === 401 || response.status === 403) throw err; // don't retry auth
           lastErr = err;
           if (attempt < 3) {
             await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
             continue;
           }
-          // break inner loop to try next model
-          break;
+          break; // try next model
         }
 
         const data = await response.json();
@@ -326,9 +293,7 @@ async function executeGemini(promptText: string) {
         };
       } catch (e) {
         lastErr = e;
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-        }
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }
