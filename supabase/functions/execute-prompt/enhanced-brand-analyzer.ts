@@ -50,7 +50,7 @@ function enhancedNormalize(str: string): string {
     .trim();
 }
 
-// Enhanced false positive detection - much more aggressive filtering
+// Enhanced false positive detection - comprehensive filtering
 const FALSE_POSITIVE_PATTERNS = {
   // Generic tech terms often capitalized
   genericTerms: [
@@ -71,7 +71,7 @@ const FALSE_POSITIVE_PATTERNS = {
     'management', 'scheduling', 'calendar', 'larger', 'focuses', 'widely'
   ],
   
-  // Common words that get capitalized
+  // Common words that get capitalized (EXPANDED)
   commonWords: [
     'user', 'users', 'team', 'teams', 'company', 'companies', 'business',
     'custom', 'premium', 'pro', 'plus', 'basic', 'free', 'standard',
@@ -80,8 +80,29 @@ const FALSE_POSITIVE_PATTERNS = {
     'features', 'pricing', 'plans', 'options', 'benefits', 'advantages',
     'capabilities', 'functionality', 'integration', 'dashboard', 'interface',
     'reports', 'insights', 'performance', 'results', 'success', 'growth',
-    // Content marketing specific terms often misclassified
-    'email marketing', 'social media', 'content performance', 'campaign management'
+    // CRITICAL: Add the exact terms we see in the screenshot as false positives
+    'range', 'affordable', 'pricing range', 'your', 'their', 'these', 'those',
+    'when', 'what', 'where', 'which', 'while', 'with', 'without', 'within',
+    'content marketing', 'email marketing', 'social media', 'social media management',
+    'content performance', 'campaign management', 'automation platforms',
+    // Business/pricing terms that commonly get misclassified
+    'pricing', 'cost', 'budget', 'value', 'roi', 'investment', 'expense',
+    'cheap', 'expensive', 'reasonable', 'competitive', 'premium', 'budget-friendly',
+    // Size/scale descriptors
+    'small', 'large', 'medium', 'big', 'huge', 'tiny', 'massive', 'enterprise',
+    'startup', 'mid-size', 'fortune', 'global', 'local', 'regional',
+    // Quality descriptors  
+    'good', 'great', 'excellent', 'amazing', 'outstanding', 'superior',
+    'quality', 'reliable', 'trusted', 'proven', 'established', 'popular'
+  ],
+  
+  // Comprehensive phrases that are never brands
+  genericPhrases: [
+    'social media', 'email marketing', 'content marketing', 'digital marketing',
+    'search engine', 'content management', 'customer relationship', 'project management',
+    'social media management', 'content performance', 'campaign management',
+    'automation platforms', 'pricing range', 'your team', 'their platform',
+    'marketing automation', 'analytics tools', 'social platforms', 'content tools'
   ],
   
   // Context patterns that indicate false positives
@@ -232,15 +253,44 @@ async function extractBrandsWithConfidence(
 }
 
 function extractFromJSON(text: string): string[] {
-  const jsonMatch = text.match(/\{[^}]*"brands"[^}]*\}/);
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return Array.isArray(parsed.brands) ? parsed.brands : [];
-    } catch {
-      return [];
+  // FIXED: Proper JSON extraction that handles nested objects and arrays
+  const jsonPatterns = [
+    // Try to find complete JSON objects with "brands" key
+    /\{\s*"brands"\s*:\s*\[[^\]]*\]\s*\}/g,
+    // Try to find just the brands array
+    /"brands"\s*:\s*\[([^\]]*)\]/g,
+    // Try to find any array that looks like brands
+    /\[\s*"[^"]*"(?:\s*,\s*"[^"]*")*\s*\]/g
+  ];
+
+  console.log('Attempting JSON extraction from text...');
+  
+  for (const pattern of jsonPatterns) {
+    const matches = Array.from(text.matchAll(pattern));
+    for (const match of matches) {
+      try {
+        let jsonStr = match[0];
+        
+        // If it's just the brands array, wrap it in an object
+        if (jsonStr.startsWith('[')) {
+          jsonStr = `{"brands": ${jsonStr}}`;
+        }
+        
+        console.log('Trying to parse JSON:', jsonStr);
+        const parsed = JSON.parse(jsonStr);
+        
+        if (parsed.brands && Array.isArray(parsed.brands)) {
+          console.log('Successfully extracted brands from JSON:', parsed.brands);
+          return parsed.brands.filter(brand => typeof brand === 'string' && brand.trim().length > 0);
+        }
+      } catch (error) {
+        console.log('JSON parse failed for:', match[0], error);
+        continue;
+      }
     }
   }
+  
+  console.log('No valid JSON brands found');
   return [];
 }
 
@@ -269,19 +319,29 @@ function findBrandMentions(text: string, brandName: string): Array<{position: nu
 function extractByPatterns(text: string): Array<{name: string, position: number}> {
   const brands: Array<{name: string, position: number}> = [];
   
-  // Enhanced patterns for brand detection
+  // ENHANCED: More selective patterns for brand detection - avoid generic terms
   const patterns = [
-    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, // Two-word brands: "Google Cloud"
-    /\b[A-Z][a-z]{2,}\.(?:com|io|net|org|ai|co)\b/g, // Domain names: "example.com"
-    /\b[A-Z][A-Za-z]*[A-Z][a-zA-Z]*\b/g, // CamelCase: "JavaScript", "iPhone"
-    /\b[A-Z][a-z]{3,}\b/g // Single capitalized words: "Apple" (min 4 chars)
+    // Two-word brands with business indicators: "Google Cloud", "Adobe Creative"
+    /\b[A-Z][a-z]+ (?:Cloud|Analytics|Marketing|Creative|Studio|Pro|Suite|Platform|Hub|Labs|Works|Systems|Solutions)\b/g,
+    // Domain names: "example.com" (strong brand indicators)
+    /\b[A-Z][a-z]{2,}\.(?:com|io|net|org|ai|co|app)\b/g,
+    // CamelCase with 2+ capital letters: "JavaScript", "iPhone", "HubSpot"
+    /\b[A-Z][a-z]*[A-Z][a-zA-Z]*\b/g,
+    // Brands with numbers: "Office365", "Salesforce1"
+    /\b[A-Z][a-z]+\d+\b/g,
+    // Longer capitalized words that are more likely to be brands (6+ chars to avoid common words)
+    /\b[A-Z][a-z]{5,}\b/g
   ];
   
   for (const pattern of patterns) {
     let match;
     while ((match = pattern.exec(text)) !== null) {
       const brandName = match[0];
-      if (brandName.length >= 3) {
+      
+      // ENHANCED: Pre-filter obviously non-brand terms before adding
+      const isObviouslyNotBrand = /^(Content|Marketing|Social|Digital|Email|Search|Management|Analytics|Automation|Campaign|Performance|Strategy|Quality|Premium|Standard|Professional|Enterprise|Business|Company|Service|Solution|Platform|System|Software|Application|Framework|Library|Database|Network|Security|Privacy|Support|Training|Learning|Development|Research|Analysis|Report|Insight|Result|Success|Growth|Value|Price|Cost|Budget|Range|Scale|Size|Level|Grade|Rank|Score|Rate|Ratio|Percent|Number|Amount|Total|Count|Sum|Average|Maximum|Minimum|Optimal|Best|Better|Good|Great|Excellent|Outstanding|Superior|Advanced|Basic|Simple|Easy|Quick|Fast|Slow|Large|Small|Big|Little|High|Low|Top|Bottom|First|Last|New|Old|Recent|Latest|Current|Modern|Traditional|Popular|Common|Rare|Unique|Special|General|Specific|Public|Private|Personal|Individual|Custom|Standard|Regular|Normal|Typical|Usual)$/i.test(brandName);
+      
+      if (!isObviouslyNotBrand && brandName.length >= 3) {
         brands.push({ name: brandName, position: match.index });
       }
     }
@@ -371,18 +431,32 @@ function filterFalsePositives(
   responseText: string,
   strictFiltering: boolean = true
 ): ExtractedBrand[] {
+  console.log(`Filtering ${extractedBrands.length} extracted brands...`);
+  
   return extractedBrands.filter(brand => {
     // Enhanced filtering for single words that are clearly not brands
     const normalizedBrand = brand.normalized.toLowerCase().trim();
     
     // Filter out very short terms or common words
-    if (normalizedBrand.length <= 2) return false;
+    if (normalizedBrand.length <= 2) {
+      console.log(`Filtered out (too short): ${brand.name}`);
+      return false;
+    }
+    
+    // ENHANCED: Check against comprehensive generic phrases first
+    if (FALSE_POSITIVE_PATTERNS.genericPhrases.some(phrase => 
+      normalizedBrand === phrase.toLowerCase() || normalizedBrand.includes(phrase.toLowerCase())
+    )) {
+      console.log(`Filtered out (generic phrase): ${brand.name}`);
+      return false;
+    }
     
     // Enhanced generic term filtering - exact matches and partial matches
     if (FALSE_POSITIVE_PATTERNS.genericTerms.some(term => 
       normalizedBrand === term || 
       (term.length > 3 && normalizedBrand.includes(term))
     )) {
+      console.log(`Filtered out (generic term): ${brand.name}`);
       return false;
     }
     
@@ -390,6 +464,7 @@ function filterFalsePositives(
     if (FALSE_POSITIVE_PATTERNS.commonWords.some(word => 
       normalizedBrand === word.toLowerCase()
     )) {
+      console.log(`Filtered out (common word): ${brand.name}`);
       return false;
     }
     
@@ -402,10 +477,11 @@ function filterFalsePositives(
       'popular', 'leading', 'effective', 'powerful', 'innovative', 'reliable',
       'management', 'scheduling', 'calendar', 'larger', 'widely', 'known',
       'choosing', 'when', 'what', 'their', 'also', 'well', 'track', 'consider',
-      'understanding', 'research', 'easy', 'help'
+      'understanding', 'research', 'easy', 'help', 'range', 'affordable', 'your'
     ];
     
     if (singleWordNonBrands.includes(normalizedBrand)) {
+      console.log(`Filtered out (single word non-brand): ${brand.name}`);
       return false;
     }
     
@@ -413,34 +489,47 @@ function filterFalsePositives(
     if (FALSE_POSITIVE_PATTERNS.contextPatterns.some(pattern => 
       pattern.test(brand.context)
     )) {
+      console.log(`Filtered out (context pattern): ${brand.name}`);
       return false;
     }
     
-    // Filter obvious generic phrases that shouldn't be brands
-    const genericPhrases = [
-      'social media', 'email marketing', 'content marketing', 'digital marketing',
-      'search engine', 'content management', 'customer relationship', 'project management',
-      'social media management', 'content performance', 'campaign management'
-    ];
+    // ENHANCED: Additional business term filtering for pricing/quality terms
+    const businessDescriptors = /^(pricing|cost|budget|value|affordable|expensive|cheap|premium|quality|reliable|trusted|proven|established|popular|leading|best|top|good|great|excellent|amazing|outstanding|superior)$/i;
+    if (businessDescriptors.test(normalizedBrand)) {
+      console.log(`Filtered out (business descriptor): ${brand.name}`);
+      return false;
+    }
     
-    if (genericPhrases.includes(normalizedBrand)) {
+    // ENHANCED: Filter out possessive pronouns and determiners
+    const pronounsAndDeterminers = /^(your|their|these|those|this|that|some|many|several|various|different|other|others|more|most|less|few|all|every|each)$/i;
+    if (pronounsAndDeterminers.test(normalizedBrand)) {
+      console.log(`Filtered out (pronoun/determiner): ${brand.name}`);
       return false;
     }
     
     // In strict mode, require minimum confidence and context
     if (strictFiltering) {
-      if (brand.confidence < 0.6) return false; // Raised threshold
+      if (brand.confidence < 0.6) {
+        console.log(`Filtered out (low confidence): ${brand.name} (${brand.confidence})`);
+        return false; 
+      }
       
-      // Require business context for unknown brands
+      // Require business context for unknown brands (unless it's a known good pattern)
       const hasBusinessContext = BUSINESS_CONTEXT_INDICATORS.some(indicator => 
         brand.context.toLowerCase().includes(indicator)
       );
       
-      if (!hasBusinessContext && brand.confidence < 0.8) { // Raised threshold
+      const isLikelyBrand = brand.name.includes('.') || // Domain names
+                           /^[A-Z][a-z]+[A-Z]/.test(brand.name) || // CamelCase
+                           brand.name.length >= 8; // Longer names more likely to be brands
+      
+      if (!hasBusinessContext && !isLikelyBrand && brand.confidence < 0.8) {
+        console.log(`Filtered out (no business context): ${brand.name}`);
         return false;
       }
     }
     
+    console.log(`Kept brand: ${brand.name} (confidence: ${brand.confidence})`);
     return true;
   });
 }
@@ -456,6 +545,9 @@ function classifyBrandsEnhanced(
   const orgBrands: ExtractedBrand[] = [];
   const competitors: ExtractedBrand[] = [];
   
+  console.log(`Classifying ${extractedBrands.length} brands against catalog of ${brandCatalog.length} entries`);
+  console.log('Brand catalog:', brandCatalog);
+  
   // Create a set of org brand names and variants for fast lookup
   const orgBrandNames = new Set<string>();
   const orgBrandVariants = new Set<string>();
@@ -463,29 +555,41 @@ function classifyBrandsEnhanced(
   brandCatalog
     .filter(b => b.is_org_brand)
     .forEach(brand => {
-      orgBrandNames.add(enhancedNormalize(brand.name));
+      const normalizedName = enhancedNormalize(brand.name);
+      orgBrandNames.add(normalizedName);
+      console.log(`Added org brand: ${brand.name} -> ${normalizedName}`);
+      
       if (brand.variants_json) {
         brand.variants_json.forEach(variant => {
-          orgBrandVariants.add(enhancedNormalize(variant));
+          const normalizedVariant = enhancedNormalize(variant);
+          orgBrandVariants.add(normalizedVariant);
+          console.log(`Added org variant: ${variant} -> ${normalizedVariant}`);
         });
       }
     });
+  
+  console.log('Org brand names:', Array.from(orgBrandNames));
+  console.log('Org brand variants:', Array.from(orgBrandVariants));
   
   for (const brand of extractedBrands) {
     const matchResult = findBestBrandMatch(brand, brandCatalog);
     
     // Enhanced org brand detection - check multiple patterns
     const normalizedBrand = enhancedNormalize(brand.name);
+    console.log(`Checking brand: ${brand.name} -> ${normalizedBrand}`);
+    
     const isDefinitelyOrgBrand = matchResult.isOrgBrand || 
       orgBrandNames.has(normalizedBrand) ||
       orgBrandVariants.has(normalizedBrand) ||
       // Additional fuzzy matching for org brands
       Array.from(orgBrandNames).some(orgName => {
         const similarity = calculateSimilarity(normalizedBrand, orgName);
+        console.log(`Similarity between ${normalizedBrand} and ${orgName}: ${similarity}`);
         return similarity >= 0.85; // High threshold for org brand matching
       });
     
     if (isDefinitelyOrgBrand) {
+      console.log(`✅ IDENTIFIED AS ORG BRAND: ${brand.name}`);
       orgBrands.push({
         ...brand,
         name: matchResult.matchedBrandName || brand.name,
@@ -500,8 +604,10 @@ function classifyBrandsEnhanced(
       });
       
       if (!isHiddenOrgBrand) {
+        console.log(`➕ IDENTIFIED AS COMPETITOR: ${brand.name}`);
         competitors.push(brand);
       } else {
+        console.log(`✅ RESCUED AS ORG BRAND: ${brand.name} (was almost missed)`);
         // This was likely an org brand - add it to org brands with lower confidence
         orgBrands.push({
           ...brand,
@@ -509,9 +615,12 @@ function classifyBrandsEnhanced(
           matchType: 'fuzzy'
         });
       }
+    } else {
+      console.log(`❌ FILTERED OUT (low confidence): ${brand.name} (${brand.confidence})`);
     }
   }
   
+  console.log(`Final classification: ${orgBrands.length} org brands, ${competitors.length} competitors`);
   return { orgBrands, competitors };
 }
 
