@@ -56,14 +56,25 @@ const FALSE_POSITIVE_PATTERNS = {
   genericTerms: [
     'api', 'sdk', 'app', 'web', 'mobile', 'cloud', 'data', 'system', 'platform',
     'solution', 'service', 'software', 'tool', 'framework', 'library',
-    'search', 'email', 'social', 'media', 'digital', 'online', 'smart'
+    'search', 'email', 'social', 'media', 'digital', 'online', 'smart',
+    // Marketing and SEO terms that are often mistakenly identified as competitors
+    'seo', 'sem', 'ppc', 'crm', 'cms', 'erp', 'roi', 'kpi', 'ctr', 'cpc',
+    'marketing', 'analytics', 'automation', 'optimization', 'tracking',
+    'content', 'advertising', 'campaign', 'strategy', 'engagement',
+    // Common misidentified words from AI responses
+    'these', 'those', 'some', 'many', 'several', 'various', 'different',
+    'other', 'others', 'more', 'most', 'less', 'better', 'best', 'top'
   ],
   
   // Common words that get capitalized
   commonWords: [
     'user', 'users', 'team', 'teams', 'company', 'companies', 'business',
     'custom', 'premium', 'pro', 'plus', 'basic', 'free', 'standard',
-    'new', 'old', 'first', 'last', 'next', 'best', 'top', 'leading'
+    'new', 'old', 'first', 'last', 'next', 'best', 'top', 'leading',
+    // Additional common words that shouldn't be brands
+    'features', 'pricing', 'plans', 'options', 'benefits', 'advantages',
+    'capabilities', 'functionality', 'integration', 'dashboard', 'interface',
+    'reports', 'insights', 'performance', 'results', 'success', 'growth'
   ],
   
   // Context patterns that indicate false positives
@@ -108,12 +119,15 @@ export async function analyzeBrands(
 
   try {
     // Enhanced HubSpot detection - check if this appears to be about marketing automation
-    const isMarketingAutomationContext = /marketing automation|email marketing|content marketing|crm|lead generation/i.test(responseText);
+    const isMarketingAutomationContext = /marketing automation|email marketing|content marketing|crm|lead generation|content creation|analytics/i.test(responseText);
     const mentionsHubSpotVariants = /\b(hubspot|hub\s*spot|marketing\s*hub)\b/i.test(responseText);
+    
+    // Special case: If response is about "content marketing automation and analytics" and mentions tools like BuzzSumo
+    const isContentMarketingTools = /content marketing automation|analytics.*2025|buzzsumo|gumloop/i.test(responseText);
     
     // If HubSpot variants are mentioned but not in brand catalog, add them
     let enhancedBrandCatalog = [...brandCatalog];
-    if (mentionsHubSpotVariants && isMarketingAutomationContext) {
+    if ((mentionsHubSpotVariants && isMarketingAutomationContext) || isContentMarketingTools) {
       const hasHubSpotBrand = brandCatalog.some(b => 
         b.is_org_brand && /hubspot/i.test(b.name)
       );
