@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +47,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
 
       if (showAllResults) {
         // Get all results for this prompt using RPC call
-        const { data, error } = await supabase.rpc('get_prompt_responses', {
+        const { data, error } = await supabase.rpc('get_prompt_responses' as any, {
           p_prompt_id: promptId,
           p_limit: 50
         });
@@ -59,10 +58,10 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           return;
         }
 
-        setResults(data || []);
+        setResults((data as ProviderResponse[]) || []);
       } else {
         // Get latest results per provider using RPC call
-        const { data, error } = await supabase.rpc('get_latest_prompt_responses', {
+        const { data, error } = await supabase.rpc('get_latest_prompt_responses' as any, {
           p_prompt_id: promptId
         });
 
@@ -72,7 +71,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           return;
         }
 
-        setResults(data || []);
+        setResults((data as ProviderResponse[]) || []);
       }
     } catch (error) {
       console.error('Error fetching results:', error);

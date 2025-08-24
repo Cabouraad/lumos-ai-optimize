@@ -13,6 +13,13 @@ export interface PromptWithScore {
   hasData: boolean;
 }
 
+interface PromptResponseData {
+  prompt_id: string;
+  score: number;
+  org_brand_present: boolean;
+  competitors_count: number;
+}
+
 export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
   try {
     const orgId = await getOrgId();
@@ -30,18 +37,20 @@ export async function getPromptsWithScores(): Promise<PromptWithScore[]> {
 
     // Get recent results from the new table using RPC call
     const promptIds = prompts.map(p => p.id);
-    const { data: results } = await supabase.rpc('get_prompt_responses_for_prompts', {
+    const { data: results } = await supabase.rpc('get_prompt_responses_for_prompts' as any, {
       p_prompt_ids: promptIds
     });
 
     // Group results by prompt
-    const resultsByPrompt = new Map<string, any[]>();
-    (results || []).forEach(result => {
-      if (!resultsByPrompt.has(result.prompt_id)) {
-        resultsByPrompt.set(result.prompt_id, []);
-      }
-      resultsByPrompt.get(result.prompt_id)!.push(result);
-    });
+    const resultsByPrompt = new Map<string, PromptResponseData[]>();
+    if (results && Array.isArray(results)) {
+      (results as PromptResponseData[]).forEach(result => {
+        if (!resultsByPrompt.has(result.prompt_id)) {
+          resultsByPrompt.set(result.prompt_id, []);
+        }
+        resultsByPrompt.get(result.prompt_id)!.push(result);
+      });
+    }
 
     // Build prompt data with visibility metrics
     return prompts.map(prompt => {
