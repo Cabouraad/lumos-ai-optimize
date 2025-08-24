@@ -18,23 +18,42 @@ import { AlertCircle } from 'lucide-react';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 
 // Transform the existing prompt data to match the PromptList interface
-const transformPromptData = (prompts: any[]) => {
-  return prompts.map(prompt => ({
-    id: prompt.id,
-    text: prompt.text,
-    createdAt: prompt.created_at,
-    category: getPromptCategory(prompt.text),
-    providers: [
-      { name: 'openai', enabled: true, lastRun: prompt.created_at },
-      { name: 'perplexity', enabled: true, lastRun: prompt.created_at },
-    ],
-    lastRunAt: prompt.created_at,
-    visibilityScore: prompt.visibilityScore, // Use actual data from database
-    brandPct: prompt.brandPct, // Use actual data from database
-    competitorPct: prompt.competitorPct, // Use actual data from database
-    sentimentDelta: 0, // Start at 0 until we have actual sentiment data
-    active: prompt.active,
-  }));
+const transformPromptData = (prompts: any[], promptDetails: any[]) => {
+  return prompts.map(prompt => {
+    // Find the corresponding detailed data for this prompt
+    const details = promptDetails.find(d => d.promptId === prompt.id);
+    
+    // Calculate visibility score from latest provider responses
+    let visibilityScore = 0;
+    if (details) {
+      const providerScores = Object.values(details.providers)
+        .filter((p: any) => p && p.status === 'success')
+        .map((p: any) => p.score);
+      
+      if (providerScores.length > 0) {
+        visibilityScore = providerScores.reduce((sum, score) => sum + score, 0) / providerScores.length;
+      } else {
+        visibilityScore = details.overallScore || 0;
+      }
+    }
+
+    return {
+      id: prompt.id,
+      text: prompt.text,
+      createdAt: prompt.created_at,
+      category: getPromptCategory(prompt.text),
+      providers: [
+        { name: 'openai', enabled: true, lastRun: prompt.created_at },
+        { name: 'perplexity', enabled: true, lastRun: prompt.created_at },
+      ],
+      lastRunAt: details?.lastRunAt || prompt.created_at,
+      visibilityScore: Math.round(visibilityScore * 10) / 10,
+      brandPct: 0, // Calculate from provider data if needed
+      competitorPct: 0, // Calculate from provider data if needed
+      sentimentDelta: 0, // Start at 0 until we have actual sentiment data
+      active: prompt.active,
+    };
+  });
 };
 
 const getPromptCategory = (text: string) => {
@@ -338,7 +357,7 @@ export default function Prompts() {
   };
 
   // Transform data for the PromptList component
-  const transformedPrompts = transformPromptData(rawPrompts);
+  const transformedPrompts = transformPromptData(rawPrompts, providerData);
 
   if (error) {
     return (

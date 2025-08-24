@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle, RefreshCw, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invalidateCache } from '@/lib/data/unified-fetcher';
 
 interface ResponseClassificationFixerProps {
   responseId: string;
@@ -89,7 +90,17 @@ export function ResponseClassificationFixer({
 
       if (error) throw error;
 
-      toast.success(`✅ Fixed ${provider} response - Score: ${currentScore} → ${Math.round(newScore * 10) / 10}`);
+       // Get the actual prompt ID from the response
+       const { data: responseData } = await supabase
+         .from('prompt_provider_responses')
+         .select('prompt_id')
+         .eq('id', responseId)
+         .single();
+
+       // Invalidate caches to refresh UI with updated data
+       invalidateCache();
+
+       toast.success(`✅ Fixed ${provider} response - Score: ${currentScore} → ${Math.round(newScore * 10) / 10}`);
       onFixed?.();
       
     } catch (error) {
