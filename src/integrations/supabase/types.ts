@@ -644,6 +644,10 @@ export type Database = {
       }
     }
     Functions: {
+      fix_hubspot_brand_classification: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }
         Returns: {

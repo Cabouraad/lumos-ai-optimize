@@ -389,7 +389,7 @@ function filterFalsePositives(
 }
 
 /**
- * Enhanced brand classification with fuzzy matching
+ * Enhanced brand classification with fuzzy matching and org brand prioritization
  */
 function classifyBrandsEnhanced(
   extractedBrands: ExtractedBrand[],
@@ -399,21 +399,74 @@ function classifyBrandsEnhanced(
   const orgBrands: ExtractedBrand[] = [];
   const competitors: ExtractedBrand[] = [];
   
+  // Create a set of org brand names and variants for fast lookup
+  const orgBrandNames = new Set<string>();
+  const orgBrandVariants = new Set<string>();
+  
+  brandCatalog
+    .filter(b => b.is_org_brand)
+    .forEach(brand => {
+      orgBrandNames.add(enhancedNormalize(brand.name));
+      if (brand.variants_json) {
+        brand.variants_json.forEach(variant => {
+          orgBrandVariants.add(enhancedNormalize(variant));
+        });
+      }
+    });
+  
   for (const brand of extractedBrands) {
     const matchResult = findBestBrandMatch(brand, brandCatalog);
     
-    if (matchResult.isOrgBrand) {
+    // Enhanced org brand detection - check multiple patterns
+    const normalizedBrand = enhancedNormalize(brand.name);
+    const isDefinitelyOrgBrand = matchResult.isOrgBrand || 
+      orgBrandNames.has(normalizedBrand) ||
+      orgBrandVariants.has(normalizedBrand) ||
+      // Additional fuzzy matching for org brands
+      Array.from(orgBrandNames).some(orgName => {
+        const similarity = calculateSimilarity(normalizedBrand, orgName);
+        return similarity >= 0.85; // High threshold for org brand matching
+      });
+    
+    if (isDefinitelyOrgBrand) {
       orgBrands.push({
         ...brand,
         name: matchResult.matchedBrandName || brand.name,
-        confidence: Math.max(brand.confidence, matchResult.confidence)
+        confidence: Math.max(brand.confidence, matchResult.confidence, 0.9), // High confidence for org brands
+        matchType: matchResult.isOrgBrand ? brand.matchType : 'variant'
       });
     } else if (brand.confidence >= confidenceThreshold) {
-      competitors.push(brand);
+      // Double-check that this isn't an org brand variant before adding as competitor
+      const isHiddenOrgBrand = Array.from(orgBrandNames).some(orgName => {
+        const distance = levenshteinDistance(normalizedBrand, orgName);
+        return distance <= 2 && orgName.length >= 4; // Allow up to 2 character differences
+      });
+      
+      if (!isHiddenOrgBrand) {
+        competitors.push(brand);
+      } else {
+        // This was likely an org brand - add it to org brands with lower confidence
+        orgBrands.push({
+          ...brand,
+          confidence: 0.8, // Lower confidence since it was almost missed
+          matchType: 'fuzzy'
+        });
+      }
     }
   }
   
   return { orgBrands, competitors };
+}
+
+/**
+ * Calculate string similarity (0-1 scale)
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+  const maxLength = Math.max(str1.length, str2.length);
+  if (maxLength === 0) return 1;
+  
+  const distance = levenshteinDistance(str1, str2);
+  return 1 - (distance / maxLength);
 }
 
 function findBestBrandMatch(
@@ -421,7 +474,9 @@ function findBestBrandMatch(
   brandCatalog: Array<{ name: string; variants_json?: string[]; is_org_brand: boolean }>
 ): { isOrgBrand: boolean; confidence: number; matchedBrandName?: string } {
   const normalizedExtracted = extractedBrand.normalized;
+  let bestMatch = { isOrgBrand: false, confidence: 0, matchedBrandName: undefined };
   
+  // First pass: Check org brands with high priority
   for (const catalogBrand of brandCatalog) {
     if (!catalogBrand.is_org_brand) continue;
     
@@ -430,30 +485,60 @@ function findBestBrandMatch(
     for (const term of allTerms) {
       const normalizedTerm = enhancedNormalize(term);
       
-      // Exact match
+      // Exact match - highest priority
       if (normalizedExtracted === normalizedTerm) {
         return { isOrgBrand: true, confidence: 1.0, matchedBrandName: catalogBrand.name };
       }
       
-      // Partial match (contains)
-      if (normalizedExtracted.includes(normalizedTerm) || normalizedTerm.includes(normalizedExtracted)) {
+      // Case-insensitive exact match for branded terms
+      if (normalizedExtracted.toLowerCase() === normalizedTerm.toLowerCase()) {
+        return { isOrgBrand: true, confidence: 0.95, matchedBrandName: catalogBrand.name };
+      }
+      
+      // Partial match (contains) - handle compound names
+      const containsMatch = normalizedExtracted.includes(normalizedTerm) || normalizedTerm.includes(normalizedExtracted);
+      if (containsMatch && Math.min(normalizedExtracted.length, normalizedTerm.length) >= 4) {
         const similarity = Math.min(normalizedExtracted.length, normalizedTerm.length) / 
                           Math.max(normalizedExtracted.length, normalizedTerm.length);
-        if (similarity >= 0.8) {
-          return { isOrgBrand: true, confidence: similarity, matchedBrandName: catalogBrand.name };
+        if (similarity >= 0.75) { // Lowered threshold for better org brand detection
+          bestMatch = { 
+            isOrgBrand: true, 
+            confidence: Math.max(bestMatch.confidence, similarity), 
+            matchedBrandName: catalogBrand.name 
+          };
         }
       }
       
-      // Fuzzy match
+      // Enhanced fuzzy match for org brands (more lenient)
       if (normalizedTerm.length >= 3) {
         const distance = levenshteinDistance(normalizedExtracted, normalizedTerm);
-        const maxDistance = Math.floor(normalizedTerm.length * 0.25);
+        const maxDistance = Math.floor(normalizedTerm.length * 0.3); // Increased tolerance
         if (distance <= maxDistance) {
-          const confidence = Math.max(0.6, 1 - (distance / normalizedTerm.length));
-          return { isOrgBrand: true, confidence, matchedBrandName: catalogBrand.name };
+          const confidence = Math.max(0.7, 1 - (distance / normalizedTerm.length));
+          if (confidence > bestMatch.confidence) {
+            bestMatch = { isOrgBrand: true, confidence, matchedBrandName: catalogBrand.name };
+          }
+        }
+      }
+      
+      // Domain-based matching (e.g., "hubspot" matches "hubspot.com")
+      if (normalizedTerm.includes('.') || normalizedExtracted.includes('.')) {
+        const termBase = normalizedTerm.split('.')[0];
+        const extractedBase = normalizedExtracted.split('.')[0];
+        if (termBase === extractedBase && termBase.length >= 4) {
+          bestMatch = { 
+            isOrgBrand: true, 
+            confidence: Math.max(bestMatch.confidence, 0.9), 
+            matchedBrandName: catalogBrand.name 
+          };
         }
       }
     }
+  }
+  
+  // Return best org brand match if found
+  if (bestMatch.isOrgBrand && bestMatch.confidence >= 0.7) {
+    return bestMatch;
   }
   
   return { isOrgBrand: false, confidence: 0 };
