@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { ProviderResponseCard } from '@/components/ProviderResponseCard';
-import { getPromptProviderHistory, ProviderResponseData } from '@/lib/prompts/provider-data';
+import { ProviderResponseData } from '@/lib/data/unified-fetcher';
 import { 
   ChevronDown, 
   ChevronRight, 

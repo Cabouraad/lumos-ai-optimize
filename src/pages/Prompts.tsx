@@ -8,8 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { getPromptsWithScores } from '@/lib/prompts/data-with-scores';
-import { getPromptsWithProviderData } from '@/lib/prompts/provider-data';
+import { getUnifiedPromptData, invalidateCache } from '@/lib/data/unified-fetcher';
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
@@ -90,16 +89,13 @@ export default function Prompts() {
   const loadPromptsData = async (showToast = false) => {
     try {
       setLoading(true);
-      const [basicData, detailedData] = await Promise.all([
-        getPromptsWithScores(),
-        getPromptsWithProviderData(),
-      ]);
-      setRawPrompts(basicData);
-      setProviderData(detailedData);
+      const unifiedData = await getUnifiedPromptData();
+      setRawPrompts(unifiedData.prompts);
+      setProviderData(unifiedData.promptDetails);
       setError(null);
       
-      if (showToast && detailedData.length > 0) {
-        const recentResponses = detailedData.filter(prompt => 
+      if (showToast && unifiedData.promptDetails.length > 0) {
+        const recentResponses = unifiedData.promptDetails.filter(prompt => 
           Object.values(prompt.providers).some(p => 
             p && new Date(p.run_at).getTime() > Date.now() - 5 * 60 * 1000 // Last 5 minutes
           )
@@ -149,6 +145,7 @@ export default function Prompts() {
 
       setNewPromptText('');
       setIsAddModalOpen(false);
+      invalidateCache(['dashboard-data', 'prompt-data']);
       loadPromptsData();
     } catch (error: any) {
       toast({

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Play } from 'lucide-react';
-import { getSafeDashboardData } from '@/lib/dashboard/safe-data';
+import { getUnifiedDashboardData, invalidateCache } from '@/lib/data/unified-fetcher';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,7 +28,7 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const data = await getSafeDashboardData();
+      const data = await getUnifiedDashboardData();
       setDashboardData({
         ...data,
         // Ensure we have default values to prevent rendering issues
@@ -82,7 +82,8 @@ export default function Dashboard() {
           : 'Completed successfully',
       });
       
-      // Refresh dashboard data after successful run
+      // Invalidate cache and refresh dashboard data after successful run
+      invalidateCache(['dashboard-data', 'prompt-data']);
       setTimeout(async () => {
         await loadDashboardData();
         toast({

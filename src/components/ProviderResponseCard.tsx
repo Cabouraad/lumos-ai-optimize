@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ProviderResponseData } from '@/lib/prompts/provider-data';
+import { ProviderResponseData } from '@/lib/data/unified-fetcher';
 import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap } from 'lucide-react';
 
 interface ProviderResponseCardProps {
