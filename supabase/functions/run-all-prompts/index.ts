@@ -149,7 +149,8 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
             body: {
               promptText: prompt.text,
               provider: provider.name,
-              orgId
+              orgId,
+              promptId
             }
           });
 
@@ -165,48 +166,11 @@ async function runPrompt(promptId: string, orgId: string, supabase: any) {
             score: executeResult.score
           });
 
-          // Store run result
-          const { data: run } = await supabase
-            .from('prompt_runs')
-            .insert({
-              prompt_id: promptId,
-              provider_id: provider.id,
-              status: 'success',
-              token_in: executeResult.tokenIn || 0,
-              token_out: executeResult.tokenOut || 0,
-              cost_est: 0,
-              brands: executeResult.brands || [],
-              competitors: executeResult.competitors || []
-            })
-            .select()
-            .single();
-
-          if (run) {
-            // Store visibility result using data from execute-prompt
-            await supabase
-              .from('visibility_results')
-              .insert({
-                prompt_run_id: run.id,
-                org_brand_present: executeResult.brandPresent || false,
-                org_brand_prominence: executeResult.brandPosition,
-                competitors_count: executeResult.competitorCount || 0,
-                brands_json: executeResult.brands || [],
-                score: executeResult.score || 0,
-                raw_ai_response: executeResult.responseText || '',
-                raw_evidence: JSON.stringify({
-                  allBrands: executeResult.brands || [],
-                  orgBrands: executeResult.orgBrands || [],
-                  competitors: executeResult.competitors || [],
-                  analysis: {
-                    brandPresent: executeResult.brandPresent,
-                    brandPosition: executeResult.brandPosition,
-                    competitorCount: executeResult.competitorCount,
-                    score: executeResult.score
-                  }
-                })
-              });
-
+          // Persistence now handled inside execute-prompt
+          if (executeResult.runId) {
             runsCreated++;
+          } else {
+            console.warn(`${provider.name} did not persist run (no runId returned)`);
           }
 
         } catch (providerError) {

@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { promptText, provider, orgId } = await req.json();
+    const { promptText, provider, orgId, promptId } = await req.json();
     
     console.log(`=== EXECUTE PROMPT START ===`);
     console.log(`Provider: ${provider}`);
@@ -99,6 +99,86 @@ serve(async (req) => {
       });
     }
 
+    // Persist results server-side using service role to bypass RLS
+    let runId: string | null = null;
+    let visibilityId: string | null = null;
+
+    try {
+      if (orgId && promptId) {
+        // Lookup provider id by name
+        const { data: providerRow, error: providerErr } = await supabase
+          .from('llm_providers')
+          .select('id')
+          .eq('name', provider)
+          .maybeSingle();
+
+        if (providerErr) {
+          console.error('Provider lookup error:', providerErr);
+        } else if (!providerRow) {
+          console.warn('Provider not found for name:', provider);
+        } else {
+          // Insert prompt_run
+          const { data: run, error: runErr } = await supabase
+            .from('prompt_runs')
+            .insert({
+              prompt_id: promptId,
+              provider_id: providerRow.id,
+              status: 'success',
+              token_in: result.tokenIn || 0,
+              token_out: result.tokenOut || 0,
+              cost_est: 0,
+              brands: result.brands || [],
+              competitors: classification.competitors || [],
+            })
+            .select()
+            .single();
+
+          if (runErr) {
+            console.error('Failed to insert prompt_runs:', runErr);
+          } else if (run) {
+            runId = run.id;
+
+            // Normalize prominence to satisfy DB check constraint
+            const prominence = score.brandPresent
+              ? (score.brandPosition !== null
+                  ? Math.max(1, (typeof score.brandPosition === 'number' ? Math.floor(score.brandPosition) + 1 : 1))
+                  : 1)
+              : null;
+
+            const { data: vis, error: visErr } = await supabase
+              .from('visibility_results')
+              .insert({
+                prompt_run_id: run.id,
+                org_brand_present: !!score.brandPresent,
+                org_brand_prominence: prominence,
+                competitors_count: score.competitorCount || 0,
+                brands_json: result.brands || [],
+                score: score.score || 0,
+                raw_ai_response: result.responseText || '',
+                raw_evidence: JSON.stringify({
+                  brands: result.brands || [],
+                  orgBrands: classification.orgBrands || [],
+                  competitors: classification.competitors || [],
+                  score,
+                }),
+              })
+              .select()
+              .single();
+
+            if (visErr) {
+              console.error('Failed to insert visibility_results:', visErr);
+            } else if (vis) {
+              visibilityId = vis.id;
+            }
+          }
+        }
+      } else {
+        console.log('Skipping persistence: missing orgId or promptId');
+      }
+    } catch (persistErr) {
+      console.error('Persistence error:', persistErr);
+    }
+
     const response = {
       success: true,
       responseText: result.responseText,
@@ -110,7 +190,10 @@ serve(async (req) => {
       brandPosition: score.brandPosition,
       competitorCount: score.competitorCount,
       tokenIn: result.tokenIn || 0,
-      tokenOut: result.tokenOut || 0
+      tokenOut: result.tokenOut || 0,
+      runId,
+      visibilityId,
+      persisted: !!runId,
     };
 
     console.log(`=== EXECUTE PROMPT SUCCESS ===`);

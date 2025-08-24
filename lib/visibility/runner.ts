@@ -51,12 +51,12 @@ export async function runPrompt(promptId: string, orgId: string): Promise<RunPro
     // Run prompt on each provider
     for (const provider of providers) {
       try {
-        // Execute prompt via edge function
         const { data: response, error } = await supabase.functions.invoke('execute-prompt', {
           body: {
             promptText: prompt.text,
             provider: provider.name,
-            orgId
+            orgId,
+            promptId
           }
         });
 
@@ -65,61 +65,18 @@ export async function runPrompt(promptId: string, orgId: string): Promise<RunPro
           continue;
         }
 
-// Store successful run
-const { data: run } = await supabase
-  .from('prompt_runs')
-  .insert({
-    prompt_id: promptId,
-    provider_id: provider.id,
-    status: 'success',
-    token_in: response.tokenIn || 0,
-    token_out: response.tokenOut || 0,
-    cost_est: 0,
-    brands: response.brands || [],
-    competitors: response.competitors || []
-  })
-  .select()
-  .single();
-
-if (run) {
-  // Use edge function's enhanced scoring and classification
-  const s = response.score || { brandPresent: false, brandPosition: null, competitorCount: 0, score: 0 };
-
-  await supabase
-    .from('visibility_results')
-    .insert({
-      prompt_run_id: run.id,
-      org_brand_present: s.brandPresent,
-      org_brand_prominence: s.brandPosition,
-      competitors_count: s.competitorCount,
-      brands_json: response.brands,
-      score: s.score,
-      raw_ai_response: response.responseText,
-      raw_evidence: JSON.stringify({
-        brands: response.brands,
-        orgBrands: response.orgBrands,
-        competitors: response.competitors,
-        score: s
-      })
-    });
-
-  runsCreated++;
-}
+        // Persistence handled in edge function
+        if (response.runId || response.persisted) {
+          runsCreated++;
+        } else {
+          console.warn(`Provider ${provider.name} did not persist run (no runId returned)`);
+        }
 
       } catch (providerError) {
         console.error(`Provider ${provider.name} error:`, providerError);
         
-        // Log failed run
-        await supabase
-          .from('prompt_runs')
-          .insert({
-            prompt_id: promptId,
-            provider_id: provider.id,
-            status: 'error',
-            token_in: 0,
-            token_out: 0,
-            cost_est: 0
-          });
+        // Failed provider execution; persistence and error logging handled server-side.
+
       }
     }
 
