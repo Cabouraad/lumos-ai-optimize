@@ -307,63 +307,6 @@ export type Database = {
         }
         Relationships: []
       }
-      prompt_runs: {
-        Row: {
-          brands: Json | null
-          citations: Json | null
-          competitors: Json | null
-          cost_est: number
-          id: string
-          prompt_id: string
-          provider_id: string
-          run_at: string
-          status: string
-          token_in: number
-          token_out: number
-        }
-        Insert: {
-          brands?: Json | null
-          citations?: Json | null
-          competitors?: Json | null
-          cost_est?: number
-          id?: string
-          prompt_id: string
-          provider_id: string
-          run_at?: string
-          status: string
-          token_in?: number
-          token_out?: number
-        }
-        Update: {
-          brands?: Json | null
-          citations?: Json | null
-          competitors?: Json | null
-          cost_est?: number
-          id?: string
-          prompt_id?: string
-          provider_id?: string
-          run_at?: string
-          status?: string
-          token_in?: number
-          token_out?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prompt_runs_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prompt_runs_provider_id_fkey"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "llm_providers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       prompts: {
         Row: {
           active: boolean
@@ -622,50 +565,6 @@ export type Database = {
           },
         ]
       }
-      visibility_results: {
-        Row: {
-          brands_json: Json
-          competitors_count: number
-          id: string
-          org_brand_present: boolean
-          org_brand_prominence: number | null
-          prompt_run_id: string
-          raw_ai_response: string | null
-          raw_evidence: string | null
-          score: number
-        }
-        Insert: {
-          brands_json: Json
-          competitors_count?: number
-          id?: string
-          org_brand_present: boolean
-          org_brand_prominence?: number | null
-          prompt_run_id: string
-          raw_ai_response?: string | null
-          raw_evidence?: string | null
-          score: number
-        }
-        Update: {
-          brands_json?: Json
-          competitors_count?: number
-          id?: string
-          org_brand_present?: boolean
-          org_brand_prominence?: number | null
-          prompt_run_id?: string
-          raw_ai_response?: string | null
-          raw_evidence?: string | null
-          score?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "visibility_results_prompt_run_id_fkey"
-            columns: ["prompt_run_id"]
-            isOneToOne: false
-            referencedRelation: "prompt_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       latest_prompt_provider_responses: {
@@ -733,16 +632,6 @@ export type Database = {
       }
     }
     Functions: {
-      get_competitor_share_7d: {
-        Args: { requesting_org_id?: string }
-        Returns: {
-          brand_norm: string
-          mean_score: number
-          n: number
-          org_id: string
-          prompt_id: string
-        }[]
-      }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }
         Returns: {
