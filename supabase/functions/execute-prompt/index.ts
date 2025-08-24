@@ -8,6 +8,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+import { analyzeBrands, BrandAnalysisResult } from './enhanced-brand-analyzer.ts';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -99,12 +101,12 @@ serve(async (req) => {
       throw providerError;
     }
 
-    // If orgId provided, classify brands and calculate score
-    let classification = { orgBrands: [], competitors: result.brands };
-    let score = { brandPresent: false, brandPosition: null, competitorCount: result.brands.length, score: 0 };
-
+    // Enhanced brand analysis if orgId provided
+    let brandAnalysis: BrandAnalysisResult | null = null;
+    
     if (orgId) {
-      console.log('Getting brand catalog for classification...');
+      console.log('Starting enhanced brand analysis...');
+      
       // Get organization's brand catalog
       const { data: brandCatalog, error: catalogError } = await supabase
         .from('brand_catalog')
@@ -115,30 +117,80 @@ serve(async (req) => {
         console.error('Error fetching brand catalog:', catalogError);
       } else {
         console.log(`Brand catalog fetched: ${brandCatalog?.length || 0} brands`);
+        
+        // Run enhanced brand analysis
+        brandAnalysis = await analyzeBrands(
+          result.responseText, 
+          brandCatalog || [],
+          {
+            strictFiltering: true,
+            confidenceThreshold: 0.6
+          }
+        );
+        
+        console.log('Enhanced brand analysis complete:', {
+          orgBrands: brandAnalysis.orgBrands.length,
+          competitors: brandAnalysis.competitors.length,
+          score: brandAnalysis.score.score,
+          confidence: brandAnalysis.score.confidence,
+          processingTime: brandAnalysis.metadata.processingTime,
+          falsePositivesRemoved: brandAnalysis.metadata.filteringStats.falsePositivesRemoved
+        });
       }
-
-      // Classify brands
-      classification = classifyBrands(result.brands, brandCatalog || []);
-      
-      // Calculate visibility score
-      score = calculateVisibilityScore(classification.orgBrands, classification.competitors, result.responseText);
-      
-      console.log('Classification complete:', { 
-        orgBrands: classification.orgBrands, 
-        competitorCount: classification.competitors.length,
-        competitors: classification.competitors,
-        score: score.score 
-      });
     }
 
-    // Insert into new denormalized table
+    // Fallback to legacy analysis if enhanced analysis fails
+    if (!brandAnalysis) {
+      console.log('Using fallback brand analysis...');
+      
+      // Legacy classification and scoring
+      const classification = classifyBrands(result.brands, []);
+      const score = calculateVisibilityScore(classification.orgBrands, classification.competitors, result.responseText);
+      
+      brandAnalysis = {
+        orgBrands: classification.orgBrands.map(name => ({
+          name,
+          normalized: normalize(name),
+          mentions: 1,
+          firstPosition: result.responseText.toLowerCase().indexOf(name.toLowerCase()),
+          confidence: 0.8,
+          context: '',
+          matchType: 'exact' as const
+        })),
+        competitors: classification.competitors.map(name => ({
+          name,
+          normalized: normalize(name),
+          mentions: 1,
+          firstPosition: result.responseText.toLowerCase().indexOf(name.toLowerCase()),
+          confidence: 0.7,
+          context: '',
+          matchType: 'exact' as const
+        })),
+        score: {
+          brandPresent: score.brandPresent,
+          brandPosition: score.brandPosition,
+          competitorCount: score.competitorCount,
+          score: score.score,
+          confidence: 0.6
+        },
+        metadata: {
+          totalBrandsExtracted: result.brands.length,
+          responseLength: result.responseText.length,
+          processingTime: 0,
+          extractionMethod: 'legacy-fallback',
+          filteringStats: { beforeFiltering: 0, afterFiltering: 0, falsePositivesRemoved: 0 }
+        }
+      };
+    }
+
+    // Insert into database
     let responseId: string | null = null;
 
     try {
       if (orgId && promptId) {
-        // Calculate prominence (1-based, safe for DB)
-        const prominence = score.brandPresent && score.brandPosition !== null
-          ? Math.max(1, Math.floor(score.brandPosition) + 1)
+        // Calculate prominence for database (1-based, safe for DB)
+        const prominence = brandAnalysis.score.brandPresent && brandAnalysis.score.brandPosition !== null
+          ? Math.max(1, Math.floor(brandAnalysis.score.brandPosition / 10) + 1)
           : null;
 
         const { data: responseRecord, error: insertError } = await supabase
@@ -153,20 +205,21 @@ serve(async (req) => {
             token_out: result.tokenOut || 0,
             raw_ai_response: result.responseText || '',
             raw_evidence: JSON.stringify({
-              brands: result.brands || [],
-              orgBrands: classification.orgBrands || [],
-              competitors: classification.competitors || [],
-              score,
+              brandAnalysis,
+              legacyBrands: result.brands,
+              metadata: brandAnalysis.metadata
             }),
-            brands_json: result.brands || [],
-            org_brand_present: !!score.brandPresent,
+            brands_json: brandAnalysis.orgBrands.map(b => b.name),
+            org_brand_present: brandAnalysis.score.brandPresent,
             org_brand_prominence: prominence,
-            competitors_json: classification.competitors || [],
-            competitors_count: score.competitorCount || 0,
-            score: score.score || 0,
+            competitors_json: brandAnalysis.competitors.map(c => c.name),
+            competitors_count: brandAnalysis.score.competitorCount,
+            score: brandAnalysis.score.score,
             metadata: {
-              classification,
-              originalBrandPosition: score.brandPosition
+              analysisConfidence: brandAnalysis.score.confidence,
+              extractionMethod: brandAnalysis.metadata.extractionMethod,
+              processingTime: brandAnalysis.metadata.processingTime,
+              falsePositivesRemoved: brandAnalysis.metadata.filteringStats.falsePositivesRemoved
             }
           })
           .select()
@@ -176,7 +229,7 @@ serve(async (req) => {
           console.error('Failed to insert prompt_provider_responses:', insertError);
         } else if (responseRecord) {
           responseId = responseRecord.id;
-          console.log('Successfully inserted response record:', responseId);
+          console.log('Successfully inserted enhanced response record:', responseId);
         }
       } else {
         console.log('Skipping persistence: missing orgId or promptId');
@@ -188,18 +241,20 @@ serve(async (req) => {
     const response = {
       success: true,
       responseText: result.responseText,
-      brands: result.brands,
-      orgBrands: classification.orgBrands,
-      competitors: classification.competitors,
-      score: score.score,
-      brandPresent: score.brandPresent,
-      brandPosition: score.brandPosition,
-      competitorCount: score.competitorCount,
+      brands: brandAnalysis.orgBrands.map(b => b.name),
+      orgBrands: brandAnalysis.orgBrands.map(b => b.name),
+      competitors: brandAnalysis.competitors.map(c => c.name),
+      score: brandAnalysis.score.score,
+      brandPresent: brandAnalysis.score.brandPresent,
+      brandPosition: brandAnalysis.score.brandPosition,
+      competitorCount: brandAnalysis.score.competitorCount,
       tokenIn: result.tokenIn || 0,
       tokenOut: result.tokenOut || 0,
       responseId,
       persisted: !!responseId,
-      model
+      model,
+      // Enhanced metadata
+      analysisMetadata: brandAnalysis.metadata
     };
 
     console.log(`=== EXECUTE PROMPT SUCCESS ===`);
