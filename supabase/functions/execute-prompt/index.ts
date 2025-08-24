@@ -108,7 +108,7 @@ serve(async (req) => {
       console.log('Starting enhanced brand analysis...');
       
       // Get organization's brand catalog
-      const { data: brandCatalog, error: catalogError } = await supabase
+      const { data: brandCatalogRaw, error: catalogError } = await supabase
         .from('brand_catalog')
         .select('name, variants_json, is_org_brand')
         .eq('org_id', orgId);
@@ -116,12 +116,24 @@ serve(async (req) => {
       if (catalogError) {
         console.error('Error fetching brand catalog:', catalogError);
       } else {
-        console.log(`Brand catalog fetched: ${brandCatalog?.length || 0} brands`);
+        console.log(`Brand catalog fetched: ${brandCatalogRaw?.length || 0} brands`);
+        
+        // Transform brand catalog to ensure variants_json is properly typed
+        const brandCatalog = (brandCatalogRaw || []).map(brand => ({
+          name: brand.name,
+          is_org_brand: brand.is_org_brand,
+          variants_json: Array.isArray(brand.variants_json) 
+            ? brand.variants_json 
+            : (brand.variants_json ? [brand.variants_json] : [])
+        }));
+        
+        console.log('Brand catalog transformed:', brandCatalog);
+        console.log('Org brands found:', brandCatalog.filter(b => b.is_org_brand));
         
         // Run enhanced brand analysis
         brandAnalysis = await analyzeBrands(
           result.responseText, 
-          brandCatalog || [],
+          brandCatalog,
           {
             strictFiltering: true,
             confidenceThreshold: 0.6
