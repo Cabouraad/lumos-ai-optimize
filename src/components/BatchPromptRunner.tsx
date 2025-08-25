@@ -73,7 +73,16 @@ export function BatchPromptRunner() {
       });
 
       if (error) {
+        console.error('Supabase function invocation error:', error);
         throw new Error(`Batch run failed: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No data returned from batch run');
+      }
+
+      if (!data.success) {
+        throw new Error(`Batch run failed: ${data.error || 'Unknown error'}`);
       }
 
       const endTime = Date.now();

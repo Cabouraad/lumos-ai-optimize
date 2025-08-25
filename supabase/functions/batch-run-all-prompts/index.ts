@@ -47,16 +47,21 @@ serve(async (req) => {
   try {
     const { orgId } = await req.json();
     
-    console.log('=== NEW BATCH RUN SYSTEM START ===');
+    console.log('=== BATCH RUN START ===');
     console.log(`Org ID: ${orgId}`);
 
     if (!orgId) {
-      throw new Error('Missing orgId');
+      throw new Error('Missing orgId parameter');
     }
 
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get all active prompts for the organization
@@ -116,12 +121,22 @@ serve(async (req) => {
     let totalErrors = 0;
     let successfulPrompts = 0;
 
-    console.log('\n=== STARTING SEQUENTIAL PROCESSING ===');
+    console.log('\n=== STARTING BATCH PROCESSING ===');
 
-    // Process each prompt sequentially through all providers
+    // Set a timeout for the entire batch operation (90 seconds)
+    const BATCH_TIMEOUT = 90000; // 90 seconds
+    const batchStartTime = Date.now();
+
+    // Process each prompt sequentially with timeout protection
     for (let promptIndex = 0; promptIndex < prompts.length; promptIndex++) {
       const prompt = prompts[promptIndex];
       const promptResult = results[promptIndex];
+      
+      // Check if we're approaching timeout
+      if (Date.now() - batchStartTime > BATCH_TIMEOUT - 30000) { // Stop 30s before timeout
+        console.log(`⏰ Approaching timeout, stopping batch processing at prompt ${promptIndex + 1}`);
+        break;
+      }
       
       console.log(`\n--- Processing Prompt ${promptIndex + 1}/${prompts.length} ---`);
       console.log(`Text: ${prompt.text.substring(0, 50)}...`);
@@ -131,15 +146,16 @@ serve(async (req) => {
 
       let promptSuccessCount = 0;
 
-      // Run through all providers for this prompt with proper delays
+      // Process all providers for this prompt with improved error handling
       for (const provider of providers) {
         try {
           console.log(`  🚀 Running ${provider}...`);
           promptResult.providers[provider as keyof typeof promptResult.providers] = 'running';
 
-          // Call the new execute-prompt function with proper analysis
-          const startTime = Date.now();
-          const { data: executeResult, error: executeError } = await supabase.functions.invoke('execute-prompt', {
+          // Add timeout for individual provider calls
+          const PROVIDER_TIMEOUT = 15000; // 15 seconds per provider
+          
+          const providerPromise = supabase.functions.invoke('execute-prompt', {
             body: {
               promptText: prompt.text,
               provider,
@@ -147,7 +163,16 @@ serve(async (req) => {
               promptId: prompt.id
             }
           });
-          const endTime = Date.now();
+
+          // Race the provider call against timeout
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error(`${provider} timeout after ${PROVIDER_TIMEOUT}ms`)), PROVIDER_TIMEOUT)
+          );
+
+          const { data: executeResult, error: executeError } = await Promise.race([
+            providerPromise,
+            timeoutPromise
+          ]) as any;
 
           if (executeError) {
             console.error(`  ❌ ${provider} error:`, executeError.message);
@@ -172,10 +197,10 @@ serve(async (req) => {
             totalErrors++;
           }
 
-          // Delay between providers to prevent API rate limiting
-          if (provider !== providers[providers.length - 1]) { // Don't delay after last provider
-            console.log(`  ⏱️  Waiting 2 seconds before next provider...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+          // Reduced delay between providers
+          if (provider !== providers[providers.length - 1]) {
+            console.log(`  ⏱️  Waiting 1 second before next provider...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
 
         } catch (providerError: any) {
@@ -200,10 +225,10 @@ serve(async (req) => {
       const duration = promptResult.endTime - promptResult.startTime!;
       console.log(`Completed prompt ${promptIndex + 1}/${prompts.length} in ${duration}ms`);
 
-      // Delay between prompts to be respectful to APIs
+      // Reduced delay between prompts
       if (promptIndex < prompts.length - 1) {
-        console.log(`⏱️  Waiting 3 seconds before next prompt...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        console.log(`⏱️  Waiting 2 seconds before next prompt...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
@@ -267,13 +292,28 @@ serve(async (req) => {
     console.error('=== BATCH RUN ERROR ===', error.message);
     console.error('Stack trace:', error.stack);
     
+    // Always return a proper JSON response, even on error
+    const errorResponse = {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalPrompts: 0,
+        totalProviderRuns: 0,
+        successfulRuns: 0,
+        errorRuns: 0,
+        successRate: 0,
+        successfulPrompts: 0
+      },
+      results: []
+    };
+    
     return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(errorResponse),
+      { 
+        status: 200, // Return 200 so the client can parse the error properly
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });
