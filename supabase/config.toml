@@ -3,7 +3,7 @@ project_id = "cgocsffxqyhojtyzniyz"
 [functions.fix-prompt-classification]
 verify_jwt = true
 
-[functions.batch-run-all-prompts]
+[functions.simple-batch-runner]
 verify_jwt = true
 
 [functions.check-subscription]

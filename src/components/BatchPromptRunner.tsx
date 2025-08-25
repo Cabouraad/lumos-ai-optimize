@@ -68,7 +68,7 @@ export function BatchPromptRunner() {
       console.log('=== STARTING BATCH RUN ===');
       toast.success('Batch run started - Running all active prompts...');
 
-      const { data, error } = await supabase.functions.invoke('batch-run-all-prompts', {
+      const { data, error } = await supabase.functions.invoke('simple-batch-runner', {
         body: { orgId }
       });
 

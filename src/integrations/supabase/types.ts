@@ -606,18 +606,6 @@ export type Database = {
       }
     }
     Views: {
-      dashboard_performance_metrics: {
-        Row: {
-          avg_competitors: number | null
-          avg_score: number | null
-          brand_mentions: number | null
-          last_run_at: string | null
-          org_id: string | null
-          total_prompts: number | null
-          total_runs: number | null
-        }
-        Relationships: []
-      }
       latest_prompt_provider_responses: {
         Row: {
           brands_json: Json | null

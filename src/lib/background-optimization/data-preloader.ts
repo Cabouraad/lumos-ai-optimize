@@ -181,12 +181,12 @@ class BackgroundDataPreloader {
     const cached = await advancedCache.get(cacheKey);
     if (cached) return;
 
-    // Fetch recent performance metrics
+    // Fetch recent performance data from latest responses
     const { data: metrics } = await supabase
-      .from('dashboard_performance_metrics')
+      .from('latest_prompt_provider_responses')
       .select('*')
       .eq('org_id', orgId)
-      .single();
+      .limit(50);
 
     if (metrics) {
       advancedCache.set(cacheKey, metrics, 120000); // 2 minute cache
