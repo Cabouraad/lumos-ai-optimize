@@ -13,40 +13,31 @@ export function normalize(str: string): string {
 export function isOrgBrand(token: string, catalog: Array<{ name: string; variants_json: string[] }>): boolean {
   const normalizedToken = normalize(token);
   
-  // Avoid false positives for very short strings
-  if (normalizedToken.length < 4) {
+  // Avoid false positives for very short strings (allow 3+ to include IBM, SAP)
+  if (normalizedToken.length < 3) {
     return false;
   }
+
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+  const boundaryMatch = (hay: string, needle: string) => {
+    const re = new RegExp(`(^|\\s)${escapeRegex(needle)}(\\s|$)`, 'i');
+    return re.test(hay);
+  };
 
   for (const brand of catalog) {
     const normalizedBrandName = normalize(brand.name);
     
-    // Exact match with brand name
-    if (normalizedToken === normalizedBrandName) {
+    // Exact or boundary match with brand name
+    if (normalizedToken === normalizedBrandName || boundaryMatch(normalizedToken, normalizedBrandName)) {
       return true;
     }
-    
-    // Check if token starts with or contains brand name (for longer brands)
-    if (normalizedBrandName.length >= 4) {
-      if (normalizedToken.startsWith(normalizedBrandName) || 
-          normalizedToken.includes(normalizedBrandName)) {
-        return true;
-      }
-    }
 
-    // Check variants
+    // Check variants with boundary safety
     for (const variant of brand.variants_json || []) {
       const normalizedVariant = normalize(variant);
-      
-      if (normalizedToken === normalizedVariant) {
+      if (!normalizedVariant || normalizedVariant.length < 3) continue;
+      if (normalizedToken === normalizedVariant || boundaryMatch(normalizedToken, normalizedVariant)) {
         return true;
-      }
-      
-      if (normalizedVariant.length >= 4) {
-        if (normalizedToken.startsWith(normalizedVariant) || 
-            normalizedToken.includes(normalizedVariant)) {
-          return true;
-        }
       }
     }
   }

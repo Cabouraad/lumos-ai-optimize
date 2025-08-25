@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { computeVisibilityScore } from "../_shared/scoring.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -189,42 +190,72 @@ function analyzeResponse(responseText: string, orgName: string): {
   orgBrandPosition: number | null;
   competitorCount: number;
 } {
-  const text = responseText.toLowerCase();
-  const orgLower = orgName.toLowerCase();
+  const text = (responseText || '').toLowerCase();
+  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+  const makeBoundaryRegex = (term: string) => new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(term)}(?![A-Za-z0-9])`, 'gi');
   
-  // Simple brand detection
-  const brandPresent = text.includes(orgLower) || text.includes(orgName.toLowerCase());
-  const orgBrandPosition = brandPresent ? text.indexOf(orgLower) : null;
-  
-  // Extract brands (simplified)
-  const brandPatterns = [orgName, orgLower, `${orgName} CRM`, `${orgName} Marketing Hub`];
-  const foundBrands = brandPatterns.filter(brand => text.includes(brand.toLowerCase()));
-  
-  // Extract competitors (simple keyword extraction)
+  const base = (orgName || '').trim();
+  const baseLower = base.toLowerCase();
+  const orgVariants = Array.from(new Set([
+    baseLower,
+    baseLower.replace(/\s+/g, ''),
+    baseLower.replace(/\s+/g, '-'),
+    `${baseLower} crm`,
+    `${baseLower} marketing hub`,
+  ].filter(Boolean)));
+
+  const findEarliestIndex = (t: string, terms: string[]): number | null => {
+    let min: number | null = null;
+    for (const term of terms) {
+      const re = makeBoundaryRegex(term);
+      const m = re.exec(t);
+      if (m) {
+        const idx = m.index;
+        if (min === null || idx < min) min = idx;
+      }
+    }
+    return min;
+  };
+
   const competitorKeywords = [
-    'salesforce', 'marketo', 'pardot', 'mailchimp', 'hootsuite', 'buffer', 
-    'sprout social', 'semrush', 'ahrefs', 'buzzsumo', 'getresponse', 
-    'activecampaign', 'convertkit', 'monday.com', 'trello', 'asana'
+    'salesforce','marketo','pardot','mailchimp','hootsuite','buffer',
+    'sprout social','semrush','ahrefs','buzzsumo','getresponse',
+    'activecampaign','convertkit','monday.com','trello','asana','notion','intercom','zendesk','pipedrive','freshsales'
   ];
-  
-  const competitors = competitorKeywords.filter(competitor => 
-    text.includes(competitor) && !competitor.includes(orgLower)
-  );
-  
-  // Simple scoring
-  let score = 0;
-  if (brandPresent) {
-    const relativePosition = orgBrandPosition! / text.length;
-    if (relativePosition < 0.2) score = 8; // Early mention
-    else if (relativePosition < 0.5) score = 6; // Middle mention  
-    else score = 4; // Late mention
-    
-    // Adjust for competition
-    score = Math.max(1, score - Math.min(2, competitors.length * 0.2));
-  } else {
-    score = responseText.length > 500 ? 2 : 1;
+
+  // Detect org presence and position with boundaries
+  const orgPos = findEarliestIndex(text, orgVariants);
+  const brandPresent = orgPos !== null;
+
+  // Detect competitors with boundaries and de-duplication
+  const competitorSet = new Set<string>();
+  const competitorPositions: Array<{ name: string; pos: number }> = [];
+  for (const comp of competitorKeywords) {
+    const re = makeBoundaryRegex(comp);
+    const match = re.exec(text);
+    if (match) {
+      const name = comp;
+      competitorSet.add(name);
+      competitorPositions.push({ name, pos: match.index });
+    }
   }
-  
+
+  // Compute prominence index: how many brand mentions occur before org mention
+  let prominenceIdx: number | null = null;
+  if (brandPresent) {
+    const allPositions = [
+      ...competitorPositions.map(c => ({ type: 'comp' as const, pos: c.pos })),
+      { type: 'org' as const, pos: orgPos as number }
+    ].sort((a, b) => a.pos - b.pos);
+    prominenceIdx = allPositions.findIndex(x => x.type === 'org');
+  }
+
+  // Score using unified scoring
+  const score = computeVisibilityScore(brandPresent, prominenceIdx, competitorSet.size);
+
+  const competitors = Array.from(competitorSet);
+  const foundBrands = brandPresent ? [base] : [];
+
   return { 
     score: Math.round(score),
     brandPresent,
@@ -232,7 +263,7 @@ function analyzeResponse(responseText: string, orgName: string): {
     competitors,
     orgBrands: foundBrands,
     orgBrandPresent: brandPresent,
-    orgBrandPosition,
+    orgBrandPosition: orgPos,
     competitorCount: competitors.length
   };
 }
