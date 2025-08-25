@@ -179,9 +179,19 @@ export function PromptRow({
     }
   };
 
-  // Fetch provider-specific data when expanded
+  // Fetch provider-specific data when expanded (with caching to prevent repeated calls)
   useEffect(() => {
-    if (!isExpanded) return;
+    if (!isExpanded) {
+      // Reset provider data when collapsed to save memory
+      setProviderData({ openai: null, gemini: null, perplexity: null });
+      return;
+    }
+
+    // Don't refetch if we already have recent data
+    const hasRecentData = providerData.openai || providerData.gemini || providerData.perplexity;
+    if (hasRecentData && !loadingProviders) {
+      return;
+    }
 
     const fetchProviderData = async () => {
       try {
@@ -504,9 +514,12 @@ export function PromptRow({
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-4">Latest Provider Results</h4>
                     {loadingProviders ? (
-                      <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                        <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
-                        Loading provider data...
+                      <div className="flex items-center justify-center py-12">
+                        <div className="text-center">
+                          <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
+                          <p className="text-sm text-muted-foreground">Testing providers...</p>
+                          <p className="text-xs text-muted-foreground mt-1">This may take 30-60 seconds</p>
+                        </div>
                       </div>
                     ) : (
                       <div className="grid lg:grid-cols-3 gap-4">
@@ -514,19 +527,16 @@ export function PromptRow({
                           provider="openai" 
                           response={providerData.openai} 
                           promptText={prompt.text}
-                          onClassificationFixed={() => window.location.reload()}
                         />
                         <ProviderResponseCard 
                           provider="gemini" 
                           response={providerData.gemini} 
                           promptText={prompt.text}
-                          onClassificationFixed={() => window.location.reload()}
                         />
                         <ProviderResponseCard 
                           provider="perplexity" 
                           response={providerData.perplexity} 
                           promptText={prompt.text}
-                          onClassificationFixed={() => window.location.reload()}
                         />
                       </div>
                     )}

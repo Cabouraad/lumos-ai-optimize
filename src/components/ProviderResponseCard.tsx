@@ -12,7 +12,6 @@ interface ProviderResponseCardProps {
   provider: 'openai' | 'gemini' | 'perplexity';
   response: ProviderResponseData | null;
   promptText: string;
-  onClassificationFixed?: () => void;
 }
 
 const PROVIDER_CONFIG = {
@@ -21,7 +20,7 @@ const PROVIDER_CONFIG = {
   perplexity: { name: 'Perplexity', color: 'bg-blue-50 border-blue-200 text-blue-700' }
 };
 
-export function ProviderResponseCard({ provider, response, promptText, onClassificationFixed }: ProviderResponseCardProps) {
+export function ProviderResponseCard({ provider, response, promptText }: ProviderResponseCardProps) {
   const config = PROVIDER_CONFIG[provider];
 
   if (!response) {
