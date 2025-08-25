@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_run_history: {
+        Row: {
+          created_at: string
+          failed_runs: number
+          id: string
+          org_id: string
+          prompts_processed: number
+          run_timestamp: string
+          success_rate: number
+          successful_prompts: number
+          successful_runs: number
+          total_provider_runs: number
+        }
+        Insert: {
+          created_at?: string
+          failed_runs: number
+          id?: string
+          org_id: string
+          prompts_processed: number
+          run_timestamp?: string
+          success_rate: number
+          successful_prompts: number
+          successful_runs: number
+          total_provider_runs: number
+        }
+        Update: {
+          created_at?: string
+          failed_runs?: number
+          id?: string
+          org_id?: string
+          prompts_processed?: number
+          run_timestamp?: string
+          success_rate?: number
+          successful_prompts?: number
+          successful_runs?: number
+          total_provider_runs?: number
+        }
+        Relationships: []
+      }
       brand_catalog: {
         Row: {
           average_score: number | null

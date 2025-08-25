@@ -15,7 +15,6 @@ import { KeywordManagement } from '@/components/KeywordManagement';
 import { AIPromptSuggestions } from '@/components/AIPromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
-import TestSchedulerAPIs from '@/components/TestSchedulerAPIs';
 import { AlertCircle } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
