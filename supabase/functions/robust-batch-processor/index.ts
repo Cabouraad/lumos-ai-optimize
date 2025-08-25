@@ -225,6 +225,16 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
     throw new Error(`Provider not found: ${task.provider}`);
   }
 
+  // Get organization details for brand analysis
+  const { data: orgData } = await supabase
+    .from('prompts')
+    .select('org_id, organizations(*)')
+    .eq('id', task.prompt_id)
+    .single();
+
+  const orgId = orgData?.org_id;
+  const orgName = orgData?.organizations?.name;
+
   // Update task status to processing
   await supabase
     .from('batch_tasks')
@@ -238,27 +248,35 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
     .eq('provider', task.provider);
 
   try {
+    // Get the actual user-facing response
     const result = await callProviderAPI(provider, prompt.text);
     
-    // Store successful result
+    // Now analyze the real response for brands using proper brand matching
+    const analysis = await analyzeBrandsInResponse(supabase, orgId, orgName, result.responseText);
+    
+    // Store successful result with both raw response and analysis
     const { error: responseError } = await supabase
       .from('prompt_provider_responses')
       .insert({
-        org_id: task.org_id || (await supabase.from('prompts').select('org_id').eq('id', task.prompt_id).single()).data?.org_id,
+        org_id: orgId,
         prompt_id: task.prompt_id,
         provider: task.provider,
         status: 'success',
-        score: result.score,
-        org_brand_present: result.orgBrandPresent,
-        org_brand_prominence: result.orgBrandProminence,
-        brands_json: result.brands,
-        competitors_json: result.competitors,
-        competitors_count: result.competitors.length,
+        score: analysis.score,
+        org_brand_present: analysis.orgBrandPresent,
+        org_brand_prominence: analysis.orgBrandProminence,
+        brands_json: analysis.brands,
+        competitors_json: analysis.competitors,
+        competitors_count: analysis.competitors.length,
         token_in: result.tokenIn,
         token_out: result.tokenOut,
-        raw_ai_response: result.rawResponse,
+        raw_ai_response: result.responseText, // This is now the real user-facing response
         model: provider.model,
-        run_at: new Date().toISOString()
+        run_at: new Date().toISOString(),
+        metadata: {
+          analysis_method: 'enhanced_brand_matching',
+          org_name: orgName
+        }
       });
 
     if (responseError) {
@@ -271,7 +289,7 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        result: result
+        result: { ...analysis, rawResponse: result.responseText }
       })
       .eq('batch_job_id', batchJobId)
       .eq('prompt_id', task.prompt_id)
@@ -296,7 +314,7 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
     await supabase
       .from('prompt_provider_responses')
       .insert({
-        org_id: task.org_id || (await supabase.from('prompts').select('org_id').eq('id', task.prompt_id).single()).data?.org_id,
+        org_id: orgId,
         prompt_id: task.prompt_id,
         provider: task.provider,
         status: 'error',
@@ -327,10 +345,6 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
           model: provider.model,
           messages: [
             {
-              role: 'system',
-              content: 'You are analyzing search results for brand visibility. Extract all brands mentioned and identify if the user\'s organization brand is present. Return your analysis in JSON format with: {"brands": ["brand1", "brand2"], "orgBrandPresent": boolean, "orgBrandProminence": number, "competitors": ["comp1", "comp2"]}'
-            },
-            {
               role: 'user',
               content: promptText
             }
@@ -349,7 +363,7 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Analyze this search query for brand visibility: "${promptText}". Return JSON with: {"brands": ["brand1"], "orgBrandPresent": boolean, "orgBrandProminence": number, "competitors": ["comp1"]}`
+              text: promptText
             }]
           }],
           generationConfig: {
@@ -387,42 +401,10 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
       tokenOut = data.usageMetadata?.candidatesTokenCount || 0;
     }
 
-    // Parse JSON response or extract brands from text
-    let analysis;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found');
-      }
-    } catch {
-      // Fallback to text analysis
-      analysis = analyzeTextForBrands(responseText);
-    }
-
-    // Calculate score based on brand presence and competition
-    let score = 0;
-    if (analysis.orgBrandPresent) {
-      score = 6; // Base score for brand presence
-      if (analysis.orgBrandProminence && analysis.orgBrandProminence <= 3) {
-        score += 2; // Bonus for top 3 position
-      }
-      if (analysis.competitors && analysis.competitors.length > 0) {
-        score -= Math.min(2, analysis.competitors.length * 0.2); // Penalty for competition
-      }
-    }
-    score = Math.max(0, Math.min(10, score));
-
     return {
-      score,
-      orgBrandPresent: analysis.orgBrandPresent || false,
-      orgBrandProminence: analysis.orgBrandProminence || null,
-      brands: Array.isArray(analysis.brands) ? analysis.brands : [],
-      competitors: Array.isArray(analysis.competitors) ? analysis.competitors : [],
+      responseText,
       tokenIn,
-      tokenOut,
-      rawResponse: responseText
+      tokenOut
     };
 
   } catch (error: any) {
@@ -434,21 +416,126 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
   }
 }
 
+async function analyzeBrandsInResponse(supabase: any, orgId: string, orgName: string, responseText: string) {
+  try {
+    // Get organization's brand catalog
+    const { data: brandCatalog } = await supabase
+      .from('brand_catalog')
+      .select('name, variants_json, is_org_brand')
+      .eq('org_id', orgId);
+
+    const orgBrands = brandCatalog?.filter(b => b.is_org_brand) || [];
+    const competitors = brandCatalog?.filter(b => !b.is_org_brand) || [];
+
+    // Create comprehensive brand patterns
+    const orgBrandPatterns = [];
+    
+    // Add main org name
+    if (orgName) {
+      orgBrandPatterns.push(orgName.toLowerCase());
+    }
+
+    // Add org brand variants
+    for (const brand of orgBrands) {
+      orgBrandPatterns.push(brand.name.toLowerCase());
+      if (brand.variants_json && Array.isArray(brand.variants_json)) {
+        orgBrandPatterns.push(...brand.variants_json.map((v: string) => v.toLowerCase()));
+      }
+    }
+
+    // Check for organization brand presence
+    const responseTextLower = responseText.toLowerCase();
+    let orgBrandPresent = false;
+    let orgBrandProminence = null;
+
+    // Look for org brand mentions
+    for (const pattern of orgBrandPatterns) {
+      if (responseTextLower.includes(pattern.toLowerCase())) {
+        orgBrandPresent = true;
+        // Try to find position (rough estimate)
+        const index = responseTextLower.indexOf(pattern.toLowerCase());
+        const beforeText = responseText.substring(0, index);
+        const sentences = beforeText.split(/[.!?]+/).length;
+        orgBrandProminence = Math.min(sentences, 10);
+        break;
+      }
+    }
+
+    // Find competitor mentions
+    const foundCompetitors = [];
+    for (const competitor of competitors) {
+      const competitorName = competitor.name.toLowerCase();
+      if (responseTextLower.includes(competitorName)) {
+        foundCompetitors.push(competitor.name);
+      }
+      
+      // Check variants
+      if (competitor.variants_json && Array.isArray(competitor.variants_json)) {
+        for (const variant of competitor.variants_json) {
+          if (responseTextLower.includes(variant.toLowerCase())) {
+            foundCompetitors.push(competitor.name);
+            break;
+          }
+        }
+      }
+    }
+
+    // Remove duplicates
+    const uniqueCompetitors = [...new Set(foundCompetitors)];
+
+    // Calculate score
+    let score = 0;
+    if (orgBrandPresent) {
+      score = 6; // Base score for brand presence
+      
+      // Prominence bonus
+      if (orgBrandProminence && orgBrandProminence <= 3) {
+        score += 2; // Early mention bonus
+      } else if (orgBrandProminence && orgBrandProminence <= 5) {
+        score += 1; // Middle mention bonus
+      }
+      
+      // Competition penalty
+      if (uniqueCompetitors.length > 0) {
+        const penalty = Math.min(2, uniqueCompetitors.length * 0.3);
+        score -= penalty;
+      }
+    } else if (uniqueCompetitors.length === 0) {
+      // No brands mentioned at all
+      score = 2;
+    }
+
+    score = Math.max(0, Math.min(10, score));
+
+    return {
+      score,
+      orgBrandPresent,
+      orgBrandProminence,
+      brands: orgBrandPresent ? orgBrandPatterns.slice(0, 3) : [],
+      competitors: uniqueCompetitors
+    };
+
+  } catch (error) {
+    console.error('Brand analysis failed:', error);
+    // Fallback to simple text analysis
+    return analyzeTextForBrands(responseText);
+  }
+}
+
 function analyzeTextForBrands(text: string) {
-  // Fallback text analysis for brand extraction
-  const brandKeywords = ['company', 'brand', 'business', 'service', 'platform', 'solution'];
+  // Simple fallback analysis
   const words = text.toLowerCase().split(/\s+/);
-  
   const potentialBrands = words.filter(word => 
     word.length > 2 && 
     /^[a-z]+$/i.test(word) &&
-    !['the', 'and', 'for', 'with', 'this', 'that'].includes(word)
-  ).slice(0, 5);
+    !['the', 'and', 'for', 'with', 'this', 'that', 'can', 'you', 'are', 'have'].includes(word)
+  ).slice(0, 3);
 
   return {
-    brands: potentialBrands,
+    score: 1,
     orgBrandPresent: false,
     orgBrandProminence: null,
-    competitors: potentialBrands.slice(0, 3)
+    brands: [],
+    competitors: potentialBrands
   };
 }
