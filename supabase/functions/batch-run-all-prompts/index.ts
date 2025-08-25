@@ -7,20 +7,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PromptStatus {
+interface PromptResult {
   promptId: string;
   promptText: string;
   status: 'pending' | 'running' | 'completed' | 'error';
-  currentProvider?: string;
   providers: {
     openai: 'pending' | 'running' | 'success' | 'error';
     gemini: 'pending' | 'running' | 'success' | 'error';
     perplexity: 'pending' | 'running' | 'success' | 'error';
   };
   results: {
-    openai?: any;
-    gemini?: any;
-    perplexity?: any;
+    openai?: { score: number; brandPresent: boolean; competitors: number; tokens: number };
+    gemini?: { score: number; brandPresent: boolean; competitors: number; tokens: number };
+    perplexity?: { score: number; brandPresent: boolean; competitors: number; tokens: number };
   };
   errors: {
     openai?: string;
@@ -31,6 +30,15 @@ interface PromptStatus {
   endTime?: number;
 }
 
+interface BatchSummary {
+  totalPrompts: number;
+  totalProviderRuns: number;
+  successfulRuns: number;
+  errorRuns: number;
+  successRate: number;
+  successfulPrompts: number; // Prompts with all 3 providers successful
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -38,14 +46,15 @@ serve(async (req) => {
 
   try {
     const { orgId } = await req.json();
-    console.log('=== BATCH RUN ALL PROMPTS START ===');
-    console.log(`OrgId: ${orgId}`);
+    
+    console.log('=== NEW BATCH RUN SYSTEM START ===');
+    console.log(`Org ID: ${orgId}`);
 
     if (!orgId) {
       throw new Error('Missing orgId');
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -63,11 +72,20 @@ serve(async (req) => {
     }
 
     if (!prompts || prompts.length === 0) {
+      console.log('No active prompts found');
       return new Response(
         JSON.stringify({
           success: true,
           message: 'No active prompts found',
-          results: []
+          results: [],
+          summary: {
+            totalPrompts: 0,
+            totalProviderRuns: 0,
+            successfulRuns: 0,
+            errorRuns: 0,
+            successRate: 0,
+            successfulPrompts: 0
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -76,13 +94,13 @@ serve(async (req) => {
     console.log(`Found ${prompts.length} active prompts to process`);
 
     const providers = ['openai', 'gemini', 'perplexity'];
-    const batchResults: PromptStatus[] = [];
+    const results: PromptResult[] = [];
 
-    // Initialize status for all prompts
+    // Initialize all prompt results
     for (const prompt of prompts) {
-      batchResults.push({
+      results.push({
         promptId: prompt.id,
-        promptText: prompt.text.substring(0, 100) + (prompt.text.length > 100 ? '...' : ''),
+        promptText: prompt.text.length > 100 ? prompt.text.substring(0, 100) + '...' : prompt.text,
         status: 'pending',
         providers: {
           openai: 'pending',
@@ -94,29 +112,33 @@ serve(async (req) => {
       });
     }
 
-    let totalProcessed = 0;
     let totalSuccessful = 0;
     let totalErrors = 0;
+    let successfulPrompts = 0;
 
-    // Process each prompt sequentially
+    console.log('\n=== STARTING SEQUENTIAL PROCESSING ===');
+
+    // Process each prompt sequentially through all providers
     for (let promptIndex = 0; promptIndex < prompts.length; promptIndex++) {
       const prompt = prompts[promptIndex];
-      const promptStatus = batchResults[promptIndex];
+      const promptResult = results[promptIndex];
       
-      console.log(`\n--- Processing prompt ${promptIndex + 1}/${prompts.length} ---`);
-      console.log(`Prompt: ${prompt.text.substring(0, 50)}...`);
+      console.log(`\n--- Processing Prompt ${promptIndex + 1}/${prompts.length} ---`);
+      console.log(`Text: ${prompt.text.substring(0, 50)}...`);
       
-      promptStatus.status = 'running';
-      promptStatus.startTime = Date.now();
+      promptResult.status = 'running';
+      promptResult.startTime = Date.now();
 
-      // Run through all providers for this prompt
+      let promptSuccessCount = 0;
+
+      // Run through all providers for this prompt with proper delays
       for (const provider of providers) {
         try {
-          console.log(`  Running on ${provider}...`);
-          promptStatus.currentProvider = provider;
-          promptStatus.providers[provider as keyof typeof promptStatus.providers] = 'running';
+          console.log(`  🚀 Running ${provider}...`);
+          promptResult.providers[provider as keyof typeof promptResult.providers] = 'running';
 
-          // Call the execute-prompt function
+          // Call the new execute-prompt function with proper analysis
+          const startTime = Date.now();
           const { data: executeResult, error: executeError } = await supabase.functions.invoke('execute-prompt', {
             body: {
               promptText: prompt.text,
@@ -125,64 +147,118 @@ serve(async (req) => {
               promptId: prompt.id
             }
           });
+          const endTime = Date.now();
 
           if (executeError) {
-            console.error(`  ${provider} error:`, executeError.message);
-            promptStatus.providers[provider as keyof typeof promptStatus.providers] = 'error';
-            promptStatus.errors[provider as keyof typeof promptStatus.errors] = executeError.message;
+            console.error(`  ❌ ${provider} error:`, executeError.message);
+            promptResult.providers[provider as keyof typeof promptResult.providers] = 'error';
+            promptResult.errors[provider as keyof typeof promptResult.errors] = executeError.message;
             totalErrors++;
-          } else {
-            console.log(`  ✅ ${provider} success - Score: ${executeResult.score}/10`);
-            promptStatus.providers[provider as keyof typeof promptStatus.providers] = 'success';
-            promptStatus.results[provider as keyof typeof promptStatus.results] = {
-              score: executeResult.score,
-              brandPresent: executeResult.brandPresent,
-              competitors: executeResult.competitors?.length || 0,
-              tokenIn: executeResult.tokenIn || 0,
-              tokenOut: executeResult.tokenOut || 0
+          } else if (executeResult && executeResult.success) {
+            console.log(`  ✅ ${provider} success - Score: ${executeResult.score}/10, Brand: ${executeResult.orgBrandPresent ? 'Yes' : 'No'}`);
+            promptResult.providers[provider as keyof typeof promptResult.providers] = 'success';
+            promptResult.results[provider as keyof typeof promptResult.results] = {
+              score: executeResult.score || 0,
+              brandPresent: executeResult.orgBrandPresent || false,
+              competitors: executeResult.competitorCount || 0,
+              tokens: (executeResult.tokenIn || 0) + (executeResult.tokenOut || 0)
             };
             totalSuccessful++;
+            promptSuccessCount++;
+          } else {
+            console.error(`  ❌ ${provider} returned no valid data`);
+            promptResult.providers[provider as keyof typeof promptResult.providers] = 'error';
+            promptResult.errors[provider as keyof typeof promptResult.errors] = 'No valid response data';
+            totalErrors++;
           }
 
-          // Small delay between providers to prevent overwhelming APIs
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Delay between providers to prevent API rate limiting
+          if (provider !== providers[providers.length - 1]) { // Don't delay after last provider
+            console.log(`  ⏱️  Waiting 2 seconds before next provider...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
 
         } catch (providerError: any) {
-          console.error(`  ${provider} exception:`, providerError.message);
-          promptStatus.providers[provider as keyof typeof promptStatus.providers] = 'error';
-          promptStatus.errors[provider as keyof typeof promptStatus.errors] = providerError.message;
+          console.error(`  💥 ${provider} exception:`, providerError.message);
+          promptResult.providers[provider as keyof typeof promptResult.providers] = 'error';
+          promptResult.errors[provider as keyof typeof promptResult.errors] = providerError.message;
           totalErrors++;
         }
       }
 
-      promptStatus.status = 'completed';
-      promptStatus.endTime = Date.now();
-      promptStatus.currentProvider = undefined;
-      totalProcessed++;
+      promptResult.status = 'completed';
+      promptResult.endTime = Date.now();
+      
+      // Count as successful prompt if all 3 providers succeeded
+      if (promptSuccessCount === 3) {
+        successfulPrompts++;
+        console.log(`  🎉 Prompt fully successful (3/3 providers)`);
+      } else {
+        console.log(`  ⚠️  Prompt partially successful (${promptSuccessCount}/3 providers)`);
+      }
 
-      console.log(`Completed prompt ${promptIndex + 1}/${prompts.length} in ${promptStatus.endTime - promptStatus.startTime!}ms`);
+      const duration = promptResult.endTime - promptResult.startTime!;
+      console.log(`Completed prompt ${promptIndex + 1}/${prompts.length} in ${duration}ms`);
+
+      // Delay between prompts to be respectful to APIs
+      if (promptIndex < prompts.length - 1) {
+        console.log(`⏱️  Waiting 3 seconds before next prompt...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
     }
 
-    const summary = {
+    // Calculate final summary
+    const totalProviderRuns = prompts.length * providers.length;
+    const summary: BatchSummary = {
       totalPrompts: prompts.length,
-      totalProviderRuns: prompts.length * providers.length,
+      totalProviderRuns,
       successfulRuns: totalSuccessful,
       errorRuns: totalErrors,
-      successRate: Math.round((totalSuccessful / (prompts.length * providers.length)) * 100)
+      successRate: totalProviderRuns > 0 ? Math.round((totalSuccessful / totalProviderRuns) * 100) : 0,
+      successfulPrompts
     };
 
-    console.log('\n=== BATCH RUN SUMMARY ===');
-    console.log(`Processed: ${totalProcessed}/${prompts.length} prompts`);
+    console.log('\n=== BATCH RUN COMPLETE ===');
+    console.log(`Prompts processed: ${prompts.length}`);
+    console.log(`Total provider runs: ${totalProviderRuns}`);
+    console.log(`Successful runs: ${totalSuccessful}`);
+    console.log(`Failed runs: ${totalErrors}`);
     console.log(`Success rate: ${summary.successRate}%`);
-    console.log(`Total provider runs: ${summary.totalProviderRuns}`);
-    console.log(`Successful: ${totalSuccessful}, Errors: ${totalErrors}`);
+    console.log(`Fully successful prompts: ${successfulPrompts}/${prompts.length}`);
+
+    // Record batch run history in the database
+    try {
+      const { error: historyError } = await supabase
+        .from('batch_run_history')
+        .insert({
+          org_id: orgId,
+          prompts_processed: prompts.length,
+          successful_prompts: successfulPrompts,
+          success_rate: summary.successRate,
+          total_provider_runs: totalProviderRuns,
+          successful_runs: totalSuccessful,
+          failed_runs: totalErrors,
+          run_timestamp: new Date().toISOString()
+        });
+
+      if (historyError) {
+        console.error('Failed to record batch history:', historyError);
+        // Don't fail the entire operation for history recording issues
+      } else {
+        console.log('✅ Batch run history recorded');
+      }
+    } catch (historyErr) {
+      console.error('Exception recording batch history:', historyErr);
+      // Continue without failing
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         summary,
-        results: batchResults,
-        timestamp: new Date().toISOString()
+        results,
+        timestamp: new Date().toISOString(),
+        message: `Processed ${prompts.length} prompts with ${summary.successRate}% success rate. ${successfulPrompts} prompts fully successful.`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -190,10 +266,12 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('=== BATCH RUN ERROR ===', error.message);
     console.error('Stack trace:', error.stack);
+    
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: error.message,
-        stack: error.stack 
+        timestamp: new Date().toISOString()
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -13,25 +13,25 @@ import {
   Target,
   Users,
   Zap,
-  BarChart3
+  BarChart3,
+  History
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
 
-interface PromptStatus {
+interface PromptResult {
   promptId: string;
   promptText: string;
   status: 'pending' | 'running' | 'completed' | 'error';
-  currentProvider?: string;
   providers: {
     openai: 'pending' | 'running' | 'success' | 'error';
     gemini: 'pending' | 'running' | 'success' | 'error';
     perplexity: 'pending' | 'running' | 'success' | 'error';
   };
   results: {
-    openai?: any;
-    gemini?: any;
-    perplexity?: any;
+    openai?: { score: number; brandPresent: boolean; competitors: number; tokens: number };
+    gemini?: { score: number; brandPresent: boolean; competitors: number; tokens: number };
+    perplexity?: { score: number; brandPresent: boolean; competitors: number; tokens: number };
   };
   errors: {
     openai?: string;
@@ -42,93 +42,77 @@ interface PromptStatus {
   endTime?: number;
 }
 
-interface BatchSummary {
+interface BatchHistory {
+  timestamp: string;
   totalPrompts: number;
-  totalProviderRuns: number;
-  successfulRuns: number;
-  errorRuns: number;
+  successfulPrompts: number;
   successRate: number;
+  duration: number;
 }
 
 export function BatchPromptRunner() {
   const [isRunning, setIsRunning] = useState(false);
-  const [results, setResults] = useState<PromptStatus[]>([]);
-  const [summary, setSummary] = useState<BatchSummary | null>(null);
-  const { toast } = useToast();
+  const [results, setResults] = useState<PromptResult[]>([]);
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+  const [batchHistory, setBatchHistory] = useState<BatchHistory[]>([]);
 
   const runAllPrompts = async () => {
+    const startTime = Date.now();
+    setIsRunning(true);
+    setResults([]);
+    setCurrentPromptIndex(0);
+
     try {
-      setIsRunning(true);
-      setResults([]);
-      setSummary(null);
-
       const orgId = await getOrgId();
-
-      toast({
-        title: "Batch Run Started",
-        description: "Running all active prompts through all providers...",
-      });
-
-      console.log('Attempting to call batch-run-all-prompts function...');
+      
+      console.log('=== STARTING BATCH RUN ===');
+      toast.success('Batch run started - Running all active prompts...');
 
       const { data, error } = await supabase.functions.invoke('batch-run-all-prompts', {
         body: { orgId }
       });
 
-      console.log('Function call response:', { data, error });
-
       if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(`Function error: ${error.message || error}`);
+        throw new Error(`Batch run failed: ${error.message}`);
       }
 
-      setResults(data.results || []);
-      setSummary(data.summary);
+      const endTime = Date.now();
+      const duration = Math.round((endTime - startTime) / 1000);
 
-      const successRate = data.summary?.successRate || 0;
-      toast({
-        title: "Batch Run Complete",
-        description: `Processed ${data.summary?.totalPrompts || 0} prompts with ${successRate}% success rate`,
-      });
+      console.log('✅ BATCH RUN COMPLETE:', data);
+      
+      setResults(data.results || []);
+      
+      // Record batch history
+      const newHistoryEntry: BatchHistory = {
+        timestamp: new Date().toISOString(),
+        totalPrompts: data.summary?.totalPrompts || 0,
+        successfulPrompts: data.summary?.successfulRuns || 0,
+        successRate: data.summary?.successRate || 0,
+        duration
+      };
+      
+      setBatchHistory(prev => [newHistoryEntry, ...prev.slice(0, 4)]); // Keep last 5 runs
+
+      toast.success(
+        `✅ Batch complete: ${data.summary?.totalPrompts || 0} prompts processed (${data.summary?.successRate || 0}% success)`
+      );
 
     } catch (error: any) {
       console.error('Batch run error:', error);
-      
-      // More detailed error message
-      let errorMessage = error.message || 'Unknown error occurred';
-      if (errorMessage.includes('Failed to send a request')) {
-        errorMessage = 'Edge function not available. It may still be deploying. Please try again in a few moments.';
-      }
-      
-      toast({
-        title: "Batch Run Failed", 
-        description: errorMessage,
-        variant: "destructive"
-      });
+      toast.error(`❌ Batch run failed: ${error.message}`);
     } finally {
       setIsRunning(false);
     }
   };
 
-  const getProviderIcon = (status: string, provider?: string) => {
-    const providerEmoji = provider === 'openai' ? '🤖' : provider === 'gemini' ? '✨' : '🔍';
-    
+  const getProviderIcon = (status: string) => {
     switch (status) {
       case 'running': return <Loader2 className="h-3 w-3 animate-spin text-blue-500" />;
       case 'success': return <CheckCircle className="h-3 w-3 text-green-500" />;
       case 'error': return <AlertCircle className="h-3 w-3 text-red-500" />;
       case 'pending': return <Clock className="h-3 w-3 text-gray-400" />;
-      default: return <span className="text-xs">{providerEmoji}</span>;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'running': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'success': return 'bg-green-100 text-green-800 border-green-200';
-      case 'error': return 'bg-red-100 text-red-800 border-red-200';
-      case 'completed': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return null;
     }
   };
 
@@ -143,20 +127,29 @@ export function BatchPromptRunner() {
     return Math.round((completedTasks / totalTasks) * 100);
   };
 
-  const formatDuration = (startTime?: number, endTime?: number) => {
-    if (!startTime || !endTime) return '';
-    return `${endTime - startTime}ms`;
+  const getSuccessfulPrompts = () => {
+    return results.filter(prompt => 
+      Object.values(prompt.providers).filter(status => status === 'success').length === 3
+    ).length;
+  };
+
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
   };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Batch Prompt Runner</span>
+          <span className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Batch Prompt Runner
+          </span>
           <Button 
             onClick={runAllPrompts} 
             disabled={isRunning}
-            className="h-8"
+            size="sm"
           >
             {isRunning ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -166,134 +159,146 @@ export function BatchPromptRunner() {
             Run All Active Prompts
           </Button>
         </CardTitle>
+        
         {isRunning && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Progress: {calculateProgress()}%</span>
-              <span>{results.filter(r => r.status === 'completed').length}/{results.length} prompts</span>
+              <span>{results.filter(r => r.status === 'completed').length}/{results.length} prompts completed</span>
             </div>
             <Progress value={calculateProgress()} className="w-full" />
           </div>
         )}
       </CardHeader>
       
-      <CardContent>
-        {/* Summary Stats */}
-        {summary && (
-          <div className="mb-6 p-4 bg-muted/30 rounded-lg">
+      <CardContent className="space-y-6">
+        {/* Batch History */}
+        {batchHistory.length > 0 && (
+          <div className="p-4 bg-muted/30 rounded-lg">
             <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Batch Run Summary
+              <History className="h-4 w-4" />
+              Recent Batch Runs
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="text-muted-foreground">Prompts Processed</div>
-                <div className="font-mono text-lg">{summary.totalPrompts}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Success Rate</div>
-                <div className="font-mono text-lg">{summary.successRate}%</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Successful Runs</div>
-                <div className="font-mono text-lg text-green-600">{summary.successfulRuns}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Failed Runs</div>
-                <div className="font-mono text-lg text-red-600">{summary.errorRuns}</div>
-              </div>
+            <div className="space-y-2">
+              {batchHistory.map((run, index) => (
+                <div key={index} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground font-mono">
+                      {new Date(run.timestamp).toLocaleString()}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {run.totalPrompts} prompts
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-green-600 font-medium">
+                      {run.successfulPrompts}/{run.totalPrompts} successful
+                    </span>
+                    <span className="text-muted-foreground">
+                      {run.duration}s
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Prompt Results */}
+        {/* Current Run Results */}
         {results.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold">Prompt Results</h4>
-            {results.map((prompt, index) => (
-              <div key={prompt.promptId} className="border rounded-lg p-4 space-y-3">
-                {/* Prompt Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-muted-foreground">#{index + 1}</span>
-                      <Badge className={`text-xs ${getStatusColor(prompt.status)}`}>
-                        {prompt.status}
-                      </Badge>
-                      {prompt.currentProvider && (
-                        <Badge variant="outline" className="text-xs">
-                          Running: {prompt.currentProvider}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold">Current Run Progress</h4>
+              <div className="text-sm text-muted-foreground">
+                {getSuccessfulPrompts()}/{results.length} prompts fully successful
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {results.map((prompt, index) => (
+                <div key={prompt.promptId} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                        <Badge className={
+                          prompt.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          prompt.status === 'running' ? 'bg-blue-100 text-blue-800' :
+                          prompt.status === 'error' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }>
+                          {prompt.status}
                         </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium truncate" title={prompt.promptText}>
-                      {prompt.promptText}
-                    </p>
-                    {prompt.startTime && prompt.endTime && (
-                      <p className="text-xs text-muted-foreground">
-                        Duration: {formatDuration(prompt.startTime, prompt.endTime)}
+                      </div>
+                      <p className="text-sm font-medium truncate">
+                        {prompt.promptText}
                       </p>
-                    )}
+                    </div>
+                  </div>
+
+                  {/* Provider Status Grid */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['openai', 'gemini', 'perplexity'] as const).map((provider) => {
+                      const status = prompt.providers[provider];
+                      const result = prompt.results[provider];
+                      const error = prompt.errors[provider];
+                      
+                      return (
+                        <div 
+                          key={provider} 
+                          className={`p-3 border rounded-lg text-center ${
+                            status === 'success' ? 'bg-green-50 border-green-200' :
+                            status === 'error' ? 'bg-red-50 border-red-200' :
+                            status === 'running' ? 'bg-blue-50 border-blue-200' :
+                            'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-1 mb-2">
+                            {getProviderIcon(status)}
+                            <span className="text-xs font-medium capitalize">{provider}</span>
+                          </div>
+                          
+                          {result && (
+                            <div className="space-y-1 text-xs">
+                              <div className="flex items-center justify-center gap-1">
+                                <Target className="h-3 w-3" />
+                                <span className="font-medium">{result.score}/10</span>
+                              </div>
+                              <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                                <Users className="h-3 w-3" />
+                                <span>{result.competitors}</span>
+                              </div>
+                              <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                                <Zap className="h-3 w-3" />
+                                <span>{result.tokens}</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {error && (
+                            <div className="text-xs text-red-600 truncate" title={error}>
+                              {error}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-
-                {/* Provider Status */}
-                <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(prompt.providers).map(([provider, status]) => {
-                    const result = prompt.results[provider as keyof typeof prompt.results];
-                    const error = prompt.errors[provider as keyof typeof prompt.errors];
-                    
-                    return (
-                      <div 
-                        key={provider} 
-                        className={`p-2 border rounded text-center ${
-                          status === 'success' ? 'bg-green-50 border-green-200' :
-                          status === 'error' ? 'bg-red-50 border-red-200' :
-                          status === 'running' ? 'bg-blue-50 border-blue-200' :
-                          'bg-gray-50 border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                          {getProviderIcon(status, provider)}
-                          <span className="text-xs font-medium capitalize">{provider}</span>
-                        </div>
-                        
-                        {result && (
-                          <div className="space-y-1 text-xs text-muted-foreground">
-                            <div className="flex items-center justify-center gap-1">
-                              <Target className="h-3 w-3" />
-                              <span>{result.score}/10</span>
-                            </div>
-                            <div className="flex items-center justify-center gap-1">
-                              <Users className="h-3 w-3" />
-                              <span>{result.competitors}</span>
-                            </div>
-                            <div className="flex items-center justify-center gap-1">
-                              <Zap className="h-3 w-3" />
-                              <span>{result.tokenIn + result.tokenOut}</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {error && (
-                          <div className="text-xs text-red-600 truncate" title={error}>
-                            {error}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
-        {results.length === 0 && !isRunning && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Click "Run All Active Prompts" to begin batch processing</p>
-            <p className="text-sm mt-1">This will run each active prompt through OpenAI, Gemini, and Perplexity</p>
+        {/* Empty State */}
+        {results.length === 0 && !isRunning && batchHistory.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            <Play className="h-16 w-16 mx-auto mb-4 opacity-30" />
+            <h3 className="text-lg font-medium mb-2">Ready to Run Batch Analysis</h3>
+            <p className="text-sm max-w-md mx-auto">
+              Click "Run All Active Prompts" to test each active prompt through OpenAI, Gemini, and Perplexity.
+              Results will be analyzed using the new response analysis system.
+            </p>
           </div>
         )}
       </CardContent>

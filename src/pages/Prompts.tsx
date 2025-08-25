@@ -13,9 +13,10 @@ import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSugge
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
 import { AIPromptSuggestions } from '@/components/AIPromptSuggestions';
+import { BatchPromptRunner } from '@/components/BatchPromptRunner';
+import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 import TestSchedulerAPIs from '@/components/TestSchedulerAPIs';
 import { AlertCircle } from 'lucide-react';
-import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 
 // Transform the existing prompt data to match the PromptList interface
 const transformPromptData = (prompts: any[], promptDetails: any[]) => {
@@ -452,31 +453,20 @@ export default function Prompts() {
               </TabsContent>
 
               <TabsContent value="debug" className="mt-6">
-                {rawPrompts.length > 0 && orgData?.organizations?.id ? (
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold mb-2">Debug Tools</h3>
-                      <p className="text-muted-foreground">Test individual prompts across all providers and view raw responses</p>
-                    </div>
-                    
-                    {rawPrompts.slice(0, 3).map((prompt) => (
-                      <div key={prompt.id} className="space-y-4">
-                        <div className="p-4 bg-muted rounded-lg">
-                          <h4 className="font-medium mb-2">Test Prompt: {prompt.text.substring(0, 100)}...</h4>
-                          <ProviderDebugPanel 
-                            promptId={prompt.id}
-                            promptText={prompt.text}
-                            orgId={orgData.organizations.id}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold mb-2">Debug Tools</h3>
+                    <p className="text-muted-foreground">
+                      Test and analyze prompt responses across all providers
+                    </p>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Add some prompts to use debug tools</p>
-                  </div>
-                )}
+                  
+                  {/* Batch Prompt Runner */}
+                  <BatchPromptRunner />
+
+                  {/* Provider Debug Panel */}
+                  <ProviderDebugPanel />
+                </div>
               </TabsContent>
             </Tabs>
 
