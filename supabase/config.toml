@@ -3,7 +3,7 @@ project_id = "cgocsffxqyhojtyzniyz"
 [functions.fix-prompt-classification]
 verify_jwt = true
 
-[functions.simple-batch-runner]
+[functions.robust-batch-processor]
 verify_jwt = true
 
 [functions.check-subscription]
@@ -62,9 +62,6 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.activate-trial]
-verify_jwt = true
-
-[functions.run-all-prompts]
 verify_jwt = true
 
 [functions.execute-prompt]
