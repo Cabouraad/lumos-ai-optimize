@@ -280,21 +280,24 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
 
     // Get base dashboard data
     const dashboardData = await getUnifiedDashboardData(useCache);
+    const safePrompts = Array.isArray((dashboardData as any)?.prompts) ? (dashboardData as any).prompts : [];
     
-    if (dashboardData.prompts.length === 0) {
+    if (safePrompts.length === 0) {
       const emptyData: UnifiedPromptData = {
         ...dashboardData,
+        prompts: [],
         promptDetails: []
       };
       advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
       return emptyData;
     }
 
-    const promptIds = dashboardData.prompts?.map(p => p.id) || [];
+    const promptIds = safePrompts.map(p => p.id);
     
     if (promptIds.length === 0) {
       const emptyData: UnifiedPromptData = {
         ...dashboardData,
+        prompts: [],
         promptDetails: []
       };
       advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
@@ -323,7 +326,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     const sevenDayData = sevenDayResult.data || [];
 
     // Process detailed prompt data
-    const promptDetails = dashboardData.prompts.map(prompt => {
+    const promptDetails = safePrompts.map(prompt => {
       // Group latest responses by provider
       const promptResponses = latestResponses.filter(r => r.prompt_id === prompt.id);
       const providerData = {
