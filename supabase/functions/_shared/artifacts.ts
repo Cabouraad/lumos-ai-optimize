@@ -2,8 +2,6 @@
  * Artifact extraction utilities for structured data mining from AI responses
  */
 
-import { normalize } from './brand-matching.ts';
-
 export interface Citation {
   type: 'url' | 'ref';
   value: string;
@@ -92,7 +90,7 @@ function extractBrands(text: string, gazetteer: string[]): BrandArtifact[] {
   
   // Process each brand in the gazetteer
   for (const brandName of gazetteer) {
-    const normalized = normalize(brandName);
+    const normalized = brandName.toLowerCase().trim();
     
     // Skip very short brands to avoid false positives
     if (normalized.length < 3) continue;

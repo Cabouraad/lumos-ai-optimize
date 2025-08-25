@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import { analyzeResponse } from '../_shared/simple-brand-analyzer.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -83,8 +84,8 @@ serve(async (req) => {
 
         if (!response) continue;
 
-        // Analyze brand presence and competitors using catalog-aware matcher
-        const analysis = await analyzeBrandsInResponse(supabase, orgId, orgName, response.text);
+        // Analyze brand presence and competitors using new simple analyzer
+        const analysis = await analyzeResponse(supabase, orgId, response.text);
 
         // Store run (keep existing logging table)
         const { data: run } = await supabase
@@ -125,7 +126,7 @@ serve(async (req) => {
             raw_ai_response: response.text,
             model: providerModel,
             run_at: new Date().toISOString(),
-            metadata: { analysis_method: 'catalog_boundary_match_v2' }
+            metadata: { analysis_method: 'simple_v3' }
           });
         if (pprError) {
           console.error('Failed to insert prompt_provider_responses:', pprError);
@@ -268,114 +269,3 @@ async function executeGemini(promptText: string) {
   };
 }
 
-// Catalog-aware brand analysis with strict word-boundary matching
-async function analyzeBrandsInResponse(supabase: any, orgId: string, orgName: string, responseText: string) {
-  // Fetch brand catalog for org
-  const { data: brandCatalog } = await supabase
-    .from('brand_catalog')
-    .select('name, variants_json, is_org_brand')
-    .eq('org_id', orgId);
-
-  const text = responseText || '';
-  const textLower = text.toLowerCase();
-
-  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const findFirstIndex = (needle: string) => {
-    const pattern = new RegExp(`\\b${escapeRegex(needle.toLowerCase())}\\b`, 'i');
-    const match = textLower.match(pattern);
-    if (!match) return -1;
-    return textLower.indexOf((match as any)[0].toLowerCase());
-  };
-
-  const orgBrands = (brandCatalog || []).filter((b: any) => b.is_org_brand);
-  const competitors = (brandCatalog || []).filter((b: any) => !b.is_org_brand);
-
-  // Build org brand patterns (names + variants)
-  const orgPatterns: string[] = [];
-  if (orgName) orgPatterns.push(orgName);
-  for (const b of orgBrands) {
-    orgPatterns.push(b.name);
-    if (Array.isArray(b.variants_json)) {
-      for (const v of b.variants_json) orgPatterns.push(v);
-    }
-  }
-  // Special-case safety for HubSpot
-  if (/hubspot/i.test(orgPatterns.join(' '))) {
-    orgPatterns.push('marketing hub', 'hub spot', 'hubspot.com');
-  }
-
-  // Detect org brand presence and first position among all brands
-  const mentions: { name: string; index: number; isOrg: boolean }[] = [];
-  let orgBrandPresent = false;
-  for (const p of orgPatterns) {
-    const idx = findFirstIndex(p);
-    if (idx !== -1) {
-      orgBrandPresent = true;
-      mentions.push({ name: p, index: idx, isOrg: true });
-    }
-  }
-
-  // Competitor filtering
-  const generic = new Set<string>([
-    'seo','marketing','social','media','facebook','google','advertising','analytics','automation','content','digital','platform','tool','tools','software','solution','service','services','company','business','website','online','internet','web','app','application','system','technology','data','insights','reporting','dashboard','management','customer','lead','sales','email','campaign','strategy','optimization','integration','api','cloud','mobile','desktop','browser','plugins','plugin','strong','part','creation','combines'
-  ]);
-
-  const foundCompetitors: string[] = [];
-  for (const c of competitors) {
-    const name = (c.name || '').toString();
-    const nameLower = name.toLowerCase();
-    if (!name || nameLower.length < 3 || generic.has(nameLower)) continue;
-
-    let idx = findFirstIndex(name);
-    if (idx !== -1) {
-      foundCompetitors.push(name);
-      mentions.push({ name, index: idx, isOrg: false });
-      continue;
-    }
-
-    if (Array.isArray(c.variants_json)) {
-      for (const v of c.variants_json) {
-        const vl = (v || '').toString().toLowerCase().trim();
-        if (!vl || vl.length < 3 || generic.has(vl)) continue;
-        idx = findFirstIndex(vl);
-        if (idx !== -1) {
-          foundCompetitors.push(name);
-          mentions.push({ name, index: idx, isOrg: false });
-          break;
-        }
-      }
-    }
-  }
-
-  // Compute org brand prominence (rank among all brand mentions)
-  let orgBrandProminence: number | null = null;
-  if (orgBrandPresent && mentions.length > 0) {
-    mentions.sort((a, b) => a.index - b.index);
-    const firstOrg = mentions.findIndex(m => m.isOrg);
-    orgBrandProminence = firstOrg >= 0 ? firstOrg + 1 : null;
-  }
-
-  // Unique competitor list
-  const competitorsUnique = Array.from(new Set(foundCompetitors));
-
-  // Score
-  let score = 0;
-  if (orgBrandPresent) {
-    score = 6;
-    if (orgBrandProminence && orgBrandProminence <= 3) score += 2;
-    else if (orgBrandProminence && orgBrandProminence <= 5) score += 1;
-    const penalty = Math.min(2, competitorsUnique.length * 0.3);
-    score -= penalty;
-  } else if (competitorsUnique.length === 0) {
-    score = 2;
-  }
-  score = Math.max(0, Math.min(10, score));
-
-  return {
-    score,
-    orgBrandPresent,
-    orgBrandProminence,
-    brands: orgBrandPresent ? orgPatterns.slice(0, 3) : [],
-    competitors: competitorsUnique
-  };
-}
