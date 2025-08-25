@@ -199,7 +199,7 @@ serve(async (req) => {
     // Get API keys
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
 
     console.log('Starting comprehensive scheduler API tests...');
     console.log('API Keys available:', {

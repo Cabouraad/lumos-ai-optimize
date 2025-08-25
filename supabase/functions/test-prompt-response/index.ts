@@ -14,7 +14,7 @@ serve(async (req) => {
 
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
-  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
   
   try {
     const { prompt, provider, testKey } = await req.json();

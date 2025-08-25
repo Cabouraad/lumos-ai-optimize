@@ -29,7 +29,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   },
   gemini: {
     name: 'gemini',
-    apiKey: Deno.env.get('GEMINI_API_KEY')!,
+    apiKey: Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY'),
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
     model: 'gemini-2.0-flash-lite'
   },
@@ -356,6 +356,9 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
         signal: controller.signal
       });
     } else if (provider.name === 'gemini') {
+      if (!provider.apiKey) {
+        throw new Error('Gemini API key not configured');
+      }
       response = await fetch(provider.endpoint, {
         method: 'POST',
         headers: {

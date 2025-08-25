@@ -39,7 +39,7 @@ async function executeOpenAI(promptText: string): Promise<{ responseText: string
 
 async function executeGemini(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number }> {
   // Force redeploy with timestamp: 2025-08-25T18:25:00Z
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
   console.log('=== GEMINI DEBUG v2 ===');
   console.log('API Key found:', apiKey ? 'YES (length: ' + apiKey.length + ')' : 'NO');
   console.log('Environment check:', {
