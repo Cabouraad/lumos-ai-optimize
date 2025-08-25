@@ -101,7 +101,7 @@ serve(async (req) => {
       throw providerError;
     }
 
-    // Enhanced brand analysis if orgId provided
+    // Enhanced brand analysis - REQUIRED, no fallbacks
     let brandAnalysis: BrandAnalysisResult | null = null;
     let orgData: any = null;
     
@@ -172,15 +172,16 @@ serve(async (req) => {
       console.log('Org brands found:', brandCatalog.filter(b => b.is_org_brand));
       
       // Run enhanced brand analysis
-      brandAnalysis = await analyzeBrands(
-        result.responseText, 
-        brandCatalog,
-        {
-          strictFiltering: true,
-          confidenceThreshold: 0.6
-        }
-      );
-        
+      try {
+        brandAnalysis = await analyzeBrands(
+          result.responseText, 
+          brandCatalog,
+          {
+            strictFiltering: true,
+            confidenceThreshold: 0.6
+          }
+        );
+          
         console.log('Enhanced brand analysis complete:', {
           orgBrands: brandAnalysis.orgBrands.length,
           competitors: brandAnalysis.competitors.length,
@@ -189,51 +190,45 @@ serve(async (req) => {
           processingTime: brandAnalysis.metadata.processingTime,
           falsePositivesRemoved: brandAnalysis.metadata.filteringStats.falsePositivesRemoved
         });
-    }
-
-    // Fallback to legacy analysis if enhanced analysis fails
-    if (!brandAnalysis) {
-      console.log('Using fallback brand analysis...');
-      
-      // CRITICAL FIX: Actually analyze the response text, not just pre-extracted brands
-      const responseText = result.responseText || '';
-      const extractedBrands = extractBrandsFromText(responseText, orgData);
-      
-      // Legacy classification and scoring with text-extracted brands
-      const classification = classifyBrands(extractedBrands, []);
-      const score = calculateVisibilityScore(classification.orgBrands, classification.competitors, responseText);
-      
+      } catch (error) {
+        console.error('Enhanced brand analysis failed:', error);
+        // Provide minimal safe response instead of legacy fallback
+        brandAnalysis = {
+          orgBrands: [],
+          competitors: [],
+          score: { 
+            brandPresent: false, 
+            brandPosition: null, 
+            competitorCount: 0, 
+            score: 0, 
+            confidence: 0.1 
+          },
+          metadata: {
+            totalBrandsExtracted: 0,
+            responseLength: result.responseText.length,
+            processingTime: 0,
+            extractionMethod: 'enhanced-failed',
+            filteringStats: { beforeFiltering: 0, afterFiltering: 0, falsePositivesRemoved: 0 }
+          }
+        };
+      }
+    } else {
+      // No orgId provided - minimal analysis
       brandAnalysis = {
-        orgBrands: classification.orgBrands.map(name => ({
-          name,
-          normalized: normalize(name),
-          mentions: 1,
-          firstPosition: responseText.toLowerCase().indexOf(name.toLowerCase()),
-          confidence: 0.8,
-          context: '',
-          matchType: 'exact' as const
-        })),
-        competitors: classification.competitors.map(name => ({
-          name,
-          normalized: normalize(name),
-          mentions: 1,
-          firstPosition: responseText.toLowerCase().indexOf(name.toLowerCase()),
-          confidence: 0.7,
-          context: '',
-          matchType: 'exact' as const
-        })),
-        score: {
-          brandPresent: score.brandPresent,
-          brandPosition: score.brandPosition,
-          competitorCount: score.competitorCount,
-          score: score.score,
-          confidence: 0.6
+        orgBrands: [],
+        competitors: [],
+        score: { 
+          brandPresent: false, 
+          brandPosition: null, 
+          competitorCount: 0, 
+          score: 0, 
+          confidence: 0.1 
         },
         metadata: {
-          totalBrandsExtracted: extractedBrands.length,
-          responseLength: responseText.length,
+          totalBrandsExtracted: 0,
+          responseLength: result.responseText.length,
           processingTime: 0,
-          extractionMethod: 'text-analysis-fallback',
+          extractionMethod: 'no-org-provided',
           filteringStats: { beforeFiltering: 0, afterFiltering: 0, falsePositivesRemoved: 0 }
         }
       };
@@ -259,7 +254,7 @@ serve(async (req) => {
             status: 'success',
             token_in: result.tokenIn || 0,
             token_out: result.tokenOut || 0,
-            raw_ai_response: responseText,
+            raw_ai_response: result.responseText || '',
             raw_evidence: JSON.stringify({
               brandAnalysis,
               legacyBrands: result.brands,
@@ -666,113 +661,4 @@ function isCommonWord(word: string): boolean {
     'More', 'Less', 'Much', 'Such', 'Only', 'Also', 'Even', 'Still'
   ];
   return commonWords.includes(word);
-}
-
-/**
- * Classify extracted brands as organization brands vs competitors
- */
-function classifyBrands(extractedBrands: string[], brandCatalog: any[]) {
-  const orgBrands: string[] = [];
-  const competitors: string[] = [];
-  
-  for (const brand of extractedBrands) {
-    const normalizedBrand = normalize(brand);
-    
-    // Check if it matches any org brand in the catalog
-    const isOrgBrand = brandCatalog.some(catalogBrand => {
-      if (catalogBrand.is_org_brand) {
-        const normalizedCatalogBrand = normalize(catalogBrand.name);
-        
-        // Check exact match or if brand contains catalog brand name
-        if (normalizedBrand === normalizedCatalogBrand) return true;
-        if (normalizedBrand.includes(normalizedCatalogBrand)) return true;
-        
-        // Check variants
-        for (const variant of catalogBrand.variants_json || []) {
-          const normalizedVariant = normalize(variant);
-          if (normalizedBrand === normalizedVariant || normalizedBrand.includes(normalizedVariant)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    });
-    
-    if (isOrgBrand) {
-      orgBrands.push(brand);
-    } else {
-      competitors.push(brand);
-    }
-  }
-  
-  return { orgBrands, competitors };
-}
-
-/**
- * Normalize brand name for comparison
- */
-function normalize(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '') // Remove punctuation
-    .replace(/\s+/g, ' ') // Normalize spaces
-    .trim();
-}
-
-/**
- * Calculate enhanced visibility score based on org brand presence and competitor analysis
- */
-function calculateVisibilityScore(orgBrands: string[], competitors: string[], responseText: string) {
-  const orgBrandPresent = orgBrands.length > 0;
-  const competitorCount = competitors.length;
-  
-  // Find position of first org brand mention (0-based)
-  let brandPosition = null;
-  if (orgBrandPresent) {
-    const responseWords = responseText.toLowerCase().split(/\s+/);
-    for (const orgBrand of orgBrands) {
-      const brandWords = orgBrand.toLowerCase().split(/\s+/);
-      for (let i = 0; i <= responseWords.length - brandWords.length; i++) {
-        const match = brandWords.every((word, index) => 
-          responseWords[i + index]?.includes(word.substring(0, Math.min(word.length, 4)))
-        );
-        if (match) {
-          brandPosition = i;
-          break;
-        }
-      }
-      if (brandPosition !== null) break;
-    }
-  }
-  
-  // Calculate score: 0-10 scale
-  let score = 0;
-  
-  if (orgBrandPresent) {
-    // Base score for being mentioned
-    score = 5;
-    
-    // Bonus for early position (earlier = higher score)
-    if (brandPosition !== null) {
-      const positionBonus = Math.max(0, 3 - Math.floor(brandPosition / 10)); // Up to 3 points for early mention
-      score += positionBonus;
-    }
-    
-    // Penalty for competitors (more competitors = lower score)
-    const competitorPenalty = Math.min(3, competitorCount * 0.5); // Up to 3 points penalty
-    score -= competitorPenalty;
-    
-    // Ensure minimum score of 1 if org brand is present
-    score = Math.max(1, score);
-  }
-  
-  // Cap at 10
-  score = Math.min(10, Math.round(score));
-  
-  return {
-    brandPresent: orgBrandPresent,
-    brandPosition,
-    competitorCount,
-    score
-  };
 }
