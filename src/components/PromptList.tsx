@@ -308,9 +308,6 @@ export function PromptList({
                     <Pause className="mr-1 h-3 w-3" />
                     Disable
                   </Button>
-                  <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
-                    Runs automatically at 3:00 AM ET
-                  </div>
                   <Button
                     size="sm"
                     variant="outline"

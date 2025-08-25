@@ -322,9 +322,6 @@ export function RecentPromptsWidget({ prompts, loading }: RecentPromptsWidgetPro
                             View Full Run
                           </Button>
                         </div>
-                        <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
-                          Runs automatically at 3:00 AM ET
-                        </div>
                       </div>
                     </div>
                   </motion.div>

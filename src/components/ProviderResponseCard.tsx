@@ -16,9 +16,9 @@ interface ProviderResponseCardProps {
 }
 
 const PROVIDER_CONFIG = {
-  openai: { name: 'OpenAI', icon: '🤖', color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
-  gemini: { name: 'Gemini', icon: '✨', color: 'bg-purple-50 border-purple-200 text-purple-700' },
-  perplexity: { name: 'Perplexity', icon: '🔍', color: 'bg-blue-50 border-blue-200 text-blue-700' }
+  openai: { name: 'OpenAI', color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+  gemini: { name: 'Gemini', color: 'bg-purple-50 border-purple-200 text-purple-700' },
+  perplexity: { name: 'Perplexity', color: 'bg-blue-50 border-blue-200 text-blue-700' }
 };
 
 export function ProviderResponseCard({ provider, response, promptText, onClassificationFixed }: ProviderResponseCardProps) {
@@ -29,7 +29,6 @@ export function ProviderResponseCard({ provider, response, promptText, onClassif
       <Card className="h-full">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
-            <span className="text-lg">{config.icon}</span>
             {config.name}
             <Badge variant="outline" className="text-xs text-muted-foreground">
               No data
@@ -87,7 +86,6 @@ export function ProviderResponseCard({ provider, response, promptText, onClassif
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{config.icon}</span>
             {config.name}
             {response.model && (
               <Badge variant="secondary" className="text-xs">
@@ -235,7 +233,6 @@ export function ProviderResponseCard({ provider, response, promptText, onClassif
                     <DialogContent className="max-w-4xl max-h-[80vh]">
                       <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                          <span className="text-lg">{config.icon}</span>
                           {config.name} Response
                         </DialogTitle>
                         <DialogDescription>

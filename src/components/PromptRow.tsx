@@ -455,9 +455,6 @@ export function PromptRow({
               />
             </div>
 
-            <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
-              Runs automatically at 3:00 AM ET
-            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -608,9 +605,6 @@ export function PromptRow({
 
                 {/* Footer actions */}
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <div className="text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-lg">
-                    Runs automatically at 3:00 AM ET
-                  </div>
                   <Button size="sm" variant="outline" onClick={() => onToggleActive(!prompt.active)} className="h-7 text-xs">
                     {prompt.active ? 'Pause' : 'Resume'}
                   </Button>
