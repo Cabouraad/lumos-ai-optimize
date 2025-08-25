@@ -80,6 +80,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
       competitorPct: avgCompetitors, // Show average number of competitors instead of percentage
       sentimentDelta: 0, // Start at 0 until we have actual sentiment data
       active: prompt.active,
+      org_id: prompt.org_id, // Pass org_id for re-analysis
     };
   });
 };

@@ -164,12 +164,28 @@ serve(async (req) => {
     console.log(`=== SINGLE PROVIDER TEST: ${provider} ===`);
     console.log(`Prompt: ${promptText.substring(0, 50)}...`);
 
-    if (!promptText || !provider) {
-      throw new Error('Missing promptText or provider');
+    if (!promptText || !provider || !orgId) {
+      throw new Error('Missing promptText, provider, or orgId');
     }
 
-    // Get org name for analysis
-    const orgName = 'HubSpot'; // Default for now - could fetch from DB
+    // Get org name for analysis from database
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const orgResponse = await fetch(`${supabaseUrl}/rest/v1/organizations?id=eq.${orgId}&select=name`, {
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!orgResponse.ok) {
+      throw new Error('Failed to fetch organization data');
+    }
+    
+    const orgData = await orgResponse.json();
+    const orgName = orgData?.[0]?.name || 'Unknown Organization';
 
     // Execute the specific provider
     let response;

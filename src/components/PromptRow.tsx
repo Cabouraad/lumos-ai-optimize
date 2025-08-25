@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { ProviderResponseCard } from '@/components/ProviderResponseCard';
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
+import { reanalyzeProviderResponse } from '@/lib/analysis/response-analyzer';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -50,6 +51,7 @@ interface PromptRowData {
   competitorPct: number;
   sentimentDelta: number;
   active: boolean;
+  org_id?: string;
 }
 
 interface PromptRowProps {
@@ -184,22 +186,76 @@ export function PromptRow({
     const fetchProviderData = async () => {
       try {
         setLoadingProviders(true);
-        const { data, error } = await supabase
-          .from('latest_prompt_provider_responses')
-          .select('*')
-          .eq('prompt_id', prompt.id);
+        
+        // If no org_id, fall back to simple provider data
+        if (!prompt.org_id) {
+          const { data, error } = await supabase
+            .from('latest_prompt_provider_responses')
+            .select('*')
+            .eq('prompt_id', prompt.id);
 
-        if (error) {
-          console.error('Error fetching provider data:', error);
-          setProviderData({ openai: null, gemini: null, perplexity: null });
-        } else {
-          const providers = {
-            openai: (data || []).find(r => r.provider === 'openai') as ProviderResponseData || null,
-            gemini: (data || []).find(r => r.provider === 'gemini') as ProviderResponseData || null,
-            perplexity: (data || []).find(r => r.provider === 'perplexity') as ProviderResponseData || null,
-          };
-          setProviderData(providers);
+          if (error) {
+            console.error('Error fetching provider data:', error);
+            setProviderData({ openai: null, gemini: null, perplexity: null });
+          } else {
+            const providers = {
+              openai: (data || []).find(r => r.provider === 'openai') as ProviderResponseData || null,
+              gemini: (data || []).find(r => r.provider === 'gemini') as ProviderResponseData || null,
+              perplexity: (data || []).find(r => r.provider === 'perplexity') as ProviderResponseData || null,
+            };
+            setProviderData(providers);
+          }
+          return;
         }
+        
+        // Fetch both provider responses and organization data
+        const [responsesResult, orgResult] = await Promise.all([
+          supabase
+            .from('latest_prompt_provider_responses')
+            .select('*')
+            .eq('prompt_id', prompt.id),
+          supabase
+            .from('organizations')
+            .select('name')
+            .eq('id', prompt.org_id)
+            .maybeSingle()
+        ]);
+
+        if (responsesResult.error) {
+          console.error('Error fetching provider data:', responsesResult.error);
+          setProviderData({ openai: null, gemini: null, perplexity: null });
+          return;
+        }
+
+        const orgName = orgResult.data?.name || 'Unknown Organization';
+        
+        // Re-analyze responses with correct organization name
+        const rawProviders = {
+          openai: (responsesResult.data || []).find(r => r.provider === 'openai') as ProviderResponseData || null,
+          gemini: (responsesResult.data || []).find(r => r.provider === 'gemini') as ProviderResponseData || null,
+          perplexity: (responsesResult.data || []).find(r => r.provider === 'perplexity') as ProviderResponseData || null,
+        };
+
+        // Re-analyze each response to ensure correct brand detection
+        const providers = {
+          openai: rawProviders.openai ? {
+            ...rawProviders.openai,
+            ...reanalyzeProviderResponse(rawProviders.openai.raw_ai_response, orgName, rawProviders.openai.score)
+          } : null,
+          gemini: rawProviders.gemini ? {
+            ...rawProviders.gemini,
+            ...reanalyzeProviderResponse(rawProviders.gemini.raw_ai_response, orgName, rawProviders.gemini.score)
+          } : null,
+          perplexity: rawProviders.perplexity ? {
+            ...rawProviders.perplexity,
+            ...reanalyzeProviderResponse(rawProviders.perplexity.raw_ai_response, orgName, rawProviders.perplexity.score)
+          } : null,
+        };
+
+        setProviderData(providers);
+      } catch (error) {
+        console.error('Error in fetchProviderData:', error);
+        setProviderData({ openai: null, gemini: null, perplexity: null });
       } finally {
         setLoadingProviders(false);
       }
