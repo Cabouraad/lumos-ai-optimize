@@ -188,7 +188,6 @@ serve(async (req) => {
           processingTime: brandAnalysis.metadata.processingTime,
           falsePositivesRemoved: brandAnalysis.metadata.filteringStats.falsePositivesRemoved
         });
-      }
     }
 
     // Fallback to legacy analysis if enhanced analysis fails
