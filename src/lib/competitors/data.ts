@@ -17,7 +17,14 @@ export async function getCompetitorsData() {
       .eq('is_org_brand', false)
       .order('total_appearances', { ascending: false });
     
-    // Transform data for UI
+    // Allowlist for legitimate brands that should never be filtered
+    const allowlistedBrands = [
+      'google analytics', 'hubspot', 'buffer', 'hootsuite', 'coschedule', 
+      'sprout social', 'buzzsumo', 'marketo', 'semrush', 'contentcal',
+      'mailchimp', 'salesforce', 'adobe analytics', 'canva', 'later'
+    ];
+
+    // Transform data for UI with light post-filtering
     const transformedData = competitorBrands?.map(brand => ({
       id: brand.id,
       name: brand.name,
@@ -28,7 +35,15 @@ export async function getCompetitorsData() {
       sharePercentage: Math.min(100, Math.max(0, (brand.average_score || 0) * 10)), // Convert 0-10 to 0-100 for percentage
       trend: 0, // Trend calculation will be implemented with historical data
       isManuallyAdded: false
-    })) || [];
+    }))
+    .filter(brand => {
+      // Keep allowlisted brands and reasonable looking brand names
+      const isAllowlisted = allowlistedBrands.some(allowed => 
+        brand.name.toLowerCase().includes(allowed) || allowed.includes(brand.name.toLowerCase())
+      );
+      const isReasonableName = brand.name.length > 2 && !/^(seo|marketing|social media)$/i.test(brand.name);
+      return isAllowlisted || isReasonableName;
+    }) || [];
 
     // Get organization name for "Your Brand" using the foreign key relationship
     const orgName = competitorBrands?.[0]?.organizations?.name || 'Your Brand';

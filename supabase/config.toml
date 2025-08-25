@@ -1,5 +1,8 @@
 project_id = "cgocsffxqyhojtyzniyz"
 
+[functions.fix-prompt-classification]
+verify_jwt = true
+
 [functions.batch-run-all-prompts]
 verify_jwt = true
 

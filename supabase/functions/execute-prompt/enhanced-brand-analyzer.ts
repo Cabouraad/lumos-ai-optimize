@@ -50,17 +50,34 @@ function enhancedNormalize(str: string): string {
     .trim();
 }
 
-// Enhanced false positive detection - comprehensive filtering
+// Strip descriptors for org brand matching
+function stripDescriptors(brandName: string): string {
+  return brandName
+    .toLowerCase()
+    .replace(/\b(marketing|hub|platform|cloud|analytics|studio|pro|suite|labs|works|systems|solutions|app|software|tool|service)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Enhanced false positive detection - comprehensive filtering with allowlist
 const FALSE_POSITIVE_PATTERNS = {
-  // Generic tech terms often capitalized
+  // Allowlist for known marketing brands that should NEVER be filtered
+  allowlist: [
+    'google analytics', 'hubspot', 'hubspot marketing hub', 'buffer', 'hootsuite', 
+    'coschedule', 'sprout social', 'buzzsumo', 'marketo', 'semrush', 'contentcal',
+    'mailchimp', 'salesforce marketing cloud', 'adobe analytics', 'canva', 'later',
+    'klaviyo', 'constant contact', 'activecampaign', 'pardot', 'eloqua',
+    'convertkit', 'getresponse', 'aweber', 'drip', 'infusionsoft', 'ontraport'
+  ],
+  
+  // Generic tech terms - only exact matches, no substring filtering
   genericTerms: [
-    'api', 'sdk', 'app', 'web', 'mobile', 'cloud', 'data', 'system', 'platform',
-    'solution', 'service', 'software', 'tool', 'framework', 'library',
-    'search', 'email', 'social', 'media', 'digital', 'online', 'smart',
-    // Marketing and SEO terms that are often mistakenly identified as competitors
+    'api', 'sdk', 'web', 'mobile', 'data', 'system', 
+    'solution', 'service', 'software', 'framework', 'library',
+    'search', 'email', 'social', 'digital', 'online', 'smart',
+    // Marketing terms that are often mistakenly identified as competitors (exact only)
     'seo', 'sem', 'ppc', 'crm', 'cms', 'erp', 'roi', 'kpi', 'ctr', 'cpc',
-    'marketing', 'analytics', 'automation', 'optimization', 'tracking',
-    'content', 'advertising', 'campaign', 'strategy', 'engagement',
+    'automation', 'optimization', 'tracking', 'advertising', 'campaign', 'strategy',
     // Common misidentified words from AI responses
     'these', 'those', 'some', 'many', 'several', 'various', 'different',
     'other', 'others', 'more', 'most', 'less', 'better', 'best', 'top',
@@ -68,7 +85,7 @@ const FALSE_POSITIVE_PATTERNS = {
     'provides', 'offers', 'helps', 'making', 'creating', 'choosing', 'consider',
     'understanding', 'when', 'what', 'their', 'also', 'well', 'known',
     'track', 'includes', 'comprehensive', 'research', 'easy', 'help',
-    'management', 'scheduling', 'calendar', 'larger', 'focuses', 'widely'
+    'scheduling', 'calendar', 'larger', 'focuses', 'widely'
   ],
   
   // Common words that get capitalized (EXPANDED)
@@ -253,38 +270,45 @@ async function extractBrandsWithConfidence(
 }
 
 function extractFromJSON(text: string): string[] {
-  // FIXED: Proper JSON extraction that handles nested objects and arrays
+  console.log('=== JSON EXTRACTION START ===');
+  
+  // Strip code fences first
+  let cleanText = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1');
+  
   const jsonPatterns = [
-    // Try to find complete JSON objects with "brands" key
-    /\{\s*"brands"\s*:\s*\[[^\]]*\]\s*\}/g,
-    // Try to find just the brands array
+    // Complete JSON objects with "brands" key
+    /\{\s*"brands"\s*:\s*\[[^\]]*\]\s*[^}]*\}/g,
+    // Just the brands array part
     /"brands"\s*:\s*\[([^\]]*)\]/g,
-    // Try to find any array that looks like brands
+    // Any JSON array that might be brands
     /\[\s*"[^"]*"(?:\s*,\s*"[^"]*")*\s*\]/g
   ];
-
-  console.log('Attempting JSON extraction from text...');
   
   for (const pattern of jsonPatterns) {
-    const matches = Array.from(text.matchAll(pattern));
+    const matches = Array.from(cleanText.matchAll(pattern));
+    console.log(`Pattern ${pattern} found ${matches.length} matches`);
+    
     for (const match of matches) {
       try {
         let jsonStr = match[0];
         
-        // If it's just the brands array, wrap it in an object
+        // Handle raw arrays
         if (jsonStr.startsWith('[')) {
           jsonStr = `{"brands": ${jsonStr}}`;
         }
         
-        console.log('Trying to parse JSON:', jsonStr);
+        console.log('Attempting to parse:', jsonStr.substring(0, 200));
         const parsed = JSON.parse(jsonStr);
         
         if (parsed.brands && Array.isArray(parsed.brands)) {
-          console.log('Successfully extracted brands from JSON:', parsed.brands);
-          return parsed.brands.filter(brand => typeof brand === 'string' && brand.trim().length > 0);
+          const validBrands = parsed.brands.filter(brand => 
+            typeof brand === 'string' && brand.trim().length > 0
+          );
+          console.log('✅ JSON extraction successful:', validBrands);
+          return validBrands;
         }
       } catch (error) {
-        console.log('JSON parse failed for:', match[0], error);
+        console.log('❌ JSON parse failed:', error.message);
         continue;
       }
     }
@@ -319,18 +343,16 @@ function findBrandMentions(text: string, brandName: string): Array<{position: nu
 function extractByPatterns(text: string): Array<{name: string, position: number}> {
   const brands: Array<{name: string, position: number}> = [];
   
-  // ENHANCED: More selective patterns for brand detection - avoid generic terms
+  // Tightened patterns for better brand detection
   const patterns = [
-    // Two-word brands with business indicators: "Google Cloud", "Adobe Creative"
-    /\b[A-Z][a-z]+ (?:Cloud|Analytics|Marketing|Creative|Studio|Pro|Suite|Platform|Hub|Labs|Works|Systems|Solutions)\b/g,
-    // Domain names: "example.com" (strong brand indicators)
+    // Two-word brands with business indicators: "Google Analytics", "Adobe Creative"
+    /\b[A-Z][a-z]+ (?:Cloud|Analytics|Marketing|Creative|Studio|Pro|Suite|Platform|Hub|Labs|Works|Systems|Solutions|Insights|Manager|Central|Express|Business|Enterprise)\b/g,
+    // Domain names: strong brand indicators
     /\b[A-Z][a-z]{2,}\.(?:com|io|net|org|ai|co|app)\b/g,
-    // CamelCase with 2+ capital letters: "JavaScript", "iPhone", "HubSpot"
+    // CamelCase with 2+ capitals: "JavaScript", "iPhone", "HubSpot"
     /\b[A-Z][a-z]*[A-Z][a-zA-Z]*\b/g,
-    // Brands with numbers: "Office365", "Salesforce1"
-    /\b[A-Z][a-z]+\d+\b/g,
-    // Longer capitalized words that are more likely to be brands (6+ chars to avoid common words)
-    /\b[A-Z][a-z]{5,}\b/g
+    // Brands with numbers: "Office365"
+    /\b[A-Z][a-z]+\d+\b/g
   ];
   
   for (const pattern of patterns) {
@@ -338,10 +360,30 @@ function extractByPatterns(text: string): Array<{name: string, position: number}
     while ((match = pattern.exec(text)) !== null) {
       const brandName = match[0];
       
-      // ENHANCED: Pre-filter obviously non-brand terms before adding
-      const isObviouslyNotBrand = /^(Content|Marketing|Social|Digital|Email|Search|Management|Analytics|Automation|Campaign|Performance|Strategy|Quality|Premium|Standard|Professional|Enterprise|Business|Company|Service|Solution|Platform|System|Software|Application|Framework|Library|Database|Network|Security|Privacy|Support|Training|Learning|Development|Research|Analysis|Report|Insight|Result|Success|Growth|Value|Price|Cost|Budget|Range|Scale|Size|Level|Grade|Rank|Score|Rate|Ratio|Percent|Number|Amount|Total|Count|Sum|Average|Maximum|Minimum|Optimal|Best|Better|Good|Great|Excellent|Outstanding|Superior|Advanced|Basic|Simple|Easy|Quick|Fast|Slow|Large|Small|Big|Little|High|Low|Top|Bottom|First|Last|New|Old|Recent|Latest|Current|Modern|Traditional|Popular|Common|Rare|Unique|Special|General|Specific|Public|Private|Personal|Individual|Custom|Standard|Regular|Normal|Typical|Usual)$/i.test(brandName);
+      // Check if it's in the allowlist (always keep)
+      const isAllowlisted = FALSE_POSITIVE_PATTERNS.allowlist.some(allowed => 
+        brandName.toLowerCase().includes(allowed) || allowed.includes(brandName.toLowerCase())
+      );
       
-      if (!isObviouslyNotBrand && brandName.length >= 3) {
+      if (isAllowlisted) {
+        brands.push({ name: brandName, position: match.index });
+        continue;
+      }
+      
+      // Require business context for long single words to reduce noise
+      if (brandName.length > 10 && !brandName.includes(' ') && !brandName.includes('.')) {
+        const contextStart = Math.max(0, match.index - 50);
+        const contextEnd = Math.min(text.length, match.index + brandName.length + 50);
+        const context = text.slice(contextStart, contextEnd).toLowerCase();
+        
+        const hasBusinessContext = ['platform', 'tool', 'company', 'service', 'software', 'solution'].some(
+          indicator => context.includes(indicator)
+        );
+        
+        if (!hasBusinessContext) continue;
+      }
+      
+      if (brandName.length >= 3) {
         brands.push({ name: brandName, position: match.index });
       }
     }
@@ -424,47 +466,71 @@ function calculateBrandConfidence(
 }
 
 /**
- * Intelligent false positive filtering with enhanced generic term detection
+ * Intelligent false positive filtering with allowlist protection
  */
 function filterFalsePositives(
   extractedBrands: ExtractedBrand[],
   responseText: string,
   strictFiltering: boolean = true
 ): ExtractedBrand[] {
-  console.log(`Filtering ${extractedBrands.length} extracted brands...`);
+  console.log(`=== FILTERING ${extractedBrands.length} BRANDS ===`);
   
-  return extractedBrands.filter(brand => {
-    // Enhanced filtering for single words that are clearly not brands
+  const keptBrands: string[] = [];
+  const removedBrands: string[] = [];
+  const allowlistHits: string[] = [];
+  const filterReasons: Record<string, string> = {};
+  
+  const filtered = extractedBrands.filter(brand => {
     const normalizedBrand = brand.normalized.toLowerCase().trim();
     
-    // Filter out very short terms or common words
+    // ALWAYS keep allowlisted brands
+    const isAllowlisted = FALSE_POSITIVE_PATTERNS.allowlist.some(allowed => 
+      normalizedBrand.includes(allowed) || allowed.includes(normalizedBrand) ||
+      brand.name.toLowerCase().includes(allowed) || allowed.includes(brand.name.toLowerCase())
+    );
+    
+    if (isAllowlisted) {
+      console.log(`✅ ALLOWLISTED: ${brand.name}`);
+      allowlistHits.push(brand.name);
+      keptBrands.push(brand.name);
+      return true;
+    }
+    
+    // Filter out very short terms
     if (normalizedBrand.length <= 2) {
-      console.log(`Filtered out (too short): ${brand.name}`);
+      console.log(`❌ Too short: ${brand.name}`);
+      removedBrands.push(brand.name);
+      filterReasons[brand.name] = 'too-short';
       return false;
     }
     
-    // ENHANCED: Check against comprehensive generic phrases first
-    if (FALSE_POSITIVE_PATTERNS.genericPhrases.some(phrase => 
-      normalizedBrand === phrase.toLowerCase() || normalizedBrand.includes(phrase.toLowerCase())
+    // Check against generic phrases - exact matches only
+    if (FALSE_POSITIVE_PATTERNS.genericPhrases?.some(phrase => 
+      normalizedBrand === phrase.toLowerCase()
     )) {
-      console.log(`Filtered out (generic phrase): ${brand.name}`);
+      console.log(`❌ Generic phrase: ${brand.name}`);
+      removedBrands.push(brand.name);
+      filterReasons[brand.name] = 'generic-phrase';
       return false;
     }
     
-    // Enhanced generic term filtering - exact matches and partial matches
+    // Generic terms - EXACT matches only, no substring filtering
     if (FALSE_POSITIVE_PATTERNS.genericTerms.some(term => 
-      normalizedBrand === term || 
-      (term.length > 3 && normalizedBrand.includes(term))
+      normalizedBrand === term.toLowerCase()
     )) {
-      console.log(`Filtered out (generic term): ${brand.name}`);
+      console.log(`❌ Generic term: ${brand.name}`);
+      removedBrands.push(brand.name);
+      filterReasons[brand.name] = 'generic-term';
       return false;
     }
     
-    // Enhanced common word filtering - exact matches
-    if (FALSE_POSITIVE_PATTERNS.commonWords.some(word => 
+    // Common words - exact matches
+    if (FALSE_POSITIVE_PATTERNS.commonWords?.some(word => 
       normalizedBrand === word.toLowerCase()
     )) {
-      console.log(`Filtered out (common word): ${brand.name}`);
+      console.log(`❌ Common word: ${brand.name}`);
+      removedBrands.push(brand.name);
+      filterReasons[brand.name] = 'common-word';
       return false;
     }
     
@@ -511,6 +577,8 @@ function filterFalsePositives(
     if (strictFiltering) {
       if (brand.confidence < 0.6) {
         console.log(`Filtered out (low confidence): ${brand.name} (${brand.confidence})`);
+        removedBrands.push(brand.name);
+        filterReasons[brand.name] = 'low-confidence';
         return false; 
       }
       
@@ -525,13 +593,28 @@ function filterFalsePositives(
       
       if (!hasBusinessContext && !isLikelyBrand && brand.confidence < 0.8) {
         console.log(`Filtered out (no business context): ${brand.name}`);
+        removedBrands.push(brand.name);
+        filterReasons[brand.name] = 'no-business-context';
         return false;
       }
     }
     
-    console.log(`Kept brand: ${brand.name} (confidence: ${brand.confidence})`);
+    console.log(`✅ KEPT: ${brand.name}`);
+    keptBrands.push(brand.name);
     return true;
   });
+  
+  // Logging summary
+  const keptCount = filtered.length;
+  const removedCount = extractedBrands.length - keptCount;
+  
+  console.log(`=== FILTERING COMPLETE ===`);
+  console.log(`Kept: ${keptCount} brands`);
+  console.log(`Removed: ${removedCount} brands`);
+  console.log(`Allowlist hits: ${allowlistHits.length}`);
+  console.log('Filter reasons:', filterReasons);
+  
+  return filtered;
 }
 
 /**

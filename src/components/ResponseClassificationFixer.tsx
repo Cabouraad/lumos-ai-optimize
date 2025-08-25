@@ -47,60 +47,40 @@ export function ResponseClassificationFixer({
     setIsFixing(true);
     
     try {
-      // Manual classification fix for this specific response
-      const fixedCompetitors = competitors.filter(comp => 
-        // Remove HubSpot variants and overly generic terms
-        !/hubspot|marketing hub|hub.?spot|^seo$|^marketing$|^social media$/i.test(comp)
-      );
+      // Prepare fix parameters
+      const removeCompetitors = [];
+      let setOrgBrandPresent = brandPresent;
+      const addOrgBrands = [];
 
-      const hasHubSpotMention = hubspotAsCompetitor;
-      
-      // Calculate new score
-      let newScore = currentScore;
-      if (hasHubSpotMention) {
-        newScore = Math.max(6.0, newScore + 4.0); // Brand found bonus
-        newScore = Math.max(newScore - (fixedCompetitors.length * 0.3), 3.0); // Competition penalty
-      } else if (suspiciousCompetitors.length > 0) {
-        // Just remove noise competitors and adjust score slightly
-        newScore = Math.min(newScore + 1.0, 7.0);
+      if (hubspotAsCompetitor) {
+        // Remove HubSpot variants from competitors
+        removeCompetitors.push('hubspot', 'marketing hub', 'hub spot');
+        addOrgBrands.push('HubSpot Marketing Hub');
+        setOrgBrandPresent = true;
       }
 
-      const { error } = await supabase
-        .from('prompt_provider_responses')
-        .update({
-          org_brand_present: hasHubSpotMention || brandPresent,
-          org_brand_prominence: hasHubSpotMention ? 1 : null,
-          competitors_json: JSON.stringify(fixedCompetitors),
-          competitors_count: fixedCompetitors.length,
-          score: Math.round(newScore * 10) / 10,
-          brands_json: hasHubSpotMention ? 
-            JSON.stringify(['HubSpot Marketing Hub']) : 
-            '[]',
-          metadata: {
-            manual_fix_applied: true,
-            original_score: currentScore,
-            original_competitors: competitors.length,
-            hubspot_reclassified: hasHubSpotMention,
-            suspicious_competitors_removed: suspiciousCompetitors.length,
-            fixed_at: new Date().toISOString(),
-            fixed_by: 'manual-classification-fixer'
-          }
-        })
-        .eq('id', responseId);
+      if (suspiciousCompetitors.length > 0) {
+        // Remove suspicious generic competitors
+        removeCompetitors.push(...suspiciousCompetitors);
+      }
+
+      // Call the edge function to fix classification
+      const { data, error } = await supabase.functions.invoke('fix-prompt-classification', {
+        body: {
+          responseId,
+          setOrgBrandPresent,
+          removeCompetitors,
+          addOrgBrands
+        }
+      });
 
       if (error) throw error;
 
-       // Get the actual prompt ID from the response
-       const { data: responseData } = await supabase
-         .from('prompt_provider_responses')
-         .select('prompt_id')
-         .eq('id', responseId)
-         .single();
+      // Invalidate caches to refresh UI with updated data
+      invalidateCache();
 
-       // Invalidate caches to refresh UI with updated data
-       invalidateCache();
-
-       toast.success(`✅ Fixed ${provider} response - Score: ${currentScore} → ${Math.round(newScore * 10) / 10}`);
+      const changes = data.changes;
+      toast.success(`✅ Fixed ${provider} response - Score: ${changes.scoreChange}`);
       onFixed?.();
       
     } catch (error) {

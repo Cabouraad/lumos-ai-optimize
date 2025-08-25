@@ -290,7 +290,16 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       return emptyData;
     }
 
-    const promptIds = dashboardData.prompts.map(p => p.id);
+    const promptIds = dashboardData.prompts?.map(p => p.id) || [];
+    
+    if (promptIds.length === 0) {
+      const emptyData: UnifiedPromptData = {
+        ...dashboardData,
+        promptDetails: []
+      };
+      advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
+      return emptyData;
+    }
 
     // Get latest provider responses and competitor data in parallel
     const [latestResponsesResult, competitorResult, sevenDayResult] = await Promise.all([

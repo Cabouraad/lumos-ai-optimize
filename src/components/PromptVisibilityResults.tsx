@@ -327,19 +327,60 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
             {debugMode && (
               <div className="mt-4 pt-4 border-t">
                 <p className="text-sm font-medium mb-2">Debug Info:</p>
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <p><strong>Response ID:</strong> {result.id}</p>
-                    <p><strong>Tokens In:</strong> {result.token_in}</p>
-                    <p><strong>Tokens Out:</strong> {result.token_out}</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <p><strong>Response ID:</strong> {result.id}</p>
+                      <p><strong>Tokens In:</strong> {result.token_in}</p>
+                      <p><strong>Tokens Out:</strong> {result.token_out}</p>
+                    </div>
+                    <div>
+                      <p><strong>Model:</strong> {result.model || 'N/A'}</p>
+                      <p><strong>Status:</strong> {result.status}</p>
+                      {result.metadata?.manual_fix_applied && (
+                        <p><strong>Manual Fix:</strong> ✅ Applied</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p><strong>Model:</strong> {result.model || 'N/A'}</p>
-                    <p><strong>Status:</strong> {result.status}</p>
-                    {result.metadata && (
-                      <p><strong>Metadata:</strong> {JSON.stringify(result.metadata, null, 2).substring(0, 100)}...</p>
-                    )}
-                  </div>
+                  
+                  {/* Enhanced debug metadata */}
+                  {result.raw_evidence && (
+                    <div className="text-xs">
+                      <p className="font-medium mb-1">Analysis Details:</p>
+                      <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-32 overflow-y-auto">
+                        {(() => {
+                          try {
+                            const evidence = JSON.parse(result.raw_evidence);
+                            const metadata = evidence.brandAnalysis?.metadata;
+                            if (metadata) {
+                              return (
+                                <div>
+                                  <p>Method: {metadata.extractionMethod}</p>
+                                  <p>Processing: {metadata.processingTime}ms</p>
+                                  <p>Extracted: {metadata.totalBrandsExtracted}</p>
+                                  <p>Filtered: {metadata.filteringStats?.afterFiltering}</p>
+                                  <p>Removed: {metadata.filteringStats?.falsePositivesRemoved}</p>
+                                </div>
+                              );
+                            }
+                          } catch (e) {
+                            return 'Raw evidence parsing failed';
+                          }
+                          return 'No analysis metadata available';
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Standard metadata */}
+                  {result.metadata && (
+                    <div className="text-xs">
+                      <p className="font-medium mb-1">Metadata:</p>
+                      <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-24 overflow-y-auto">
+                        {JSON.stringify(result.metadata, null, 2)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

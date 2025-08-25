@@ -107,38 +107,78 @@ serve(async (req) => {
     if (orgId) {
       console.log('Starting enhanced brand analysis...');
       
-      // Get organization's brand catalog
-      const { data: brandCatalogRaw, error: catalogError } = await supabase
-        .from('brand_catalog')
-        .select('name, variants_json, is_org_brand')
-        .eq('org_id', orgId);
+      // Get organization's brand catalog and organization info
+      const [brandCatalogResult, orgResult] = await Promise.all([
+        supabase
+          .from('brand_catalog')
+          .select('name, variants_json, is_org_brand')
+          .eq('org_id', orgId),
+        supabase
+          .from('organizations')
+          .select('name, domain')
+          .eq('id', orgId)
+          .single()
+      ]);
 
-      if (catalogError) {
-        console.error('Error fetching brand catalog:', catalogError);
-      } else {
-        console.log(`Brand catalog fetched: ${brandCatalogRaw?.length || 0} brands`);
-        
-        // Transform brand catalog to ensure variants_json is properly typed
-        const brandCatalog = (brandCatalogRaw || []).map(brand => ({
-          name: brand.name,
-          is_org_brand: brand.is_org_brand,
-          variants_json: Array.isArray(brand.variants_json) 
-            ? brand.variants_json 
-            : (brand.variants_json ? [brand.variants_json] : [])
-        }));
-        
-        console.log('Brand catalog transformed:', brandCatalog);
-        console.log('Org brands found:', brandCatalog.filter(b => b.is_org_brand));
-        
-        // Run enhanced brand analysis
-        brandAnalysis = await analyzeBrands(
-          result.responseText, 
-          brandCatalog,
-          {
-            strictFiltering: true,
-            confidenceThreshold: 0.6
+      if (brandCatalogResult.error) {
+        console.error('Error fetching brand catalog:', brandCatalogResult.error);
+      }
+
+      if (orgResult.error) {
+        console.error('Error fetching organization:', orgResult.error);
+      }
+
+      const brandCatalogRaw = brandCatalogResult.data || [];
+      const orgData = orgResult.data;
+      
+      console.log(`Brand catalog fetched: ${brandCatalogRaw.length} brands`);
+      console.log('Organization data:', orgData);
+      
+      // Transform brand catalog to ensure variants_json is properly typed
+      let brandCatalog = brandCatalogRaw.map(brand => ({
+        name: brand.name,
+        is_org_brand: brand.is_org_brand,
+        variants_json: Array.isArray(brand.variants_json) 
+          ? brand.variants_json 
+          : (brand.variants_json ? [brand.variants_json] : [])
+      }));
+      
+      // Augment with organization fallback if no org brand exists
+      const hasOrgBrand = brandCatalog.some(b => b.is_org_brand);
+      if (!hasOrgBrand && orgData) {
+        console.log('No org brand found, adding fallback from organization data');
+        const orgVariants = [orgData.name];
+        if (orgData.domain) {
+          const domainBase = orgData.domain.replace(/\..*$/, ''); // Remove TLD
+          orgVariants.push(domainBase, orgData.domain);
+          
+          // Add common descriptor variants
+          if (domainBase.toLowerCase() === 'hubspot') {
+            orgVariants.push('HubSpot Marketing Hub', 'Marketing Hub', 'HubSpot CRM');
           }
-        );
+        }
+        
+        brandCatalog.push({
+          name: orgData.name,
+          is_org_brand: true,
+          variants_json: orgVariants
+        });
+        
+        console.log('Added synthetic org brand:', orgData.name, 'with variants:', orgVariants);
+      }
+      
+      console.log('Final brand catalog:', brandCatalog);
+      console.log('Org brands found:', brandCatalog.filter(b => b.is_org_brand));
+      
+      // Run enhanced brand analysis
+      brandAnalysis = await analyzeBrands(
+        result.responseText, 
+        brandCatalog,
+        {
+          strictFiltering: true,
+          confidenceThreshold: 0.6
+        }
+      );
         
         console.log('Enhanced brand analysis complete:', {
           orgBrands: brandAnalysis.orgBrands.length,
@@ -462,28 +502,38 @@ async function executeGemini(promptText: string) {
 }
 
 /**
- * Extract brands from AI response - tries JSON first, falls back to text analysis
+ * Extract brands from AI response - tries JSON first, falls back to text analysis  
  */
 function extractBrandsFromResponse(text: string): string[] {
-  // Try to extract JSON from the response first
-  const jsonMatch = text.match(/\{[^}]*"brands"[^}]*\}/);
-  let brands: string[] = [];
+  // Strip code fences first and try JSON extraction
+  let cleanText = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1');
   
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      brands = Array.isArray(parsed.brands) ? parsed.brands : [];
-    } catch {
-      // JSON parsing failed, fall back to text extraction
+  const jsonPatterns = [
+    /\{[^}]*"brands"[^}]*\}/g,
+    /"brands"\s*:\s*\[[^\]]*\]/g
+  ];
+  
+  for (const pattern of jsonPatterns) {
+    const matches = Array.from(cleanText.matchAll(pattern));
+    for (const match of matches) {
+      try {
+        let jsonStr = match[0];
+        if (jsonStr.includes('"brands"') && !jsonStr.startsWith('{')) {
+          jsonStr = `{${jsonStr}}`;
+        }
+        
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.brands && Array.isArray(parsed.brands)) {
+          return parsed.brands.filter(brand => typeof brand === 'string' && brand.trim().length > 0);
+        }
+      } catch {
+        continue;
+      }
     }
   }
   
-  // If no JSON brands found, extract from text using patterns
-  if (brands.length === 0) {
-    brands = extractBrandsFromText(text);
-  }
-  
-  return brands;
+  // Fallback to text extraction
+  return extractBrandsFromText(text);
 }
 
 /**
