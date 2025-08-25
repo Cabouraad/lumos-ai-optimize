@@ -159,12 +159,21 @@ serve(async (req) => {
   }
 
   try {
-    const { promptText, provider, orgId } = await req.json();
+    const requestBody = await req.json();
+    const { promptText, provider, orgId } = requestBody;
     
+    // Debug what we received
     console.log(`=== SINGLE PROVIDER TEST: ${provider} ===`);
-    console.log(`Prompt: ${promptText.substring(0, 50)}...`);
+    console.log(`Request body:`, JSON.stringify(requestBody));
+    console.log(`Prompt: ${promptText?.substring(0, 50)}...`);
+    console.log(`Provider: ${provider}`);
+    console.log(`OrgId: ${orgId}`);
 
     if (!promptText || !provider || !orgId) {
+      console.error(`=== PROVIDER TEST ERROR === Missing promptText, provider, or orgId`);
+      console.error(`promptText: ${promptText ? 'present' : 'missing'}`);
+      console.error(`provider: ${provider ? 'present' : 'missing'}`);
+      console.error(`orgId: ${orgId ? 'present' : 'missing'}`);
       throw new Error('Missing promptText, provider, or orgId');
     }
 
