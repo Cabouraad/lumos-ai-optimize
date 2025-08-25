@@ -178,10 +178,11 @@ serve(async (req) => {
             }
           };
 
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${keyToUse}`, {
+          const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'X-goog-api-key': keyToUse,
             },
             body: JSON.stringify(payload),
           });
@@ -206,7 +207,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ 
             response: aiResponse,
             provider: 'gemini',
-            model: 'gemini-1.5-flash-latest'
+            model: 'gemini-2.0-flash'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

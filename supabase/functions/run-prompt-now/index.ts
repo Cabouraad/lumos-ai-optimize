@@ -106,7 +106,7 @@ serve(async (req) => {
           ? 'gpt-4o-mini' 
           : provider.name === 'perplexity' 
             ? 'llama-3.1-sonar-small-128k-online' 
-            : 'gemini-pro';
+            : 'gemini-2.0-flash';
 
         const { error: pprError } = await supabase
           .from('prompt_provider_responses')
@@ -251,7 +251,7 @@ async function executeGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not found');
 
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',

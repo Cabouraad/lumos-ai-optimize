@@ -30,8 +30,8 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   gemini: {
     name: 'gemini',
     apiKey: Deno.env.get('GEMINI_API_KEY')!,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    model: 'gemini-1.5-flash'
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    model: 'gemini-2.0-flash'
   },
   perplexity: {
     name: 'perplexity',
