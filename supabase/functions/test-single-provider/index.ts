@@ -220,7 +220,10 @@ function analyzeResponse(responseText: string, orgName: string): {
   const competitorKeywords = [
     'salesforce','marketo','pardot','mailchimp','hootsuite','buffer',
     'sprout social','semrush','ahrefs','buzzsumo','getresponse',
-    'activecampaign','convertkit','monday.com','trello','asana','notion','intercom','zendesk','pipedrive','freshsales'
+    'activecampaign','convertkit','monday.com','trello','asana','notion',
+    'intercom','zendesk','pipedrive','freshsales','hubspot','klaviyo',
+    'constant contact','aweber','drip','omnisend','sendinblue','brevo',
+    'mailerlite','campaign monitor','emma','benchmark email'
   ];
 
   // Detect org presence and position with boundaries
@@ -230,13 +233,17 @@ function analyzeResponse(responseText: string, orgName: string): {
   // Detect competitors with boundaries and de-duplication
   const competitorSet = new Set<string>();
   const competitorPositions: Array<{ name: string; pos: number }> = [];
+  
   for (const comp of competitorKeywords) {
     const re = makeBoundaryRegex(comp);
+    re.lastIndex = 0; // Reset regex state
     const match = re.exec(text);
     if (match) {
-      const name = comp;
-      competitorSet.add(name);
-      competitorPositions.push({ name, pos: match.index });
+      // Only add if we haven't seen this competitor already
+      if (!competitorSet.has(comp)) {
+        competitorSet.add(comp);
+        competitorPositions.push({ name: comp, pos: match.index });
+      }
     }
   }
 

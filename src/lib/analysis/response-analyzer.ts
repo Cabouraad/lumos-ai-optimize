@@ -56,7 +56,10 @@ export function analyzeResponse(responseText: string, orgName: string): Analysis
   const competitorKeywords = [
     'salesforce','marketo','pardot','mailchimp','hootsuite','buffer',
     'sprout social','semrush','ahrefs','buzzsumo','getresponse',
-    'activecampaign','convertkit','monday.com','trello','asana','notion','intercom','zendesk','pipedrive','freshsales'
+    'activecampaign','convertkit','monday.com','trello','asana','notion',
+    'intercom','zendesk','pipedrive','freshsales','hubspot','klaviyo',
+    'constant contact','aweber','drip','omnisend','sendinblue','brevo',
+    'mailerlite','campaign monitor','emma','benchmark email'
   ];
 
   const orgPos = findEarliestIndex(text, orgVariants);
@@ -64,12 +67,14 @@ export function analyzeResponse(responseText: string, orgName: string): Analysis
 
   const competitorSet = new Set<string>();
   const competitorPositions: number[] = [];
+  
   for (const comp of competitorKeywords) {
     const re = makeBoundaryRegex(comp);
-    const m = re.exec(text);
-    if (m) {
+    re.lastIndex = 0; // Reset regex state
+    const match = re.exec(text);
+    if (match && !competitorSet.has(comp)) {
       competitorSet.add(comp);
-      competitorPositions.push(m.index);
+      competitorPositions.push(match.index);
     }
   }
 
