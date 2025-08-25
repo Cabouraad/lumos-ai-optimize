@@ -132,10 +132,11 @@ async function testPerplexity(apiKey: string): Promise<APITestResult> {
 async function testGemini(apiKey: string): Promise<APITestResult> {
   const start = Date.now();
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents: [

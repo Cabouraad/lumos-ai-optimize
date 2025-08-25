@@ -356,10 +356,11 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
         signal: controller.signal
       });
     } else if (provider.name === 'gemini') {
-      response = await fetch(`${provider.endpoint}?key=${provider.apiKey}`, {
+      response = await fetch(provider.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-goog-api-key': provider.apiKey,
         },
         body: JSON.stringify({
           contents: [{
