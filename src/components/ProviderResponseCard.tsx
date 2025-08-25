@@ -107,19 +107,6 @@ export function ProviderResponseCard({ provider, response, promptText, onClassif
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Classification Fixer - Show for responses with potential issues */}
-        {response && (
-          <ResponseClassificationFixer
-            responseId={response.id}
-            provider={response.provider}
-            currentScore={response.score}
-            brandPresent={response.org_brand_present}
-            competitorCount={response.competitors_count}
-            competitors={Array.isArray(response.competitors_json) ? response.competitors_json : []}
-            onFixed={onClassificationFixed}
-          />
-        )}
-        
         {/* Last Run Time */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
