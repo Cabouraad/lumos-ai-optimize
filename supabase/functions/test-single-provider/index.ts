@@ -39,6 +39,10 @@ async function executeOpenAI(promptText: string): Promise<{ responseText: string
 
 async function executeGemini(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number }> {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
+  console.log('=== GEMINI DEBUG ===');
+  console.log('API Key found:', apiKey ? 'YES (length: ' + apiKey.length + ')' : 'NO');
+  console.log('All env vars:', Object.keys(Deno.env.toObject()));
+  
   if (!apiKey) throw new Error('Gemini API key not configured');
 
   const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
