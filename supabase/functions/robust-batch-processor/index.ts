@@ -443,44 +443,92 @@ async function analyzeBrandsInResponse(supabase: any, orgId: string, orgName: st
       }
     }
 
-    // Check for organization brand presence
+    // Find all brand mentions (org brands + competitors) with positions
     const responseTextLower = responseText.toLowerCase();
+    const allBrandMentions = [];
+    
+    // Find org brand mentions
     let orgBrandPresent = false;
     let orgBrandProminence = null;
-
-    // Look for org brand mentions
+    
     for (const pattern of orgBrandPatterns) {
-      if (responseTextLower.includes(pattern.toLowerCase())) {
+      const index = responseTextLower.indexOf(pattern.toLowerCase());
+      if (index !== -1) {
         orgBrandPresent = true;
-        // Try to find position (rough estimate)
-        const index = responseTextLower.indexOf(pattern.toLowerCase());
-        const beforeText = responseText.substring(0, index);
-        const sentences = beforeText.split(/[.!?]+/).length;
-        orgBrandProminence = Math.min(sentences, 10);
-        break;
+        allBrandMentions.push({
+          name: pattern,
+          index: index,
+          isOrgBrand: true
+        });
       }
     }
 
-    // Find competitor mentions
+    // Find competitor mentions with industry-based filtering
     const foundCompetitors = [];
+    const genericTerms = new Set([
+      'seo', 'marketing', 'social media', 'facebook', 'google', 'advertising', 
+      'analytics', 'automation', 'content', 'digital', 'platform', 'tool',
+      'software', 'solution', 'service', 'company', 'business', 'website',
+      'online', 'internet', 'web', 'app', 'application', 'system', 'technology',
+      'data', 'insights', 'reporting', 'dashboard', 'management', 'customer',
+      'lead', 'sales', 'email', 'campaign', 'strategy', 'optimization',
+      'integration', 'api', 'cloud', 'mobile', 'desktop', 'browser'
+    ]);
+    
     for (const competitor of competitors) {
-      const competitorName = competitor.name.toLowerCase();
-      if (responseTextLower.includes(competitorName)) {
-        foundCompetitors.push(competitor.name);
+      const competitorName = competitor.name.toLowerCase().trim();
+      
+      // Skip generic terms
+      if (genericTerms.has(competitorName) || competitorName.length < 3) {
+        continue;
       }
       
-      // Check variants
+      // Skip if it's too similar to common business terms
+      if (/^(crm|cms|erp|saas|b2b|b2c|roi|kpi|ui|ux)$/i.test(competitorName)) {
+        continue;
+      }
+      
+      const index = responseTextLower.indexOf(competitorName);
+      if (index !== -1) {
+        foundCompetitors.push(competitor.name);
+        allBrandMentions.push({
+          name: competitor.name,
+          index: index,
+          isOrgBrand: false
+        });
+      }
+      
+      // Check variants with same filtering
       if (competitor.variants_json && Array.isArray(competitor.variants_json)) {
         for (const variant of competitor.variants_json) {
-          if (responseTextLower.includes(variant.toLowerCase())) {
-            foundCompetitors.push(competitor.name);
-            break;
+          const variantLower = variant.toLowerCase().trim();
+          if (!genericTerms.has(variantLower) && variantLower.length >= 3) {
+            const variantIndex = responseTextLower.indexOf(variantLower);
+            if (variantIndex !== -1) {
+              foundCompetitors.push(competitor.name);
+              allBrandMentions.push({
+                name: competitor.name,
+                index: variantIndex,
+                isOrgBrand: false
+              });
+              break;
+            }
           }
         }
       }
     }
 
-    // Remove duplicates
+    // Calculate org brand position relative to all brands mentioned
+    if (orgBrandPresent && allBrandMentions.length > 0) {
+      // Sort all brand mentions by position in text
+      allBrandMentions.sort((a, b) => a.index - b.index);
+      
+      // Find the position of the first org brand mention
+      const orgBrandIndex = allBrandMentions.findIndex(mention => mention.isOrgBrand);
+      orgBrandProminence = orgBrandIndex + 1; // 1-indexed position
+    }
+
+    // Remove duplicates from competitors
     const uniqueCompetitors = [...new Set(foundCompetitors)];
 
     // Calculate score

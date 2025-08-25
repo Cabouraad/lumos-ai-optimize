@@ -118,7 +118,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
         ) : (
           <>
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {/* Brand Presence */}
               <div className="flex items-start gap-2">
                 {response.org_brand_present ? (
@@ -152,17 +152,6 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                   <p className="text-xs font-medium">Competitors</p>
                   <p className="text-xs text-muted-foreground">
                     {response.competitors_count} found
-                  </p>
-                </div>
-              </div>
-
-              {/* Tokens */}
-              <div className="flex items-start gap-2">
-                <Zap className="h-4 w-4 text-purple-500 mt-0.5" />
-                <div>
-                  <p className="text-xs font-medium">Tokens</p>
-                  <p className="text-xs text-muted-foreground">
-                    {response.token_in + response.token_out}
                   </p>
                 </div>
               </div>
