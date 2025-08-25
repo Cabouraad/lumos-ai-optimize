@@ -36,7 +36,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     name: 'perplexity',
     apiKey: Deno.env.get('PERPLEXITY_API_KEY')!,
     endpoint: 'https://api.perplexity.ai/chat/completions',
-    model: 'llama-3.1-sonar-small-128k-online'
+    model: 'sonar'
   }
 };
 
