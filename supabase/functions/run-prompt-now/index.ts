@@ -248,8 +248,8 @@ async function executePerplexity(promptText: string) {
 }
 
 async function executeGemini(promptText: string) {
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('Gemini API key not found');
+  const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
+  if (!apiKey) throw new Error('Gemini API key not configured');
 
   const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
     method: 'POST',
