@@ -52,10 +52,18 @@ export function ResponseClassificationFixer({
       let setOrgBrandPresent = brandPresent;
       const addOrgBrands = [];
 
+      // Main fix: If brand isn't present but should be (low score scenario)
+      if (!brandPresent && currentScore <= 2) {
+        setOrgBrandPresent = true;
+        addOrgBrands.push('HubSpot Marketing Hub');
+      }
+
       if (hubspotAsCompetitor) {
         // Remove HubSpot variants from competitors
         removeCompetitors.push('hubspot', 'marketing hub', 'hub spot');
-        addOrgBrands.push('HubSpot Marketing Hub');
+        if (!addOrgBrands.includes('HubSpot Marketing Hub')) {
+          addOrgBrands.push('HubSpot Marketing Hub');
+        }
         setOrgBrandPresent = true;
       }
 
