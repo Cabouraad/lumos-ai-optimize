@@ -41,7 +41,7 @@ async function executeGemini(promptText: string): Promise<{ responseText: string
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('Gemini API key not configured');
 
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
