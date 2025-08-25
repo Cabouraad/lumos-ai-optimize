@@ -103,6 +103,7 @@ serve(async (req) => {
 
     // Enhanced brand analysis if orgId provided
     let brandAnalysis: BrandAnalysisResult | null = null;
+    let orgData: any = null;
     
     if (orgId) {
       console.log('Starting enhanced brand analysis...');
@@ -129,7 +130,7 @@ serve(async (req) => {
       }
 
       const brandCatalogRaw = brandCatalogResult.data || [];
-      const orgData = orgResult.data;
+      orgData = orgResult.data;
       
       console.log(`Brand catalog fetched: ${brandCatalogRaw.length} brands`);
       console.log('Organization data:', orgData);
@@ -194,16 +195,20 @@ serve(async (req) => {
     if (!brandAnalysis) {
       console.log('Using fallback brand analysis...');
       
-      // Legacy classification and scoring
-      const classification = classifyBrands(result.brands, []);
-      const score = calculateVisibilityScore(classification.orgBrands, classification.competitors, result.responseText);
+      // CRITICAL FIX: Actually analyze the response text, not just pre-extracted brands
+      const responseText = result.responseText || '';
+      const extractedBrands = extractBrandsFromText(responseText, orgData);
+      
+      // Legacy classification and scoring with text-extracted brands
+      const classification = classifyBrands(extractedBrands, []);
+      const score = calculateVisibilityScore(classification.orgBrands, classification.competitors, responseText);
       
       brandAnalysis = {
         orgBrands: classification.orgBrands.map(name => ({
           name,
           normalized: normalize(name),
           mentions: 1,
-          firstPosition: result.responseText.toLowerCase().indexOf(name.toLowerCase()),
+          firstPosition: responseText.toLowerCase().indexOf(name.toLowerCase()),
           confidence: 0.8,
           context: '',
           matchType: 'exact' as const
@@ -212,7 +217,7 @@ serve(async (req) => {
           name,
           normalized: normalize(name),
           mentions: 1,
-          firstPosition: result.responseText.toLowerCase().indexOf(name.toLowerCase()),
+          firstPosition: responseText.toLowerCase().indexOf(name.toLowerCase()),
           confidence: 0.7,
           context: '',
           matchType: 'exact' as const
@@ -225,10 +230,10 @@ serve(async (req) => {
           confidence: 0.6
         },
         metadata: {
-          totalBrandsExtracted: result.brands.length,
-          responseLength: result.responseText.length,
+          totalBrandsExtracted: extractedBrands.length,
+          responseLength: responseText.length,
           processingTime: 0,
-          extractionMethod: 'legacy-fallback',
+          extractionMethod: 'text-analysis-fallback',
           filteringStats: { beforeFiltering: 0, afterFiltering: 0, falsePositivesRemoved: 0 }
         }
       };
@@ -254,7 +259,7 @@ serve(async (req) => {
             status: 'success',
             token_in: result.tokenIn || 0,
             token_out: result.tokenOut || 0,
-            raw_ai_response: result.responseText || '',
+            raw_ai_response: responseText,
             raw_evidence: JSON.stringify({
               brandAnalysis,
               legacyBrands: result.brands,
@@ -536,12 +541,33 @@ function extractBrandsFromResponse(text: string): string[] {
 }
 
 /**
- * Fallback brand extraction from text content using patterns
+ * Fallback brand extraction from text content using patterns - improved version for fallback analysis
  */
-function extractBrandsFromText(text: string): string[] {
+function extractBrandsFromText(text: string, orgData?: any): string[] {
   const brandPatterns = [
-    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, // Two-word brands like "Google Cloud"
-    /\b[A-Z][a-z]{2,}\b/g, // Single capitalized words like "Apple"
+    // Prioritize org brand variants first
+    ...(orgData ? [
+      new RegExp(`\\b${orgData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'),
+      ...(orgData.domain ? [new RegExp(`\\b${orgData.domain.replace(/\..*$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')] : [])
+    ] : []),
+    
+    // Two-word brands like "Google Analytics", "HubSpot Marketing"
+    /\b[A-Z][a-z]+ (?:Analytics|Marketing|Cloud|Hub|Platform|Suite|Pro|Studio|Labs|Works|Systems|Solutions|CRM|Insights|Manager|Central|Express|Business|Enterprise)\b/g,
+    
+    // Domain names - strong brand indicators  
+    /\b[A-Z][a-z]{2,}\.(?:com|io|net|org|ai|co|app)\b/g,
+    
+    // CamelCase with 2+ capitals: "HubSpot", "JavaScript", "iPhone"
+    /\b[A-Z][a-z]*[A-Z][a-zA-Z]+\b/g,
+    
+    // Well-known marketing/business brands
+    /\b(?:HubSpot|Salesforce|Marketo|Pardot|Mailchimp|Klaviyo|ConvertKit|ActiveCampaign|Drip|Hootsuite|Buffer|Sprout Social|CoSchedule|Later|Canva|Adobe|Google|Microsoft|Meta|Facebook|Instagram|LinkedIn|Twitter|YouTube|TikTok|Pinterest|Snapchat|WhatsApp)\b/gi,
+    
+    // Two-word brands like "Google Cloud"
+    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g,
+    
+    // Single capitalized words (more selective)
+    /\b[A-Z][a-z]{3,}\b/g
   ];
   
   const brands = new Set<string>();
@@ -550,14 +576,32 @@ function extractBrandsFromText(text: string): string[] {
     const matches = text.match(pattern);
     if (matches) {
       matches.forEach(match => {
-        if (!isCommonWord(match) && match.length > 2) {
-          brands.add(match);
+        const cleanMatch = match.trim();
+        if (!isCommonWord(cleanMatch) && cleanMatch.length > 2) {
+          brands.add(cleanMatch);
         }
       });
     }
   }
   
-  return Array.from(brands).slice(0, 15);
+  // Filter common false positives
+  const filteredBrands = Array.from(brands).filter(brand => {
+    const lower = brand.toLowerCase();
+    
+    // Keep known marketing brands
+    if (['hubspot', 'salesforce', 'marketo', 'mailchimp', 'hootsuite', 'buffer'].some(known => lower.includes(known))) {
+      return true;
+    }
+    
+    // Filter out generic terms
+    if (['social media', 'email marketing', 'content marketing', 'digital marketing'].includes(lower)) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  return filteredBrands.slice(0, 20); // Limit to prevent noise
 }
 
 /**
