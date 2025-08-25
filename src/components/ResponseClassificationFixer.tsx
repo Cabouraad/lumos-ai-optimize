@@ -47,37 +47,13 @@ export function ResponseClassificationFixer({
     setIsFixing(true);
     
     try {
-      // Prepare fix parameters
-      const removeCompetitors = [];
-      let setOrgBrandPresent = brandPresent;
-      const addOrgBrands = [];
-
-      // Main fix: If brand isn't present, mark it present
-      if (!brandPresent) {
-        setOrgBrandPresent = true;
-      }
-
-      if (hubspotAsCompetitor) {
-        // Remove HubSpot variants from competitors
-        removeCompetitors.push('hubspot', 'marketing hub', 'hub spot');
-        if (!addOrgBrands.includes('HubSpot Marketing Hub')) {
-          addOrgBrands.push('HubSpot Marketing Hub');
-        }
-        setOrgBrandPresent = true;
-      }
-
-      if (suspiciousCompetitors.length > 0) {
-        // Remove suspicious generic competitors
-        removeCompetitors.push(...suspiciousCompetitors);
-      }
-
-      // Call the edge function to fix classification
+      // With the new analysis system, we just need to mark brand as present
       const { data, error } = await supabase.functions.invoke('fix-prompt-classification', {
         body: {
           responseId,
-          setOrgBrandPresent,
-          removeCompetitors,
-          addOrgBrands
+          setOrgBrandPresent: true,
+          removeCompetitors: suspiciousCompetitors,
+          addOrgBrands: []
         }
       });
 

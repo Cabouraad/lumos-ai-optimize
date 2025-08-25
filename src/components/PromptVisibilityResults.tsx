@@ -343,31 +343,16 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                     </div>
                   </div>
                   
-                  {/* Enhanced debug metadata */}
-                  {result.raw_evidence && (
+                  {/* Analysis metadata from new system */}
+                  {result.metadata && (result.metadata.extractionMethod || result.metadata.analysisConfidence) && (
                     <div className="text-xs">
                       <p className="font-medium mb-1">Analysis Details:</p>
                       <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-32 overflow-y-auto">
-                        {(() => {
-                          try {
-                            const evidence = JSON.parse(result.raw_evidence);
-                            const metadata = evidence.brandAnalysis?.metadata;
-                            if (metadata) {
-                              return (
-                                <div>
-                                  <p>Method: {metadata.extractionMethod}</p>
-                                  <p>Processing: {metadata.processingTime}ms</p>
-                                  <p>Extracted: {metadata.totalBrandsExtracted}</p>
-                                  <p>Filtered: {metadata.filteringStats?.afterFiltering}</p>
-                                  <p>Removed: {metadata.filteringStats?.falsePositivesRemoved}</p>
-                                </div>
-                              );
-                            }
-                          } catch (e) {
-                            return 'Raw evidence parsing failed';
-                          }
-                          return 'No analysis metadata available';
-                        })()}
+                        <div>
+                          <p>Method: {result.metadata.extractionMethod || 'new-analysis-v1'}</p>
+                          <p>Confidence: {Math.round((result.metadata.analysisConfidence || 0.5) * 100)}%</p>
+                          <p>Processing: {result.metadata.processingTime || 0}ms</p>
+                        </div>
                       </div>
                     </div>
                   )}

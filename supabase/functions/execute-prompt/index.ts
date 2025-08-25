@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
@@ -8,7 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-import { analyzeBrands, BrandAnalysisResult } from './enhanced-brand-analyzer.ts';
+interface AnalysisResult {
+  orgBrands: string[];
+  competitors: string[];
+  brandPresent: boolean;
+  brandPosition: number | null;
+  score: number;
+  confidence: number;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -22,10 +28,8 @@ serve(async (req) => {
     console.log(`Provider: ${provider}`);
     console.log(`OrgId: ${orgId}`);
     console.log(`PromptId: ${promptId}`);
-    console.log(`Prompt length: ${promptText?.length}`);
 
     if (!promptText || !provider) {
-      console.error('Missing required parameters:', { promptText: !!promptText, provider: !!provider });
       return new Response(
         JSON.stringify({ error: 'Missing promptText or provider' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -37,10 +41,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Execute prompt with provider
     let result;
     let model = '';
     
-    // Execute based on provider with extensive logging
     try {
       switch (provider.toLowerCase()) {
         case 'openai':
@@ -63,19 +67,17 @@ serve(async (req) => {
       }
 
       console.log(`${provider} execution successful:`, { 
-        brandCount: result.brands.length, 
-        tokenIn: result.tokenIn, 
-        tokenOut: result.tokenOut,
         responseLength: result.responseText.length,
-        brands: result.brands
+        tokenIn: result.tokenIn, 
+        tokenOut: result.tokenOut
       });
 
     } catch (providerError: any) {
       console.error(`${provider} execution failed:`, providerError.message);
       
-      // Insert error record into new table
+      // Insert error record
       if (orgId && promptId) {
-        const { error: insertError } = await supabase
+        await supabase
           .from('prompt_provider_responses')
           .insert({
             org_id: orgId,
@@ -90,250 +92,410 @@ serve(async (req) => {
             org_brand_present: false,
             competitors_json: [],
             competitors_count: 0,
-            score: 0
+            score: 0,
+            raw_ai_response: ''
           });
-
-        if (insertError) {
-          console.error('Failed to insert error record:', insertError);
-        }
       }
-
       throw providerError;
     }
 
-    // Enhanced brand analysis - REQUIRED, no fallbacks
-    let brandAnalysis: BrandAnalysisResult | null = null;
-    let orgData: any = null;
-    
-    if (orgId) {
-      console.log('Starting enhanced brand analysis...');
-      
-      // Get organization's brand catalog and organization info
-      const [brandCatalogResult, orgResult] = await Promise.all([
-        supabase
-          .from('brand_catalog')
-          .select('name, variants_json, is_org_brand')
-          .eq('org_id', orgId),
-        supabase
-          .from('organizations')
-          .select('name, domain')
-          .eq('id', orgId)
-          .single()
-      ]);
-
-      if (brandCatalogResult.error) {
-        console.error('Error fetching brand catalog:', brandCatalogResult.error);
-      }
-
-      if (orgResult.error) {
-        console.error('Error fetching organization:', orgResult.error);
-      }
-
-      const brandCatalogRaw = brandCatalogResult.data || [];
-      orgData = orgResult.data;
-      
-      console.log(`Brand catalog fetched: ${brandCatalogRaw.length} brands`);
-      console.log('Organization data:', orgData);
-      
-      // Transform brand catalog to ensure variants_json is properly typed
-      let brandCatalog = brandCatalogRaw.map(brand => ({
-        name: brand.name,
-        is_org_brand: brand.is_org_brand,
-        variants_json: Array.isArray(brand.variants_json) 
-          ? brand.variants_json 
-          : (brand.variants_json ? [brand.variants_json] : [])
-      }));
-      
-      // Augment with organization fallback if no org brand exists
-      const hasOrgBrand = brandCatalog.some(b => b.is_org_brand);
-      if (!hasOrgBrand && orgData) {
-        console.log('No org brand found, adding fallback from organization data');
-        const orgVariants = [orgData.name];
-        if (orgData.domain) {
-          const domainBase = orgData.domain.replace(/\..*$/, ''); // Remove TLD
-          orgVariants.push(domainBase, orgData.domain);
-          
-          // Add common descriptor variants
-          if (domainBase.toLowerCase() === 'hubspot') {
-            orgVariants.push('HubSpot Marketing Hub', 'Marketing Hub', 'HubSpot CRM');
-          }
-        }
-        
-        brandCatalog.push({
-          name: orgData.name,
-          is_org_brand: true,
-          variants_json: orgVariants
-        });
-        
-        console.log('Added synthetic org brand:', orgData.name, 'with variants:', orgVariants);
-      }
-      
-      console.log('Final brand catalog:', brandCatalog);
-      console.log('Org brands found:', brandCatalog.filter(b => b.is_org_brand));
-      
-      // Run enhanced brand analysis
-      try {
-        brandAnalysis = await analyzeBrands(
-          result.responseText, 
-          brandCatalog,
-          {
-            strictFiltering: true,
-            confidenceThreshold: 0.6
-          }
-        );
-          
-        console.log('Enhanced brand analysis complete:', {
-          orgBrands: brandAnalysis.orgBrands.length,
-          competitors: brandAnalysis.competitors.length,
-          score: brandAnalysis.score.score,
-          confidence: brandAnalysis.score.confidence,
-          processingTime: brandAnalysis.metadata.processingTime,
-          falsePositivesRemoved: brandAnalysis.metadata.filteringStats.falsePositivesRemoved
-        });
-      } catch (error) {
-        console.error('Enhanced brand analysis failed:', error);
-        // Provide minimal safe response instead of legacy fallback
-        brandAnalysis = {
-          orgBrands: [],
-          competitors: [],
-          score: { 
-            brandPresent: false, 
-            brandPosition: null, 
-            competitorCount: 0, 
-            score: 0, 
-            confidence: 0.1 
-          },
-          metadata: {
-            totalBrandsExtracted: 0,
-            responseLength: result.responseText.length,
-            processingTime: 0,
-            extractionMethod: 'enhanced-failed',
-            filteringStats: { beforeFiltering: 0, afterFiltering: 0, falsePositivesRemoved: 0 }
-          }
-        };
-      }
-    } else {
-      // No orgId provided - minimal analysis
-      brandAnalysis = {
-        orgBrands: [],
-        competitors: [],
-        score: { 
-          brandPresent: false, 
-          brandPosition: null, 
-          competitorCount: 0, 
-          score: 0, 
-          confidence: 0.1 
-        },
-        metadata: {
-          totalBrandsExtracted: 0,
-          responseLength: result.responseText.length,
-          processingTime: 0,
-          extractionMethod: 'no-org-provided',
-          filteringStats: { beforeFiltering: 0, afterFiltering: 0, falsePositivesRemoved: 0 }
-        }
-      };
-    }
-
-    // Insert into database and persist competitors
-    let responseId: string | null = null;
-
-    try {
-      if (orgId && promptId) {
-        // Calculate prominence for database (1-based, safe for DB)
-        const prominence = brandAnalysis.score.brandPresent && brandAnalysis.score.brandPosition !== null
-          ? Math.max(1, Math.floor(brandAnalysis.score.brandPosition / 10) + 1)
-          : null;
-
-        const { data: responseRecord, error: insertError } = await supabase
-          .from('prompt_provider_responses')
-          .insert({
-            org_id: orgId,
-            prompt_id: promptId,
-            provider: provider.toLowerCase(),
-            model,
-            status: 'success',
-            token_in: result.tokenIn || 0,
-            token_out: result.tokenOut || 0,
-            raw_ai_response: result.responseText || '',
-            raw_evidence: JSON.stringify({
-              brandAnalysis,
-              legacyBrands: result.brands,
-              metadata: brandAnalysis.metadata
-            }),
-            brands_json: brandAnalysis.orgBrands.map(b => b.name),
-            org_brand_present: brandAnalysis.score.brandPresent,
-            org_brand_prominence: prominence,
-            competitors_json: brandAnalysis.competitors.map(c => c.name),
-            competitors_count: brandAnalysis.score.competitorCount,
-            score: brandAnalysis.score.score,
-            metadata: {
-              analysisConfidence: brandAnalysis.score.confidence,
-              extractionMethod: brandAnalysis.metadata.extractionMethod,
-              processingTime: brandAnalysis.metadata.processingTime,
-              falsePositivesRemoved: brandAnalysis.metadata.filteringStats.falsePositivesRemoved
-            }
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Failed to insert prompt_provider_responses:', insertError);
-        } else if (responseRecord) {
-          responseId = responseRecord.id;
-          console.log('Successfully inserted enhanced response record:', responseId);
-          
-          // Persist competitors to brand catalog and competitor mentions
-          await persistCompetitorData(supabase, orgId, promptId, brandAnalysis);
-        }
-      } else {
-        console.log('Skipping persistence: missing orgId or promptId');
-      }
-    } catch (persistErr) {
-      console.error('Persistence error:', persistErr);
-    }
-
-    const response = {
-      success: true,
-      responseText: result.responseText,
-      brands: brandAnalysis.orgBrands.map(b => b.name),
-      orgBrands: brandAnalysis.orgBrands.map(b => b.name),
-      competitors: brandAnalysis.competitors.map(c => c.name),
-      score: brandAnalysis.score.score,
-      brandPresent: brandAnalysis.score.brandPresent,
-      brandPosition: brandAnalysis.score.brandPosition,
-      competitorCount: brandAnalysis.score.competitorCount,
-      tokenIn: result.tokenIn || 0,
-      tokenOut: result.tokenOut || 0,
-      responseId,
-      persisted: !!responseId,
-      model,
-      // Enhanced metadata
-      analysisMetadata: brandAnalysis.metadata
+    // NEW ANALYSIS SYSTEM - Analyze the actual response
+    let analysis: AnalysisResult = {
+      orgBrands: [],
+      competitors: [],
+      brandPresent: false,
+      brandPosition: null,
+      score: 0,
+      confidence: 0.5
     };
 
-    console.log(`=== EXECUTE PROMPT SUCCESS ===`);
+    if (orgId && result.responseText) {
+      console.log('Starting NEW response analysis...');
+      analysis = await analyzeResponse(supabase, result.responseText, orgId);
+      console.log('Analysis complete:', analysis);
+    }
+
+    // Insert results into database
+    let responseId: string | null = null;
     
+    if (orgId && promptId) {
+      const { data: responseRecord, error: insertError } = await supabase
+        .from('prompt_provider_responses')
+        .insert({
+          org_id: orgId,
+          prompt_id: promptId,
+          provider: provider.toLowerCase(),
+          model,
+          status: 'success',
+          token_in: result.tokenIn || 0,
+          token_out: result.tokenOut || 0,
+          raw_ai_response: result.responseText,
+          brands_json: analysis.orgBrands,
+          org_brand_present: analysis.brandPresent,
+          org_brand_prominence: analysis.brandPosition,
+          competitors_json: analysis.competitors,
+          competitors_count: analysis.competitors.length,
+          score: analysis.score,
+          metadata: {
+            analysisConfidence: analysis.confidence,
+            extractionMethod: 'new-analysis-v1',
+            processingTime: 0
+          }
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Failed to insert response:', insertError);
+      } else if (responseRecord) {
+        responseId = responseRecord.id;
+        console.log('Successfully inserted response record:', responseId);
+        
+        // Persist competitor data for analytics
+        await persistCompetitorData(supabase, orgId, promptId, analysis);
+      }
+    }
+
     return new Response(
-      JSON.stringify(response),
+      JSON.stringify({
+        success: true,
+        responseId,
+        responseText: result.responseText,
+        brands: analysis.orgBrands,
+        orgBrands: analysis.orgBrands,
+        competitors: analysis.competitors,
+        orgBrandPresent: analysis.brandPresent,
+        orgBrandPosition: analysis.brandPosition,
+        competitorCount: analysis.competitors.length,
+        score: analysis.score,
+        tokenIn: result.tokenIn || 0,
+        tokenOut: result.tokenOut || 0,
+        model,
+        confidence: analysis.confidence
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
-    console.error('=== EXECUTE PROMPT ERROR ===', error.message);
-    console.error('Stack trace:', error.stack);
+    console.error('=== EXECUTE PROMPT ERROR ===', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        stack: error.stack 
-      }),
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
+/**
+ * NEW ANALYSIS SYSTEM - Clean, effective response analysis
+ */
+async function analyzeResponse(supabase: any, responseText: string, orgId: string): Promise<AnalysisResult> {
+  console.log('=== NEW ANALYSIS START ===');
+  
+  // Step 1: Get organization context
+  const [orgResult, brandCatalogResult] = await Promise.all([
+    supabase
+      .from('organizations')
+      .select('name, domain, business_description, keywords')
+      .eq('id', orgId)
+      .single(),
+    supabase
+      .from('brand_catalog')
+      .select('name, variants_json, is_org_brand')
+      .eq('org_id', orgId)
+  ]);
+
+  const org = orgResult.data;
+  const brandCatalog = brandCatalogResult.data || [];
+  
+  if (!org) {
+    console.error('No organization found');
+    return {
+      orgBrands: [],
+      competitors: [],
+      brandPresent: false,
+      brandPosition: null,
+      score: 0,
+      confidence: 0.1
+    };
+  }
+
+  console.log('Organization:', org.name, org.domain);
+  console.log('Brand catalog entries:', brandCatalog.length);
+
+  // Step 2: Build comprehensive brand variants
+  const orgBrandVariants = buildBrandVariants(org, brandCatalog);
+  console.log('Org brand variants:', orgBrandVariants);
+
+  // Step 3: Detect organization brands in response
+  const detectedOrgBrands = detectBrands(responseText, orgBrandVariants);
+  console.log('Detected org brands:', detectedOrgBrands);
+
+  // Step 4: Extract potential competitors
+  const potentialCompetitors = extractCompetitors(responseText);
+  console.log('Potential competitors extracted:', potentialCompetitors.length);
+
+  // Step 5: Filter competitors using industry context
+  const validCompetitors = filterCompetitors(potentialCompetitors, org, orgBrandVariants);
+  console.log('Valid competitors after filtering:', validCompetitors);
+
+  // Step 6: Calculate position and score
+  const brandPresent = detectedOrgBrands.brands.length > 0;
+  const brandPosition = brandPresent ? detectedOrgBrands.firstPosition : null;
+  const score = calculateScore(brandPresent, brandPosition, validCompetitors.length, responseText.length);
+
+  console.log('=== ANALYSIS RESULTS ===');
+  console.log('Brand present:', brandPresent);
+  console.log('Brand position:', brandPosition);
+  console.log('Competitors:', validCompetitors.length);
+  console.log('Score:', score);
+
+  return {
+    orgBrands: detectedOrgBrands.brands,
+    competitors: validCompetitors,
+    brandPresent,
+    brandPosition,
+    score,
+    confidence: 0.9
+  };
+}
+
+/**
+ * Build comprehensive brand variants from org data and catalog
+ */
+function buildBrandVariants(org: any, brandCatalog: any[]): string[] {
+  const variants = new Set<string>();
+  
+  // Add organization name and domain variants
+  if (org.name) {
+    variants.add(org.name);
+    
+    // Add common business suffixes
+    const baseName = org.name.replace(/\s+(inc|llc|corp|ltd|limited|company)$/i, '').trim();
+    variants.add(baseName);
+    
+    // Add domain-based variants
+    if (org.domain) {
+      const domainBase = org.domain.replace(/\..*$/, '');
+      variants.add(domainBase);
+      variants.add(org.domain);
+      
+      // Special handling for common patterns
+      if (domainBase.toLowerCase() === 'hubspot') {
+        variants.add('HubSpot');
+        variants.add('HubSpot Marketing Hub');
+        variants.add('Marketing Hub');
+        variants.add('HubSpot CRM');
+        variants.add('HubSpot Marketing Automation');
+      }
+    }
+  }
+
+  // Add catalog variants
+  brandCatalog
+    .filter(brand => brand.is_org_brand)
+    .forEach(brand => {
+      variants.add(brand.name);
+      if (brand.variants_json && Array.isArray(brand.variants_json)) {
+        brand.variants_json.forEach(variant => variants.add(variant));
+      }
+    });
+
+  return Array.from(variants).filter(v => v && v.length > 1);
+}
+
+/**
+ * Detect organization brands in response text
+ */
+function detectBrands(text: string, brandVariants: string[]): { brands: string[], firstPosition: number | null } {
+  const detectedBrands = new Set<string>();
+  let firstPosition: number | null = null;
+  
+  // Sort variants by length (longest first) for better matching
+  const sortedVariants = brandVariants.sort((a, b) => b.length - a.length);
+  
+  for (const variant of sortedVariants) {
+    const regex = new RegExp(`\\b${variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    const matches = Array.from(text.matchAll(regex));
+    
+    if (matches.length > 0) {
+      detectedBrands.add(variant);
+      
+      // Track first position
+      const position = matches[0].index!;
+      if (firstPosition === null || position < firstPosition) {
+        firstPosition = position;
+      }
+      
+      console.log(`Found brand "${variant}" at position ${position}`);
+    }
+  }
+  
+  return {
+    brands: Array.from(detectedBrands),
+    firstPosition
+  };
+}
+
+/**
+ * Extract potential competitor names from response text
+ */
+function extractCompetitors(text: string): string[] {
+  const competitors = new Set<string>();
+  
+  // Pattern 1: Two-word business names
+  const businessPatterns = [
+    /\b[A-Z][a-z]+ (?:Analytics|Marketing|Cloud|Hub|Platform|Suite|Pro|Studio|Labs|Works|Systems|Solutions|CRM|Insights|Manager|Central|Express|Business|Enterprise|Software|Tools|App)\b/g,
+    /\b[A-Z][a-z]{2,}\.(?:com|io|net|org|ai|co|app)\b/g,
+    /\b[A-Z][a-z]*[A-Z][a-zA-Z]+\b/g
+  ];
+  
+  for (const pattern of businessPatterns) {
+    const matches = text.match(pattern) || [];
+    matches.forEach(match => {
+      if (match.length > 3 && match.length < 50) {
+        competitors.add(match.trim());
+      }
+    });
+  }
+  
+  // Pattern 2: Known marketing/business brands
+  const knownBrands = [
+    'Salesforce', 'Marketo', 'Pardot', 'Mailchimp', 'Klaviyo', 'ConvertKit', 
+    'ActiveCampaign', 'Drip', 'Hootsuite', 'Buffer', 'Sprout Social', 'CoSchedule',
+    'Later', 'Canva', 'Adobe', 'Google Analytics', 'Facebook', 'LinkedIn',
+    'Twitter', 'Instagram', 'YouTube', 'TikTok', 'Pinterest', 'Snapchat'
+  ];
+  
+  for (const brand of knownBrands) {
+    const regex = new RegExp(`\\b${brand}\\b`, 'gi');
+    if (regex.test(text)) {
+      competitors.add(brand);
+    }
+  }
+  
+  return Array.from(competitors);
+}
+
+/**
+ * Filter competitors to remove false positives and irrelevant matches
+ */
+function filterCompetitors(competitors: string[], org: any, orgBrandVariants: string[]): string[] {
+  const filtered = competitors.filter(competitor => {
+    const lower = competitor.toLowerCase();
+    
+    // Remove if it matches org brand
+    if (orgBrandVariants.some(variant => 
+      lower.includes(variant.toLowerCase()) || variant.toLowerCase().includes(lower)
+    )) {
+      console.log(`Filtered out org brand: ${competitor}`);
+      return false;
+    }
+    
+    // Remove generic terms
+    const genericTerms = [
+      'social media', 'email marketing', 'content marketing', 'digital marketing',
+      'search engine', 'content management', 'customer relationship', 'project management',
+      'automation', 'analytics', 'insights', 'dashboard', 'platform', 'software',
+      'marketing', 'advertising', 'campaign', 'strategy', 'optimization', 'tracking'
+    ];
+    
+    if (genericTerms.some(term => lower === term || lower.includes(term) && competitor.length < 20)) {
+      console.log(`Filtered out generic term: ${competitor}`);
+      return false;
+    }
+    
+    // Remove common words
+    const commonWords = [
+      'social', 'media', 'email', 'content', 'digital', 'online', 'web', 'mobile',
+      'data', 'analytics', 'insights', 'marketing', 'advertising', 'campaign',
+      'business', 'enterprise', 'solution', 'service', 'platform', 'software',
+      'system', 'tool', 'app', 'website', 'site', 'page', 'blog', 'post'
+    ];
+    
+    if (commonWords.includes(lower)) {
+      console.log(`Filtered out common word: ${competitor}`);
+      return false;
+    }
+    
+    // Keep if length is reasonable and has business context
+    return competitor.length >= 3 && competitor.length <= 40;
+  });
+  
+  // Limit to top 20 to prevent noise
+  return filtered.slice(0, 20);
+}
+
+/**
+ * Calculate visibility score based on brand presence, position, and competition
+ */
+function calculateScore(brandPresent: boolean, brandPosition: number | null, competitorCount: number, responseLength: number): number {
+  let score = 0;
+  
+  if (brandPresent) {
+    // Base score for brand presence
+    score = 6;
+    
+    // Position bonus (earlier = better)
+    if (brandPosition !== null) {
+      const relativePosition = brandPosition / responseLength;
+      if (relativePosition < 0.1) score += 2; // Very early
+      else if (relativePosition < 0.3) score += 1; // Early
+      else if (relativePosition < 0.5) score += 0.5; // Middle
+      // No bonus for late mentions
+    }
+    
+    // Competition penalty
+    const competitionPenalty = Math.min(2, competitorCount * 0.2);
+    score -= competitionPenalty;
+    
+    // Ensure minimum score if brand is present
+    score = Math.max(3, score);
+  } else {
+    // No brand presence - score based on competition level
+    score = Math.max(0, 2 - (competitorCount * 0.1));
+  }
+  
+  return Math.round(Math.min(10, Math.max(0, score)) * 10) / 10;
+}
+
+/**
+ * Persist competitor data for analytics and insights
+ */
+async function persistCompetitorData(supabase: any, orgId: string, promptId: string, analysis: AnalysisResult) {
+  console.log('Persisting competitor data...');
+  
+  try {
+    // Update brand catalog
+    for (const competitor of analysis.competitors) {
+      await supabase.rpc('upsert_competitor_brand', {
+        p_org_id: orgId,
+        p_brand_name: competitor,
+        p_score: analysis.score || 0
+      });
+    }
+    
+    // Update competitor mentions
+    for (const competitor of analysis.competitors) {
+      await supabase.rpc('upsert_competitor_mention', {
+        p_org_id: orgId,
+        p_prompt_id: promptId,
+        p_competitor_name: competitor,
+        p_normalized_name: competitor.toLowerCase().trim(),
+        p_position: null,
+        p_sentiment: 'neutral'
+      });
+    }
+    
+    console.log('Competitor data persisted successfully');
+  } catch (error) {
+    console.error('Error persisting competitor data:', error);
+  }
+}
+
+// Provider execution functions (keep existing implementations)
 async function executeOpenAI(promptText: string) {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!apiKey) throw new Error('OpenAI API key not found');
+  if (!apiKey) throw new Error('OpenAI API key not configured');
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -345,16 +507,12 @@ async function executeOpenAI(promptText: string) {
       model: 'gpt-4o-mini',
       messages: [
         {
-          role: 'system',
-          content: 'You are a helpful AI assistant. Answer the user\'s question comprehensively and naturally. After your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned in your answer.'
-        },
-        {
           role: 'user',
           content: promptText
         }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
+      max_tokens: 2000,
+      temperature: 0.7,
     }),
   });
 
@@ -363,302 +521,92 @@ async function executeOpenAI(promptText: string) {
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
-  const usage = data.usage || {};
-
-  // Extract brands from the response
-  const brands = extractBrandsFromResponse(content);
-
+  const responseText = data.choices[0]?.message?.content || '';
+  
   return {
-    brands,
-    responseText: content,
-    tokenIn: usage.prompt_tokens || 0,
-    tokenOut: usage.completion_tokens || 0,
+    responseText,
+    tokenIn: data.usage?.prompt_tokens || 0,
+    tokenOut: data.usage?.completion_tokens || 0,
   };
 }
 
 async function executePerplexity(promptText: string) {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
-  if (!apiKey) throw new Error('Perplexity API key not found');
+  if (!apiKey) throw new Error('Perplexity API key not configured');
 
-  const headers = {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-  } as const;
-
-  const url = 'https://api.perplexity.ai/chat/completions';
-  let lastErr: any = null;
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: 'sonar',
-          messages: [
-            { role: 'user', content: promptText }
-          ]
-        }),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        const err = new Error(`Perplexity API error: ${response.status} ${response.statusText} - ${errText}`);
-        if (response.status === 401 || response.status === 403) throw err; // don't retry auth
-        lastErr = err;
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-          continue;
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-sonar-small-128k-online',
+      messages: [
+        {
+          role: 'user',
+          content: promptText
         }
-        throw err;
-      }
+      ],
+      max_tokens: 1000,
+      temperature: 0.2,
+      top_p: 0.9,
+      return_images: false,
+      return_related_questions: false,
+      search_recency_filter: 'month',
+      frequency_penalty: 1
+    }),
+  });
 
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content ?? '';
-      const usage = data.usage || {};
-
-      const brands = extractBrandsFromResponse(content);
-
-      return {
-        brands,
-        responseText: content,
-        tokenIn: usage.prompt_tokens ?? 0,
-        tokenOut: usage.completion_tokens ?? 0,
-      };
-    } catch (e) {
-      lastErr = e;
-      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-    }
+  if (!response.ok) {
+    throw new Error(`Perplexity API error: ${response.status}`);
   }
 
-  throw lastErr || new Error('Perplexity failed');
+  const data = await response.json();
+  const responseText = data.choices[0]?.message?.content || '';
+  
+  return {
+    responseText,
+    tokenIn: data.usage?.prompt_tokens || 0,
+    tokenOut: data.usage?.completion_tokens || 0,
+  };
 }
 
 async function executeGemini(promptText: string) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('Gemini API key not found');
+  if (!apiKey) throw new Error('Gemini API key not configured');
 
-  const models = ['gemini-2.5-flash-lite', 'gemini-1.5-flash-8b'];
-  let lastErr: any = null;
-
-  const buildBody = () => ({
-    contents: [
-      { parts: [{ text: promptText }] }
-    ],
-    generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 2000,
-    }
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: promptText
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      },
+    }),
   });
 
-  for (const model of models) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildBody()),
-          }
-        );
-
-        if (!response.ok) {
-          const errText = await response.text().catch(() => '');
-          const err = new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errText}`);
-          if (response.status === 401 || response.status === 403) throw err; // don't retry auth
-          lastErr = err;
-          if (attempt < 3) {
-            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-            continue;
-          }
-          break; // try next model
-        }
-
-        const data = await response.json();
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const usage = data.usageMetadata || {};
-        const brands = extractBrandsFromResponse(content);
-
-        return {
-          brands,
-          responseText: content,
-          tokenIn: usage.promptTokenCount || 0,
-          tokenOut: usage.candidatesTokenCount || 0,
-          model
-        };
-      } catch (e) {
-        lastErr = e;
-        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-      }
-    }
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
   }
 
-  throw lastErr || new Error('Gemini failed');
-}
-
-/**
- * Extract brands from AI response - tries JSON first, falls back to text analysis  
- */
-function extractBrandsFromResponse(text: string): string[] {
-  // Strip code fences first and try JSON extraction
-  let cleanText = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1');
+  const data = await response.json();
+  const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   
-  const jsonPatterns = [
-    /\{[^}]*"brands"[^}]*\}/g,
-    /"brands"\s*:\s*\[[^\]]*\]/g
-  ];
-  
-  for (const pattern of jsonPatterns) {
-    const matches = Array.from(cleanText.matchAll(pattern));
-    for (const match of matches) {
-      try {
-        let jsonStr = match[0];
-        if (jsonStr.includes('"brands"') && !jsonStr.startsWith('{')) {
-          jsonStr = `{${jsonStr}}`;
-        }
-        
-        const parsed = JSON.parse(jsonStr);
-        if (parsed.brands && Array.isArray(parsed.brands)) {
-          return parsed.brands.filter(brand => typeof brand === 'string' && brand.trim().length > 0);
-        }
-      } catch {
-        continue;
-      }
-    }
-  }
-  
-  // Fallback to text extraction
-  return extractBrandsFromText(text);
-}
-
-/**
- * Fallback brand extraction from text content using patterns - improved version for fallback analysis
- */
-function extractBrandsFromText(text: string, orgData?: any): string[] {
-  const brandPatterns = [
-    // Prioritize org brand variants first
-    ...(orgData ? [
-      new RegExp(`\\b${orgData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'),
-      ...(orgData.domain ? [new RegExp(`\\b${orgData.domain.replace(/\..*$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')] : [])
-    ] : []),
-    
-    // Two-word brands like "Google Analytics", "HubSpot Marketing"
-    /\b[A-Z][a-z]+ (?:Analytics|Marketing|Cloud|Hub|Platform|Suite|Pro|Studio|Labs|Works|Systems|Solutions|CRM|Insights|Manager|Central|Express|Business|Enterprise)\b/g,
-    
-    // Domain names - strong brand indicators  
-    /\b[A-Z][a-z]{2,}\.(?:com|io|net|org|ai|co|app)\b/g,
-    
-    // CamelCase with 2+ capitals: "HubSpot", "JavaScript", "iPhone"
-    /\b[A-Z][a-z]*[A-Z][a-zA-Z]+\b/g,
-    
-    // Well-known marketing/business brands
-    /\b(?:HubSpot|Salesforce|Marketo|Pardot|Mailchimp|Klaviyo|ConvertKit|ActiveCampaign|Drip|Hootsuite|Buffer|Sprout Social|CoSchedule|Later|Canva|Adobe|Google|Microsoft|Meta|Facebook|Instagram|LinkedIn|Twitter|YouTube|TikTok|Pinterest|Snapchat|WhatsApp)\b/gi,
-    
-    // Two-word brands like "Google Cloud"
-    /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g,
-    
-    // Single capitalized words (more selective)
-    /\b[A-Z][a-z]{3,}\b/g
-  ];
-  
-  const brands = new Set<string>();
-  
-  for (const pattern of brandPatterns) {
-    const matches = text.match(pattern);
-    if (matches) {
-      matches.forEach(match => {
-        const cleanMatch = match.trim();
-        if (!isCommonWord(cleanMatch) && cleanMatch.length > 2) {
-          brands.add(cleanMatch);
-        }
-      });
-    }
-  }
-  
-  // Filter common false positives
-  const filteredBrands = Array.from(brands).filter(brand => {
-    const lower = brand.toLowerCase();
-    
-    // Keep known marketing brands
-    if (['hubspot', 'salesforce', 'marketo', 'mailchimp', 'hootsuite', 'buffer'].some(known => lower.includes(known))) {
-      return true;
-    }
-    
-    // Filter out generic terms
-    if (['social media', 'email marketing', 'content marketing', 'digital marketing'].includes(lower)) {
-      return false;
-    }
-    
-    return true;
-  });
-  
-  return filteredBrands.slice(0, 20); // Limit to prevent noise
-}
-
-/**
- * Persist competitor data to brand_catalog and competitor_mentions tables
- */
-async function persistCompetitorData(
-  supabase: any, 
-  orgId: string, 
-  promptId: string, 
-  brandAnalysis: BrandAnalysisResult
-) {
-  console.log(`Persisting competitor data: ${brandAnalysis.competitors.length} competitors`);
-  
-  // Persist each competitor to brand catalog and mentions
-  for (const competitor of brandAnalysis.competitors) {
-    try {
-      // Add to competitor mentions table
-      const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
-        p_org_id: orgId,
-        p_prompt_id: promptId,
-        p_competitor_name: competitor.name,
-        p_normalized_name: competitor.normalized,
-        p_position: competitor.firstPosition || null,
-        p_sentiment: 'neutral'
-      });
-
-      if (mentionError) {
-        console.error('Error upserting competitor mention:', mentionError);
-      } else {
-        console.log(`✅ Persisted competitor mention: ${competitor.name}`);
-      }
-
-      // Add to brand catalog
-      const competitorScore = Math.round(competitor.confidence * 100);
-      const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
-        p_org_id: orgId,
-        p_brand_name: competitor.name,
-        p_score: competitorScore
-      });
-
-      if (brandError) {
-        console.error('Error upserting competitor brand:', brandError);
-      } else {
-        console.log(`✅ Persisted competitor brand: ${competitor.name} (score: ${competitorScore})`);
-      }
-    } catch (error) {
-      console.error(`Error processing competitor ${competitor.name}:`, error);
-    }
-  }
-  
-  console.log(`Competitor persistence complete for prompt ${promptId}`);
-}
-
-/**
- * Check if a word is likely a common non-brand term
- */
-function isCommonWord(word: string): boolean {
-  const commonWords = [
-    'The', 'This', 'That', 'Here', 'There', 'When', 'Where', 'What', 'How',
-    'Some', 'Many', 'Most', 'All', 'Best', 'Good', 'Better', 'Great',
-    'First', 'Last', 'Next', 'New', 'Old', 'Other', 'Another', 'Each', 'Every',
-    'More', 'Less', 'Much', 'Such', 'Only', 'Also', 'Even', 'Still'
-  ];
-  return commonWords.includes(word);
+  return {
+    responseText,
+    model: 'gemini-2.0-flash-exp',
+    tokenIn: data.usageMetadata?.promptTokenCount || 0,
+    tokenOut: data.usageMetadata?.candidatesTokenCount || 0,
+  };
 }
