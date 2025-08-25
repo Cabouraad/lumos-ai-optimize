@@ -96,7 +96,7 @@ export function ProviderDebugPanel() {
       try {
         console.log(`Running ${provider}...`);
         
-        const { data, error } = await supabase.functions.invoke('execute-prompt', {
+        const { data, error } = await supabase.functions.invoke('test-single-provider', {
           body: {
             promptText: selectedPrompt.text,
             provider,
