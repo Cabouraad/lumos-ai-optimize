@@ -1,5 +1,5 @@
 /**
- * Gemini provider adapter for brand extraction
+ * Gemini provider adapter for brand extraction - Standardized v2
  */
 
 export type BrandExtraction = { 
@@ -10,17 +10,25 @@ export type BrandExtraction = {
 };
 
 export async function extractBrands(promptText: string, apiKey: string): Promise<BrandExtraction> {
-  const maxAttempts = 3;
+  console.log('[Gemini] Starting brand extraction with standardized API');
   
+  if (!apiKey) {
+    throw new Error('Gemini API key not configured');
+  }
+
+  const maxAttempts = 3;
   let attempt = 0;
   let lastError: Error | null = null;
   
   while (attempt < maxAttempts) {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+      console.log(`[Gemini] Attempt ${attempt + 1}/${maxAttempts}`);
+      
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-goog-api-key': apiKey,
         },
         body: JSON.stringify({
           contents: [
@@ -33,7 +41,7 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
             }
           ],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.3,
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 2000,
@@ -44,14 +52,17 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
       if (!response.ok) {
         const errorText = await response.text();
         const error = new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
+        console.error(`[Gemini] API error:`, error.message);
         
         // Don't retry on authentication errors
         if (response.status === 401 || response.status === 403) {
+          console.error('[Gemini] Authentication error - not retrying');
           throw error;
         }
         
         // Don't retry on bad request errors
         if (response.status === 400) {
+          console.error('[Gemini] Bad request error - not retrying');
           throw error;
         }
         
@@ -62,6 +73,8 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
 
+      console.log(`[Gemini] Success - received ${content.length} characters`);
+
       try {
         // Try to extract JSON from the end of the response
         const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);
@@ -71,13 +84,16 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
           try {
             const parsed = JSON.parse(jsonMatch[0]);
             brands = Array.isArray(parsed.brands) ? parsed.brands : [];
+            console.log(`[Gemini] Extracted ${brands.length} brands from JSON`);
           } catch {
             // If JSON parsing fails, extract brands from text content
             brands = extractBrandsFromText(content);
+            console.log(`[Gemini] JSON parse failed - extracted ${brands.length} brands from text`);
           }
         } else {
           // No JSON found, extract from text
           brands = extractBrandsFromText(content);
+          console.log(`[Gemini] No JSON found - extracted ${brands.length} brands from text`);
         }
         
         return {
@@ -88,6 +104,7 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
         };
         
       } catch (parseError) {
+        console.warn('[Gemini] Parse error, falling back to text extraction');
         return { 
           brands: extractBrandsFromText(content), 
           responseText: content,
@@ -100,22 +117,27 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
       attempt++;
       lastError = error;
       
-      console.error(`Gemini attempt ${attempt}/${maxAttempts} failed:`, error.message);
+      console.error(`[Gemini] Attempt ${attempt}/${maxAttempts} failed:`, error.message);
       
       // Don't retry on auth errors
       if (error.message?.includes('401') || error.message?.includes('403')) {
+        console.error('[Gemini] Authentication error detected - stopping retries');
         break;
       }
       
       if (attempt < maxAttempts) {
         // Exponential backoff: 1s, 2s, 4s
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.log(`[Gemini] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
 
   // All attempts failed
-  throw lastError || new Error('Gemini API failed');
+  const finalError = lastError || new Error('Gemini API failed after all attempts');
+  console.error('[Gemini] All attempts failed:', finalError.message);
+  throw finalError;
 }
 
 /**

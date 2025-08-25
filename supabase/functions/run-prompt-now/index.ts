@@ -248,27 +248,109 @@ async function executePerplexity(promptText: string) {
 }
 
 async function executeGemini(promptText: string) {
+  console.log('[Gemini] Starting standardized execution');
+  
   const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
-  if (!apiKey) throw new Error('Gemini API key not configured');
-
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'X-goog-api-key': apiKey
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: promptText }] }]
-    }),
+  
+  console.log('[Gemini] API Key Check:', {
+    hasGeminiKey: !!Deno.env.get('GEMINI_API_KEY'),
+    hasGoogleApiKey: !!Deno.env.get('GOOGLE_API_KEY'),  
+    hasGoogleGenaiKey: !!Deno.env.get('GOOGLE_GENAI_API_KEY'),
+    hasGenaiKey: !!Deno.env.get('GENAI_API_KEY'),
+    finalKeyFound: !!apiKey,
+    keyLength: apiKey ? apiKey.length : 0
   });
+  
+  if (!apiKey) {
+    console.error('[Gemini] No API key found in any environment variable');
+    throw new Error('Gemini API key not configured');
+  }
 
-  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+  const maxAttempts = 3;
+  let attempt = 0;
+  let lastError: Error | null = null;
 
-  const data = await response.json();
-  return {
-    text: data.candidates?.[0]?.content?.parts?.[0]?.text || '',
-    tokenIn: 0,
-    tokenOut: 0
-  };
+  while (attempt < maxAttempts) {
+    try {
+      attempt++;
+      console.log(`[Gemini] Attempt ${attempt}/${maxAttempts}`);
+
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-goog-api-key': apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1000,
+            topK: 40,
+            topP: 0.95
+          }
+        }),
+      });
+
+      console.log(`[Gemini] Response status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
+        console.error(`[Gemini] API Error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorText.substring(0, 300)
+        });
+        
+        // Don't retry on authentication or bad request errors
+        if (response.status === 401 || response.status === 403 || response.status === 400) {
+          console.error(`[Gemini] Non-retryable error: ${response.status}`);
+          throw error;
+        }
+        
+        lastError = error;
+        if (attempt < maxAttempts) {
+          const delay = 1000 * Math.pow(2, attempt - 1);
+          console.log(`[Gemini] Retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const usage = data.usageMetadata || {};
+      
+      console.log(`[Gemini] Success - Content length: ${content.length}, Tokens in: ${usage.promptTokenCount || 0}, Tokens out: ${usage.candidatesTokenCount || 0}`);
+      
+      return {
+        text: content,
+        tokenIn: usage.promptTokenCount || 0,
+        tokenOut: usage.candidatesTokenCount || 0
+      };
+      
+    } catch (error: any) {
+      lastError = error;
+      console.error(`[Gemini] Attempt ${attempt}/${maxAttempts} failed:`, error.message);
+      
+      // Don't retry on auth errors
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        console.error('[Gemini] Authentication error detected - stopping retries');
+        break;
+      }
+      
+      if (attempt < maxAttempts) {
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.log(`[Gemini] Waiting ${delay}ms before next retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  const finalError = lastError || new Error('Gemini API failed after all attempts');
+  console.error('[Gemini] ALL ATTEMPTS FAILED:', finalError.message);
+  throw finalError;
 }
 

@@ -359,6 +359,7 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
       if (!provider.apiKey) {
         throw new Error('Gemini API key not configured');
       }
+      console.log(`[Batch] Processing Gemini with key length: ${provider.apiKey.length}`);
       response = await fetch(provider.endpoint, {
         method: 'POST',
         headers: {

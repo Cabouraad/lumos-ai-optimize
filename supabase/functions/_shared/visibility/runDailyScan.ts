@@ -329,7 +329,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
     // Get API keys from environment
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
     
     if (!openaiKey && !perplexityKey && !geminiKey) {
       console.log('No API keys configured, skipping scan');

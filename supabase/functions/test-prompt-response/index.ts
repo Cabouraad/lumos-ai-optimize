@@ -153,12 +153,15 @@ serve(async (req) => {
         });
       }
 
+      console.log('[Gemini] Starting standardized API call with key length:', keyToUse.length);
+
       let attempt = 0;
       const maxAttempts = 3;
       
       while (attempt < maxAttempts) {
         try {
-          console.log(`[Gemini:test] Attempt ${attempt + 1}`);
+          attempt++;
+          console.log(`[Gemini:test] Attempt ${attempt}/${maxAttempts}`);
           
           const payload = {
             contents: [
@@ -171,7 +174,7 @@ serve(async (req) => {
               }
             ],
             generationConfig: {
-              temperature: 0.7,
+              temperature: 0.3,
               topK: 40,
               topP: 0.95,
               maxOutputTokens: 1000,
@@ -187,21 +190,32 @@ serve(async (req) => {
             body: JSON.stringify(payload),
           });
 
+          console.log(`[Gemini:test] Response status: ${res.status} ${res.statusText}`);
+
           if (!res.ok) {
             const bodyText = await res.text().catch(() => '');
             const error = new Error(`Gemini error: ${res.status} ${res.statusText} — ${bodyText}`);
-            console.error(`[Gemini:test] Attempt ${attempt + 1} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
+            console.error(`[Gemini:test] Attempt ${attempt} failed: ${res.status} ${res.statusText} — Body: ${bodyText?.slice(0, 500)}`);
             
             // Don't retry on auth/bad request errors
             if (res.status === 401 || res.status === 403 || res.status === 400) {
+              console.error('[Gemini:test] Non-retryable error detected');
               throw error;
             }
             
-            throw error;
+            if (attempt >= maxAttempts) {
+              throw error;
+            }
+            
+            // Wait before retry
+            const delay = 1000 * attempt;
+            console.log(`[Gemini:test] Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
           }
 
           const data = await res.json();
-          console.log(`[Gemini:test] Success`);
+          console.log(`[Gemini:test] Success - received response data`);
           const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
           
           return new Response(JSON.stringify({ 
@@ -213,16 +227,17 @@ serve(async (req) => {
           });
           
         } catch (error: any) {
-          attempt++;
           console.error(`[Gemini:test] Attempt ${attempt} error:`, error.message);
           
           // Don't retry on auth errors
           if (error.message?.includes('401') || error.message?.includes('403')) {
+            console.error('[Gemini:test] Authentication error - stopping retries');
             break;
           }
           
           if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            const delay = 1000 * attempt;
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
