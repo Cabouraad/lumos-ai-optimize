@@ -33,13 +33,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the response and verify user access
+    // Get the response first
     const { data: response, error: fetchError } = await supabase
       .from('prompt_provider_responses')
-      .select(`
-        *,
-        prompts!inner(org_id)
-      `)
+      .select('*')
       .eq('id', responseId)
       .single();
 
@@ -47,6 +44,21 @@ serve(async (req) => {
       console.error('Error fetching response:', fetchError);
       return new Response(
         JSON.stringify({ error: 'Response not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get the prompt to verify org access
+    const { data: prompt, error: promptError } = await supabase
+      .from('prompts')
+      .select('org_id')
+      .eq('id', response.prompt_id)
+      .single();
+
+    if (promptError || !prompt) {
+      console.error('Error fetching prompt:', promptError);
+      return new Response(
+        JSON.stringify({ error: 'Prompt not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -66,7 +78,7 @@ serve(async (req) => {
           .eq('id', user.id)
           .single();
         
-        if (!userData || userData.org_id !== response.prompts.org_id) {
+        if (!userData || userData.org_id !== prompt.org_id) {
           return new Response(
             JSON.stringify({ error: 'Access denied' }),
             { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
