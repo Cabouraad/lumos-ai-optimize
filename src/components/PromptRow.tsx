@@ -187,69 +187,69 @@ export function PromptRow({
       try {
         setLoadingProviders(true);
         
-        // If no org_id, fall back to simple provider data
-        if (!prompt.org_id) {
-          const { data, error } = await supabase
-            .from('latest_prompt_provider_responses')
-            .select('*')
-            .eq('prompt_id', prompt.id);
+        // Get organization data first
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', prompt.org_id || '')
+          .maybeSingle();
 
-          if (error) {
-            console.error('Error fetching provider data:', error);
-            setProviderData({ openai: null, gemini: null, perplexity: null });
-          } else {
-            const providers = {
-              openai: (data || []).find(r => r.provider === 'openai') as ProviderResponseData || null,
-              gemini: (data || []).find(r => r.provider === 'gemini') as ProviderResponseData || null,
-              perplexity: (data || []).find(r => r.provider === 'perplexity') as ProviderResponseData || null,
+        if (orgError) {
+          console.error('Error fetching org data:', orgError);
+        }
+
+        const orgName = orgData?.name || 'Unknown Organization';
+        
+        // Fetch fresh analysis for each provider using the same logic as Provider Debug Panel
+        const providerPromises = ['openai', 'gemini', 'perplexity'].map(async (provider) => {
+          try {
+            const { data, error } = await supabase.functions.invoke('test-single-provider', {
+              body: {
+                promptText: prompt.text,
+                provider,
+                orgId: prompt.org_id,
+                promptId: prompt.id
+              }
+            });
+
+            if (error) {
+              console.error(`Error testing ${provider}:`, error);
+              return { provider, data: null };
+            }
+
+            return { 
+              provider, 
+              data: {
+                id: data.responseId || crypto.randomUUID(),
+                provider,
+                status: data.success ? 'success' : 'error',
+                score: data.score || 0,
+                org_brand_present: data.orgBrandPresent || false,
+                org_brand_prominence: data.orgBrandPosition,
+                competitors_count: data.competitorCount || 0,
+                competitors_json: data.competitors || [],
+                brands_json: data.brands || [],
+                raw_ai_response: data.responseText || '',
+                token_in: data.tokenIn || 0,
+                token_out: data.tokenOut || 0,
+                run_at: new Date().toISOString(),
+                model: provider === 'openai' ? 'gpt-4o-mini' : 
+                       provider === 'gemini' ? 'gemini-2.0-flash-exp' : 'sonar',
+                error: data.success ? null : data.error
+              }
             };
-            setProviderData(providers);
+          } catch (err: any) {
+            console.error(`Exception testing ${provider}:`, err);
+            return { provider, data: null };
           }
-          return;
-        }
+        });
+
+        const results = await Promise.all(providerPromises);
         
-        // Fetch both provider responses and organization data
-        const [responsesResult, orgResult] = await Promise.all([
-          supabase
-            .from('latest_prompt_provider_responses')
-            .select('*')
-            .eq('prompt_id', prompt.id),
-          supabase
-            .from('organizations')
-            .select('name')
-            .eq('id', prompt.org_id)
-            .maybeSingle()
-        ]);
-
-        if (responsesResult.error) {
-          console.error('Error fetching provider data:', responsesResult.error);
-          setProviderData({ openai: null, gemini: null, perplexity: null });
-          return;
-        }
-
-        const orgName = orgResult.data?.name || 'Unknown Organization';
-        
-        // Re-analyze responses with correct organization name
-        const rawProviders = {
-          openai: (responsesResult.data || []).find(r => r.provider === 'openai') as ProviderResponseData || null,
-          gemini: (responsesResult.data || []).find(r => r.provider === 'gemini') as ProviderResponseData || null,
-          perplexity: (responsesResult.data || []).find(r => r.provider === 'perplexity') as ProviderResponseData || null,
-        };
-
-        // Re-analyze each response to ensure correct brand detection
         const providers = {
-          openai: rawProviders.openai ? {
-            ...rawProviders.openai,
-            ...reanalyzeProviderResponse(rawProviders.openai.raw_ai_response, orgName, rawProviders.openai.score)
-          } : null,
-          gemini: rawProviders.gemini ? {
-            ...rawProviders.gemini,
-            ...reanalyzeProviderResponse(rawProviders.gemini.raw_ai_response, orgName, rawProviders.gemini.score)
-          } : null,
-          perplexity: rawProviders.perplexity ? {
-            ...rawProviders.perplexity,
-            ...reanalyzeProviderResponse(rawProviders.perplexity.raw_ai_response, orgName, rawProviders.perplexity.score)
-          } : null,
+          openai: results.find(r => r.provider === 'openai')?.data || null,
+          gemini: results.find(r => r.provider === 'gemini')?.data || null,
+          perplexity: results.find(r => r.provider === 'perplexity')?.data || null,
         };
 
         setProviderData(providers);
