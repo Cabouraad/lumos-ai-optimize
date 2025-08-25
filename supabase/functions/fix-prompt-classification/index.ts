@@ -87,6 +87,16 @@ serve(async (req) => {
       }
     }
 
+    // Fetch organization info
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('name, domain')
+      .eq('id', prompt.org_id)
+      .single();
+    if (orgError) {
+      console.error('Error fetching organization:', orgError);
+    }
+
     // Apply fixes
     let updatedCompetitors = response.competitors_json || [];
     let updatedBrands = response.brands_json || [];
@@ -113,6 +123,19 @@ serve(async (req) => {
       orgBrandPresent = setOrgBrandPresent;
       if (setOrgBrandPresent && !orgBrandProminence) {
         orgBrandProminence = 1; // Default to first position
+      }
+    }
+
+    // Ensure org brand is present in brands list when marked present
+    if (orgBrandPresent && org) {
+      const candidates: string[] = [];
+      if (org.name) candidates.push(String(org.name));
+      if (org.domain) {
+        const domainBase = String(org.domain).replace(/\..*$/, '');
+        candidates.push(domainBase, String(org.domain));
+      }
+      if (candidates.length > 0) {
+        updatedBrands = [...new Set([...updatedBrands, ...candidates])];
       }
     }
 

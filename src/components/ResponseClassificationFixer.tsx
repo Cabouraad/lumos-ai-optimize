@@ -41,7 +41,7 @@ export function ResponseClassificationFixer({
     /^(seo|marketing|social media|facebook|adobe)$/i.test(comp.trim())
   );
 
-  const needsFix = !brandPresent && (currentScore <= 2 || hubspotAsCompetitor || suspiciousCompetitors.length > 2);
+  const needsFix = !brandPresent || hubspotAsCompetitor || suspiciousCompetitors.length > 0 || currentScore <= 2;
 
   const handleFixResponse = async () => {
     setIsFixing(true);
@@ -52,10 +52,9 @@ export function ResponseClassificationFixer({
       let setOrgBrandPresent = brandPresent;
       const addOrgBrands = [];
 
-      // Main fix: If brand isn't present but should be (low score scenario)
-      if (!brandPresent && currentScore <= 2) {
+      // Main fix: If brand isn't present, mark it present
+      if (!brandPresent) {
         setOrgBrandPresent = true;
-        addOrgBrands.push('HubSpot Marketing Hub');
       }
 
       if (hubspotAsCompetitor) {
