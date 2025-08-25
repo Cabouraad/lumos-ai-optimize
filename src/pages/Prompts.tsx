@@ -113,12 +113,8 @@ export default function Prompts() {
       loadPromptsData();
       loadSuggestedPrompts();
       
-      // Set up auto-refresh every 30 seconds to catch new provider responses
-      const interval = setInterval(() => {
-        loadPromptsData();
-      }, 30000);
-      
-      return () => clearInterval(interval);
+      // No auto-refresh to prevent constant page refreshes
+      // Users can manually refresh using the "Refresh Data" button
     }
   }, [orgData]);
 

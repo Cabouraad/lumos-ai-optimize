@@ -133,12 +133,28 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
         .select("id, name, enabled")
     ]);
 
-    if (promptsResult.error) throw promptsResult.error;
+    console.log('🔍 Debug: Prompts query result:', {
+      error: promptsResult.error,
+      dataLength: promptsResult.data?.length || 0,
+      orgId: orgId
+    });
+
+    if (promptsResult.error) {
+      console.error('🔍 Debug: Prompts query error:', promptsResult.error);
+      throw promptsResult.error;
+    }
     if (providersResult.error) throw providersResult.error;
 
     const prompts = promptsResult.data || [];
     const providers = providersResult.data || [];
     const promptIds = prompts.map(p => p.id);
+
+    console.log('🔍 Debug: Processing prompts data:', {
+      promptsCount: prompts.length,
+      providersCount: providers.length,
+      promptIds: promptIds.slice(0, 3),
+      firstPrompt: prompts[0]
+    });
 
     if (promptIds.length === 0) {
       const emptyData: UnifiedDashboardData = {

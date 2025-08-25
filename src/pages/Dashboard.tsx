@@ -1,8 +1,10 @@
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
+  const { user, orgData } = useAuth();
+  const navigate = useNavigate();
   const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -324,7 +328,7 @@ export default function Dashboard() {
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => window.location.href = '/prompts'}
+                  onClick={() => navigate('/prompts')}
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View All Prompts
@@ -332,7 +336,7 @@ export default function Dashboard() {
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => window.location.href = '/competitors'}
+                  onClick={() => navigate('/competitors')}
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Analyze Competitors
