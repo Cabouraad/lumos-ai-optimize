@@ -197,69 +197,92 @@ export function PromptRow({
       try {
         setLoadingProviders(true);
         
-        // Get organization data first
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .select('name')
-          .eq('id', prompt.org_id || '')
-          .maybeSingle();
+        // Fetch latest provider responses from database instead of making new API calls
+        const { data: responses, error } = await supabase
+          .from('prompt_provider_responses')
+          .select('*')
+          .eq('prompt_id', prompt.id)
+          .in('provider', ['openai', 'gemini', 'perplexity'])
+          .order('run_at', { ascending: false });
 
-        if (orgError) {
-          console.error('Error fetching org data:', orgError);
+        if (error) {
+          console.error('Error fetching provider responses:', error);
+          setProviderData({ openai: null, gemini: null, perplexity: null });
+          return;
         }
 
-        const orgName = orgData?.name || 'Unknown Organization';
-        
-        // Fetch fresh analysis for each provider using the same logic as Provider Debug Panel
-        const providerPromises = ['openai', 'gemini', 'perplexity'].map(async (provider) => {
-          try {
-            const { data, error } = await supabase.functions.invoke('test-single-provider', {
-              body: {
-                promptText: prompt.text,
-                provider,
-                orgId: prompt.org_id,
-                promptId: prompt.id
-              }
-            });
+        // Get the latest response for each provider
+        const latestResponses = {
+          openai: responses?.find(r => r.provider === 'openai') || null,
+          gemini: responses?.find(r => r.provider === 'gemini') || null,
+          perplexity: responses?.find(r => r.provider === 'perplexity') || null,
+        };
 
-            if (error) {
-              console.error(`Error testing ${provider}:`, error);
-              return { provider, data: null };
-            }
-
-            return { 
-              provider, 
-              data: {
-                id: data.responseId || crypto.randomUUID(),
-                provider,
-                status: data.success ? 'success' : 'error',
-                score: data.score || 0,
-                org_brand_present: data.orgBrandPresent || false,
-                org_brand_prominence: data.orgBrandPosition,
-                competitors_count: data.competitorCount || 0,
-                competitors_json: data.competitors || [],
-                brands_json: data.brands || [],
-                raw_ai_response: data.responseText || '',
-                token_in: data.tokenIn || 0,
-                token_out: data.tokenOut || 0,
-                run_at: new Date().toISOString(),
-                model: provider === 'openai' ? 'gpt-4o-mini' : 
-                       provider === 'gemini' ? 'gemini-2.0-flash-exp' : 'sonar',
-                error: data.success ? null : data.error
-              }
-            };
-          } catch (err: any) {
-            console.error(`Exception testing ${provider}:`, err);
-            return { provider, data: null };
-          }
-        });
-
-        const results = await Promise.all(providerPromises);
-        
+        // Transform the database responses to match the expected format
         const providers = {
-          openai: results.find(r => r.provider === 'openai')?.data || null,
-          gemini: results.find(r => r.provider === 'gemini')?.data || null,
-          perplexity: results.find(r => r.provider === 'perplexity')?.data || null,
+          openai: latestResponses.openai ? {
+            id: latestResponses.openai.id,
+            provider: 'openai',
+            status: latestResponses.openai.status || 'success',
+            score: latestResponses.openai.score || 0,
+            org_brand_present: latestResponses.openai.org_brand_present || false,
+            org_brand_prominence: latestResponses.openai.org_brand_prominence,
+            competitors_count: latestResponses.openai.competitors_count || 0,
+            competitors_json: Array.isArray(latestResponses.openai.competitors_json) 
+              ? latestResponses.openai.competitors_json as string[]
+              : [],
+            brands_json: Array.isArray(latestResponses.openai.brands_json) 
+              ? latestResponses.openai.brands_json as string[]
+              : [],
+            raw_ai_response: latestResponses.openai.raw_ai_response || '',
+            token_in: latestResponses.openai.token_in || 0,
+            token_out: latestResponses.openai.token_out || 0,
+            run_at: latestResponses.openai.run_at,
+            model: latestResponses.openai.model || 'gpt-4o-mini',
+            error: latestResponses.openai.error
+          } : null,
+          gemini: latestResponses.gemini ? {
+            id: latestResponses.gemini.id,
+            provider: 'gemini',
+            status: latestResponses.gemini.status || 'success',
+            score: latestResponses.gemini.score || 0,
+            org_brand_present: latestResponses.gemini.org_brand_present || false,
+            org_brand_prominence: latestResponses.gemini.org_brand_prominence,
+            competitors_count: latestResponses.gemini.competitors_count || 0,
+            competitors_json: Array.isArray(latestResponses.gemini.competitors_json) 
+              ? latestResponses.gemini.competitors_json as string[]
+              : [],
+            brands_json: Array.isArray(latestResponses.gemini.brands_json) 
+              ? latestResponses.gemini.brands_json as string[]
+              : [],
+            raw_ai_response: latestResponses.gemini.raw_ai_response || '',
+            token_in: latestResponses.gemini.token_in || 0,
+            token_out: latestResponses.gemini.token_out || 0,
+            run_at: latestResponses.gemini.run_at,
+            model: latestResponses.gemini.model || 'gemini-2.0-flash-exp',
+            error: latestResponses.gemini.error
+          } : null,
+          perplexity: latestResponses.perplexity ? {
+            id: latestResponses.perplexity.id,
+            provider: 'perplexity',
+            status: latestResponses.perplexity.status || 'success',
+            score: latestResponses.perplexity.score || 0,
+            org_brand_present: latestResponses.perplexity.org_brand_present || false,
+            org_brand_prominence: latestResponses.perplexity.org_brand_prominence,
+            competitors_count: latestResponses.perplexity.competitors_count || 0,
+            competitors_json: Array.isArray(latestResponses.perplexity.competitors_json) 
+              ? latestResponses.perplexity.competitors_json as string[]
+              : [],
+            brands_json: Array.isArray(latestResponses.perplexity.brands_json) 
+              ? latestResponses.perplexity.brands_json as string[]
+              : [],
+            raw_ai_response: latestResponses.perplexity.raw_ai_response || '',
+            token_in: latestResponses.perplexity.token_in || 0,
+            token_out: latestResponses.perplexity.token_out || 0,
+            run_at: latestResponses.perplexity.run_at,
+            model: latestResponses.perplexity.model || 'sonar',
+            error: latestResponses.perplexity.error
+          } : null,
         };
 
         setProviderData(providers);
@@ -514,11 +537,10 @@ export function PromptRow({
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-4">Latest Provider Results</h4>
                     {loadingProviders ? (
-                      <div className="flex items-center justify-center py-12">
+                      <div className="flex items-center justify-center py-8">
                         <div className="text-center">
-                          <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
-                          <p className="text-sm text-muted-foreground">Testing providers...</p>
-                          <p className="text-xs text-muted-foreground mt-1">This may take 30-60 seconds</p>
+                          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                          <p className="text-sm text-muted-foreground">Loading results...</p>
                         </div>
                       </div>
                     ) : (
