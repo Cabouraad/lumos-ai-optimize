@@ -57,6 +57,7 @@ export interface UnifiedDashboardData {
     created_at: string;
     latestScore: number;
     hasData: boolean;
+    org_id: string;
   }>;
 }
 
@@ -124,7 +125,7 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
     const [promptsResult, providersResult] = await Promise.all([
       supabase
         .from("prompts")
-        .select("id, text, active, created_at")
+        .select("id, text, active, created_at, org_id")
         .eq("org_id", orgId)
         .order("created_at", { ascending: false }),
       supabase
@@ -238,7 +239,8 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
         active: prompt.active,
         created_at: prompt.created_at,
         latestScore: Math.round(latestScore * 10) / 10,
-        hasData: promptResponses.length > 0
+        hasData: promptResponses.length > 0,
+        org_id: prompt.org_id
       };
     });
 
