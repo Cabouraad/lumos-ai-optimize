@@ -94,12 +94,12 @@ async function executePerplexity(promptText: string): Promise<{ responseText: st
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [{ role: 'user', content: promptText }],
-      temperature: 0.3,
-      max_tokens: 2000,
-    }),
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [{ role: 'user', content: promptText }],
+        temperature: 0.3,
+        max_tokens: 2000,
+      }),
   });
 
   if (!response.ok) {
