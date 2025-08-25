@@ -108,7 +108,35 @@ export default function Prompts() {
   const loadPromptsData = async (showToast = false) => {
     try {
       setLoading(true);
+      
+      // Debug authentication
+      console.log('🔍 Debug: Loading prompts data...');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('🔍 Debug: Current auth user:', user?.id, userError);
+      
+      if (!user) {
+        throw new Error('Not authenticated - please sign in again');
+      }
+      
+      // Check if user exists in users table
+      const { data: userData, error: userDbError } = await supabase
+        .from('users')
+        .select('id, org_id, email')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('🔍 Debug: User in database:', userData, userDbError);
+      
+      if (userDbError || !userData) {
+        throw new Error('User profile not found - please complete onboarding');
+      }
+      
       const unifiedData = await getUnifiedPromptData();
+      console.log('🔍 Debug: Unified data received:', {
+        promptsCount: unifiedData.prompts?.length || 0,
+        detailsCount: unifiedData.promptDetails?.length || 0
+      });
+      
       setRawPrompts(unifiedData.prompts);
       setProviderData(unifiedData.promptDetails);
       setError(null);
