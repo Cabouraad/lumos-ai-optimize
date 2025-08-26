@@ -43,8 +43,8 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar className="border-r border-border/50 bg-card/95 backdrop-blur-sm">
-      <SidebarHeader className="p-6 border-b border-border/50">
+    <Sidebar className="border-r border-border/30 bg-background/95 backdrop-blur-sm shadow-soft">
+      <SidebarHeader className="p-6 border-b border-border/30">
         <h1 className="text-xl font-display gradient-primary bg-clip-text text-transparent">
           Llumos
         </h1>
@@ -108,7 +108,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3 border-t border-border/50 mt-auto">
+      <SidebarFooter className="p-3 border-t border-border/30 mt-auto">
         <Button 
           variant="outline" 
           onClick={signOut}
