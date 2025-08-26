@@ -390,7 +390,7 @@ function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org:
     targetPrompts: prompts.map(p => p.text),
     contentOutline: [
       `Introduction: ${org.name}'s philosophy and approach`,
-      'Industry challenges we've identified',
+      'Industry challenges we have identified',
       'Our unique methodology and framework',
       'Case studies demonstrating our approach',
       'Future vision and trends we're watching',
