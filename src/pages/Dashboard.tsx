@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Play, Lightbulb } from 'lucide-react';
-import { getUnifiedDashboardData, invalidateCache } from '@/lib/data/unified-fetcher';
+import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb } from 'lucide-react';
+import { getUnifiedDashboardData } from '@/lib/data/unified-fetcher';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,7 +22,6 @@ export default function Dashboard() {
   const appAccess = hasAccessToApp();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [manualRunLoading, setManualRunLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const { toast } = useToast();
 
@@ -103,59 +102,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleManualRun = async () => {
-    setManualRunLoading(true);
-    try {
-      toast({
-        title: 'Starting prompt execution...',
-        description: 'Processing will run in background. Please wait for completion notification.',
-      });
-
-      // Use trigger-test-run instead for better reliability
-      const { data: result, error } = await supabase.functions.invoke('trigger-test-run', {
-        body: { manualRun: true }
-      });
-      
-      if (error) {
-        console.warn('Trigger failed, but background processing may continue:', error);
-        toast({
-          title: 'Processing started',
-          description: 'Background execution initiated. Data will refresh automatically.',
-        });
-        
-        // Auto-refresh after delay
-        setTimeout(async () => {
-          await loadDashboardData();
-        }, 5000);
-        return;
-      }
-      
-      toast({
-        title: 'Manual run completed',
-        description: result?.organizations 
-          ? `Processed ${result.organizations} orgs · ${result.successfulRuns}/${result.totalRuns} successful`
-          : 'Completed successfully',
-      });
-      
-      // Invalidate cache and refresh dashboard data after successful run
-      invalidateCache(['dashboard-data', 'prompt-data']);
-      setTimeout(async () => {
-        await loadDashboardData();
-        await loadRecommendations();
-        toast({
-          title: 'Dashboard refreshed',
-          description: 'Latest visibility data has been loaded.',
-        });
-      }, 2000);
-      
-    } catch (e: any) {
-      console.error('Manual run failed:', e);
-      toast({ title: 'Manual run failed', description: e.message || 'Unknown error' });
-    } finally {
-      setManualRunLoading(false);
-    }
-  };
-
   if (!appAccess.hasAccess) {
     return (
       <Layout>
@@ -226,15 +172,6 @@ export default function Dashboard() {
               <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
               <p className="text-muted-foreground">AI visibility insights for your organization</p>
             </div>
-            
-            <Button 
-              onClick={handleManualRun}
-              disabled={manualRunLoading}
-              className="shadow-sm"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              {manualRunLoading ? 'Running...' : 'Run All Prompts Now'}
-            </Button>
           </div>
 
           {/* Key Metrics */}
