@@ -393,7 +393,7 @@ function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org:
       'Industry challenges we have identified',
       'Our unique methodology and framework',
       'Case studies demonstrating our approach',
-      'Future vision and trends we're watching',
+      'Future vision and trends we are watching',
       'How to get started with our solutions'
     ],
     implementationSteps: [
