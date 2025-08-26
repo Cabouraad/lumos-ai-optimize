@@ -103,24 +103,24 @@ export function PromptRow({
   const [trendRuns, setTrendRuns] = useState<number>(0);
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (score >= 5) return 'bg-amber-50 text-amber-700 border-amber-200';
-    return 'bg-rose-50 text-rose-700 border-rose-200';
+    if (score >= 8) return 'bg-success/10 text-success border-success/30';
+    if (score >= 5) return 'bg-warning/10 text-warning border-warning/30';
+    return 'bg-destructive/10 text-destructive border-destructive/30';
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'Brand Visibility': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Competitor Monitoring': return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Content Optimization': return 'bg-green-50 text-green-700 border-green-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+      case 'Brand Visibility': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      case 'Competitor Monitoring': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+      case 'Content Optimization': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      default: return 'bg-muted/50 text-muted-foreground border-border/50';
     }
   };
 
   const getSentimentIcon = (delta: number) => {
-    if (delta > 0.05) return <TrendingUp className="h-3 w-3 text-green-600" />;
-    if (delta < -0.05) return <TrendingDown className="h-3 w-3 text-red-600" />;
-    return <Minus className="h-3 w-3 text-gray-400" />;
+    if (delta > 0.05) return <TrendingUp className="h-3 w-3 text-success" />;
+    if (delta < -0.05) return <TrendingDown className="h-3 w-3 text-destructive" />;
+    return <Minus className="h-3 w-3 text-muted-foreground" />;
   };
 
   const getRelativeTime = (dateString?: string) => {
@@ -375,9 +375,9 @@ export function PromptRow({
     <TooltipProvider>
       <div 
         className={`
-          bg-white rounded-2xl border transition-all duration-200 overflow-hidden
-          ${isExpanded ? 'border-primary/30 shadow-soft-lg' : 'border-gray-100 hover:border-gray-200'}
-          ${isHovered ? 'bg-gray-50/50' : ''}
+          bg-card/80 backdrop-blur-sm rounded-2xl border transition-smooth overflow-hidden hover-lift
+          ${isExpanded ? 'border-primary/30 shadow-elegant' : 'border-border/50 hover:border-primary/30'}
+          ${isHovered ? 'shadow-soft' : ''}
         `}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -406,16 +406,16 @@ export function PromptRow({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 hover:bg-gray-100"
+              className="h-6 w-6 p-0 hover:bg-accent/50 transition-smooth"
               onClick={(e) => {
                 e.stopPropagation();
                 onExpand();
               }}
             >
               {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
             </Button>
           </div>
@@ -424,21 +424,21 @@ export function PromptRow({
           <div className="min-w-0 py-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="text-sm font-medium text-gray-900 line-clamp-1" title={prompt.text}>
+                <div className="text-sm font-medium text-foreground line-clamp-1" title={prompt.text}>
                   {prompt.text}
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="top" align="start" className="max-w-md">
+              <TooltipContent side="top" align="start" className="max-w-md bg-card/95 backdrop-blur-sm border-border/50">
                 <p>{prompt.text}</p>
               </TooltipContent>
             </Tooltip>
             
             {/* Mobile metadata line */}
             <div className="md:hidden flex items-center gap-2 mt-1">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 {new Date(prompt.createdAt).toLocaleDateString()}
               </span>
-              <span className="text-gray-300">•</span>
+              <span className="text-border">•</span>
               <Badge 
                 variant="outline" 
                 className={`text-xs h-4 px-1.5 ${getCategoryColor(prompt.category)}`}
@@ -458,13 +458,13 @@ export function PromptRow({
             </div>
 
             {/* Brand/Competitor Metrics */}
-            <div className="flex items-center gap-3 text-xs text-gray-600">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
-                <Target className="h-3 w-3 text-blue-500" />
+                <Target className="h-3 w-3 text-blue-400" />
                 <span>{prompt.brandPct}%</span>
               </div>
               <div className="flex items-center gap-1">
-                <Users className="h-3 w-3 text-purple-500" />
+                <Users className="h-3 w-3 text-purple-400" />
                 <span>{prompt.competitorPct}%</span>
               </div>
               <div className="flex items-center gap-1">
@@ -473,7 +473,7 @@ export function PromptRow({
             </div>
 
             {/* Last Run */}
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               <span>{getRelativeTime(prompt.lastRunAt)}</span>
             </div>
@@ -485,10 +485,10 @@ export function PromptRow({
                   key={provider.name}
                   variant="outline"
                   className={`
-                    text-xs h-5 px-1.5 border rounded-full
+                    text-xs h-5 px-1.5 border rounded-full transition-smooth
                     ${provider.enabled 
-                      ? 'bg-slate-100 text-slate-700 border-slate-200' 
-                      : 'bg-slate-50 text-slate-400 border-slate-200 opacity-60'
+                      ? 'bg-accent/20 text-foreground border-border/50' 
+                      : 'bg-muted/20 text-muted-foreground border-border/30 opacity-60'
                     }
                   `}
                 >
@@ -501,7 +501,7 @@ export function PromptRow({
           {/* Right Actions */}
           <div className="flex items-center gap-2 py-1">
             <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500 hidden sm:inline">Active</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Active</span>
               <Switch
                 checked={prompt.active}
                 onCheckedChange={onToggleActive}
@@ -515,24 +515,24 @@ export function PromptRow({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 hover:bg-gray-100"
+                  className="h-7 w-7 p-0 hover:bg-accent/50 transition-smooth"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem onClick={onEdit} className="text-xs">
+              <DropdownMenuContent align="end" className="w-32 bg-card/95 backdrop-blur-sm border-border/50">
+                <DropdownMenuItem onClick={onEdit} className="text-xs hover:bg-accent/50 transition-smooth">
                   <Settings2 className="mr-2 h-3 w-3" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onDuplicate} className="text-xs">
+                <DropdownMenuItem onClick={onDuplicate} className="text-xs hover:bg-accent/50 transition-smooth">
                   <Copy className="mr-2 h-3 w-3" />
                   Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={onDelete} 
-                  className="text-xs text-red-600 focus:text-red-600"
+                  className="text-xs text-destructive focus:text-destructive hover:bg-destructive/10 transition-smooth"
                 >
                   <Trash2 className="mr-2 h-3 w-3" />
                   Delete
@@ -552,11 +552,11 @@ export function PromptRow({
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="overflow-hidden"
             >
-              <div className="border-t border-gray-100 bg-gray-50/50 p-4">
+              <div className="border-t border-border/30 bg-accent/10 backdrop-blur-sm p-4">
                 <div className="space-y-6">
                   {/* Provider Results Grid */}
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4">Latest Provider Results</h4>
+                    <h4 className="text-sm font-semibold gradient-primary bg-clip-text text-transparent mb-4">Latest Provider Results</h4>
                     {loadingProviders ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="text-center">
@@ -589,26 +589,26 @@ export function PromptRow({
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Competitors */}
                     <div>
-                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Top Competitors</h5>
+                      <h5 className="text-sm font-semibold gradient-primary bg-clip-text text-transparent mb-3">Top Competitors</h5>
                       {loadingCompetitors ? (
                         <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                           <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
                           Loading competitors...
                         </div>
                       ) : topCompetitors.length === 0 ? (
-                        <div className="text-sm text-muted-foreground bg-white rounded-lg border border-dashed p-4">
+                        <div className="text-sm text-muted-foreground bg-card/50 backdrop-blur-sm rounded-lg border border-dashed border-border/50 p-4">
                           No competitor mentions found yet
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {topCompetitors.map((competitor, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
-                              <span className="text-sm font-medium text-gray-900">{competitor.name}</span>
+                            <div key={index} className="flex items-center justify-between p-3 bg-card/50 backdrop-blur-sm rounded-lg border border-border/50 hover-lift transition-smooth">
+                              <span className="text-sm font-medium text-foreground">{competitor.name}</span>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-600">{competitor.share}%</span>
-                                <div className="w-16 h-2 bg-gray-100 rounded overflow-hidden">
+                                <span className="text-xs text-muted-foreground">{competitor.share}%</span>
+                                <div className="w-16 h-2 bg-accent/30 rounded overflow-hidden">
                                   <div 
-                                    className="h-full bg-purple-500" 
+                                    className="h-full bg-purple-400 shadow-glow" 
                                     style={{ width: `${competitor.share}%` }} 
                                   />
                                 </div>
@@ -621,33 +621,33 @@ export function PromptRow({
 
                     {/* Trend Analysis */}
                     <div>
-                      <h5 className="text-sm font-semibold text-gray-900 mb-3">7-Day Performance</h5>
+                      <h5 className="text-sm font-semibold gradient-primary bg-clip-text text-transparent mb-3">7-Day Performance</h5>
                       
                       {/* Mini trend using real data */}
-                      <div className="bg-white rounded-lg border border-gray-100 p-3">
+                      <div className="bg-card/50 backdrop-blur-sm rounded-lg border border-border/50 p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-700">Average Score</span>
+                          <span className="text-xs font-medium text-muted-foreground">Average Score</span>
                           {trendRuns > 0 ? (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <BarChart3 className="h-3 w-3" />
                               {trendAvg !== null ? `${trendAvg.toFixed(1)}/10` : '—'}
                             </div>
                           ) : null}
                         </div>
                         {trendRuns === 0 ? (
-                          <div className="h-8 rounded border border-dashed text-xs flex items-center justify-center text-muted-foreground">
+                          <div className="h-8 rounded border border-dashed border-border/50 text-xs flex items-center justify-center text-muted-foreground">
                             No trend data yet
                           </div>
                         ) : (
-                          <div className="h-2 rounded bg-gray-100 overflow-hidden">
+                          <div className="h-2 rounded bg-accent/30 overflow-hidden">
                             <div
-                              className="h-full bg-blue-500"
+                              className="h-full bg-blue-400 shadow-glow"
                               style={{ width: `${Math.min(100, Math.max(0, (trendAvg || 0) * 10))}%` }}
                             />
                           </div>
                         )}
                         {trendRuns > 0 && (
-                          <div className="text-xs text-gray-500 mt-2">
+                          <div className="text-xs text-muted-foreground mt-2">
                             {trendRuns} runs in last 7 days
                           </div>
                         )}
@@ -657,15 +657,15 @@ export function PromptRow({
                 </div>
 
                 {/* Footer actions */}
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <Button size="sm" variant="outline" onClick={() => onToggleActive(!prompt.active)} className="h-7 text-xs">
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border/30">
+                  <Button size="sm" variant="outline" onClick={() => onToggleActive(!prompt.active)} className="h-7 text-xs hover-lift border-border/50 hover:border-primary/50 transition-smooth">
                     {prompt.active ? 'Pause' : 'Resume'}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={onEdit} className="h-7 text-xs">
+                  <Button size="sm" variant="outline" onClick={onEdit} className="h-7 text-xs hover-lift border-border/50 hover:border-primary/50 transition-smooth">
                     <Settings2 className="mr-1 h-3 w-3" />
                     Edit
                   </Button>
-                  <Button size="sm" variant="outline" onClick={onDelete} className="h-7 text-xs text-red-600 hover:text-red-600 hover:bg-red-50">
+                  <Button size="sm" variant="outline" onClick={onDelete} className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 hover:border-destructive/50 transition-smooth">
                     <Trash2 className="mr-1 h-3 w-3" />
                     Delete
                   </Button>
