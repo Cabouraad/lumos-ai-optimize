@@ -175,13 +175,13 @@ export function PromptList({
     return (
       <div className="space-y-4">
         {/* Header skeleton */}
-        <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-4">
+        <div className="bg-card/80 backdrop-blur-sm rounded-2xl shadow-soft border border-border/50 p-4">
           <Skeleton className="h-10 w-full" />
         </div>
         
         {/* Row skeletons */}
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-2xl shadow-soft border border-gray-100 p-4">
+          <div key={i} className="bg-card/80 backdrop-blur-sm rounded-2xl shadow-soft border border-border/50 p-4">
             <Skeleton className="h-12 w-full" />
           </div>
         ))}
@@ -192,29 +192,29 @@ export function PromptList({
   return (
     <div className="space-y-6">
       {/* Sticky Header Toolbar */}
-      <div className="sticky top-0 z-20 bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 py-4">
+      <div className="sticky top-0 z-20 bg-gradient-subtle/80 backdrop-blur-sm border-b border-border/30 py-4">
         <div className="space-y-4">
           {/* Search and Filters */}
-          <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-4">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl shadow-soft border border-border/50 p-4">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Search prompts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-gray-50 border-gray-200 focus:border-primary"
+                  className="pl-10 h-10 bg-background/50 border-border/50 focus:border-primary/50 transition-smooth"
                 />
               </div>
 
               {/* Filters */}
               <div className="flex gap-3">
                 <Select value={filterProvider} onValueChange={setFilterProvider}>
-                  <SelectTrigger className="w-36 h-10 bg-gray-50 border-gray-200">
+                  <SelectTrigger className="w-36 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
                     <SelectValue placeholder="Provider" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-card/95 backdrop-blur-sm border-border/50">
                     <SelectItem value="all">All Providers</SelectItem>
                     <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="perplexity">Perplexity</SelectItem>
@@ -223,10 +223,10 @@ export function PromptList({
                 </Select>
 
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32 h-10 bg-gray-50 border-gray-200">
+                  <SelectTrigger className="w-32 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-card/95 backdrop-blur-sm border-border/50">
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="paused">Paused</SelectItem>
@@ -234,10 +234,10 @@ export function PromptList({
                 </Select>
 
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-44 h-10 bg-gray-50 border-gray-200">
+                  <SelectTrigger className="w-44 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-card/95 backdrop-blur-sm border-border/50">
                     <SelectItem value="all">All Categories</SelectItem>
                     <SelectItem value="Brand Visibility">Brand Visibility</SelectItem>
                     <SelectItem value="Competitor Monitoring">Competitor Monitoring</SelectItem>
@@ -245,7 +245,7 @@ export function PromptList({
                   </SelectContent>
                 </Select>
 
-                <Button onClick={onAddPrompt} className="h-10 bg-primary hover:bg-primary-hover">
+                <Button onClick={onAddPrompt} className="h-10 hover-lift shadow-glow transition-smooth">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Prompt
                 </Button>
@@ -253,8 +253,8 @@ export function PromptList({
             </div>
 
             {/* Results summary */}
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/30">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span>
                   Showing {paginatedPrompts.length} of {filteredPrompts.length} prompts
                   {filteredPrompts.length !== prompts.length && ` (filtered from ${prompts.length})`}
@@ -268,7 +268,7 @@ export function PromptList({
 
               {/* Master checkbox */}
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Select all</span>
+                <span className="text-sm text-muted-foreground">Select all</span>
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={handleSelectAll}
@@ -280,11 +280,11 @@ export function PromptList({
 
           {/* Bulk Actions Bar */}
           {showBulkActions && (
-            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4">
+            <div className="bg-primary/10 backdrop-blur-sm border border-primary/30 rounded-2xl p-4 shadow-soft">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <span className="text-sm font-medium text-primary">
+                  <span className="text-sm font-medium gradient-primary bg-clip-text text-transparent">
                     {selectedPrompts.size} prompt{selectedPrompts.size !== 1 ? 's' : ''} selected
                   </span>
                 </div>
@@ -294,7 +294,7 @@ export function PromptList({
                     size="sm"
                     variant="outline"
                     onClick={handleBulkEnable}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs hover-lift border-border/50 hover:border-primary/50 transition-smooth"
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" />
                     Enable
@@ -303,7 +303,7 @@ export function PromptList({
                     size="sm"
                     variant="outline"
                     onClick={handleBulkDisable}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs hover-lift border-border/50 hover:border-primary/50 transition-smooth"
                   >
                     <Pause className="mr-1 h-3 w-3" />
                     Disable
@@ -312,7 +312,7 @@ export function PromptList({
                     size="sm"
                     variant="outline"
                     onClick={() => setShowDeleteDialog(true)}
-                    className="h-8 text-xs text-red-600 hover:text-red-600 hover:bg-red-50 border-red-200"
+                    className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 hover:border-destructive/50 transition-smooth"
                   >
                     <Trash2 className="mr-1 h-3 w-3" />
                     Delete
@@ -321,7 +321,7 @@ export function PromptList({
                     size="sm"
                     variant="ghost"
                     onClick={() => setSelectedPrompts(new Set())}
-                    className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground transition-smooth"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -407,23 +407,23 @@ export function PromptList({
           </>
         ) : (
           /* Empty State */
-          <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-12 text-center">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl shadow-soft border border-border/50 p-12 text-center">
             <div className="max-w-md mx-auto">
-              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-gray-400" />
+              <div className="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-soft">
+                <Search className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold gradient-primary bg-clip-text text-transparent mb-2">
                 {searchQuery || filterProvider !== 'all' || filterStatus !== 'all' || filterCategory !== 'all'
                   ? 'No prompts match your filters'
                   : 'No prompts yet'}
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-muted-foreground mb-6">
                 {searchQuery || filterProvider !== 'all' || filterStatus !== 'all' || filterCategory !== 'all'
                   ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
                   : 'Get started by creating your first prompt to monitor brand visibility in AI search results.'}
               </p>
               {(!searchQuery && filterProvider === 'all' && filterStatus === 'all' && filterCategory === 'all') && (
-                <Button onClick={onAddPrompt} className="bg-primary hover:bg-primary-hover">
+                <Button onClick={onAddPrompt} className="hover-lift shadow-glow transition-smooth">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Your First Prompt
                 </Button>
@@ -435,19 +435,19 @@ export function PromptList({
 
       {/* Bulk Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="rounded-2xl bg-card/95 backdrop-blur-sm border-border/50 shadow-elegant">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Selected Prompts</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="gradient-primary bg-clip-text text-transparent">Delete Selected Prompts</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               Are you sure you want to delete {selectedPrompts.size} prompt{selectedPrompts.size !== 1 ? 's' : ''}? 
               This will also remove all associated visibility results and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-border/50 hover:border-primary/50 transition-smooth">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-glow transition-smooth"
             >
               Delete {selectedPrompts.size} Prompt{selectedPrompts.size !== 1 ? 's' : ''}
             </AlertDialogAction>
