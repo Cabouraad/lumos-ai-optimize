@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { FAQ } from '@/components/FAQ';
 import { 
   LayoutDashboard, 
@@ -38,12 +39,14 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-bg">
       <div className="flex">
         {/* Sidebar */}
-        <div className="w-64 bg-card border-r border-border flex flex-col h-screen">
-          <div className="p-6">
-            <h1 className="text-xl font-bold text-foreground">Llumos</h1>
+        <div className="w-64 bg-card/95 backdrop-blur-sm border-r border-border shadow-soft flex flex-col h-screen">
+          <div className="p-6 border-b border-border/50">
+            <h1 className="text-xl font-display gradient-primary bg-clip-text text-transparent">
+              Llumos
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {orgData?.organizations?.name}
             </p>
@@ -84,11 +87,11 @@ export function Layout({ children }: LayoutProps) {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium mb-1 transition-colors ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                  }`}
+                   className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium mb-1 transition-smooth hover-glow ${
+                     isActive
+                       ? 'bg-primary text-primary-foreground shadow-glow'
+                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                   }`}
                 >
                   <Icon className="mr-3 h-4 w-4" />
                   {item.name}
@@ -97,11 +100,11 @@ export function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
-          <div className="p-3 border-t border-border">
+          <div className="p-3 border-t border-border/50">
             <Button 
               variant="outline" 
               onClick={signOut}
-              className="w-full justify-start"
+              className="w-full justify-start hover-lift border-border/50 hover:border-primary/50"
             >
               <LogOut className="mr-3 h-4 w-4" />
               Sign Out
@@ -110,15 +113,17 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Main content */}
-        <div className="flex-1">
-          {/* Top bar with FAQ */}
-          {showFAQ && (
-            <div className="flex justify-end p-4 pb-0">
-              <FAQ page={location.pathname} />
+        <div className="flex-1 bg-gradient-subtle">
+          {/* Top bar with FAQ and Theme Toggle */}
+          <div className="flex justify-between items-center p-4 pb-0 bg-card/30 backdrop-blur-sm border-b border-border/30">
+            <div></div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {showFAQ && <FAQ page={location.pathname} />}
             </div>
-          )}
+          </div>
           
-          <main className={`p-8 ${showFAQ ? 'pt-4' : ''}`}>
+          <main className="p-8 pt-6">
             {children}
           </main>
         </div>

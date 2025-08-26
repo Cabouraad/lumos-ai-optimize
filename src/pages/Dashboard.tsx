@@ -239,14 +239,16 @@ export default function Dashboard() {
 
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Avg Visibility Score</CardTitle>
-                <Eye className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                  <Eye className="h-4 w-4 text-primary" />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-2">
-                  <div className="text-2xl font-bold">{formatScore(dashboardData?.avgScore || 0)}/10</div>
+                  <div className="text-2xl font-bold text-primary">{formatScore(dashboardData?.avgScore || 0)}/10</div>
                   {getTrendIcon(dashboardData?.trend || 0)}
                   {(dashboardData?.trend || 0) !== 0 && (
                     <span className="text-xs text-muted-foreground">
@@ -257,46 +259,54 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Overall Score</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
+                  <TrendingUp className="h-4 w-4 text-secondary" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatScore(dashboardData?.overallScore || 0)}/10</div>
+                <div className="text-2xl font-bold text-secondary">{formatScore(dashboardData?.overallScore || 0)}/10</div>
                 <p className="text-xs text-muted-foreground">Last 7 days average</p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
+                  <Users className="h-4 w-4 text-accent" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{dashboardData?.promptCount || 0}</div>
+                <div className="text-2xl font-bold text-accent">{dashboardData?.promptCount || 0}</div>
                 <p className="text-xs text-muted-foreground">Being monitored</p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Data Points</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
+                  <Calendar className="h-4 w-4 text-warning" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{dashboardData?.totalRuns || 0}</div>
+                <div className="text-2xl font-bold text-warning">{dashboardData?.totalRuns || 0}</div>
                 <p className="text-xs text-muted-foreground">Last 30 days</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Visibility Trend Chart */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Visibility Trend
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <span>Visibility Trend</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -320,14 +330,19 @@ export default function Dashboard() {
                       <Tooltip 
                         labelFormatter={(value) => new Date(value).toLocaleDateString()}
                         formatter={(value: any) => [`${formatScore(value)}/10`, 'Visibility Score']}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="score" 
                         stroke="hsl(var(--primary))" 
-                        strokeWidth={2}
+                        strokeWidth={3}
                         dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6 }}
+                        activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -345,16 +360,19 @@ export default function Dashboard() {
           </Card>
 
           {/* Top Recommendations */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Lightbulb className="h-5 w-5" />
-                Top Recommendations
+                <div className="p-2 bg-accent/10 rounded-lg">
+                  <Lightbulb className="h-5 w-5 text-accent" />
+                </div>
+                <span>Top Recommendations</span>
               </CardTitle>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => navigate('/recommendations')}
+                className="hover-lift"
               >
                 View All
               </Button>
@@ -363,15 +381,24 @@ export default function Dashboard() {
               {recommendations.length > 0 ? (
                 <div className="space-y-4">
                   {recommendations.map((rec) => (
-                    <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300 hover-lift group">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              rec.type === 'content' 
+                                ? 'border-primary text-primary bg-primary/10' 
+                                : rec.type === 'social' 
+                                ? 'border-accent text-accent bg-accent/10'
+                                : 'border-secondary text-secondary bg-secondary/10'
+                            }`}
+                          >
                             {rec.type === 'content' ? 'Content' : rec.type === 'social' ? 'Social' : rec.type}
                           </Badge>
                         </div>
                       </div>
-                      <h4 className="font-medium text-foreground mb-2">{rec.title}</h4>
+                      <h4 className="font-medium text-foreground mb-2 group-hover:text-primary transition-colors">{rec.title}</h4>
                       <p className="text-sm text-muted-foreground line-clamp-2">{rec.rationale}</p>
                     </div>
                   ))}
