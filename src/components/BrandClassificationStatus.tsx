@@ -8,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useBrandFeedbackCollector } from '@/lib/ml-enhancement/brand-learning';
 
 interface BrandClassificationStatusProps {
   promptId: string;
@@ -26,7 +25,6 @@ export function BrandClassificationStatus({
   onUpdate 
 }: BrandClassificationStatusProps) {
   const [isFixing, setIsFixing] = useState(false);
-  const { recordBrandFeedback } = useBrandFeedbackCollector();
 
   const handleFixClassification = async () => {
     setIsFixing(true);
@@ -56,8 +54,9 @@ export function BrandClassificationStatus({
   };
 
   const handleBrandFeedback = (brandName: string, isCorrect: boolean) => {
-    recordBrandFeedback(brandName, isCorrect, undefined, `Prompt: ${promptId}`);
-    toast.success('Feedback recorded - this will improve future classifications');
+    // Simplified feedback - just log for now
+    console.log('Brand feedback:', { brandName, isCorrect, promptId });
+    toast.success('Feedback recorded');
   };
 
   const hasIssues = !orgBrandPresent && score < 3;

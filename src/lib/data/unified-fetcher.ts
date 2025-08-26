@@ -1,30 +1,8 @@
 /**
- * Phase 2 Enhanced: Unified data fetcher with advanced caching and ML integration
+ * Simplified: Unified data fetcher using standard caching approach
  */
 import { supabase } from "@/integrations/supabase/client";
 import { getOrgId } from "@/lib/auth";
-import { advancedCache, CacheEventManager } from "../advanced-cache/redis-cache";
-import { backgroundPreloader } from "../background-optimization/data-preloader";
-
-// Initialize Phase 2 cache event management
-const cacheEventManager = CacheEventManager.getInstance();
-
-const CACHE_TTL = {
-  dashboard: 2 * 60 * 1000, // 2 minutes
-  prompts: 1 * 60 * 1000,   // 1 minute
-  providers: 5 * 60 * 1000,  // 5 minutes
-};
-
-// Legacy cache functions for backward compatibility
-async function getCachedData<T>(key: string): Promise<T | null> {
-  // Try advanced cache first, fallback to legacy
-  const cached = await advancedCache.get<T>(key);
-  return cached ? cached : null;
-}
-
-function setCachedData(key: string, data: any, ttl: number): void {
-  advancedCache.set(key, data, ttl);
-}
 
 export interface UnifiedDashboardData {
   // Metrics
@@ -105,21 +83,11 @@ export interface ProviderResponseData {
 }
 
 /**
- * Phase 2 Enhanced: Unified data fetcher with background preloading
+ * Simplified: Unified data fetcher for dashboard data
  */
 export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedDashboardData> {
   try {
     const orgId = await getOrgId();
-    const cacheKey = `dashboard-data-${orgId}`;
-    
-    if (useCache) {
-      // Check Phase 2 advanced cache first
-      const cached = await advancedCache.get<UnifiedDashboardData>(cacheKey);
-      if (cached) return cached;
-    }
-
-    // Trigger Phase 2 background preloading for future requests
-    backgroundPreloader.preloadCriticalData();
 
     // Single query to get all prompt data
     const [promptsResult, providersResult] = await Promise.all([
@@ -133,31 +101,15 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
         .select("id, name, enabled")
     ]);
 
-    console.log('🔍 Debug: Prompts query result:', {
-      error: promptsResult.error,
-      dataLength: promptsResult.data?.length || 0,
-      orgId: orgId
-    });
-
-    if (promptsResult.error) {
-      console.error('🔍 Debug: Prompts query error:', promptsResult.error);
-      throw promptsResult.error;
-    }
+    if (promptsResult.error) throw promptsResult.error;
     if (providersResult.error) throw providersResult.error;
 
     const prompts = promptsResult.data || [];
     const providers = providersResult.data || [];
     const promptIds = prompts.map(p => p.id);
 
-    console.log('🔍 Debug: Processing prompts data:', {
-      promptsCount: prompts.length,
-      providersCount: providers.length,
-      promptIds: promptIds.slice(0, 3),
-      firstPrompt: prompts[0]
-    });
-
     if (promptIds.length === 0) {
-      const emptyData: UnifiedDashboardData = {
+      return {
         avgScore: 0,
         overallScore: 0,
         trend: 0,
@@ -168,11 +120,9 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
         providers,
         prompts: []
       };
-      setCachedData(cacheKey, emptyData, CACHE_TTL.dashboard);
-      return emptyData;
     }
 
-    // Get all responses for the last 30 days in one query
+    // Get all responses for the last 30 days
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     const { data: responses, error: responsesError } = await supabase
@@ -187,7 +137,7 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
 
     const validResponses = responses || [];
 
-    // Calculate all metrics in one pass
+    // Calculate metrics
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -260,7 +210,7 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
       };
     });
 
-    const result: UnifiedDashboardData = {
+    return {
       avgScore: Math.round(avgScore * 10) / 10,
       overallScore: Math.round(overallScore * 10) / 10,
       trend: Math.round(trend * 10) / 10,
@@ -272,54 +222,39 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
       prompts: promptSummaries
     };
 
-    // Phase 2: Use advanced cache with event-driven invalidation
-    advancedCache.set(cacheKey, result, CACHE_TTL.dashboard);
-    return result;
-
   } catch (error) {
-    console.error("Unified dashboard data error:", error);
+    console.error("Dashboard data error:", error);
     throw error;
   }
 }
 
 /**
- * Phase 2 Enhanced: Unified prompt data fetcher with ML integration
+ * Simplified: Unified prompt data fetcher
  */
 export async function getUnifiedPromptData(useCache = true): Promise<UnifiedPromptData> {
   try {
     const orgId = await getOrgId();
-    const cacheKey = `prompt-data-${orgId}`;
-    
-    if (useCache) {
-      // Check Phase 2 advanced cache first
-      const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
-      if (cached) return cached;
-    }
 
     // Get base dashboard data
     const dashboardData = await getUnifiedDashboardData(useCache);
     const safePrompts = Array.isArray((dashboardData as any)?.prompts) ? (dashboardData as any).prompts : [];
     
     if (safePrompts.length === 0) {
-      const emptyData: UnifiedPromptData = {
+      return {
         ...dashboardData,
         prompts: [],
         promptDetails: []
       };
-      advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
-      return emptyData;
     }
 
     const promptIds = safePrompts.map(p => p.id);
     
     if (promptIds.length === 0) {
-      const emptyData: UnifiedPromptData = {
+      return {
         ...dashboardData,
         prompts: [],
         promptDetails: []
       };
-      advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
-      return emptyData;
     }
 
     // Get latest provider responses and simplified data in parallel
@@ -360,7 +295,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         .map(p => p!.run_at)
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
 
-      // Simplified competitor data (removed individual mention tracking)
+      // Simplified competitor data
       const promptCompetitors: Array<{ name: string; count: number }> = [];
 
       // Get 7-day stats
@@ -368,7 +303,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       const sevenDayStats = {
         totalRuns: Number(promptSevenDay?.runs_7d || 0),
         avgScore: Number(promptSevenDay?.avg_score_7d || 0),
-        brandPresenceRate: 0, // TODO: Calculate if needed
+        brandPresenceRate: 0,
       };
 
       return {
@@ -383,69 +318,23 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       };
     });
 
-    const result: UnifiedPromptData = {
+    return {
       ...dashboardData,
       promptDetails
     };
 
-    // Phase 2: Advanced caching with event-driven invalidation
-    advancedCache.set(cacheKey, result, CACHE_TTL.prompts);
-    return result;
-
   } catch (error) {
-    console.error("Unified prompt data error:", error);
+    console.error("Prompt data error:", error);
     throw error;
   }
 }
 
 /**
- * Phase 2: Enhanced cache invalidation with event-driven updates
+ * Simplified cache invalidation
  */
 export function invalidateCache(keys?: string[]): void {
-  if (keys) {
-    keys.forEach(key => advancedCache.invalidate(key));
-    
-    // Emit cache invalidation events for other components
-    keys.forEach(key => {
-      if (key.includes('prompt')) {
-        cacheEventManager.emit('prompt-executed', { cacheKey: key });
-      } else if (key.includes('brand')) {
-        cacheEventManager.emit('brand-updated', { cacheKey: key });
-      }
-    });
-  } else {
-    // Clear all cache entries
-    advancedCache.invalidate('*');
-  }
-}
-
-/**
- * Phase 2: New advanced caching utilities
- */
-export function getCacheStats() {
-  return advancedCache.getStats();
-}
-
-export function warmCacheForUser() {
-  backgroundPreloader.preloadCriticalData();
-}
-
-/**
- * Cache invalidation and UI refresh after brand classification fixes
- */
-export function refreshAfterBrandFix() {
-  // Clear all related caches
-  invalidateCache(['dashboard-data', 'prompt-data', 'provider-data', 'competitors-data']);
-  
-  // Trigger cache warming for immediate UI responsiveness
-  warmCacheForUser();
-  
-  // Emit events for real-time updates
-  const eventManager = CacheEventManager.getInstance();
-  eventManager.emit('brand-classification-updated', { 
-    timestamp: Date.now(),
-    reason: 'manual-fix-applied' 
-  });
+  // With React Query, this would typically be handled by query invalidation
+  console.log('Cache invalidation requested for:', keys);
 }
 
 /**
@@ -456,10 +345,6 @@ export async function getPromptProviderHistory(
   provider: string, 
   limit: number = 10
 ): Promise<ProviderResponseData[]> {
-  const cacheKey = `history-${promptId}-${provider}`;
-  const cached = await getCachedData<ProviderResponseData[]>(cacheKey);
-  if (cached) return cached;
-
   try {
     const { data, error } = await supabase
       .from('prompt_provider_responses')
@@ -471,12 +356,17 @@ export async function getPromptProviderHistory(
 
     if (error) throw error;
 
-    const result = (data as ProviderResponseData[]) || [];
-    // Phase 2: Advanced caching for provider history
-    advancedCache.set(cacheKey, result, CACHE_TTL.providers);
-    return result;
+    return (data as ProviderResponseData[]) || [];
   } catch (error) {
     console.error(`Error fetching ${provider} history for prompt ${promptId}:`, error);
     throw error;
   }
+}
+
+/**
+ * Simplified refresh function
+ */
+export function refreshAfterBrandFix() {
+  // This would trigger React Query refetch in practice
+  console.log('Refreshing data after brand fix');
 }
