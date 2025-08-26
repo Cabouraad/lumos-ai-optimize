@@ -134,6 +134,7 @@ export default function Competitors() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [orgName, setOrgName] = useState<string>('Your Brand');
+  const [syncingCompetitors, setSyncingCompetitors] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -346,6 +347,47 @@ export default function Competitors() {
     }
   };
 
+  const handleSyncCompetitors = async () => {
+    try {
+      setSyncingCompetitors(true);
+      
+      const { data, error } = await supabase.functions.invoke('sync-competitor-detection');
+      
+      if (error) {
+        console.error('Error syncing competitors:', error);
+        toast({
+          title: "Sync failed",
+          description: "Failed to sync competitor detection. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const result = data as {
+        competitorsAdded: number;
+        competitorsUpdated: number;
+        totalCompetitorsProcessed: number;
+      };
+
+      toast({
+        title: "Competitors synced",
+        description: `Found ${result.competitorsAdded} new competitors and updated ${result.competitorsUpdated} existing ones.`
+      });
+
+      // Refresh the data to show updated competitors
+      fetchCompetitorData();
+    } catch (error) {
+      console.error('Error in handleSyncCompetitors:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during sync.",
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingCompetitors(false);
+    }
+  };
+
   if (!competitorAccess.hasAccess) {
     return (
       <Layout>
@@ -431,6 +473,25 @@ export default function Competitors() {
                   <BarChart3 className="h-4 w-4 mr-1" />
                   {topBrands.length + nearestCompetitors.length + upcomingBrands.length - 3} tracked
                 </Badge>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={handleSyncCompetitors}
+                  disabled={syncingCompetitors}
+                  className="shadow-sm"
+                >
+                  {syncingCompetitors ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-primary border-t-transparent rounded-full" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="h-4 w-4 mr-2" />
+                      Sync Detection
+                    </>
+                  )}
+                </Button>
                 
                 <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                   <DialogTrigger asChild>

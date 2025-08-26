@@ -4,6 +4,9 @@ project_id = "cgocsffxqyhojtyzniyz"
 verify_jwt = false
 import_map = ""
 
+[functions.sync-competitor-detection]
+verify_jwt = true
+
 [functions.fix-prompt-classification]
 verify_jwt = true
 

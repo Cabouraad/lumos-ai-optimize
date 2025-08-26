@@ -180,6 +180,51 @@ export function PromptRow({
     }
   };
 
+  const fetchCompetitors = async () => {
+    try {
+      setLoadingCompetitors(true);
+      
+      // Get competitors from current prompt's actual responses instead of global catalog
+      const competitorMap = new Map<string, number>();
+      
+      // Collect all competitors from the three provider responses
+      [providerData.openai, providerData.gemini, providerData.perplexity].forEach(response => {
+        if (response?.competitors_json && Array.isArray(response.competitors_json)) {
+          response.competitors_json.forEach((competitor: string) => {
+            const name = competitor.trim();
+            if (name && name.length > 2) {
+              competitorMap.set(name, (competitorMap.get(name) || 0) + 1);
+            }
+          });
+        }
+      });
+      
+      // Convert to array and sort by frequency
+      const competitors = Array.from(competitorMap.entries())
+        .map(([name, mentions]) => ({ name, mentions }))
+        .sort((a, b) => b.mentions - a.mentions)
+        .slice(0, 5);
+      
+      const total = competitors.reduce((sum, comp) => sum + comp.mentions, 0);
+      if (total === 0) {
+        setTopCompetitors([]);
+        return;
+      }
+      
+      setTopCompetitors(
+        competitors.map(comp => ({
+          name: comp.name,
+          share: Math.round((comp.mentions / total) * 100),
+        }))
+      );
+    } catch (error) {
+      console.error('Error fetching competitors:', error);
+      setTopCompetitors([]);
+    } finally {
+      setLoadingCompetitors(false);
+    }
+  };
+
   // Fetch provider-specific data when expanded (with caching to prevent repeated calls)
   useEffect(() => {
     if (!isExpanded) {
@@ -295,53 +340,6 @@ export function PromptRow({
       }
     };
 
-    const fetchCompetitors = async () => {
-      try {
-        setLoadingCompetitors(true);
-        
-        const orgId = await getOrgId();
-        
-        // Use brand_catalog instead of competitor_mentions for competitor data
-        const { data, error } = await supabase
-          .from('brand_catalog')
-          .select('name, total_appearances')
-          .eq('org_id', orgId)
-          .eq('is_org_brand', false)
-          .gt('total_appearances', 0)
-          .order('total_appearances', { ascending: false })
-          .limit(5);
-          
-        if (error) {
-          console.error('Error fetching competitors:', error);
-          setTopCompetitors([]);
-          return;
-        }
-        
-        const competitors = (data || []).map(comp => ({
-          name: comp.name,
-          mentions: comp.total_appearances
-        }));
-        
-        const total = competitors.reduce((sum, comp) => sum + comp.mentions, 0);
-        if (total === 0) {
-          setTopCompetitors([]);
-          return;
-        }
-        
-        setTopCompetitors(
-          competitors.map(comp => ({
-            name: comp.name,
-            share: Math.round((comp.mentions / total) * 100),
-          }))
-        );
-      } catch (error) {
-        console.error('Error fetching competitors:', error);
-        setTopCompetitors([]);
-      } finally {
-        setLoadingCompetitors(false);
-      }
-    };
-
     const fetchTrend = async () => {
       const { data, error } = await supabase.rpc('get_prompt_visibility_7d');
       
@@ -363,9 +361,15 @@ export function PromptRow({
     };
 
     fetchProviderData();
-    fetchCompetitors();
     fetchTrend();
   }, [isExpanded, prompt.id]);
+
+  // Fetch competitor data after provider responses are loaded
+  useEffect(() => {
+    if (isExpanded && (providerData.openai || providerData.gemini || providerData.perplexity)) {
+      fetchCompetitors();
+    }
+  }, [isExpanded, providerData]);
 
   return (
     <TooltipProvider>
