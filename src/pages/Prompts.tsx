@@ -507,7 +507,7 @@ export default function Prompts() {
               <TabsContent value="debug" className="mt-6">
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">Debug Tools</h3>
+                    <h3 className="text-lg font-semibold mb-2 gradient-primary bg-clip-text text-transparent">Debug Tools</h3>
                     <p className="text-muted-foreground">
                       Test and analyze prompt responses across all providers
                     </p>
@@ -524,23 +524,23 @@ export default function Prompts() {
 
             {/* Add Prompt Dialog */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-              <DialogContent className="rounded-2xl max-w-md">
+              <DialogContent className="rounded-2xl max-w-md bg-card/95 backdrop-blur-sm border-border/50 shadow-elegant">
                 <DialogHeader>
-                  <DialogTitle className="text-xl">Add New Prompt</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-xl gradient-primary bg-clip-text text-transparent">Add New Prompt</DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
                     Create a new prompt to monitor your brand visibility
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="prompt-text">Prompt Text</Label>
+                    <Label htmlFor="prompt-text" className="text-foreground font-medium">Prompt Text</Label>
                     <Textarea
                       id="prompt-text"
                       placeholder="e.g., What are the best project management tools?"
                       value={newPromptText}
                       onChange={(e) => setNewPromptText(e.target.value)}
                       rows={4}
-                      className="rounded-xl resize-none"
+                      className="rounded-xl resize-none border-border/50 bg-background/50 backdrop-blur-sm focus:border-primary/50 transition-smooth"
                     />
                   </div>
                   <div className="flex justify-end space-x-2">
@@ -548,14 +548,14 @@ export default function Prompts() {
                       type="button" 
                       variant="outline" 
                       onClick={() => setIsAddModalOpen(false)}
-                      className="rounded-xl"
+                      className="rounded-xl hover-lift border-border/50 hover:border-primary/50 transition-smooth"
                     >
                       Cancel
                     </Button>
                     <Button 
                       onClick={handleAddPrompt} 
                       disabled={!newPromptText.trim()}
-                      className="rounded-xl bg-primary hover:bg-primary-hover"
+                      className="rounded-xl hover-lift shadow-glow transition-smooth"
                     >
                       Add Prompt
                     </Button>
