@@ -119,7 +119,22 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
 
   const estLift = recommendation.metadata?.estLift || 0;
   const steps = recommendation.metadata?.steps || [];
-  const sourcePromptIds = recommendation.metadata?.sourcePromptIds || [];
+  // Normalize sourcePromptIds which may arrive as an array or a JSON/comma-separated string
+  const rawSourcePromptIds = (recommendation.metadata as any)?.sourcePromptIds as any;
+  const sourcePromptIds: string[] = Array.isArray(rawSourcePromptIds)
+    ? (rawSourcePromptIds as string[])
+    : typeof rawSourcePromptIds === 'string'
+      ? (() => {
+          try {
+            const parsed = JSON.parse(rawSourcePromptIds);
+            if (Array.isArray(parsed)) return parsed as string[];
+          } catch (_) {}
+          return rawSourcePromptIds
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+        })()
+      : [];
 
   // Load prompt texts when component mounts and has prompt IDs
   useEffect(() => {
@@ -334,57 +349,39 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
                     {sourcePromptIds.length} {sourcePromptIds.length === 1 ? 'prompt' : 'prompts'}
                   </Badge>
                 </div>
-                
-                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  This recommendation analyzes the following queries to identify content opportunities:
-                </p>
-                
                 {loadingPrompts ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {sourcePromptIds.map((_, index) => (
-                      <div key={index} className="bg-card p-4 rounded-lg border animate-pulse">
-                        <div className="h-4 bg-muted rounded mb-2"></div>
-                        <div className="h-3 bg-muted rounded w-3/4"></div>
-                      </div>
+                      <div key={index} className="h-4 bg-muted rounded w-3/4" />
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {promptTexts.map((promptText, index) => (
-                      <div key={sourcePromptIds[index]} className="bg-card p-4 rounded-lg border hover:shadow-sm transition-shadow">
-                        <div className="flex items-start justify-between mb-2">
-                          <Badge variant="secondary" className="text-xs">
-                            Query {index + 1}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => copyToClipboard(promptText)}
-                            className="h-6 w-6 p-0"
-                            aria-label={`Copy query ${index + 1}`}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <p className="text-sm text-foreground leading-relaxed font-medium">
-                          "{promptText}"
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    {promptTexts.length > 0 ? (
+                      <ul className="space-y-2">
+                        {promptTexts.map((promptText, index) => (
+                          <li key={sourcePromptIds[index]} className="text-sm text-foreground leading-relaxed">
+                            {index + 1}. "{promptText}"
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No related prompts found.</p>
+                    )}
+
+                    <div className="pt-3 border-t mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPromptModalOpen(true)}
+                        className="text-xs"
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        View Performance Details
+                      </Button>
+                    </div>
+                  </>
                 )}
-                
-                <div className="pt-3 border-t mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPromptModalOpen(true)}
-                    className="text-xs"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    View Performance Details
-                  </Button>
-                </div>
               </div>
             </div>
           )}
