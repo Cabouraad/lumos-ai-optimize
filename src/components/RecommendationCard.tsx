@@ -138,8 +138,19 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
 
   // Load prompt texts when component mounts and has prompt IDs
   useEffect(() => {
-    if (sourcePromptIds.length > 0 && orgId) {
-      loadPromptTexts();
+    if (sourcePromptIds.length > 0) {
+      // Check if sourcePromptIds contains actual UUIDs or prompt texts
+      const firstId = sourcePromptIds[0];
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firstId);
+      
+      if (isUUID && orgId) {
+        // If they are UUIDs, fetch the prompt texts from the database
+        loadPromptTexts();
+      } else {
+        // If they are already prompt texts, use them directly
+        setPromptTexts(sourcePromptIds);
+        setLoadingPrompts(false);
+      }
     }
   }, [sourcePromptIds, orgId]);
 
@@ -358,10 +369,10 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
                 ) : (
                   <>
                     {promptTexts.length > 0 ? (
-                      <ul className="space-y-2">
+                      <ul className="space-y-3">
                         {promptTexts.map((promptText, index) => (
-                          <li key={sourcePromptIds[index]} className="text-sm text-foreground leading-relaxed">
-                            {index + 1}. "{promptText}"
+                          <li key={index} className="text-sm text-foreground leading-relaxed bg-muted/30 p-3 rounded-lg">
+                            <span className="font-medium">Query {index + 1}:</span> "{promptText}"
                           </li>
                         ))}
                       </ul>
