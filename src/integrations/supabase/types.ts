@@ -639,6 +639,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      fix_stuck_batch_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }
         Returns: {
@@ -658,6 +662,14 @@ export type Database = {
           subscription_tier: string
           trial_expires_at: string
         }[]
+      }
+      increment_completed_tasks: {
+        Args: { job_id: string }
+        Returns: undefined
+      }
+      increment_failed_tasks: {
+        Args: { job_id: string }
+        Returns: undefined
       }
       reco_upsert: {
         Args: {
