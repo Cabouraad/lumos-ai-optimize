@@ -103,9 +103,9 @@ export function PromptRow({
   const [trendRuns, setTrendRuns] = useState<number>(0);
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return 'bg-success/10 text-success border-success/30';
-    if (score >= 5) return 'bg-warning/10 text-warning border-warning/30';
-    return 'bg-destructive/10 text-destructive border-destructive/30';
+    if (score >= 8) return 'bg-gradient-to-r from-emerald-500 to-green-400 text-white border-emerald-300 shadow-emerald-500/30 shadow-lg';
+    if (score >= 5) return 'bg-gradient-to-r from-amber-500 to-orange-400 text-white border-amber-300 shadow-amber-500/30 shadow-lg';
+    return 'bg-gradient-to-r from-rose-500 to-red-400 text-white border-rose-300 shadow-rose-500/30 shadow-lg';
   };
 
   const getCategoryColor = (category: string) => {
@@ -452,20 +452,24 @@ export function PromptRow({
           <div className="hidden md:flex items-center gap-4 py-1">
             {/* Visibility Score */}
             <div className="flex items-center gap-1">
-              <Badge className={`text-xs h-5 px-2 rounded-full border ${getScoreColor(prompt.visibilityScore)}`}>
+              <Badge className={`text-sm font-bold h-6 px-3 rounded-full border transition-smooth hover-glow ${getScoreColor(prompt.visibilityScore)}`}>
                 {prompt.visibilityScore > 0 ? prompt.visibilityScore.toFixed(1) : '0.0'}
               </Badge>
             </div>
 
             {/* Brand/Competitor Metrics */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 text-sm font-medium">
               <div className="flex items-center gap-1">
-                <Target className="h-3 w-3 text-blue-400" />
-                <span>{prompt.brandPct}%</span>
+                <Target className="h-4 w-4 text-blue-400" />
+                <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent font-bold">
+                  {prompt.brandPct}%
+                </span>
               </div>
               <div className="flex items-center gap-1">
-                <Users className="h-3 w-3 text-purple-400" />
-                <span>{prompt.competitorPct}%</span>
+                <Users className="h-4 w-4 text-purple-400" />
+                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent font-bold">
+                  {prompt.competitorPct}%
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 {getSentimentIcon(prompt.sentimentDelta)}
