@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 export default function TrialSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { checkSubscription } = useAuth();
+  const { checkSubscription } = useSubscription();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);

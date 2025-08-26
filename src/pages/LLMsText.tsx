@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrganizationKeywords } from '@/lib/org/data';
 import { 
@@ -43,7 +43,7 @@ interface LLMsTextData {
 
 export default function LLMsText() {
   const { toast } = useToast();
-  const { orgData } = useAuth();
+  const { orgData } = useOrg();
   const [data, setData] = useState<LLMsTextData>({
     siteName: '',
     siteUrl: '',

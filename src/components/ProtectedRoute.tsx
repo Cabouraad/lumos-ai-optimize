@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
 import { Navigate } from 'react-router-dom';
 
 interface ProtectedRouteProps {
@@ -7,7 +8,8 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, orgData } = useAuth();
+  const { user, loading } = useAuth();
+  const { orgData } = useOrg();
 
   if (loading) {
     return (

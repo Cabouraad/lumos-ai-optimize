@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { ExternalLink, Crown, Zap, Shield } from 'lucide-react';
 
 export function SubscriptionManager() {
-  const { subscriptionData, checkSubscription } = useAuth();
+  const { subscriptionData, checkSubscription } = useSubscription();
   const { currentTier, limits } = useSubscriptionGate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);

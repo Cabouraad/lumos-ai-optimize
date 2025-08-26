@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { PricingCard } from '@/components/PricingCard';
 
 export default function Onboarding() {
-  const { user, orgData, subscriptionData } = useAuth();
+  const { user } = useAuth();
+  const { orgData } = useOrg();
+  const { subscriptionData } = useSubscription();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);

@@ -1,5 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +11,11 @@ interface SubscriptionGateProps {
 }
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
-  const { user, orgData, subscriptionData, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { orgData } = useOrg();
+  const { subscriptionData, loading: subLoading } = useSubscription();
+  
+  const loading = authLoading || subLoading;
   const location = useLocation();
 
   // Show loading state

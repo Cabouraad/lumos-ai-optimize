@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getQuotasForTier } from '../../lib/tiers/quotas';
 
 export interface FeatureGate {
@@ -22,7 +22,7 @@ export interface TierLimits {
 }
 
 export function useSubscriptionGate() {
-  const { subscriptionData } = useAuth();
+  const { subscriptionData } = useSubscription();
   
   const currentTier = subscriptionData?.subscription_tier || 'free';
   const isSubscribed = subscriptionData?.subscribed || false;

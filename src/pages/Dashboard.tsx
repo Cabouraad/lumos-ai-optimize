@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
-  const { user, orgData } = useAuth();
+  const { user } = useAuth();
+  const { orgData } = useOrg();
   const navigate = useNavigate();
   const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();

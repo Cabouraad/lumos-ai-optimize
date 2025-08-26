@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
 import { FAQ } from '@/components/FAQ';
@@ -20,7 +21,8 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { signOut, orgData } = useAuth();
+  const { signOut } = useAuth();
+  const { orgData } = useOrg();
   const location = useLocation();
   const { canAccessCompetitorAnalysis, canAccessRecommendations } = useSubscriptionGate();
 

@@ -3,12 +3,12 @@ import { Layout } from '@/components/Layout';
 import { PricingCard } from '@/components/PricingCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Badge } from '@/components/ui/badge';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const { subscriptionData } = useAuth();
+  const { subscriptionData } = useSubscription();
 
   const pricingTiers = [
     {

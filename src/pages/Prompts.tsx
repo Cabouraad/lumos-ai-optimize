@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOrg } from '@/contexts/OrgContext';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -94,7 +94,7 @@ const getPromptCategory = (text: string) => {
 };
 
 export default function Prompts() {
-  const { orgData } = useAuth();
+  const { orgData } = useOrg();
   const { toast } = useToast();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
   const [providerData, setProviderData] = useState<any[]>([]);
