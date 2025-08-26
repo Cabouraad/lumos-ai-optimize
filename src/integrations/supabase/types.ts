@@ -586,45 +586,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_subscription_safe: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          payment_status: string | null
-          subscribed: boolean | null
-          subscription_end: string | null
-          subscription_tier: string | null
-          trial_expires_at: string | null
-          trial_started_at: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          payment_status?: never
-          subscribed?: boolean | null
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          trial_expires_at?: string | null
-          trial_started_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          payment_status?: never
-          subscribed?: boolean | null
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          trial_expires_at?: string | null
-          trial_started_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
     }
     Functions: {
       fix_brand_classification_all_providers: {
