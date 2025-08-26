@@ -1,5 +1,4 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrg } from '@/contexts/OrgContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,8 +6,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight } from 'lucide-react';
 
 const Index = () => {
-  const { user, loading } = useAuth();
-  const { orgData } = useOrg();
+  const { user, loading, orgData } = useAuth();
 
   if (loading) {
     return (

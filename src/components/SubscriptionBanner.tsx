@@ -1,4 +1,4 @@
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
 
 export function SubscriptionBanner() {
-  const { subscriptionData } = useSubscription();
+  const { subscriptionData } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);

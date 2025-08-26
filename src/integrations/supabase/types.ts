@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_jobs: {
+        Row: {
+          completed_at: string | null
+          completed_tasks: number
+          created_at: string
+          failed_tasks: number
+          id: string
+          metadata: Json | null
+          org_id: string
+          progress_percent: number
+          started_at: string | null
+          status: string
+          total_tasks: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_tasks?: number
+          created_at?: string
+          failed_tasks?: number
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          progress_percent?: number
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_tasks?: number
+          created_at?: string
+          failed_tasks?: number
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          progress_percent?: number
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batch_tasks: {
+        Row: {
+          attempts: number
+          batch_job_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number
+          prompt_id: string
+          provider: string
+          result: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          batch_job_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          prompt_id: string
+          provider: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          batch_job_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          prompt_id?: string
+          provider?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_tasks_batch_job_id_fkey"
+            columns: ["batch_job_id"]
+            isOneToOne: false
+            referencedRelation: "batch_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_tasks_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_catalog: {
         Row: {
           average_score: number | null
@@ -285,6 +401,7 @@ export type Database = {
           id: string
           metadata: Json | null
           org_id: string
+          prompt_ref: string | null
           rationale: string
           status: string
           title: string
@@ -295,6 +412,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           org_id: string
+          prompt_ref?: string | null
           rationale: string
           status?: string
           title: string
@@ -305,6 +423,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           org_id?: string
+          prompt_ref?: string | null
           rationale?: string
           status?: string
           title?: string
@@ -318,7 +437,38 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recommendations_prompt_ref_fkey"
+            columns: ["prompt_ref"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      scheduler_state: {
+        Row: {
+          created_at: string
+          id: string
+          last_daily_run_at: string | null
+          last_daily_run_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_daily_run_at?: string | null
+          last_daily_run_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_daily_run_at?: string | null
+          last_daily_run_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       subscribers: {
         Row: {

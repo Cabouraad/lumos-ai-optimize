@@ -2,7 +2,7 @@ import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
-import { useOrg } from '@/contexts/OrgContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,7 +76,7 @@ const impactColors = {
 
 export default function Recommendations() {
   const { canAccessRecommendations } = useSubscriptionGate();
-  const { orgData } = useOrg();
+  const { orgData } = useAuth();
   const { toast } = useToast();
   const recommendationsAccess = canAccessRecommendations();
   
