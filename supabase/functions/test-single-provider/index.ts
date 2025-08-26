@@ -235,6 +235,15 @@ function analyzeResponse(responseText: string, orgName: string): {
   const competitorPositions: Array<{ name: string; pos: number }> = [];
   
   for (const comp of competitorKeywords) {
+    // Skip if this competitor matches any org brand variant
+    const isOrgBrand = orgVariants.some(variant => 
+      variant.toLowerCase() === comp.toLowerCase() ||
+      comp.toLowerCase().includes(variant.toLowerCase()) ||
+      variant.toLowerCase().includes(comp.toLowerCase())
+    );
+    
+    if (isOrgBrand) continue;
+    
     const re = makeBoundaryRegex(comp);
     re.lastIndex = 0; // Reset regex state
     const match = re.exec(text);

@@ -81,6 +81,15 @@ export async function analyzeResponse(
     const competitorPositions: Array<{ name: string; pos: number }> = [];
     
     for (const comp of COMPETITOR_KEYWORDS) {
+      // Skip if this competitor matches any org brand variant
+      const isOrgBrand = orgVariants.some(variant => 
+        variant.toLowerCase() === comp.toLowerCase() ||
+        comp.toLowerCase().includes(variant.toLowerCase()) ||
+        variant.toLowerCase().includes(comp.toLowerCase())
+      );
+      
+      if (isOrgBrand) continue;
+      
       const re = makeBoundaryRegex(comp);
       re.lastIndex = 0;
       const match = re.exec(text);
