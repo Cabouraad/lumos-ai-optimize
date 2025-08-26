@@ -43,7 +43,7 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar className="border-r border-border/30 bg-gradient-bg backdrop-blur-sm shadow-soft">
+    <Sidebar className="border-r border-border/30 bg-gradient-subtle backdrop-blur-sm shadow-soft">
       <SidebarHeader className="p-6 border-b border-border/30">
         <h1 className="text-xl font-display gradient-primary bg-clip-text text-transparent">
           Llumos
