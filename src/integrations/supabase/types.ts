@@ -23,11 +23,9 @@ export type Database = {
           id: string
           metadata: Json | null
           org_id: string
-          progress_percent: number
           started_at: string | null
           status: string
           total_tasks: number
-          updated_at: string
         }
         Insert: {
           completed_at?: string | null
@@ -37,11 +35,9 @@ export type Database = {
           id?: string
           metadata?: Json | null
           org_id: string
-          progress_percent?: number
           started_at?: string | null
           status?: string
           total_tasks?: number
-          updated_at?: string
         }
         Update: {
           completed_at?: string | null
@@ -51,21 +47,11 @@ export type Database = {
           id?: string
           metadata?: Json | null
           org_id?: string
-          progress_percent?: number
           started_at?: string | null
           status?: string
           total_tasks?: number
-          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "batch_jobs_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       batch_tasks: {
         Row: {
@@ -75,13 +61,11 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
-          max_attempts: number
           prompt_id: string
           provider: string
           result: Json | null
           started_at: string | null
           status: string
-          updated_at: string
         }
         Insert: {
           attempts?: number
@@ -90,13 +74,11 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
-          max_attempts?: number
           prompt_id: string
           provider: string
           result?: Json | null
           started_at?: string | null
           status?: string
-          updated_at?: string
         }
         Update: {
           attempts?: number
@@ -105,13 +87,11 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
-          max_attempts?: number
           prompt_id?: string
           provider?: string
           result?: Json | null
           started_at?: string | null
           status?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -119,13 +99,6 @@ export type Database = {
             columns: ["batch_job_id"]
             isOneToOne: false
             referencedRelation: "batch_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_tasks_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompts"
             referencedColumns: ["id"]
           },
         ]
@@ -401,7 +374,6 @@ export type Database = {
           id: string
           metadata: Json | null
           org_id: string
-          prompt_ref: string | null
           rationale: string
           status: string
           title: string
@@ -412,7 +384,6 @@ export type Database = {
           id?: string
           metadata?: Json | null
           org_id: string
-          prompt_ref?: string | null
           rationale: string
           status?: string
           title: string
@@ -423,7 +394,6 @@ export type Database = {
           id?: string
           metadata?: Json | null
           org_id?: string
-          prompt_ref?: string | null
           rationale?: string
           status?: string
           title?: string
@@ -437,38 +407,7 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "recommendations_prompt_ref_fkey"
-            columns: ["prompt_ref"]
-            isOneToOne: false
-            referencedRelation: "prompts"
-            referencedColumns: ["id"]
-          },
         ]
-      }
-      scheduler_state: {
-        Row: {
-          created_at: string
-          id: string
-          last_daily_run_at: string | null
-          last_daily_run_key: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          last_daily_run_at?: string | null
-          last_daily_run_key?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          last_daily_run_at?: string | null
-          last_daily_run_key?: string | null
-          updated_at?: string
-        }
-        Relationships: []
       }
       subscribers: {
         Row: {
