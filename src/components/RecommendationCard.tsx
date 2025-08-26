@@ -50,7 +50,6 @@ interface RecommendationCardProps {
 export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: RecommendationCardProps) {
   const { toast } = useToast();
   const [showSteps, setShowSteps] = useState(false);
-  const [showPrompts, setShowPrompts] = useState(false);
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [promptTexts, setPromptTexts] = useState<string[]>([]);
@@ -317,82 +316,70 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
             </div>
           )}
 
-          {/* Related Prompts - Show full prompt text */}
+          {/* Related Prompts - Show full prompt text directly */}
           {sourcePromptIds.length > 0 && (
             <div className="border-t bg-muted/10">
               <div className="px-6 py-4">
-                <button
-                  onClick={() => setShowPrompts(!showPrompts)}
-                  className="w-full flex items-center justify-between text-left text-sm font-semibold text-foreground hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset transition-colors p-2 rounded-lg"
-                  aria-expanded={showPrompts}
-                  aria-controls="related-prompts"
-                >
-                  <span className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Related Prompts
-                  </span>
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {sourcePromptIds.length} {sourcePromptIds.length === 1 ? 'prompt' : 'prompts'}
-                    </Badge>
-                    {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <FileText className="h-4 w-4" />
+                    <h4 className="text-sm font-semibold text-foreground">Related Prompts</h4>
                   </div>
-                </button>
+                  <Badge variant="outline" className="text-xs">
+                    {sourcePromptIds.length} {sourcePromptIds.length === 1 ? 'prompt' : 'prompts'}
+                  </Badge>
+                </div>
                 
-                {showPrompts && (
-                  <div id="related-prompts" className="mt-4 space-y-4">
-                    <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                      This recommendation analyzes the following queries to identify content opportunities:
-                    </p>
-                    
-                    {loadingPrompts ? (
-                      <div className="space-y-3">
-                        {sourcePromptIds.map((_, index) => (
-                          <div key={index} className="bg-card p-4 rounded-lg border animate-pulse">
-                            <div className="h-4 bg-muted rounded mb-2"></div>
-                            <div className="h-3 bg-muted rounded w-3/4"></div>
-                          </div>
-                        ))}
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                  This recommendation analyzes the following queries to identify content opportunities:
+                </p>
+                
+                {loadingPrompts ? (
+                  <div className="space-y-3">
+                    {sourcePromptIds.map((_, index) => (
+                      <div key={index} className="bg-card p-4 rounded-lg border animate-pulse">
+                        <div className="h-4 bg-muted rounded mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-3/4"></div>
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {promptTexts.map((promptText, index) => (
-                          <div key={sourcePromptIds[index]} className="bg-card p-4 rounded-lg border hover:shadow-sm transition-shadow">
-                            <div className="flex items-start justify-between mb-2">
-                              <Badge variant="secondary" className="text-xs">
-                                Query {index + 1}
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => copyToClipboard(promptText)}
-                                className="h-6 w-6 p-0"
-                                aria-label={`Copy query ${index + 1}`}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <p className="text-sm text-foreground leading-relaxed font-medium">
-                              "{promptText}"
-                            </p>
-                          </div>
-                        ))}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {promptTexts.map((promptText, index) => (
+                      <div key={sourcePromptIds[index]} className="bg-card p-4 rounded-lg border hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between mb-2">
+                          <Badge variant="secondary" className="text-xs">
+                            Query {index + 1}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => copyToClipboard(promptText)}
+                            className="h-6 w-6 p-0"
+                            aria-label={`Copy query ${index + 1}`}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed font-medium">
+                          "{promptText}"
+                        </p>
                       </div>
-                    )}
-                    
-                    <div className="pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPromptModalOpen(true)}
-                        className="text-xs"
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        View Performance Details
-                      </Button>
-                    </div>
+                    ))}
                   </div>
                 )}
+                
+                <div className="pt-3 border-t mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPromptModalOpen(true)}
+                    className="text-xs"
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    View Performance Details
+                  </Button>
+                </div>
               </div>
             </div>
           )}
