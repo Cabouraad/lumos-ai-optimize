@@ -88,6 +88,30 @@ export async function dismissSuggestion(suggestionId: string) {
 
 export async function generateSuggestionsNow() {
   try {
+    // Check if business context is filled before generating suggestions
+    const orgId = await getOrgId();
+    
+    const { data: orgData, error: orgError } = await supabase
+      .from('organizations')
+      .select('business_description, products_services, target_audience, keywords')
+      .eq('id', orgId)
+      .single();
+
+    if (orgError) {
+      throw new Error('Failed to check organization data');
+    }
+
+    // Validate that required business context is filled
+    const missingFields = [];
+    if (!orgData.business_description?.trim()) missingFields.push('Business Description');
+    if (!orgData.products_services?.trim()) missingFields.push('Products/Services');
+    if (!orgData.target_audience?.trim()) missingFields.push('Target Audience');
+    if (!orgData.keywords?.length) missingFields.push('Keywords');
+
+    if (missingFields.length > 0) {
+      throw new Error(`Please complete your business context first. Missing: ${missingFields.join(', ')}. Go to Settings to add this information.`);
+    }
+
     // Create timeout promise
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Request timed out - please try again')), 60000); // 60 second timeout

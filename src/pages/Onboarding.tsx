@@ -16,8 +16,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [autoFillLoading, setAutoFillLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [businessContextStep, setBusinessContextStep] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: Business Context, 3: Pricing
   const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>('growth');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -112,15 +111,15 @@ export default function Onboarding() {
       if (data?.error) throw new Error(data.error);
 
       toast({
-        title: "Organization Setup Complete!",
-        description: "Now let's add your business context for better AI suggestions.",
+        title: "Setup Complete!",
+        description: "Generating AI suggestions based on your business context...",
       });
 
       // Clear temporary storage
       sessionStorage.removeItem('onboarding-data');
       
-      // Move to business context step
-      setBusinessContextStep(true);
+      // Generate AI suggestions immediately after org setup
+      await handleGeneratePromptSuggestions();
     } catch (error: any) {
       console.error("Onboarding error:", error);
       toast({
@@ -275,15 +274,15 @@ export default function Onboarding() {
     }
   ];
 
-  // Show business context step after org setup
-  if (businessContextStep && !promptSuggestionsGenerated) {
+  // Step 2: Business Context (before pricing)
+  if (currentStep === 2) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-2xl">
           <CardHeader>
-            <CardTitle>Tell us about your business</CardTitle>
+            <CardTitle>Business Context & Keywords</CardTitle>
             <CardDescription>
-              Add detailed information about your business to get highly relevant AI prompt suggestions.
+              This information is required to generate relevant AI prompt suggestions. Complete this step before selecting your plan.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -306,37 +305,54 @@ export default function Onboarding() {
               </div>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleGeneratePromptSuggestions(); }} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="business_description">Business Description</Label>
+                <Label htmlFor="keywords_required">Target Keywords *</Label>
+                <Textarea
+                  id="keywords_required"
+                  placeholder="e.g., project management, task tracking, productivity"
+                  value={formData.keywords}
+                  onChange={(e) => setFormData(prev => ({ ...prev, keywords: e.target.value }))}
+                  rows={3}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Essential for generating relevant prompts that your customers might use when searching
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="business_description">Business Description *</Label>
                 <Textarea
                   id="business_description"
                   placeholder="Describe what your business does, your main products/services, and what makes you unique..."
                   value={formData.business_description}
                   onChange={(e) => setFormData(prev => ({ ...prev, business_description: e.target.value }))}
                   rows={4}
+                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="products_services">Key Products/Services</Label>
+                <Label htmlFor="products_services">Key Products/Services *</Label>
                 <Textarea
                   id="products_services"
                   placeholder="List your main products or services that customers search for..."
                   value={formData.products_services}
                   onChange={(e) => setFormData(prev => ({ ...prev, products_services: e.target.value }))}
                   rows={3}
+                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="target_audience">Target Audience</Label>
+                <Label htmlFor="target_audience">Target Audience *</Label>
                 <Textarea
                   id="target_audience"
                   placeholder="Describe your ideal customers - who are they, what do they need, how do they search..."
                   value={formData.target_audience}
                   onChange={(e) => setFormData(prev => ({ ...prev, target_audience: e.target.value }))}
                   rows={3}
+                  required
                 />
               </div>
 
@@ -344,13 +360,13 @@ export default function Onboarding() {
                 <Button 
                   variant="outline" 
                   type="button"
-                  onClick={() => setBusinessContextStep(false)}
+                  onClick={() => setCurrentStep(1)}
                   disabled={loading}
                 >
                   Back
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? "Generating..." : "Generate AI Suggestions"}
+                  Continue to Pricing
                 </Button>
               </div>
             </form>
@@ -447,19 +463,6 @@ export default function Onboarding() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="keywords">Target Keywords</Label>
-                <Textarea
-                  id="keywords"
-                  placeholder="e.g., project management, task tracking, productivity"
-                  value={formData.keywords}
-                  onChange={(e) => setFormData(prev => ({ ...prev, keywords: e.target.value }))}
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  We'll use these to suggest relevant prompts to track
-                </p>
-              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="competitors">Competitors (Optional)</Label>
@@ -473,7 +476,7 @@ export default function Onboarding() {
               </div>
 
               <Button type="submit" className="w-full">
-                Continue to Pricing
+                Continue to Business Context
               </Button>
             </form>
           </CardContent>
@@ -482,7 +485,7 @@ export default function Onboarding() {
     );
   }
 
-  // Step 2: Plan selection
+  // Step 3: Plan selection
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-6xl">
@@ -582,10 +585,10 @@ export default function Onboarding() {
         <div className="flex justify-center space-x-4">
           <Button 
             variant="outline" 
-            onClick={() => setCurrentStep(1)}
+            onClick={() => setCurrentStep(2)}
             disabled={loading}
           >
-            Back to Details
+            Back to Business Context
           </Button>
           
           <Button 
