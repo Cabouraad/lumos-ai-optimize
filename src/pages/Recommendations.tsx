@@ -240,12 +240,10 @@ export default function Recommendations() {
         {recommendations.length > 0 ? (
           <>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="all">All ({recommendations.filter(r => r.status === 'open').length})</TabsTrigger>
                 <TabsTrigger value="content">Content</TabsTrigger>
                 <TabsTrigger value="social">Social</TabsTrigger>
-                <TabsTrigger value="site">Site</TabsTrigger>
-                <TabsTrigger value="prompt">Prompt</TabsTrigger>
               </TabsList>
 
               <TabsContent value={activeTab} className="space-y-6">

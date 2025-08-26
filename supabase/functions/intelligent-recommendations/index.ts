@@ -19,7 +19,7 @@ interface PromptPerformance {
 }
 
 interface ContentRecommendation {
-  type: 'blog_post' | 'case_study' | 'comparison' | 'tutorial' | 'social_post' | 'landing_page';
+  type: 'content' | 'social';
   title: string;
   rationale: string;
   targetPrompts: string[];
@@ -124,41 +124,71 @@ serve(async (req) => {
       };
     });
 
-    // Generate intelligent recommendations
+    // Generate intelligent recommendations (ensure at least 8)
     const recommendations: ContentRecommendation[] = [];
 
-    // 1. Low-performing prompts need targeted content
+    // 1. Low-performing prompts need targeted content (4-6 recommendations)
     const lowPerformingPrompts = promptPerformance.filter(p => p.avgScore < 4);
     if (lowPerformingPrompts.length > 0) {
-      for (const prompt of lowPerformingPrompts.slice(0, 3)) {
-        const contentType = determineContentType(prompt.text);
+      for (const prompt of lowPerformingPrompts.slice(0, 6)) {
         const recommendation = generateContentRecommendation(
           prompt, 
           org, 
-          contentType,
           competitors?.map(c => c.name) || []
         );
         recommendations.push(recommendation);
       }
     }
 
-    // 2. High-competition prompts need differentiation content
+    // 2. High-competition prompts need differentiation content (2-3 recommendations)
     const highCompetitionPrompts = promptPerformance.filter(p => p.competitorCount > 5);
     if (highCompetitionPrompts.length > 0) {
-      const competitivePrompt = highCompetitionPrompts[0];
-      recommendations.push(generateCompetitiveContentRecommendation(competitivePrompt, org));
+      for (const prompt of highCompetitionPrompts.slice(0, 3)) {
+        const competitiveRecommendation = generateCompetitiveContentRecommendation(prompt, org);
+        recommendations.push(competitiveRecommendation);
+      }
     }
 
-    // 3. Missing brand presence needs awareness content
+    // 3. Missing brand presence needs awareness content (2-3 recommendations)
     const noBrandPrompts = promptPerformance.filter(p => !p.brandPresent);
     if (noBrandPrompts.length > 0) {
-      recommendations.push(generateBrandAwarenessRecommendation(noBrandPrompts.slice(0, 2), org));
+      // Create multiple brand awareness recommendations with different approaches
+      const chunkSize = Math.ceil(noBrandPrompts.length / 3);
+      for (let i = 0; i < Math.min(3, Math.ceil(noBrandPrompts.length / chunkSize)); i++) {
+        const chunk = noBrandPrompts.slice(i * chunkSize, (i + 1) * chunkSize);
+        recommendations.push(generateBrandAwarenessRecommendation(chunk, org, i));
+      }
     }
 
-    // 4. Social media strategy for top-performing prompts
+    // 4. Social media strategies for different prompt categories (2-4 recommendations)
     const goodPerformingPrompts = promptPerformance.filter(p => p.avgScore >= 6);
+    const mediumPerformingPrompts = promptPerformance.filter(p => p.avgScore >= 4 && p.avgScore < 6);
+    
     if (goodPerformingPrompts.length > 0) {
-      recommendations.push(generateSocialMediaStrategy(goodPerformingPrompts.slice(0, 2), org));
+      recommendations.push(generateSocialMediaStrategy(goodPerformingPrompts.slice(0, 3), org, 'amplify'));
+    }
+    
+    if (mediumPerformingPrompts.length > 0) {
+      recommendations.push(generateSocialMediaStrategy(mediumPerformingPrompts.slice(0, 3), org, 'boost'));
+    }
+
+    // 5. Additional content recommendations if we don't have enough
+    while (recommendations.length < 8 && promptPerformance.length > 0) {
+      const remainingPrompts = promptPerformance.filter(p => 
+        !recommendations.some(r => r.targetPrompts.includes(p.text))
+      );
+      
+      if (remainingPrompts.length === 0) break;
+      
+      const prompt = remainingPrompts[0];
+      const additionalRec = generateContentRecommendation(prompt, org, competitors?.map(c => c.name) || []);
+      recommendations.push(additionalRec);
+    }
+
+    // 6. Fill remaining slots with general best practices if needed
+    if (recommendations.length < 8) {
+      const generalRecs = generateGeneralRecommendations(org, 8 - recommendations.length);
+      recommendations.push(...generalRecs);
     }
 
     // Store recommendations in database
@@ -208,144 +238,59 @@ serve(async (req) => {
   }
 });
 
-function determineContentType(promptText: string): ContentRecommendation['type'] {
-  const text = promptText.toLowerCase();
-  
-  if (text.includes('comparison') || text.includes('vs') || text.includes('alternative')) {
-    return 'comparison';
-  }
-  if (text.includes('how to') || text.includes('tutorial') || text.includes('guide')) {
-    return 'tutorial';
-  }
-  if (text.includes('case study') || text.includes('example') || text.includes('success')) {
-    return 'case_study';
-  }
-  if (text.includes('landing') || text.includes('page') || text.includes('conversion')) {
-    return 'landing_page';
-  }
-  
-  return 'blog_post';
-}
-
 function generateContentRecommendation(
   prompt: PromptPerformance, 
-  org: any, 
-  contentType: ContentRecommendation['type'],
+  org: any,
   competitors: string[]
 ): ContentRecommendation {
   const topCompetitors = prompt.topCompetitors.length > 0 ? prompt.topCompetitors : competitors.slice(0, 3);
   
-  const templates = {
-    blog_post: {
-      title: `Create a comprehensive blog post addressing "${prompt.text}"`,
-      outline: [
-        'Introduction highlighting the key problem/question',
-        `How ${org.name} uniquely solves this challenge`,
-        'Step-by-step implementation guide',
-        'Real-world examples and case studies',
-        'Comparison with traditional approaches',
-        'Call-to-action with specific next steps'
-      ],
-      steps: [
-        'Research the top 5 search results for this query',
-        'Identify gaps in existing content coverage',
-        'Create a 2000+ word comprehensive guide',
-        'Include original data, screenshots, or examples',
-        'Optimize for the specific keywords in the prompt',
-        'Add internal links to your product/service pages',
-        'Create supporting visuals or infographics'
-      ],
-      seoKeywords: extractKeywords(prompt.text)
-    },
-    tutorial: {
-      title: `Build a step-by-step tutorial for "${prompt.text}"`,
-      outline: [
-        'Prerequisites and tools needed',
-        'Step-by-step instructions with screenshots',
-        `How ${org.name} simplifies this process`,
-        'Common mistakes and how to avoid them',
-        'Advanced tips and best practices',
-        'Next steps and related tutorials'
-      ],
-      steps: [
-        'Create detailed screenshots for each step',
-        'Record a video walkthrough',
-        'Build downloadable templates or checklists',
-        'Create an interactive demo if possible',
-        'Optimize for "how to" keywords',
-        'Add FAQ section addressing common questions'
-      ],
-      seoKeywords: ['how to', ...extractKeywords(prompt.text), 'tutorial', 'guide']
-    },
-    comparison: {
-      title: `Develop a comprehensive comparison addressing "${prompt.text}"`,
-      outline: [
-        'Executive summary of key differences',
-        `Why ${org.name} stands out from alternatives`,
-        'Feature-by-feature comparison table',
-        'Pricing and ROI analysis',
-        'User testimonials and case studies',
-        'Recommendation based on use cases'
-      ],
-      steps: [
-        'Research all mentioned competitors thoroughly',
-        'Create detailed comparison tables',
-        'Include honest pros and cons for each option',
-        'Add customer testimonials for credibility',
-        'Create decision-making framework',
-        'Optimize for "[product] vs [competitor]" keywords'
-      ],
-      seoKeywords: ['vs', 'comparison', 'alternative', ...extractKeywords(prompt.text)]
-    },
-    case_study: {
-      title: `Publish a detailed case study for "${prompt.text}"`,
-      outline: [
-        'Client background and initial challenge',
-        'Solution approach using your methodology',
-        'Implementation timeline and process',
-        'Measurable results and ROI achieved',
-        'Lessons learned and best practices',
-        'How others can achieve similar results'
-      ],  
-      steps: [
-        'Interview successful clients for detailed stories',
-        'Gather specific metrics and results data',
-        'Create before/after comparisons',
-        'Include client testimonials and quotes',
-        'Document the exact process used',
-        'Create templates others can use'
-      ],
-      seoKeywords: ['case study', 'success story', ...extractKeywords(prompt.text)]
-    }
-  };
-
-  const template = templates[contentType] || templates.blog_post;
+  const contentTitle = `Create comprehensive content addressing "${prompt.text}"`;
+  const outline = [
+    'Introduction highlighting the key problem/question',
+    `How ${org.name} uniquely solves this challenge`,
+    'Step-by-step implementation guide',
+    'Real-world examples and case studies',
+    'Comparison with traditional approaches',
+    'Call-to-action with specific next steps'
+  ];
+  
+  const steps = [
+    'Research the top 5 search results for this query',
+    'Identify gaps in existing content coverage',
+    'Create a 2000+ word comprehensive guide',
+    'Include original data, screenshots, or examples',
+    'Optimize for the specific keywords in the prompt',
+    'Add internal links to your product/service pages',
+    'Create supporting visuals or infographics',
+    'Develop downloadable resources and templates'
+  ];
 
   return {
-    type: contentType,
-    title: template.title,
+    type: 'content',
+    title: contentTitle,
     rationale: `Your brand is ${prompt.brandPresent ? 'mentioned but scoring low' : 'completely missing'} in AI responses to "${prompt.text}". This content will establish your authority and improve visibility. Current average score: ${prompt.avgScore.toFixed(1)}/10. Competing against: ${topCompetitors.join(', ')}.`,
     targetPrompts: [prompt.text],
-    contentOutline: template.outline,
-    implementationSteps: template.steps,
+    contentOutline: outline,
+    implementationSteps: steps,
     expectedImpact: prompt.avgScore < 2 ? 'high' : prompt.avgScore < 4 ? 'medium' : 'low',
-    timeToImplement: contentType === 'case_study' ? '2-3 weeks' : contentType === 'tutorial' ? '1-2 weeks' : '1 week',
-    seoKeywords: template.seoKeywords,
+    timeToImplement: '1-2 weeks',
+    seoKeywords: extractKeywords(prompt.text),
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Industry Forums'],
       postTemplates: [
-        `Just published: ${template.title.split('"')[1]} - Key insights: [3 bullet points]`,
+        `Just published: ${contentTitle.split('"')[1]} - Key insights: [3 bullet points]`,
         `${topCompetitors.length > 0 ? `Unlike ${topCompetitors[0]}, ` : ''}here's how we approach [topic]: [insight]`,
         'Behind the scenes: Creating this guide taught us [key learning]'
       ],
-      hashtagStrategy: generateHashtags(org.products_services, template.seoKeywords)
+      hashtagStrategy: generateHashtags(org.products_services, extractKeywords(prompt.text))
     }
   };
 }
 
 function generateCompetitiveContentRecommendation(prompt: PromptPerformance, org: any): ContentRecommendation {
   return {
-    type: 'comparison',
+    type: 'content',
     title: `Create a competitive analysis: "Why choose ${org.name} for ${extractMainTopic(prompt.text)}"`,
     rationale: `High competition detected (${prompt.competitorCount} competitors) for "${prompt.text}". You need differentiation content to stand out. Top competitors: ${prompt.topCompetitors.join(', ')}.`,
     targetPrompts: [prompt.text],
@@ -363,7 +308,9 @@ function generateCompetitiveContentRecommendation(prompt: PromptPerformance, org
       'Create detailed feature comparison matrix',
       'Collect quantifiable ROI data from customers',
       'Develop "switching guide" for prospects',
-      'Create interactive comparison tool on your website'
+      'Create interactive comparison tool on your website',
+      'Develop competitive battle cards for sales team',
+      'Build landing page focused on competitive advantages'
     ],
     expectedImpact: 'high',
     timeToImplement: '2-3 weeks',
@@ -380,12 +327,18 @@ function generateCompetitiveContentRecommendation(prompt: PromptPerformance, org
   };
 }
 
-function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org: any): ContentRecommendation {
+function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org: any, variant: number = 0): ContentRecommendation {
   const topics = prompts.map(p => extractMainTopic(p.text));
+  const approaches = [
+    'thought leadership',
+    'educational content',
+    'industry insights'
+  ];
+  const approach = approaches[variant] || approaches[0];
   
   return {
-    type: 'blog_post',
-    title: `Establish thought leadership: "${org.name}'s approach to ${topics.join(' and ')}"`,
+    type: 'content',
+    title: `Establish ${approach}: "${org.name}'s approach to ${topics.join(' and ')}"`,
     rationale: `Your brand is completely missing from AI responses to ${prompts.length} key prompts. Need foundational content to establish presence. Target prompts: ${prompts.map(p => `"${p.text}"`).join(', ')}.`,
     targetPrompts: prompts.map(p => p.text),
     contentOutline: [
@@ -421,15 +374,20 @@ function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org:
   };
 }
 
-function generateSocialMediaStrategy(prompts: PromptPerformance[], org: any): ContentRecommendation {
+function generateSocialMediaStrategy(prompts: PromptPerformance[], org: any, strategy: 'amplify' | 'boost'): ContentRecommendation {
+  const strategyTitles = {
+    amplify: 'Amplify your strong-performing content with strategic social media',
+    boost: 'Boost medium-performing content through targeted social campaigns'
+  };
+  
   return {
-    type: 'social_post', 
-    title: `Amplify your strong-performing content with strategic social media`,
-    rationale: `You're performing well on these prompts (avg score: ${(prompts.reduce((sum, p) => sum + p.avgScore, 0) / prompts.length).toFixed(1)}/10). Leverage this success with targeted social strategy.`,
+    type: 'social', 
+    title: strategyTitles[strategy],
+    rationale: `You're performing ${strategy === 'amplify' ? 'well' : 'moderately'} on these prompts (avg score: ${(prompts.reduce((sum, p) => sum + p.avgScore, 0) / prompts.length).toFixed(1)}/10). ${strategy === 'amplify' ? 'Leverage this success with targeted social strategy' : 'Boost performance through strategic social media campaigns'}.`,
     targetPrompts: prompts.map(p => p.text),
     contentOutline: [
       'Content amplification strategy',
-      'Platform-specific adaptations',
+      'Platform-specific adaptations', 
       'Community engagement plan',
       'Influencer outreach approach',
       'Performance tracking framework'
@@ -441,21 +399,79 @@ function generateSocialMediaStrategy(prompts: PromptPerformance[], org: any): Co
       'Share insights and behind-the-scenes content',
       'Partner with industry influencers',
       'Use social listening to join relevant conversations',
-      'Create shareable assets (quotes, statistics, infographics)'
+      'Create shareable assets (quotes, statistics, infographics)',
+      'Set up social media scheduling and automation'
     ],
-    expectedImpact: 'medium',
+    expectedImpact: strategy === 'amplify' ? 'medium' : 'high',
     timeToImplement: '1 week',
     seoKeywords: prompts.flatMap(p => extractKeywords(p.text)),
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Reddit', 'Industry Communities'],
       postTemplates: [
-        'Sharing insights from our latest analysis on [topic]',
-        'Here\'s what we\'re seeing in the [industry] space:',
-        'Quick thread on [topic] based on our experience helping 100+ clients 🧵'
+        `Here's what we learned from analyzing ${prompts.length} industry queries`,
+        'Data shows that most people ask about [topic] - here are the real answers',
+        'Thread: Breaking down the most common questions in our industry 🧵'
       ],
-      hashtagStrategy: generateHashtags(org.products_services, prompts.flatMap(p => extractKeywords(p.text)))
+      hashtagStrategy: ['#SocialStrategy', '#ContentAmplification', `#${org.name.replace(/\s+/g, '')}`]
     }
   };
+}
+
+function generateGeneralRecommendations(org: any, count: number): ContentRecommendation[] {
+  const generalRecs: ContentRecommendation[] = [];
+  
+  const recommendations = [
+    {
+      type: 'content' as const,
+      title: `Create comprehensive FAQ content for ${org.name}`,
+      rationale: 'Build foundational content that addresses common customer questions and establishes your expertise.',
+      outline: ['Common customer questions', 'Detailed answers with examples', 'Related resources and next steps'],
+      steps: ['Collect frequently asked questions from sales and support teams', 'Create comprehensive answers', 'Optimize for search']
+    },
+    {
+      type: 'social' as const,
+      title: 'Develop consistent social media presence',
+      rationale: 'Maintain regular engagement across social platforms to build brand awareness.',
+      outline: ['Content calendar planning', 'Platform-specific strategies', 'Community engagement tactics'],
+      steps: ['Create content calendar', 'Design platform-specific templates', 'Set up engagement workflows']
+    },
+    {
+      type: 'content' as const,
+      title: `Build comprehensive resource library for ${org.name}`,
+      rationale: 'Create a centralized knowledge base that positions your brand as an industry authority.',
+      outline: ['Industry guides and tutorials', 'Best practices documentation', 'Tool comparisons and reviews'],
+      steps: ['Audit existing content', 'Identify content gaps', 'Create comprehensive guides', 'Organize in searchable format']
+    },
+    {
+      type: 'social' as const,
+      title: 'Launch community engagement initiative',
+      rationale: 'Actively participate in industry conversations to increase brand visibility and establish thought leadership.',
+      outline: ['Industry community mapping', 'Engagement strategy', 'Content sharing plan'],
+      steps: ['Map relevant communities and forums', 'Create engagement guidelines', 'Develop content sharing strategy']
+    }
+  ];
+  
+  for (let i = 0; i < Math.min(count, recommendations.length); i++) {
+    const rec = recommendations[i];
+    generalRecs.push({
+      type: rec.type,
+      title: rec.title,
+      rationale: rec.rationale,
+      targetPrompts: [],
+      contentOutline: rec.outline,
+      implementationSteps: rec.steps,
+      expectedImpact: 'medium',
+      timeToImplement: '1-2 weeks',
+      seoKeywords: [org.name, 'industry', 'expertise'],
+      socialStrategy: {
+        platforms: ['LinkedIn', 'Twitter'],
+        postTemplates: [`Sharing insights about ${org.name} and our industry expertise`],
+        hashtagStrategy: [`#${org.name.replace(/\s+/g, '')}`, '#Industry']
+      }
+    });
+  }
+  
+  return generalRecs;
 }
 
 function extractKeywords(text: string): string[] {
