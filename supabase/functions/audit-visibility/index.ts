@@ -90,18 +90,19 @@ Deno.serve(async (req) => {
       };
     }
 
-    // 4. Check competitor mentions
-    const { data: competitorMentions, error: competitorError } = await supabase
-      .from('competitor_mentions')
-      .select('id, competitor_name, mention_count, last_seen_at')
+    // 4. Check competitors from brand_catalog
+    const { data: competitorBrands, error: competitorError } = await supabase
+      .from('brand_catalog')
+      .select('id, name, total_appearances, last_seen_at')
       .eq('org_id', orgId)
+      .eq('is_org_brand', false)
       .order('last_seen_at', { ascending: false })
       .limit(10);
 
-    audit.checks.competitorMentions = {
-      count: competitorMentions?.length || 0,
-      recentMentions: competitorMentions?.filter(m => 
-        new Date(m.last_seen_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+    audit.checks.competitors = {
+      count: competitorBrands?.length || 0,
+      recentlyActive: competitorBrands?.filter(c => 
+        new Date(c.last_seen_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
       ).length || 0,
       error: competitorError?.message
     };
@@ -135,7 +136,7 @@ Deno.serve(async (req) => {
       audit.summary.recommendations.push('Run prompts manually to generate fresh visibility data');
     }
 
-    if ((audit.checks.competitorMentions?.recentMentions || 0) === 0) {
+    if ((audit.checks.competitors?.recentlyActive || 0) === 0) {
       audit.summary.recommendations.push('Competitor mentions may not be updating - check brand detection logic');
     }
 

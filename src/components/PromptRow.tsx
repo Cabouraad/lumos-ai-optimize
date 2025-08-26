@@ -29,6 +29,7 @@ import {
   FileText,
   Eye
 } from 'lucide-react';
+import { getOrgId } from '@/lib/auth';
 
 type ProviderResult = {
   provider: string;
@@ -297,29 +298,45 @@ export function PromptRow({
     const fetchCompetitors = async () => {
       try {
         setLoadingCompetitors(true);
+        
+        const orgId = await getOrgId();
+        
+        // Use brand_catalog instead of competitor_mentions for competitor data
         const { data, error } = await supabase
-          .from('competitor_mentions')
-          .select('competitor_name, mention_count')
-          .eq('prompt_id', prompt.id)
-          .order('mention_count', { ascending: false })
+          .from('brand_catalog')
+          .select('name, total_appearances')
+          .eq('org_id', orgId)
+          .eq('is_org_brand', false)
+          .gt('total_appearances', 0)
+          .order('total_appearances', { ascending: false })
           .limit(5);
+          
         if (error) {
           console.error('Error fetching competitors:', error);
           setTopCompetitors([]);
           return;
         }
-        const rows = data || [];
-        const total = rows.reduce((sum: number, r: any) => sum + (r.mention_count || 0), 0);
+        
+        const competitors = (data || []).map(comp => ({
+          name: comp.name,
+          mentions: comp.total_appearances
+        }));
+        
+        const total = competitors.reduce((sum, comp) => sum + comp.mentions, 0);
         if (total === 0) {
           setTopCompetitors([]);
           return;
         }
+        
         setTopCompetitors(
-          rows.map((r: any) => ({
-            name: r.competitor_name,
-            share: Math.round(((r.mention_count || 0) / total) * 100),
+          competitors.map(comp => ({
+            name: comp.name,
+            share: Math.round((comp.mentions / total) * 100),
           }))
         );
+      } catch (error) {
+        console.error('Error fetching competitors:', error);
+        setTopCompetitors([]);
       } finally {
         setLoadingCompetitors(false);
       }

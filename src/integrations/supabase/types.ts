@@ -14,44 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
-      batch_run_history: {
+      batch_jobs: {
         Row: {
+          completed_at: string | null
+          completed_tasks: number
           created_at: string
-          failed_runs: number
+          failed_tasks: number
           id: string
+          metadata: Json | null
           org_id: string
-          prompts_processed: number
-          run_timestamp: string
-          success_rate: number
-          successful_prompts: number
-          successful_runs: number
-          total_provider_runs: number
+          progress_percent: number
+          started_at: string | null
+          status: string
+          total_tasks: number
+          updated_at: string
         }
         Insert: {
+          completed_at?: string | null
+          completed_tasks?: number
           created_at?: string
-          failed_runs: number
+          failed_tasks?: number
           id?: string
+          metadata?: Json | null
           org_id: string
-          prompts_processed: number
-          run_timestamp?: string
-          success_rate: number
-          successful_prompts: number
-          successful_runs: number
-          total_provider_runs: number
+          progress_percent?: number
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+          updated_at?: string
         }
         Update: {
+          completed_at?: string | null
+          completed_tasks?: number
           created_at?: string
-          failed_runs?: number
+          failed_tasks?: number
           id?: string
+          metadata?: Json | null
           org_id?: string
-          prompts_processed?: number
-          run_timestamp?: string
-          success_rate?: number
-          successful_prompts?: number
-          successful_runs?: number
-          total_provider_runs?: number
+          progress_percent?: number
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "batch_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batch_tasks: {
+        Row: {
+          attempts: number
+          batch_job_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number
+          prompt_id: string
+          provider: string
+          result: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          batch_job_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          prompt_id: string
+          provider: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          batch_job_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          prompt_id?: string
+          provider?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_tasks_batch_job_id_fkey"
+            columns: ["batch_job_id"]
+            isOneToOne: false
+            referencedRelation: "batch_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_tasks_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       brand_catalog: {
         Row: {
@@ -93,66 +170,6 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      competitor_mentions: {
-        Row: {
-          average_position: number | null
-          competitor_name: string
-          created_at: string
-          first_seen_at: string
-          id: string
-          last_seen_at: string
-          mention_count: number
-          normalized_name: string
-          org_id: string
-          prompt_id: string
-          sentiment: string | null
-          updated_at: string
-        }
-        Insert: {
-          average_position?: number | null
-          competitor_name: string
-          created_at?: string
-          first_seen_at?: string
-          id?: string
-          last_seen_at?: string
-          mention_count?: number
-          normalized_name: string
-          org_id: string
-          prompt_id: string
-          sentiment?: string | null
-          updated_at?: string
-        }
-        Update: {
-          average_position?: number | null
-          competitor_name?: string
-          created_at?: string
-          first_seen_at?: string
-          id?: string
-          last_seen_at?: string
-          mention_count?: number
-          normalized_name?: string
-          org_id?: string
-          prompt_id?: string
-          sentiment?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "competitor_mentions_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "competitor_mentions_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompts"
             referencedColumns: ["id"]
           },
         ]
@@ -743,17 +760,6 @@ export type Database = {
       }
       upsert_competitor_brand: {
         Args: { p_brand_name: string; p_org_id: string; p_score?: number }
-        Returns: undefined
-      }
-      upsert_competitor_mention: {
-        Args: {
-          p_competitor_name: string
-          p_normalized_name: string
-          p_org_id: string
-          p_position?: number
-          p_prompt_id: string
-          p_sentiment?: string
-        }
         Returns: undefined
       }
     }

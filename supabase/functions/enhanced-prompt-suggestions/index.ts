@@ -44,12 +44,14 @@ serve(async (req) => {
         .eq('org_id', orgId)
         .eq('active', true),
       
+      // Get top competitors from brand_catalog instead
       supabase
-        .from('competitor_mentions')
-        .select('competitor_name, mention_count')
+        .from('brand_catalog')
+        .select('name, total_appearances')
         .eq('org_id', orgId)
-        .gte('last_seen_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order('mention_count', { ascending: false })
+        .eq('is_org_brand', false)
+        .gt('total_appearances', 0)
+        .order('total_appearances', { ascending: false })
         .limit(10),
         
       supabase.rpc('get_prompt_visibility_7d', {
@@ -64,7 +66,7 @@ serve(async (req) => {
 
     const org = orgResult.data;
     const existingPrompts = promptsResult.data || [];
-    const topCompetitors = competitorsResult.data || [];
+    const competitors = competitorsResult.data?.map(comp => comp.name) || [];
     const lowPerformingPrompts = visibilityResult.data || [];
 
     // Generate nearby locations for localized prompts
@@ -83,7 +85,7 @@ Existing Prompts (${existingPrompts.length}):
 ${existingPrompts.slice(0, 10).map((p, i) => `${i+1}. ${p.text}`).join('\n')}
 
 Top Competitors (by mentions):
-${topCompetitors.map(c => `- ${c.competitor_name} (${c.mention_count} mentions)`).join('\n')}
+${competitors.map(c => `- ${c} (active)`).join('\n')}
 
 Low Performing Prompts (need attention):
 ${lowPerformingPrompts.map((p, i) => `${i+1}. ${p.text} (Score: ${p.avg_score_7d})`).join('\n')}
@@ -98,7 +100,7 @@ Existing Prompts (${existingPrompts.length}):
 ${existingPrompts.slice(0, 10).map((p, i) => `${i+1}. ${p.text}`).join('\n')}
 
 Top Competitors (by mentions):
-${topCompetitors.map(c => `- ${c.competitor_name} (${c.mention_count} mentions)`).join('\n')}
+${competitors.map(c => `- ${c} (active)`).join('\n')}
 
 Low Performing Prompts (need attention):
 ${lowPerformingPrompts.map((p, i) => `${i+1}. ${p.text} (Score: ${p.avg_score_7d})`).join('\n')}

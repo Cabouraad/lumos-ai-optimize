@@ -322,25 +322,18 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       return emptyData;
     }
 
-    // Get latest provider responses and competitor data in parallel
-    const [latestResponsesResult, competitorResult, sevenDayResult] = await Promise.all([
+    // Get latest provider responses and simplified data in parallel
+    const [latestResponsesResult, sevenDayResult] = await Promise.all([
       supabase
         .from('latest_prompt_provider_responses')
         .select('*')
         .in('prompt_id', promptIds),
-      
-      supabase
-        .from('competitor_mentions')
-        .select('prompt_id, competitor_name, mention_count')
-        .in('prompt_id', promptIds)
-        .order('mention_count', { ascending: false }),
         
       supabase
         .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
     ]);
 
     const latestResponses = latestResponsesResult.data || [];
-    const competitorData = competitorResult.data || [];
     const sevenDayData = sevenDayResult.data || [];
 
     // Process detailed prompt data
@@ -367,14 +360,8 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         .map(p => p!.run_at)
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
 
-      // Process competitors
-      const promptCompetitors = competitorData
-        .filter(c => c.prompt_id === prompt.id)
-        .slice(0, 5) // Top 5 only
-        .map(c => ({
-          name: c.competitor_name,
-          count: c.mention_count
-        }));
+      // Simplified competitor data (removed individual mention tracking)
+      const promptCompetitors: Array<{ name: string; count: number }> = [];
 
       // Get 7-day stats
       const promptSevenDay = sevenDayData.find((s: any) => s.prompt_id === prompt.id);

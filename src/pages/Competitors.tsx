@@ -155,30 +155,34 @@ export default function Competitors() {
       setLoading(true);
       const orgId = await getOrgId();
 
-      // Get organization name
-      const { data: orgData } = await supabase
-        .from('organizations')
-        .select('name')
-        .eq('id', orgId)
-        .single();
+      // Single optimized query to get all data we need
+      const [orgResult, competitorsResult] = await Promise.all([
+        supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', orgId)
+          .single(),
+        supabase
+          .from('brand_catalog')
+          .select('*')
+          .eq('org_id', orgId)
+          .order('total_appearances', { ascending: false })
+      ]);
 
-      const currentOrgName = orgData?.name || 'Your Brand';
-      setOrgName(currentOrgName);
-
-      // Get all competitor brands
-      const { data: competitorsData, error } = await supabase
-        .from('brand_catalog')
-        .select('*')
-        .eq('org_id', orgId)
-        .eq('is_org_brand', false)
-        .order('total_appearances', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching competitors:', error);
+      if (competitorsResult.error) {
+        console.error('Error fetching competitors:', competitorsResult.error);
         return;
       }
 
-      const competitors: CompetitorBrand[] = (competitorsData || []).map(comp => ({
+      const currentOrgName = orgResult.data?.name || 'Your Brand';
+      setOrgName(currentOrgName);
+
+      // Separate org brand from competitors
+      const orgBrands = competitorsResult.data?.filter(b => b.is_org_brand) || [];
+      const competitorBrands = competitorsResult.data?.filter(b => !b.is_org_brand) || [];
+
+      // Transform competitor data
+      const competitors: CompetitorBrand[] = competitorBrands.map(comp => ({
         id: comp.id,
         name: comp.name,
         totalAppearances: comp.total_appearances || 0,
@@ -190,31 +194,24 @@ export default function Competitors() {
         isManuallyAdded: (comp.total_appearances || 0) === 0
       }));
 
-      // Sort into categories
+      // Create org brand data if exists
+      const orgBrand: CompetitorBrand | null = orgBrands[0] ? {
+        id: orgBrands[0].id,
+        name: orgBrands[0].name,
+        totalAppearances: orgBrands[0].total_appearances || 0,
+        averageScore: Number(orgBrands[0].average_score) || 0,
+        firstDetectedAt: orgBrands[0].first_detected_at,
+        lastSeenAt: orgBrands[0].last_seen_at,
+        trend: calculateTrend(orgBrands[0].last_seen_at, orgBrands[0].first_detected_at, orgBrands[0].total_appearances || 0),
+        sharePercentage: ((Number(orgBrands[0].average_score) || 0) / 10) * 100,
+        isManuallyAdded: false
+      } : null;
+      
+      // Sort into categories using the competitors array
       const top = competitors
         .filter(c => c.totalAppearances > 0)
         .sort((a, b) => b.totalAppearances - a.totalAppearances)
         .slice(0, 5);
-      
-      // Get actual org brand data from brand_catalog
-      const { data: orgBrandData } = await supabase
-        .from('brand_catalog')
-        .select('*')
-        .eq('org_id', orgId)
-        .eq('is_org_brand', true)
-        .single();
-
-      const orgBrand: CompetitorBrand | null = orgBrandData ? {
-        id: orgBrandData.id,
-        name: orgBrandData.name,
-        totalAppearances: orgBrandData.total_appearances || 0,
-        averageScore: Number(orgBrandData.average_score) || 0,
-        firstDetectedAt: orgBrandData.first_detected_at,
-        lastSeenAt: orgBrandData.last_seen_at,
-        trend: calculateTrend(orgBrandData.last_seen_at, orgBrandData.first_detected_at, orgBrandData.total_appearances || 0),
-        sharePercentage: ((Number(orgBrandData.average_score) || 0) / 10) * 100,
-        isManuallyAdded: false
-      } : null;
       
       setTopBrands(orgBrand ? [orgBrand, ...top] : top);
 
