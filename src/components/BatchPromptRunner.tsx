@@ -14,7 +14,6 @@ interface BatchJob {
   total_tasks: number;
   completed_tasks: number;
   failed_tasks: number;
-  progress_percent: number;
   started_at?: string;
   completed_at?: string;
   created_at: string;
@@ -163,6 +162,11 @@ export function BatchPromptRunner() {
     return `${((end - start) / 1000).toFixed(1)}s`;
   };
 
+  const calculateProgress = (job: BatchJob) => {
+    if (job.total_tasks === 0) return 0;
+    return ((job.completed_tasks + job.failed_tasks) / job.total_tasks) * 100;
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -201,7 +205,7 @@ export function BatchPromptRunner() {
               <span>Processing batch job...</span>
               <span>{currentJob.completed_tasks + currentJob.failed_tasks}/{currentJob.total_tasks}</span>
             </div>
-            <Progress value={currentJob.progress_percent} className="w-full" />
+            <Progress value={calculateProgress(currentJob)} className="w-full" />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 {currentJob.metadata?.prompt_count} prompts × {currentJob.metadata?.provider_count} providers
@@ -243,7 +247,7 @@ export function BatchPromptRunner() {
                 </div>
                 <div>
                   <div className="text-muted-foreground">Progress</div>
-                  <div className="font-medium">{currentJob.progress_percent.toFixed(1)}%</div>
+                  <div className="font-medium">{calculateProgress(currentJob).toFixed(1)}%</div>
                 </div>
               </div>
 
