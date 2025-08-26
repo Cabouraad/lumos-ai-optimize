@@ -149,64 +149,72 @@ serve(async (req) => {
     }
 
     // Process tasks concurrently with controlled concurrency
-    const concurrencyLimit = 5;
-    let completedTasks = 0;
+    const concurrencyLimit = 3; // Reduced for better stability
+    console.log(`🔄 Starting background processing of ${batchTasks.length} tasks`);
 
-    const processBatch = async (taskBatch: any[]) => {
-      const promises = taskBatch.map(async (task) => {
+    // Use background processing to avoid timeout issues
+    EdgeRuntime.waitUntil(
+      (async () => {
+        let completedTasks = 0;
+
+        const processBatch = async (taskBatch: any[]) => {
+          const promises = taskBatch.map(async (task) => {
+            try {
+              await processTask(supabase, task, prompts, batchJob.id);
+              completedTasks++;
+              console.log(`✅ Completed task ${completedTasks}/${totalTasks}`);
+            } catch (error) {
+              console.error(`❌ Task failed:`, error);
+              completedTasks++;
+            }
+          });
+          
+          await Promise.all(promises);
+        };
+
         try {
-          await processTask(supabase, task, prompts, batchJob.id);
-          completedTasks++;
-          console.log(`✅ Completed task ${completedTasks}/${totalTasks}`);
+          // Process tasks in batches
+          for (let i = 0; i < batchTasks.length; i += concurrencyLimit) {
+            const batch = batchTasks.slice(i, i + concurrencyLimit);
+            await processBatch(batch);
+            
+            // Small delay between batches to avoid overwhelming APIs
+            if (i + concurrencyLimit < batchTasks.length) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+
+          // Update final job status
+          await supabase
+            .from('batch_jobs')
+            .update({ 
+              status: 'completed',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', batchJob.id);
+
+          console.log('🎉 Background batch processing completed for job:', batchJob.id);
         } catch (error) {
-          console.error(`❌ Task failed:`, error);
-          completedTasks++;
+          console.error('💥 Background processing failed:', error);
+          // Mark job as failed
+          await supabase
+            .from('batch_jobs')
+            .update({ 
+              status: 'failed',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', batchJob.id);
         }
-      });
-      
-      await Promise.all(promises);
-    };
+      })()
+    );
 
-    // Process tasks in batches
-    for (let i = 0; i < batchTasks.length; i += concurrencyLimit) {
-      const batch = batchTasks.slice(i, i + concurrencyLimit);
-      await processBatch(batch);
-      
-      // Small delay between batches to avoid overwhelming APIs
-      if (i + concurrencyLimit < batchTasks.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    // Update final job status and get results
-    await supabase
-      .from('batch_jobs')
-      .update({ 
-        status: 'completed',
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', batchJob.id);
-
-    const { data: finalJob } = await supabase
-      .from('batch_jobs')
-      .select('*')
-      .eq('id', batchJob.id)
-      .single();
-
-    console.log('🎉 Batch processing completed:', {
-      jobId: batchJob.id,
-      totalTasks: totalTasks,
-      completed: finalJob?.completed_tasks || 0,
-      failed: finalJob?.failed_tasks || 0
-    });
-
+    // Return immediate response while processing continues in background
     return new Response(JSON.stringify({
       success: true,
       batchJobId: batchJob.id,
       totalTasks: totalTasks,
-      completed: finalJob?.completed_tasks || 0,
-      failed: finalJob?.failed_tasks || 0,
-      status: finalJob?.status || 'completed'
+      message: 'Batch job started and processing in background',
+      status: 'processing'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
