@@ -14,7 +14,8 @@ import {
   Globe, 
   Lightbulb,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PromptModal } from './PromptModal';
@@ -151,15 +152,17 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
               </div>
             </div>
 
-            {/* Title */}
-            <h3 className="font-semibold text-foreground mb-3 text-lg leading-tight">
+            {/* Title - More prominent like competitor tool */}
+            <h3 className="font-bold text-foreground mb-4 text-xl leading-tight">
               {recommendation.title}
             </h3>
 
-            {/* Rationale */}
-            <p className="text-sm text-muted-foreground mb-4 line-clamp-4">
-              {recommendation.rationale}
-            </p>
+            {/* Strategic rationale - More detailed */}
+            <div className="text-sm text-muted-foreground mb-4 bg-muted/30 p-4 rounded-lg border-l-4 border-primary/30">
+              <p className="leading-relaxed">
+                {recommendation.rationale}
+              </p>
+            </div>
           </div>
 
           {/* Implementation Details - Expandable */}
@@ -203,37 +206,60 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
             </div>
           )}
 
-          {/* Related Prompts */}
+          {/* Related Prompts - Enhanced like competitor tool */}
           {sourcePromptIds.length > 0 && (
             <div className="border-t bg-muted/10">
               <div className="px-6 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-foreground">Related Prompts</h4>
-                  <button
-                    onClick={() => setPromptModalOpen(true)}
-                    className="text-xs text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
-                    aria-label="View all related prompts"
-                  >
-                    View all ({sourcePromptIds.length})
-                  </button>
+                <button
+                  onClick={() => setPromptModalOpen(true)}
+                  className="w-full flex items-center justify-between text-left text-sm font-semibold text-foreground hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset transition-colors p-2 rounded-lg"
+                  aria-label="View all related prompts"
+                >
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Related Prompts
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {sourcePromptIds.length} {sourcePromptIds.length === 1 ? 'prompt' : 'prompts'}
+                    </Badge>
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </button>
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    This recommendation is for the entire topic area.
+                  </p>
+                  <div className="grid gap-1">
+                    {sourcePromptIds.slice(0, 3).map((promptId, index) => (
+                      <div key={promptId} className="text-xs text-muted-foreground bg-card p-2 rounded border">
+                        Query {index + 1}: {promptId.substring(0, 8)}...
+                      </div>
+                    ))}
+                    {sourcePromptIds.length > 3 && (
+                      <div className="text-xs text-muted-foreground text-center py-1">
+                        +{sourcePromptIds.length - 3} more queries
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  This recommendation is for the entire topic area based on {sourcePromptIds.length} related {sourcePromptIds.length === 1 ? 'query' : 'queries'}.
-                </p>
               </div>
             </div>
           )}
 
-          {/* Related Citations */}
+          {/* Related Citations - Enhanced like competitor tool */}
           {citations.length > 0 && (
             <div className="border-t bg-muted/10">
               <div className="px-6 py-4">
-                <h4 className="text-sm font-medium text-foreground mb-3">Related Citations</h4>
+                <div className="flex items-center gap-2 mb-3">
+                  <ExternalLink className="h-4 w-4 text-foreground" />
+                  <h4 className="text-sm font-semibold text-foreground">Related Citations</h4>
+                </div>
                 <div className="space-y-2">
-                  {citations.slice(0, 4).map((citation, index) => (
+                  {citations.map((citation, index) => (
                     <div 
                       key={index}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-card hover:bg-muted/50 cursor-pointer transition-colors group"
+                      className="flex items-start gap-3 p-3 rounded-lg bg-card hover:bg-primary/5 cursor-pointer transition-all duration-200 group border hover:border-primary/20"
                       onClick={() => {
                         if (citation.type === 'url') {
                           window.open(citation.value, '_blank', 'noopener,noreferrer');
@@ -242,17 +268,22 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
                         }
                       }}
                     >
-                      <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
-                      <span className="text-xs text-muted-foreground group-hover:text-foreground truncate flex-1">
-                        {citation.type === 'url' ? new URL(citation.value).hostname : citation.value}
-                      </span>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-foreground group-hover:text-primary font-medium block leading-relaxed">
+                          {citation.type === 'url' ? new URL(citation.value).hostname : citation.value}
+                        </span>
+                        {citation.type === 'url' && (
+                          <span className="text-xs text-muted-foreground truncate block mt-1">
+                            {citation.value}
+                          </span>
+                        )}
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowRight className="h-3 w-3 text-primary" />
+                      </div>
                     </div>
                   ))}
-                  {citations.length > 4 && (
-                    <div className="text-xs text-muted-foreground pt-1">
-                      +{citations.length - 4} more citations available
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
