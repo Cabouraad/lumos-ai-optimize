@@ -131,11 +131,16 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
   const loadPromptTexts = async () => {
     setLoadingPrompts(true);
     try {
-      const { data: promptsData } = await supabase
+      const { data: promptsData, error } = await supabase
         .from('prompts')
         .select('id, text')
         .in('id', sourcePromptIds)
         .eq('org_id', orgId);
+
+      if (error) {
+        console.error('Error querying prompts:', error);
+        return;
+      }
 
       if (promptsData) {
         // Maintain the order based on sourcePromptIds

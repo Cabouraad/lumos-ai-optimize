@@ -182,18 +182,34 @@ export default function Competitors() {
       const orgBrands = competitorsResult.data?.filter(b => b.is_org_brand) || [];
       const competitorBrands = competitorsResult.data?.filter(b => !b.is_org_brand) || [];
 
-      // Transform competitor data
-      const competitors: CompetitorBrand[] = competitorBrands.map(comp => ({
-        id: comp.id,
-        name: comp.name,
-        totalAppearances: comp.total_appearances || 0,
-        averageScore: Number(comp.average_score) || 0,
-        firstDetectedAt: comp.first_detected_at,
-        lastSeenAt: comp.last_seen_at,
-        trend: calculateTrend(comp.last_seen_at, comp.first_detected_at, comp.total_appearances || 0),
-        sharePercentage: ((Number(comp.average_score) || 0) / 10) * 100,
-        isManuallyAdded: (comp.total_appearances || 0) === 0
-      }));
+      // Transform competitor data with filtering for false positives
+      const competitors: CompetitorBrand[] = competitorBrands
+        .filter(comp => {
+          // Filter out false positives using same logic as ResponseClassificationFixer
+          const name = comp.name.toLowerCase().trim();
+          
+          // Remove generic/suspicious terms
+          const isSuspicious = /^(seo|marketing|social media|facebook|adobe|social|media)$/i.test(name);
+          
+          // Remove very short terms (less than 3 characters)
+          const isTooShort = name.length < 3;
+          
+          // Remove hubspot variants if they should be org brands
+          const isHubSpotVariant = /hubspot|marketing hub|hub.?spot/i.test(name);
+          
+          return !isSuspicious && !isTooShort && !isHubSpotVariant;
+        })
+        .map(comp => ({
+          id: comp.id,
+          name: comp.name,
+          totalAppearances: comp.total_appearances || 0,
+          averageScore: Number(comp.average_score) || 0,
+          firstDetectedAt: comp.first_detected_at,
+          lastSeenAt: comp.last_seen_at,
+          trend: calculateTrend(comp.last_seen_at, comp.first_detected_at, comp.total_appearances || 0),
+          sharePercentage: ((Number(comp.average_score) || 0) / 10) * 100,
+          isManuallyAdded: (comp.total_appearances || 0) === 0
+        }));
 
       // Create org brand data if exists
       const orgBrand: CompetitorBrand | null = orgBrands[0] ? {
