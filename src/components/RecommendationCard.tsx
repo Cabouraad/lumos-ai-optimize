@@ -165,7 +165,7 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
             </div>
           </div>
 
-          {/* Implementation Details - Expandable */}
+          {/* Implementation Details - Enhanced like competitor tool */}
           {steps.length > 0 && (
             <div className="border-t bg-muted/20">
               <button
@@ -179,25 +179,31 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
               </button>
               
               {showSteps && (
-                <div id="implementation-details" className="px-6 pb-4">
-                  <div className="space-y-3">
+                <div id="implementation-details" className="px-6 pb-6">
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                      Create a comprehensive content strategy that addresses the key areas where your brand can gain visibility.
+                    </p>
                     {steps.map((step, index) => (
-                      <div key={index} className="flex items-start gap-3 text-sm">
-                        <span className="text-xs bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 font-medium">
+                      <div key={index} className="flex items-start gap-4 text-sm border-l-2 border-muted pl-4">
+                        <span className="text-xs bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5 font-semibold">
                           {index + 1}
                         </span>
                         <div className="flex-1">
-                          <p className="text-foreground leading-relaxed">{step}</p>
+                          <p className="text-foreground leading-relaxed font-medium mb-1">{step}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => copyToClipboard(step)}
+                              className="h-7 px-2 text-xs"
+                              aria-label={`Copy step ${index + 1}`}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
+                            </Button>
+                          </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copyToClipboard(step)}
-                          className="h-6 w-6 p-0 flex-shrink-0"
-                          aria-label={`Copy step ${index + 1}`}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
                       </div>
                     ))}
                   </div>

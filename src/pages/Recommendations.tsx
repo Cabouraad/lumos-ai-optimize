@@ -1,6 +1,7 @@
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
+import { RecommendationCard } from '@/components/RecommendationCard';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
@@ -8,71 +9,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Lightbulb, 
-  RefreshCw, 
-  Target, 
-  TrendingUp, 
-  FileText, 
-  Users,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  ExternalLink,
-  Share2,
-  BarChart3
+  RefreshCw
 } from 'lucide-react';
 
 interface Recommendation {
   id: string;
-  type: 'blog_post' | 'case_study' | 'comparison' | 'tutorial' | 'social_post' | 'landing_page';
+  type: 'content' | 'social' | 'site' | 'prompt';
   title: string;
   rationale: string;
   status: 'open' | 'snoozed' | 'done' | 'dismissed';
   created_at: string;
+  cooldown_until?: string;
   metadata?: {
     steps?: string[];
     estLift?: number;
     sourcePromptIds?: string[];
-    seoKeywords?: string[];
-    contentOutline?: string[];
-    implementationSteps?: string[];
-    socialStrategy?: {
-      platforms: string[];
-      postTemplates: string[];
-      hashtagStrategy: string[];
-    };
-    expectedImpact?: 'high' | 'medium' | 'low';
-    timeToImplement?: string;
+    sourceRunIds?: string[];
+    citations?: Array<{type: 'url' | 'ref', value: string}>;
+    impact?: 'high' | 'medium' | 'low';
+    category?: string;
+    competitors?: string;
   };
 }
 
-const typeIcons = {
-  blog_post: FileText,
-  case_study: BarChart3, 
-  comparison: Target,
-  tutorial: Users,
-  social_post: Share2,
-  landing_page: ExternalLink
-};
-
-const typeColors = {
-  blog_post: 'bg-blue-50 text-blue-700 border-blue-200',
-  case_study: 'bg-green-50 text-green-700 border-green-200',
-  comparison: 'bg-purple-50 text-purple-700 border-purple-200',
-  tutorial: 'bg-orange-50 text-orange-700 border-orange-200',
-  social_post: 'bg-pink-50 text-pink-700 border-pink-200',
-  landing_page: 'bg-indigo-50 text-indigo-700 border-indigo-200'
-};
-
-const impactColors = {
-  high: 'bg-red-50 text-red-700 border-red-200',
-  medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  low: 'bg-gray-50 text-gray-700 border-gray-200'
-};
 
 export default function Recommendations() {
   const { canAccessRecommendations } = useSubscriptionGate();
@@ -178,18 +141,29 @@ export default function Recommendations() {
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: 'done' | 'dismissed') => {
+  const handleUpdateStatus = async (id: string, status: 'done' | 'dismissed', cooldownDays?: number) => {
     try {
+      let updateData: any = { status };
+      
+      // If cooldown is specified for dismissed status, calculate cooldown_until
+      if (status === 'dismissed' && cooldownDays) {
+        const cooldownUntil = new Date();
+        cooldownUntil.setDate(cooldownUntil.getDate() + cooldownDays);
+        updateData.cooldown_until = cooldownUntil.toISOString();
+      }
+
       const { error } = await supabase
         .from('recommendations')
-        .update({ status })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Recommendation marked as ${status}`,
+        description: cooldownDays 
+          ? `Recommendation snoozed for ${cooldownDays} days`
+          : `Recommendation marked as ${status}`,
       });
 
       await loadRecommendations();
@@ -266,14 +240,12 @@ export default function Recommendations() {
         {recommendations.length > 0 ? (
           <>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-7">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="all">All ({recommendations.filter(r => r.status === 'open').length})</TabsTrigger>
-                <TabsTrigger value="blog_post">Blog Posts</TabsTrigger>
-                <TabsTrigger value="comparison">Comparisons</TabsTrigger>
-                <TabsTrigger value="tutorial">Tutorials</TabsTrigger>
-                <TabsTrigger value="case_study">Case Studies</TabsTrigger>
-                <TabsTrigger value="social_post">Social</TabsTrigger>
-                <TabsTrigger value="landing_page">Landing</TabsTrigger>
+                <TabsTrigger value="content">Content</TabsTrigger>
+                <TabsTrigger value="social">Social</TabsTrigger>
+                <TabsTrigger value="site">Site</TabsTrigger>
+                <TabsTrigger value="prompt">Prompt</TabsTrigger>
               </TabsList>
 
               <TabsContent value={activeTab} className="space-y-6">
@@ -284,6 +256,7 @@ export default function Recommendations() {
                         key={recommendation.id}
                         recommendation={recommendation}
                         onUpdateStatus={handleUpdateStatus}
+                        orgId={orgData?.organizations?.id}
                       />
                     ))}
                   </div>
@@ -323,209 +296,5 @@ export default function Recommendations() {
         )}
       </div>
     </Layout>
-  );
-}
-
-function RecommendationCard({ 
-  recommendation, 
-  onUpdateStatus 
-}: { 
-  recommendation: Recommendation;
-  onUpdateStatus: (id: string, status: 'done' | 'dismissed') => void;
-}) {
-  const Icon = typeIcons[recommendation.type];
-  const impact = recommendation.metadata?.expectedImpact || 'medium';
-  
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 mb-2">
-            <Icon className="h-5 w-5" />
-            <Badge className={typeColors[recommendation.type]}>
-              {recommendation.type.replace('_', ' ').toUpperCase()}
-            </Badge>
-            <Badge className={impactColors[impact]}>
-              {impact.toUpperCase()} IMPACT
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {recommendation.metadata?.timeToImplement || '1-2 weeks'}
-          </div>
-        </div>
-        <CardTitle className="text-lg leading-tight">
-          {recommendation.title}
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
-          <strong>Why this matters:</strong> {recommendation.rationale}
-        </div>
-
-        {recommendation.metadata?.contentOutline && (
-          <div>
-            <h4 className="font-medium text-sm mb-2">Content Outline:</h4>
-            <ul className="text-sm space-y-1">
-              {recommendation.metadata.contentOutline.slice(0, 3).map((item, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <ArrowRight className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
-              ))}
-              {recommendation.metadata.contentOutline.length > 3 && (
-                <li className="text-muted-foreground text-xs">
-                  +{recommendation.metadata.contentOutline.length - 3} more sections...
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
-
-        {recommendation.metadata?.seoKeywords && (
-          <div>
-            <h4 className="font-medium text-sm mb-2">Target Keywords:</h4>
-            <div className="flex flex-wrap gap-1">
-              {recommendation.metadata.seoKeywords.slice(0, 4).map((keyword, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  {keyword}
-                </Badge>
-              ))}
-              {recommendation.metadata.seoKeywords.length > 4 && (
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  +{recommendation.metadata.seoKeywords.length - 4}
-                </Badge>
-              )}
-            </div>
-          </div>
-        )}
-
-        {recommendation.metadata?.socialStrategy && (
-          <div>
-            <h4 className="font-medium text-sm mb-2">Social Strategy:</h4>
-            <div className="text-xs space-y-1">
-              <div>
-                <strong>Platforms:</strong> {recommendation.metadata.socialStrategy.platforms.join(', ')}
-              </div>
-              {recommendation.metadata.socialStrategy.postTemplates[0] && (
-                <div className="bg-muted/30 p-2 rounded text-muted-foreground italic">
-                  "{recommendation.metadata.socialStrategy.postTemplates[0]}"
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <Dialog>
-          <div className="flex justify-between items-center pt-4 border-t">
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                View Details
-              </Button>
-            </DialogTrigger>
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => onUpdateStatus(recommendation.id, 'dismissed')}
-              >
-                Dismiss
-              </Button>
-              <Button 
-                size="sm"
-                onClick={() => onUpdateStatus(recommendation.id, 'done')}
-              >
-                <CheckCircle className="h-4 w-4 mr-1" />
-                Mark Done
-              </Button>
-            </div>
-          </div>
-
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Icon className="h-5 w-5" />
-                {recommendation.title}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-2">Strategic Rationale</h3>
-                <p className="text-sm text-muted-foreground">{recommendation.rationale}</p>
-              </div>
-
-              {recommendation.metadata?.implementationSteps && (
-                <div>
-                  <h3 className="font-semibold mb-3">Implementation Steps</h3>
-                  <ol className="space-y-2">
-                    {recommendation.metadata.implementationSteps.map((step, index) => (
-                      <li key={index} className="flex items-start gap-3">
-                        <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
-                          {index + 1}
-                        </span>
-                        <span className="text-sm">{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
-              {recommendation.metadata?.socialStrategy && (
-                <div>
-                  <h3 className="font-semibold mb-3">Social Media Strategy</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Platforms & Distribution:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {recommendation.metadata.socialStrategy.platforms.map((platform, index) => (
-                          <Badge key={index} variant="outline">{platform}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Post Templates:</h4>
-                      <div className="space-y-2">
-                        {recommendation.metadata.socialStrategy.postTemplates.map((template, index) => (
-                          <div key={index} className="bg-muted/30 p-3 rounded text-sm">
-                            {template}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Hashtag Strategy:</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {recommendation.metadata.socialStrategy.hashtagStrategy.map((hashtag, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {hashtag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button 
-                  variant="outline"
-                  onClick={() => onUpdateStatus(recommendation.id, 'dismissed')}
-                >
-                  Dismiss
-                </Button>
-                <Button onClick={() => onUpdateStatus(recommendation.id, 'done')}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark as Complete
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
   );
 }
