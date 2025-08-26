@@ -184,12 +184,27 @@ serve(async (req) => {
             }
           }
 
-          // Update final job status
+          // Recompute final counts from tasks to ensure accuracy
+          const { count: completedCount } = await supabase
+            .from('batch_tasks')
+            .select('*', { count: 'exact', head: true })
+            .eq('batch_job_id', batchJob.id)
+            .eq('status', 'completed');
+
+          const { count: failedCount } = await supabase
+            .from('batch_tasks')
+            .select('*', { count: 'exact', head: true })
+            .eq('batch_job_id', batchJob.id)
+            .eq('status', 'failed');
+
+          // Update final job status and counts
           await supabase
             .from('batch_jobs')
             .update({ 
               status: 'completed',
-              completed_at: new Date().toISOString()
+              completed_at: new Date().toISOString(),
+              completed_tasks: completedCount || 0,
+              failed_tasks: failedCount || 0
             })
             .eq('id', batchJob.id);
 
