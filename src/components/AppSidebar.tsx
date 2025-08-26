@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/Logo';
 import {
   Sidebar,
   SidebarContent,
@@ -45,12 +46,10 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border/30 bg-gradient-subtle backdrop-blur-sm shadow-soft">
       <SidebarHeader className="p-6 border-b border-border/30">
-        <h1 className="text-xl font-display gradient-primary bg-clip-text text-transparent">
-          Llumos
-        </h1>
-        {!collapsed && (
-          <p className="text-sm text-muted-foreground mt-1">
-            {orgData?.organizations?.name}
+        <Logo collapsed={collapsed} />
+        {!collapsed && orgData?.organizations?.name && (
+          <p className="text-sm text-muted-foreground mt-3 ml-11">
+            {orgData.organizations.name}
           </p>
         )}
       </SidebarHeader>
