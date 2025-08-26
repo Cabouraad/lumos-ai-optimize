@@ -19,7 +19,10 @@ import {
   Zap, 
   Plus, 
   Info,
-  BarChart3
+  BarChart3,
+  Trash2,
+  Eye,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -126,6 +129,7 @@ export default function Competitors() {
   const [topBrands, setTopBrands] = useState<CompetitorBrand[]>([]);
   const [nearestCompetitors, setNearestCompetitors] = useState<CompetitorBrand[]>([]);
   const [upcomingBrands, setUpcomingBrands] = useState<CompetitorBrand[]>([]);
+  const [trackedCompetitors, setTrackedCompetitors] = useState<CompetitorBrand[]>([]);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newCompetitorName, setNewCompetitorName] = useState('');
@@ -231,6 +235,13 @@ export default function Competitors() {
       
       setUpcomingBrands(upcomingWithOrg);
 
+      // User-tracked competitors (manually added, with 0 appearances)
+      const tracked = competitors
+        .filter(c => c.totalAppearances === 0)
+        .sort((a, b) => new Date(b.firstDetectedAt).getTime() - new Date(a.firstDetectedAt).getTime());
+      
+      setTrackedCompetitors(tracked);
+
     } catch (error) {
       console.error('Error fetching competitor data:', error);
       toast({
@@ -297,6 +308,39 @@ export default function Competitors() {
       fetchCompetitorData();
     } catch (error) {
       console.error('Error in handleAddCompetitor:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRemoveCompetitor = async (competitorId: string) => {
+    try {
+      const { error } = await supabase
+        .from('brand_catalog')
+        .delete()
+        .eq('id', competitorId);
+
+      if (error) {
+        console.error('Error removing competitor:', error);
+        toast({
+          title: "Error removing competitor",
+          description: "Failed to remove the competitor from your catalog.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Competitor removed",
+        description: "The competitor has been removed from your catalog."
+      });
+
+      fetchCompetitorData();
+    } catch (error) {
+      console.error('Error in handleRemoveCompetitor:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred.",
@@ -509,6 +553,76 @@ export default function Competitors() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* User-Tracked Competitors Section */}
+            {trackedCompetitors.length > 0 && (
+              <div className="mt-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <Eye className="w-5 h-5 text-purple-600" />
+                  <h2 className="text-xl font-semibold text-foreground">Your Tracked Competitors</h2>
+                  <Badge variant="secondary" className="text-xs px-2 py-1">
+                    {trackedCompetitors.length} tracked
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Competitors you've manually added for monitoring. These will appear when mentioned in AI responses.
+                </p>
+                
+                <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                  <CardContent className="pt-6">
+                    <div className="grid gap-3">
+                      {trackedCompetitors.map((competitor) => (
+                        <div 
+                          key={competitor.id} 
+                          className="flex items-center justify-between p-4 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <BrandLogo brandName={competitor.name} />
+                            <div>
+                              <p className="font-medium text-foreground">{competitor.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  Added {new Date(competitor.firstDetectedAt).toLocaleDateString()}
+                                </p>
+                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                  <AlertCircle className="w-3 h-3 mr-1" />
+                                  Awaiting detection
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveCompetitor(competitor.id)}
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Remove from tracking</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {trackedCompetitors.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No manually tracked competitors yet.</p>
+                        <p className="text-xs mt-1">Use the "Track Competitor" button above to add competitors to monitor.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         </div>
       </Layout>
