@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Play } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Play, Lightbulb } from 'lucide-react';
 import { getUnifiedDashboardData, invalidateCache } from '@/lib/data/unified-fetcher';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -23,10 +23,12 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [manualRunLoading, setManualRunLoading] = useState(false);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardData();
+    loadRecommendations();
   }, []);
 
   const loadDashboardData = async () => {
@@ -49,6 +51,30 @@ export default function Dashboard() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRecommendations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('recommendations')
+        .select('*')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Filter for high impact recommendations and take top 3
+      const highImpactRecs = data
+        ?.filter(rec => {
+          const metadata = rec.metadata as any;
+          return metadata?.impact === 'high';
+        })
+        ?.slice(0, 3) || [];
+
+      setRecommendations(highImpactRecs);
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
     }
   };
 
@@ -90,6 +116,7 @@ export default function Dashboard() {
       invalidateCache(['dashboard-data', 'prompt-data']);
       setTimeout(async () => {
         await loadDashboardData();
+        await loadRecommendations();
         toast({
           title: 'Dashboard refreshed',
           description: 'Latest visibility data has been loaded.',
@@ -292,58 +319,50 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* System Status */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-              <CardHeader>
-                <CardTitle>System Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">LLM Providers</span>
-                  <div className="flex gap-1">
-                    {dashboardData?.providers?.map((provider: any) => (
-                      <Badge 
-                        key={provider.id}
-                        variant={provider.enabled ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {provider.name}
-                      </Badge>
-                    ))}
-                  </div>
+          {/* Top Recommendations */}
+          <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" />
+                Top Recommendations
+              </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/recommendations')}
+              >
+                View All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {recommendations.length > 0 ? (
+                <div className="space-y-4">
+                  {recommendations.map((rec) => (
+                    <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs">
+                            High Impact
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {rec.type}
+                          </Badge>
+                        </div>
+                      </div>
+                      <h4 className="font-medium text-foreground mb-2">{rec.title}</h4>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{rec.rationale}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Recent Data Points</span>
-                  <Badge variant="outline">{dashboardData?.recentRunsCount || 0} in last 7 days</Badge>
+              ) : (
+                <div className="text-center py-8">
+                  <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No high-impact recommendations available</p>
+                  <p className="text-sm text-muted-foreground mt-2">Check back after running prompts</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => navigate('/prompts')}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View All Prompts
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => navigate('/competitors')}
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Analyze Competitors
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </Layout>
