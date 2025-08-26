@@ -15,15 +15,6 @@ verify_jwt = true
 [functions.customer-portal]
 verify_jwt = true
 
-[functions.daily-run]
-verify_jwt = true
-
-[functions.daily-scan]
-verify_jwt = false
-schedule = ["0 7 * * *", "0 8 * * *"]
-
-[functions.scheduler-status]
-verify_jwt = false
 
 [functions.weekly-suggestions]
 verify_jwt = true
