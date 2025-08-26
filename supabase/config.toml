@@ -1,5 +1,9 @@
 project_id = "cgocsffxqyhojtyzniyz"
 
+[functions.daily-batch-trigger]
+verify_jwt = false
+import_map = ""
+
 [functions.fix-prompt-classification]
 verify_jwt = true
 
