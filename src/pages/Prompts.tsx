@@ -415,13 +415,13 @@ export default function Prompts() {
   if (error) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gray-50 p-6">
+        <div className="min-h-screen bg-gradient-subtle p-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center py-12">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-semibold mb-2">Unable to Load Prompts</h1>
-              <p className="text-gray-600 mb-6">{error}</p>
-              <Button onClick={() => window.location.reload()}>
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h1 className="text-2xl font-semibold mb-2 text-foreground">Unable to Load Prompts</h1>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <Button onClick={() => window.location.reload()} className="hover-lift">
                 Try Again
               </Button>
             </div>
@@ -433,22 +433,22 @@ export default function Prompts() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-subtle">
         <div className="p-6">
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <h1 className="text-4xl font-display font-bold text-gray-900">Prompts</h1>
-                  <p className="text-lg text-gray-600">
+                  <h1 className="text-4xl font-display font-bold gradient-primary bg-clip-text text-transparent">Prompts</h1>
+                  <p className="text-lg text-muted-foreground">
                     Manage search prompts and discover AI-suggested improvements
                   </p>
                 </div>
                 <Button 
                   onClick={refreshPromptsData}
                   variant="outline"
-                  className="rounded-xl"
+                  className="rounded-xl hover-lift border-border/50 hover:border-primary/50 transition-smooth"
                 >
                   Refresh Data
                 </Button>
@@ -456,11 +456,11 @@ export default function Prompts() {
               
               {/* Scheduler Status */}
               <div className="max-w-md">
-                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
+                <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-4 shadow-soft">
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-glow" />
                     <div className="text-sm">
-                      <div className="font-medium text-primary">Automated daily runs at 12:00 AM EST</div>
+                      <div className="font-medium gradient-primary bg-clip-text text-transparent">Automated daily runs at 12:00 AM EST</div>
                       <div className="text-muted-foreground text-xs mt-1">All active prompts run automatically</div>
                     </div>
                   </div>
@@ -469,11 +469,11 @@ export default function Prompts() {
             </div>
 
             <Tabs defaultValue="prompts" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-white shadow-soft p-1 border border-gray-100">
-                <TabsTrigger value="prompts" className="rounded-xl">My Prompts</TabsTrigger>
-                <TabsTrigger value="suggestions" className="rounded-xl">AI Suggestions</TabsTrigger>
-                <TabsTrigger value="keywords" className="rounded-xl">Business Context</TabsTrigger>
-                <TabsTrigger value="debug" className="rounded-xl">Debug Tools</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-card/80 backdrop-blur-sm shadow-soft p-1 border border-border/50">
+                <TabsTrigger value="prompts" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Prompts</TabsTrigger>
+                <TabsTrigger value="suggestions" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">AI Suggestions</TabsTrigger>
+                <TabsTrigger value="keywords" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Business Context</TabsTrigger>
+                <TabsTrigger value="debug" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Debug Tools</TabsTrigger>
               </TabsList>
               
               <TabsContent value="prompts" className="mt-6">
