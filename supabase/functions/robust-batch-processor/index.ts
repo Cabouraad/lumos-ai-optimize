@@ -314,7 +314,6 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
 
     // Update batch job completed count
     await supabase
-      .from('batch_jobs')
       .rpc('increment_completed_tasks', { job_id: batchJobId })
       .catch(async () => {
         // Fallback: use a select and update approach
@@ -322,7 +321,7 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
           .from('batch_jobs')
           .select('completed_tasks')
           .eq('id', batchJobId)
-          .single();
+          .maybeSingle();
         
         await supabase
           .from('batch_jobs')
@@ -347,7 +346,6 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
 
     // Update batch job failed count
     await supabase
-      .from('batch_jobs')
       .rpc('increment_failed_tasks', { job_id: batchJobId })
       .catch(async () => {
         // Fallback: use a select and update approach
@@ -355,7 +353,7 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
           .from('batch_jobs')
           .select('failed_tasks')
           .eq('id', batchJobId)
-          .single();
+          .maybeSingle();
         
         await supabase
           .from('batch_jobs')
