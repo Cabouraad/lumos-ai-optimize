@@ -96,8 +96,8 @@ export default function Dashboard() {
         highImpactRecs = [...highImpactRecs, ...otherOpenRecs];
       }
 
-      // Take at least 3, or all available if less than 3
-      setRecommendations(highImpactRecs.slice(0, Math.max(3, highImpactRecs.length)));
+      // Take exactly 3 recommendations
+      setRecommendations(highImpactRecs.slice(0, 3));
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
@@ -366,13 +366,8 @@ export default function Dashboard() {
                     <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs">
-                            {((rec.metadata as any)?.impact === 'high' && 'High Impact') ||
-                             ((rec.metadata as any)?.impact === 'medium' && 'Medium Impact') ||
-                             'Impact'}
-                          </Badge>
                           <Badge variant="outline" className="text-xs">
-                            {rec.type}
+                            {rec.type === 'content' ? 'Content' : rec.type === 'social' ? 'Social' : rec.type}
                           </Badge>
                         </div>
                       </div>
