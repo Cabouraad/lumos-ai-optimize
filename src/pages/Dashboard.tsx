@@ -28,8 +28,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
-    loadRecommendations();
-  }, []);
+    if (orgData?.organizations?.id) {
+      loadRecommendations();
+    }
+  }, [orgData]);
 
   const loadDashboardData = async () => {
     try {
@@ -56,23 +58,46 @@ export default function Dashboard() {
 
   const loadRecommendations = async () => {
     try {
+      const orgId = orgData?.organizations?.id;
+      if (!orgId) return;
+
       const { data, error } = await supabase
         .from('recommendations')
         .select('*')
-        .eq('status', 'open')
+        .eq('org_id', orgId)
+        .in('status', ['open', 'snoozed', 'done', 'dismissed'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Filter for high impact recommendations and take top 3
-      const highImpactRecs = data
-        ?.filter(rec => {
-          const metadata = rec.metadata as any;
-          return metadata?.impact === 'high';
-        })
-        ?.slice(0, 3) || [];
+      // Filter for high impact recommendations first, then fall back to others if needed
+      const allRecommendations = (data || []) as any[];
+      
+      // First try to get high impact recommendations
+      let highImpactRecs = allRecommendations.filter(rec => {
+        const metadata = rec.metadata as any;
+        return metadata?.impact === 'high' && rec.status === 'open';
+      });
 
-      setRecommendations(highImpactRecs);
+      // If we don't have at least 3 high impact, add medium impact ones
+      if (highImpactRecs.length < 3) {
+        const mediumImpactRecs = allRecommendations.filter(rec => {
+          const metadata = rec.metadata as any;
+          return metadata?.impact === 'medium' && rec.status === 'open';
+        });
+        highImpactRecs = [...highImpactRecs, ...mediumImpactRecs];
+      }
+
+      // If still not enough, add any open recommendations
+      if (highImpactRecs.length < 3) {
+        const otherOpenRecs = allRecommendations.filter(rec => 
+          rec.status === 'open' && !highImpactRecs.some(h => h.id === rec.id)
+        );
+        highImpactRecs = [...highImpactRecs, ...otherOpenRecs];
+      }
+
+      // Take at least 3, or all available if less than 3
+      setRecommendations(highImpactRecs.slice(0, Math.max(3, highImpactRecs.length)));
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
@@ -342,7 +367,9 @@ export default function Dashboard() {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs">
-                            High Impact
+                            {((rec.metadata as any)?.impact === 'high' && 'High Impact') ||
+                             ((rec.metadata as any)?.impact === 'medium' && 'Medium Impact') ||
+                             'Impact'}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             {rec.type}
