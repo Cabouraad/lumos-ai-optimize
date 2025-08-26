@@ -328,21 +328,22 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
       .eq('provider', task.provider);
 
     // Update batch job completed count
-    await supabase
-      .rpc('increment_completed_tasks', { job_id: batchJobId })
-      .catch(async () => {
-        // Fallback: use a select and update approach
-        const { data: currentJob } = await supabase
-          .from('batch_jobs')
-          .select('completed_tasks')
-          .eq('id', batchJobId)
-          .maybeSingle();
-        
-        await supabase
-          .from('batch_jobs')
-          .update({ completed_tasks: (currentJob?.completed_tasks || 0) + 1 })
-          .eq('id', batchJobId);
-      });
+    try {
+      await supabase.rpc('increment_completed_tasks', { job_id: batchJobId });
+    } catch (rpcError) {
+      console.warn('RPC increment_completed_tasks failed, using fallback:', rpcError);
+      // Fallback: use a select and update approach
+      const { data: currentJob } = await supabase
+        .from('batch_jobs')
+        .select('completed_tasks')
+        .eq('id', batchJobId)
+        .maybeSingle();
+      
+      await supabase
+        .from('batch_jobs')
+        .update({ completed_tasks: (currentJob?.completed_tasks || 0) + 1 })
+        .eq('id', batchJobId);
+    }
 
   } catch (error: any) {
     console.error(`Provider ${task.provider} failed for prompt ${task.prompt_id}:`, error);
@@ -360,21 +361,22 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
       .eq('provider', task.provider);
 
     // Update batch job failed count
-    await supabase
-      .rpc('increment_failed_tasks', { job_id: batchJobId })
-      .catch(async () => {
-        // Fallback: use a select and update approach
-        const { data: currentJob } = await supabase
-          .from('batch_jobs')
-          .select('failed_tasks')
-          .eq('id', batchJobId)
-          .maybeSingle();
-        
-        await supabase
-          .from('batch_jobs')
-          .update({ failed_tasks: (currentJob?.failed_tasks || 0) + 1 })
-          .eq('id', batchJobId);
-      });
+    try {
+      await supabase.rpc('increment_failed_tasks', { job_id: batchJobId });
+    } catch (rpcError) {
+      console.warn('RPC increment_failed_tasks failed, using fallback:', rpcError);
+      // Fallback: use a select and update approach
+      const { data: currentJob } = await supabase
+        .from('batch_jobs')
+        .select('failed_tasks')
+        .eq('id', batchJobId)
+        .maybeSingle();
+      
+      await supabase
+        .from('batch_jobs')
+        .update({ failed_tasks: (currentJob?.failed_tasks || 0) + 1 })
+        .eq('id', batchJobId);
+    }
 
     // Store failed response
     await supabase
