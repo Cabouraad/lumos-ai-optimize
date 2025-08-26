@@ -34,7 +34,7 @@ const faqContent: Record<string, { title: string; sections: Array<{ question: st
       },
       {
         question: 'How do prompts get analyzed?',
-        answer: 'All active prompts run automatically every day at 3:00 AM ET against enabled AI providers. You\'ll see visibility scores, brand mentions, and competitor analysis in your dashboard.',
+        answer: 'All active prompts run automatically every day at 12:00 AM EST against enabled AI providers. You\'ll see visibility scores, brand mentions, and competitor analysis in your dashboard.',
         tips: [
           'Results update automatically - no manual runs needed',
           'Check results across different AI providers for comprehensive coverage',
