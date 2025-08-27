@@ -193,13 +193,12 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
-    // Today's scores for avgScore
-    const todayScores = validResponses
-      .filter(r => r.run_at.startsWith(today))
-      .map(r => r.score);
+    // Last 7 days scores for avgScore (more meaningful than just today)
+    const last7DaysForAvg = validResponses.filter(r => new Date(r.run_at) >= sevenDaysAgo);
+    const avgScoreValues = last7DaysForAvg.map(r => r.score);
 
-    const avgScore = todayScores.length > 0 
-      ? todayScores.reduce((sum, s) => sum + s, 0) / todayScores.length 
+    const avgScore = avgScoreValues.length > 0 
+      ? avgScoreValues.reduce((sum, s) => sum + s, 0) / avgScoreValues.length 
       : 0;
 
     // Last 7 days for overallScore

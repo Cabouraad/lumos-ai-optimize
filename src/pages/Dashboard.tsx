@@ -224,7 +224,7 @@ export default function Dashboard() {
 
             <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Data Points</CardTitle>
+                <CardTitle className="text-sm font-medium">Responses</CardTitle>
                 <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
                   <Calendar className="h-4 w-4 text-warning" />
                 </div>
