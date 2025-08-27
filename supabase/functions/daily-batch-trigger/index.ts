@@ -15,20 +15,68 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   // Verify cron secret for security
   const cronSecret = req.headers.get('x-cron-secret');
   
   if (!cronSecret || !CRON_SECRET || cronSecret !== CRON_SECRET) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized' }), 
+      JSON.stringify({ error: 'Unauthorized - Invalid cron secret' }), 
       { status: 401, headers: corsHeaders }
     );
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  // Check for duplicate runs using scheduler_state
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const runKey = `daily-batch-${today}`;
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  try {
+    // Get current scheduler state
+    const { data: schedulerState, error: stateError } = await supabase
+      .from('scheduler_state')
+      .select('last_daily_run_key, last_daily_run_at')
+      .eq('id', 'main')
+      .single();
+
+    if (stateError) {
+      console.error('Failed to get scheduler state:', stateError);
+      // Continue anyway - this is just duplicate prevention
+    }
+
+    // Check if already run today
+    if (schedulerState?.last_daily_run_key === runKey) {
+      console.log(`Daily batch already ran today (${today}), skipping`);
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Daily batch already completed today',
+        lastRun: schedulerState.last_daily_run_at
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Update scheduler state to mark this run
+    const { error: updateError } = await supabase
+      .from('scheduler_state')
+      .update({
+        last_daily_run_key: runKey,
+        last_daily_run_at: new Date().toISOString()
+      })
+      .eq('id', 'main');
+
+    if (updateError) {
+      console.error('Failed to update scheduler state:', updateError);
+      // Continue anyway - this shouldn't block the batch
+    }
+
+  } catch (error) {
+    console.error('Error checking scheduler state:', error);
+    // Continue anyway - duplicate prevention failure shouldn't block batch
+  }
+
 
   try {
     console.log('Starting daily batch trigger at 12AM EST...');

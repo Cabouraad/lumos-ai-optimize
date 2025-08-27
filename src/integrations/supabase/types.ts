@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       batch_jobs: {
         Row: {
           completed_at: string | null
@@ -408,6 +432,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scheduler_state: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_daily_run_at: string | null
+          last_daily_run_key: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          last_daily_run_at?: string | null
+          last_daily_run_key?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_daily_run_at?: string | null
+          last_daily_run_key?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       subscribers: {
         Row: {
