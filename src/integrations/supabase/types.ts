@@ -629,6 +629,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_current_user_org_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_latest_prompt_provider_responses: {
         Args: { p_org_id?: string; p_prompt_id?: string }
         Returns: {
