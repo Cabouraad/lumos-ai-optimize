@@ -610,30 +610,7 @@ export type Database = {
       }
     }
     Views: {
-      latest_prompt_provider_responses: {
-        Row: {
-          brands_json: Json | null
-          competitors_count: number | null
-          competitors_json: Json | null
-          error: string | null
-          id: string | null
-          metadata: Json | null
-          model: string | null
-          org_brand_present: boolean | null
-          org_brand_prominence: number | null
-          org_id: string | null
-          prompt_id: string | null
-          provider: string | null
-          raw_ai_response: string | null
-          raw_evidence: string | null
-          run_at: string | null
-          score: number | null
-          status: string | null
-          token_in: number | null
-          token_out: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       fix_brand_classification_all_providers: {
@@ -651,6 +628,30 @@ export type Database = {
       fix_stuck_batch_jobs: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_latest_prompt_provider_responses: {
+        Args: { p_org_id?: string; p_prompt_id?: string }
+        Returns: {
+          brands_json: Json
+          competitors_count: number
+          competitors_json: Json
+          error: string
+          id: string
+          metadata: Json
+          model: string
+          org_brand_present: boolean
+          org_brand_prominence: number
+          org_id: string
+          prompt_id: string
+          provider: string
+          raw_ai_response: string
+          raw_evidence: string
+          run_at: string
+          score: number
+          status: string
+          token_in: number
+          token_out: number
+        }[]
       }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }

@@ -182,11 +182,9 @@ class BackgroundDataPreloader {
     if (cached) return;
 
     // Fetch recent performance data from latest responses
-    const { data: metrics } = await supabase
-      .from('latest_prompt_provider_responses')
-      .select('*')
-      .eq('org_id', orgId)
-      .limit(50);
+    const { data: rpcMetrics } = await supabase
+      .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
+    const metrics = (rpcMetrics || []).slice(0, 50);
 
     if (metrics) {
       advancedCache.set(cacheKey, metrics, 120000); // 2 minute cache
@@ -218,19 +216,33 @@ class BackgroundDataPreloader {
     // Fetch prompts with latest scores
     const { data: prompts } = await supabase
       .from('prompts')
-      .select(`
-        id, text, active, created_at,
-        latest_prompt_provider_responses (
-          provider, score, org_brand_present, 
-          competitors_count, run_at
-        )
-      `)
+      .select('id, text, active, created_at, org_id')
       .eq('org_id', orgId)
       .eq('active', true)
       .order('created_at', { ascending: false });
 
     if (prompts) {
-      advancedCache.set(cacheKey, prompts, 300000); // 5 minute cache
+      const { data: latest } = await supabase
+        .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
+
+      const latestByPrompt = new Map<string, any[]>();
+      (latest || []).forEach((r: any) => {
+        if (!latestByPrompt.has(r.prompt_id)) latestByPrompt.set(r.prompt_id, []);
+        latestByPrompt.get(r.prompt_id)!.push({
+          provider: r.provider,
+          score: r.score,
+          org_brand_present: r.org_brand_present,
+          competitors_count: r.competitors_count,
+          run_at: r.run_at,
+        });
+      });
+
+      const enriched = (prompts as any[]).map((p: any) => ({
+        ...p,
+        latest_prompt_provider_responses: latestByPrompt.get(p.id) || [],
+      }));
+
+      advancedCache.set(cacheKey, enriched, 300000); // 5 minute cache
     }
   }
 

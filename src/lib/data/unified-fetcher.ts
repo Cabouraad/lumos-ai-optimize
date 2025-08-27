@@ -324,15 +324,13 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     // Get latest provider responses and simplified data in parallel
     const [latestResponsesResult, sevenDayResult] = await Promise.all([
       supabase
-        .from('latest_prompt_provider_responses')
-        .select('*')
-        .in('prompt_id', promptIds),
+        .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId }),
         
       supabase
         .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
     ]);
 
-    const latestResponses = latestResponsesResult.data || [];
+    const latestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
     const sevenDayData = sevenDayResult.data || [];
 
     // Process detailed prompt data

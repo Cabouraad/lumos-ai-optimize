@@ -63,11 +63,9 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
 
         setResults((data as ProviderResponse[]) || []);
       } else {
-        // Get latest results per provider using the view
+        // Get latest results per provider via secure RPC
         const { data, error } = await supabase
-          .from('latest_prompt_provider_responses')
-          .select('*')
-          .eq('prompt_id', promptId);
+          .rpc('get_latest_prompt_provider_responses', { p_prompt_id: promptId });
 
         if (error) {
           console.error('Error fetching latest results:', error);
