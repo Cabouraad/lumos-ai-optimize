@@ -245,7 +245,15 @@ function generateContentRecommendation(
 ): ContentRecommendation {
   const topCompetitors = prompt.topCompetitors.length > 0 ? prompt.topCompetitors : competitors.slice(0, 3);
   
-  const contentTitle = `Create comprehensive content addressing "${prompt.text}"`;
+  // Clean and truncate prompt text for readable titles
+  const cleanPromptText = prompt.text.trim();
+  const truncatedPrompt = cleanPromptText.length > 60 
+    ? cleanPromptText.substring(0, 57) + '...'
+    : cleanPromptText;
+  
+  const mainTopic = extractMainTopic(cleanPromptText);
+  const contentTitle = `Create comprehensive content about "${mainTopic}"`;
+  
   const outline = [
     'Introduction highlighting the key problem/question',
     `How ${org.name} uniquely solves this challenge`,
@@ -269,7 +277,7 @@ function generateContentRecommendation(
   return {
     type: 'content',
     title: contentTitle,
-    rationale: `Your brand is ${prompt.brandPresent ? 'mentioned but scoring low' : 'completely missing'} in AI responses to "${prompt.text}". This content will establish your authority and improve visibility. Current average score: ${prompt.avgScore.toFixed(1)}/10. Competing against: ${topCompetitors.join(', ')}.`,
+    rationale: `Your brand is ${prompt.brandPresent ? 'mentioned but scoring low' : 'completely missing'} in AI responses to "${truncatedPrompt}". This content will establish your authority and improve visibility. Current average score: ${prompt.avgScore.toFixed(1)}/10. Competing against: ${topCompetitors.slice(0, 3).join(', ')}.`,
     targetPrompts: [prompt.text],
     contentOutline: outline,
     implementationSteps: steps,
@@ -331,14 +339,24 @@ function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org:
   const topics = prompts.map(p => extractMainTopic(p.text));
   const approaches = [
     'thought leadership',
-    'educational content',
+    'educational content',  
     'industry insights'
   ];
   const approach = approaches[variant] || approaches[0];
   
+  // Create cleaner, more readable topics
+  const cleanTopics = topics
+    .filter(topic => topic.length > 0)
+    .map(topic => topic.length > 30 ? topic.substring(0, 27) + '...' : topic)
+    .slice(0, 2); // Limit to 2 topics for readability
+  
+  const topicsText = cleanTopics.length > 1 
+    ? cleanTopics.slice(0, -1).join(', ') + ' and ' + cleanTopics.slice(-1)[0]
+    : cleanTopics[0] || 'key business areas';
+  
   return {
     type: 'content',
-    title: `Establish ${approach}: "${org.name}'s approach to ${topics.join(' and ')}"`,
+    title: `Establish ${approach}: ${org.name}'s approach to ${topicsText}`,
     rationale: `Your brand is completely missing from AI responses to ${prompts.length} key prompts. Need foundational content to establish presence. Target prompts: ${prompts.map(p => `"${p.text}"`).join(', ')}.`,
     targetPrompts: prompts.map(p => p.text),
     contentOutline: [
