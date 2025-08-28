@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
@@ -11,7 +12,7 @@ const corsHeaders = {
 interface BatchJobRequest {
   orgId: string;
   promptIds?: string[];
-  resumeJobId?: string; // For resuming stuck jobs
+  resumeJobId?: string;
 }
 
 interface ProviderConfig {
@@ -61,6 +62,19 @@ serve(async (req) => {
       return handleResumeMode(supabase, resumeJobId, orgId);
     }
 
+    // STEP 1: Cancel any existing active jobs for this org (ensures single job per org)
+    console.log('🛑 Cancelling any existing active jobs for org:', orgId);
+    const { data: cancelResult, error: cancelError } = await supabase.rpc('cancel_active_batch_jobs', {
+      p_org_id: orgId,
+      p_reason: 'new job started'
+    });
+
+    if (cancelError) {
+      console.error('❌ Failed to cancel existing jobs:', cancelError);
+    } else if (cancelResult) {
+      console.log('✅ Cancelled existing jobs:', cancelResult);
+    }
+
     // Get active prompts for the organization
     let promptQuery = supabase
       .from('prompts')
@@ -102,7 +116,8 @@ serve(async (req) => {
 
     console.log(`📝 Processing ${prompts.length} prompts across ${providers.length} providers`);
 
-    // Create batch job
+    // Create batch job with runner ID
+    const runnerId = crypto.randomUUID();
     const totalTasks = prompts.length * providers.length;
     const { data: batchJob, error: jobError } = await supabase
       .from('batch_jobs')
@@ -111,6 +126,8 @@ serve(async (req) => {
         status: 'processing',
         total_tasks: totalTasks,
         started_at: new Date().toISOString(),
+        runner_id: runnerId,
+        last_heartbeat: new Date().toISOString(),
         metadata: {
           prompt_count: prompts.length,
           provider_count: providers.length,
@@ -155,7 +172,7 @@ serve(async (req) => {
     }
 
     // Process tasks concurrently with controlled concurrency
-    const concurrencyLimit = 5; // Increased for better throughput
+    const concurrencyLimit = 5;
     console.log(`🔄 Starting background processing of ${batchTasks.length} tasks`);
 
     // Use background processing to avoid timeout issues
@@ -179,40 +196,37 @@ serve(async (req) => {
         };
 
         try {
-          // Process tasks in batches
+          // Process tasks in batches with heartbeat updates
           for (let i = 0; i < batchTasks.length; i += concurrencyLimit) {
+            // Check for cancellation before each batch
+            const { data: jobCheck } = await supabase
+              .from('batch_jobs')
+              .select('cancellation_requested')
+              .eq('id', batchJob.id)
+              .single();
+
+            if (jobCheck?.cancellation_requested) {
+              console.log('🛑 Job cancellation detected, stopping processing');
+              break;
+            }
+
+            // Update heartbeat
+            await supabase
+              .from('batch_jobs')
+              .update({ last_heartbeat: new Date().toISOString() })
+              .eq('id', batchJob.id);
+
             const batch = batchTasks.slice(i, i + concurrencyLimit);
             await processBatch(batch);
             
             // Small delay between batches to avoid overwhelming APIs
             if (i + concurrencyLimit < batchTasks.length) {
-              await new Promise(resolve => setTimeout(resolve, 500)); // Reduced delay
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
           }
 
-          // Recompute final counts from tasks to ensure accuracy
-          const { count: completedCount } = await supabase
-            .from('batch_tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('batch_job_id', batchJob.id)
-            .eq('status', 'completed');
-
-          const { count: failedCount } = await supabase
-            .from('batch_tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('batch_job_id', batchJob.id)
-            .eq('status', 'failed');
-
-          // Update final job status and counts
-          await supabase
-            .from('batch_jobs')
-            .update({ 
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              completed_tasks: completedCount || 0,
-              failed_tasks: failedCount || 0
-            })
-            .eq('id', batchJob.id);
+          // Final reconciliation - let the database function handle the finalization
+          await supabase.rpc('resume_stuck_batch_job', { p_job_id: batchJob.id });
 
           console.log('🎉 Background batch processing completed for job:', batchJob.id);
         } catch (error) {
@@ -271,7 +285,6 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
     .single();
 
   const orgId = orgData?.org_id;
-  const orgName = orgData?.organizations?.name;
 
   // Update task status to processing
   await supabase
@@ -289,7 +302,7 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
     // Get the actual user-facing response
     const result = await callProviderAPI(provider, prompt.text);
     
-    // Analyze response using new simple brand analyzer
+    // Analyze response using simple brand analyzer
     const analysis = await analyzeResponse(supabase, orgId, result.responseText);
     
     // Store successful result with both raw response and analysis
@@ -308,7 +321,7 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
         competitors_count: analysis.competitors.length,
         token_in: result.tokenIn,
         token_out: result.tokenOut,
-        raw_ai_response: result.responseText, // This is now the real user-facing response
+        raw_ai_response: result.responseText,
         model: provider.model,
         run_at: new Date().toISOString(),
         metadata: {
@@ -584,8 +597,26 @@ async function handleResumeMode(supabase: any, resumeJobId: string, orgId: strin
           };
 
           try {
-            // Process tasks in batches
+            // Process tasks in batches with heartbeat
             for (let i = 0; i < pendingTasks.length; i += concurrencyLimit) {
+              // Check for cancellation
+              const { data: jobCheck } = await supabase
+                .from('batch_jobs')
+                .select('cancellation_requested')
+                .eq('id', resumeJobId)
+                .single();
+
+              if (jobCheck?.cancellation_requested) {
+                console.log('🛑 Resumed job cancellation detected, stopping');
+                break;
+              }
+
+              // Update heartbeat
+              await supabase
+                .from('batch_jobs')
+                .update({ last_heartbeat: new Date().toISOString() })
+                .eq('id', resumeJobId);
+
               const batch = pendingTasks.slice(i, i + concurrencyLimit);
               await processBatch(batch);
               
@@ -639,4 +670,97 @@ async function handleResumeMode(supabase: any, resumeJobId: string, orgId: strin
   }
 }
 
+async function callProviderAPI(provider: ProviderConfig, promptText: string) {
+  const timeout = 30000; // 30 second timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  try {
+    let response;
+    
+    if (provider.name === 'openai' || provider.name === 'perplexity') {
+      response = await fetch(provider.endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${provider.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [
+            {
+              role: 'user',
+              content: promptText
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        }),
+        signal: controller.signal
+      });
+    } else if (provider.name === 'gemini') {
+      if (!provider.apiKey) {
+        throw new Error('Gemini API key not configured');
+      }
+      console.log(`[Batch] Processing Gemini with key length: ${provider.apiKey.length}`);
+      response = await fetch(provider.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': provider.apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: promptText
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1000
+          }
+        }),
+        signal: controller.signal
+      });
+    } else {
+      throw new Error(`Unsupported provider: ${provider.name}`);
+    }
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API call failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract response text based on provider format
+    let responseText = '';
+    let tokenIn = 0;
+    let tokenOut = 0;
+
+    if (provider.name === 'openai' || provider.name === 'perplexity') {
+      responseText = data.choices?.[0]?.message?.content || '';
+      tokenIn = data.usage?.prompt_tokens || 0;
+      tokenOut = data.usage?.completion_tokens || 0;
+    } else if (provider.name === 'gemini') {
+      responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      tokenIn = data.usageMetadata?.promptTokenCount || 0;
+      tokenOut = data.usageMetadata?.candidatesTokenCount || 0;
+    }
+
+    return {
+      responseText,
+      tokenIn,
+      tokenOut
+    };
+
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`API call timed out after ${timeout}ms`);
+    }
+    throw error;
+  }
+}
