@@ -191,7 +191,7 @@ serve(async (req) => {
       recommendations.push(...generalRecs);
     }
 
-    // Store recommendations in database
+    // Store recommendations in database and manage the 20-recommendation limit
     let createdCount = 0;
     for (const rec of recommendations) {
       const { error } = await supabase.rpc('reco_upsert', {
@@ -211,6 +211,9 @@ serve(async (req) => {
         createdCount++;
       }
     }
+
+    // Clean up old recommendations to keep only the latest 20
+    await cleanupOldRecommendations(supabase, orgId);
 
     return new Response(JSON.stringify({
       success: true,
@@ -927,5 +930,36 @@ function getTimeEstimate(contentType: string): string {
       return '1 week';
     default:
       return '1-2 weeks';
+  }
+}
+
+// Function to clean up old recommendations, keeping only the latest 20
+async function cleanupOldRecommendations(supabase: any, orgId: string) {
+  try {
+    // Get all recommendations for this org, ordered by creation date (newest first)
+    const { data: allRecommendations } = await supabase
+      .from('recommendations')
+      .select('id, created_at')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false });
+
+    if (allRecommendations && allRecommendations.length > 20) {
+      // Get IDs of recommendations beyond the first 20 (oldest ones to delete)
+      const idsToDelete = allRecommendations.slice(20).map(r => r.id);
+      
+      // Delete the old recommendations
+      const { error } = await supabase
+        .from('recommendations')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (error) {
+        console.error('Error cleaning up old recommendations:', error);
+      } else {
+        console.log(`Cleaned up ${idsToDelete.length} old recommendations, keeping latest 20`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in cleanup process:', error);
   }
 }

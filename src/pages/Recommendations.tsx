@@ -93,7 +93,8 @@ export default function Recommendations() {
         .select('*')
         .eq('org_id', orgData.organizations.id)
         .in('status', ['open', 'snoozed', 'done', 'dismissed'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       setRecommendations((data || []) as Recommendation[]);
     } catch (error) {
