@@ -181,68 +181,33 @@ class BackgroundDataPreloader {
     const cached = await advancedCache.get(cacheKey);
     if (cached) return;
 
-    // Fetch recent performance data from latest responses
-    const { data: rpcMetrics } = await supabase
-      .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
-    const metrics = (rpcMetrics || []).slice(0, 50);
-
-    if (metrics) {
-      advancedCache.set(cacheKey, metrics, 120000); // 2 minute cache
-    }
-
-    // Preload recent prompt runs
-    const { data: recentRuns } = await supabase
-      .from('prompt_provider_responses')
-      .select(`
-        id, prompt_id, provider, score, org_brand_present, 
-        competitors_count, run_at, status
-      `)
-      .eq('org_id', orgId)
-      .eq('status', 'success')
-      .order('run_at', { ascending: false })
-      .limit(20);
-
-    if (recentRuns) {
-      advancedCache.set(`recent-runs-${orgId}`, recentRuns, 180000);
+    // Import the unified fetcher to use the same data structures
+    const { getUnifiedDashboardData } = await import('../data/unified-fetcher');
+    
+    try {
+      // Use the actual unified fetcher to warm the cache with the correct data structure
+      await getUnifiedDashboardData(false); // Skip cache check, force fetch
+      console.log('Background: Dashboard data preloaded');
+    } catch (error) {
+      console.error('Background preload failed for dashboard:', error);
     }
   }
 
   private async preloadPromptsData(orgId: string): Promise<void> {
-    const cacheKey = `prompts-data-${orgId}`;
+    const cacheKey = `prompt-data-${orgId}`;
     
     const cached = await advancedCache.get(cacheKey);
     if (cached) return;
 
-    // Fetch prompts with latest scores
-    const { data: prompts } = await supabase
-      .from('prompts')
-      .select('id, text, active, created_at, org_id')
-      .eq('org_id', orgId)
-      .eq('active', true)
-      .order('created_at', { ascending: false });
-
-    if (prompts) {
-      const { data: latest } = await supabase
-        .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
-
-      const latestByPrompt = new Map<string, any[]>();
-      (latest || []).forEach((r: any) => {
-        if (!latestByPrompt.has(r.prompt_id)) latestByPrompt.set(r.prompt_id, []);
-        latestByPrompt.get(r.prompt_id)!.push({
-          provider: r.provider,
-          score: r.score,
-          org_brand_present: r.org_brand_present,
-          competitors_count: r.competitors_count,
-          run_at: r.run_at,
-        });
-      });
-
-      const enriched = (prompts as any[]).map((p: any) => ({
-        ...p,
-        latest_prompt_provider_responses: latestByPrompt.get(p.id) || [],
-      }));
-
-      advancedCache.set(cacheKey, enriched, 300000); // 5 minute cache
+    // Import the unified fetcher to use the same data structures
+    const { getUnifiedPromptData } = await import('../data/unified-fetcher');
+    
+    try {
+      // Use the actual unified fetcher to warm the cache with the correct data structure
+      await getUnifiedPromptData(false); // Skip cache check, force fetch
+      console.log('Background: Prompt data preloaded');
+    } catch (error) {
+      console.error('Background preload failed for prompts:', error);
     }
   }
 

@@ -15,6 +15,30 @@ const CACHE_TTL = {
   providers: 5 * 60 * 1000,  // 5 minutes
 };
 
+// Type guards to validate cached data shapes
+function isValidDashboardData(data: any): data is UnifiedDashboardData {
+  return data && 
+    typeof data === 'object' &&
+    typeof data.avgScore === 'number' &&
+    typeof data.overallScore === 'number' &&
+    typeof data.promptCount === 'number' &&
+    Array.isArray(data.chartData) &&
+    Array.isArray(data.providers) &&
+    Array.isArray(data.prompts);
+}
+
+function isValidPromptData(data: any): data is UnifiedPromptData {
+  return data && 
+    typeof data === 'object' &&
+    typeof data.avgScore === 'number' &&
+    typeof data.overallScore === 'number' &&
+    typeof data.promptCount === 'number' &&
+    Array.isArray(data.chartData) &&
+    Array.isArray(data.providers) &&
+    Array.isArray(data.prompts) &&
+    Array.isArray(data.promptDetails);
+}
+
 // Legacy cache functions for backward compatibility
 async function getCachedData<T>(key: string): Promise<T | null> {
   // Try advanced cache first, fallback to legacy
@@ -115,7 +139,13 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
     if (useCache) {
       // Check Phase 2 advanced cache first
       const cached = await advancedCache.get<UnifiedDashboardData>(cacheKey);
-      if (cached) return cached;
+      if (cached && isValidDashboardData(cached)) {
+        return cached;
+      }
+      // If cached data is invalid, clear it
+      if (cached) {
+        advancedCache.invalidate(cacheKey);
+      }
     }
 
     // Trigger Phase 2 background preloading for future requests
@@ -292,7 +322,13 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     if (useCache) {
       // Check Phase 2 advanced cache first
       const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
-      if (cached) return cached;
+      if (cached && isValidPromptData(cached)) {
+        return cached;
+      }
+      // If cached data is invalid, clear it
+      if (cached) {
+        advancedCache.invalidate(cacheKey);
+      }
     }
 
     // Get base dashboard data

@@ -156,7 +156,9 @@ export default function Prompts() {
         throw new Error('User profile not found - please complete onboarding');
       }
       
-      const unifiedData = await getUnifiedPromptData();
+      // Force fresh load on first page visit to bypass any stale cache
+      const isFirstLoad = !rawPrompts.length;
+      const unifiedData = await getUnifiedPromptData(!isFirstLoad);
       console.log('🔍 Debug: Unified data received:', {
         promptsCount: unifiedData.prompts?.length || 0,
         detailsCount: unifiedData.promptDetails?.length || 0
