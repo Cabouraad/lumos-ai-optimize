@@ -197,7 +197,7 @@ export function BatchPromptRunner() {
       }
       
       if (data.batchJobId) {
-        // Load the created job
+        // Load the created job immediately
         const { data: jobData } = await supabase
           .from('batch_jobs' as any)
           .select('*')
@@ -206,7 +206,11 @@ export function BatchPromptRunner() {
 
         if (jobData) {
           setCurrentJob(jobData as unknown as BatchJob);
-          toast.success('Batch processing started successfully!');
+          if (data.action === 'started') {
+            toast.success(`Batch started! Processing ${data.totalTasks} tasks`);
+          } else if (data.action === 'resumed') {
+            toast.success(`Job resumed! ${data.message}`);
+          }
         }
       } else if (data.action === 'finalized') {
         toast.success(`Job already complete: ${data.completedTasks} tasks successful`);

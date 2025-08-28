@@ -224,6 +224,138 @@ async function checkCancellation(supabase: any, jobId: string): Promise<boolean>
   }
 }
 
+// Background job processing function
+async function runJob(
+  supabase: any, 
+  currentJob: BatchJob, 
+  promptsCache: Map<string, any>, 
+  runnerId: string
+): Promise<void> {
+  console.log(`🎯 Starting background processing for job: ${currentJob.id}`);
+
+  const heartbeatInterval = setInterval(async () => {
+    await updateHeartbeat(supabase, currentJob.id, runnerId);
+  }, 30000); // Every 30 seconds
+
+  try {
+    const concurrency = 3; // Process 3 tasks concurrently
+    const activePromises = new Set<Promise<void>>();
+    let consecutiveEmptyFetches = 0;
+    const maxEmptyFetches = 5; // Stop after 5 consecutive empty fetches
+
+    while (true) {
+      // Check for cancellation
+      if (await checkCancellation(supabase, currentJob.id)) {
+        console.log(`🛑 Job ${currentJob.id} cancelled, stopping processing`);
+        break;
+      }
+
+      // Clean up completed promises
+      for (const promise of activePromises) {
+        if (await Promise.race([promise, Promise.resolve('incomplete')]) !== 'incomplete') {
+          activePromises.delete(promise);
+        }
+      }
+
+      // Get pending tasks if we have capacity
+      if (activePromises.size < concurrency) {
+        const { data: pendingTasks, error: fetchError } = await supabase
+          .from('batch_tasks')
+          .select('id, batch_job_id, prompt_id, provider, status, attempts, error_message')
+          .eq('batch_job_id', currentJob.id)
+          .eq('status', 'pending')
+          .limit(concurrency - activePromises.size);
+
+        if (fetchError) {
+          console.error('❌ Error fetching pending tasks:', fetchError);
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
+          continue;
+        }
+
+        if (!pendingTasks || pendingTasks.length === 0) {
+          consecutiveEmptyFetches++;
+          console.log(`⏳ No pending tasks found (${consecutiveEmptyFetches}/${maxEmptyFetches})`);
+          
+          if (activePromises.size === 0) {
+            if (consecutiveEmptyFetches >= maxEmptyFetches) {
+              console.log(`✅ All tasks completed for job: ${currentJob.id}`);
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before next check
+            continue;
+          }
+          // Wait for active tasks to complete
+          await Promise.race(activePromises);
+          continue;
+        }
+
+        consecutiveEmptyFetches = 0; // Reset counter
+
+        // Start processing available tasks
+        for (const task of pendingTasks) {
+          const taskPromise = processTask(
+            supabase, 
+            task, 
+            promptsCache,
+            runnerId
+          );
+          activePromises.add(taskPromise);
+
+          // Clean up promise when done
+          taskPromise.finally(() => {
+            activePromises.delete(taskPromise);
+          });
+        }
+      } else {
+        // Wait for at least one task to complete
+        await Promise.race(activePromises);
+      }
+    }
+
+    // Wait for all remaining tasks to complete
+    if (activePromises.size > 0) {
+      console.log(`⏳ Waiting for ${activePromises.size} remaining tasks to complete...`);
+      await Promise.all(activePromises);
+    }
+
+  } finally {
+    clearInterval(heartbeatInterval);
+  }
+
+  // Finalize job status with accurate counts
+  const { data: finalStats } = await supabase
+    .from('batch_tasks')
+    .select('status')
+    .eq('batch_job_id', currentJob.id);
+
+  const completedCount = finalStats?.filter(t => t.status === 'completed').length || 0;
+  const failedCount = finalStats?.filter(t => t.status === 'failed').length || 0;
+  const cancelledCount = finalStats?.filter(t => t.status === 'cancelled').length || 0;
+
+  const finalStatus = cancelledCount > 0 ? 'cancelled' : 
+                     (completedCount === 0 && failedCount > 0) ? 'failed' : 'completed';
+
+  await supabase
+    .from('batch_jobs')
+    .update({
+      status: finalStatus,
+      completed_at: new Date().toISOString(),
+      completed_tasks: completedCount,
+      failed_tasks: failedCount,
+      metadata: {
+        ...currentJob.metadata,
+        final_stats: {
+          completed: completedCount,
+          failed: failedCount,
+          cancelled: cancelledCount
+        }
+      }
+    })
+    .eq('id', currentJob.id);
+
+  console.log(`🎉 Job ${currentJob.id} completed: ${completedCount} success, ${failedCount} failed, ${cancelledCount} cancelled`);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -317,8 +449,23 @@ serve(async (req) => {
         }
       }
 
+      // Start background processing for resumed job
+      EdgeRuntime.waitUntil(runJob(supabase, currentJob, promptsCache, runnerId));
+      
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'resumed',
+        batchJobId: currentJob.id,
+        message: `Resuming job with ${resumeResult.pending_tasks} pending tasks`,
+        totalTasks: currentJob.total_tasks,
+        completedTasks: currentJob.completed_tasks,
+        failedTasks: currentJob.failed_tasks
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+
     } else {
-      // Start new job - IMPROVED: Single-job enforcement
+      // Start new job - Single-job enforcement
       console.log(`🛑 Cancelling any existing active jobs for org: ${orgId}`);
       
       const { data: cancelResult } = await supabase.rpc('cancel_active_batch_jobs', {
@@ -330,7 +477,7 @@ serve(async (req) => {
         console.log(`✅ Cancelled ${cancelResult.cancelled_jobs} existing jobs and ${cancelResult.cancelled_tasks} tasks`);
       }
 
-      // FIXED: Get active prompts separately (no complex joins)
+      // Get active prompts
       const { data: prompts, error: promptsError } = await supabase
         .from('prompts')
         .select('id, text, org_id')
@@ -399,147 +546,21 @@ serve(async (req) => {
       }
 
       console.log(`✅ Created ${tasks.length} batch tasks`);
+      
+      // Start background processing for new job
+      EdgeRuntime.waitUntil(runJob(supabase, currentJob, promptsCache, runnerId));
+      
+      // Return immediately with job started
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'started',
+        batchJobId: currentJob.id,
+        message: `Started processing ${totalTasks} tasks across ${prompts.length} prompts`,
+        totalTasks: totalTasks
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
-
-    // ROBUST: Start processing with controlled concurrency and heartbeats
-    console.log(`🎯 Starting task processing for job: ${currentJob.id}`);
-
-    const heartbeatInterval = setInterval(async () => {
-      await updateHeartbeat(supabase, currentJob.id, runnerId);
-    }, 30000); // Every 30 seconds
-
-    try {
-      const concurrency = 3; // Process 3 tasks concurrently
-      const activePromises = new Set<Promise<void>>();
-      let consecutiveEmptyFetches = 0;
-      const maxEmptyFetches = 5; // Stop after 5 consecutive empty fetches
-
-      while (true) {
-        // Check for cancellation
-        if (await checkCancellation(supabase, currentJob.id)) {
-          console.log(`🛑 Job ${currentJob.id} cancelled, stopping processing`);
-          break;
-        }
-
-        // Clean up completed promises
-        for (const promise of activePromises) {
-          if (await Promise.race([promise, Promise.resolve('incomplete')]) !== 'incomplete') {
-            activePromises.delete(promise);
-          }
-        }
-
-        // Get pending tasks if we have capacity (FIXED: No complex joins)
-        if (activePromises.size < concurrency) {
-          const { data: pendingTasks, error: fetchError } = await supabase
-            .from('batch_tasks')
-            .select('id, batch_job_id, prompt_id, provider, status, attempts, error_message')
-            .eq('batch_job_id', currentJob.id)
-            .eq('status', 'pending')
-            .limit(concurrency - activePromises.size);
-
-          if (fetchError) {
-            console.error('❌ Error fetching pending tasks:', fetchError);
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
-            continue;
-          }
-
-          if (!pendingTasks || pendingTasks.length === 0) {
-            consecutiveEmptyFetches++;
-            console.log(`⏳ No pending tasks found (${consecutiveEmptyFetches}/${maxEmptyFetches})`);
-            
-            if (activePromises.size === 0) {
-              if (consecutiveEmptyFetches >= maxEmptyFetches) {
-                console.log(`✅ All tasks completed for job: ${currentJob.id}`);
-                break;
-              }
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before next check
-              continue;
-            }
-            // Wait for active tasks to complete
-            await Promise.race(activePromises);
-            continue;
-          }
-
-          consecutiveEmptyFetches = 0; // Reset counter
-
-          // Start processing available tasks
-          for (const task of pendingTasks) {
-            const taskPromise = processTask(
-              supabase, 
-              task, 
-              promptsCache,
-              runnerId
-            );
-            activePromises.add(taskPromise);
-
-            // Clean up promise when done
-            taskPromise.finally(() => {
-              activePromises.delete(taskPromise);
-            });
-          }
-        } else {
-          // Wait for at least one task to complete
-          await Promise.race(activePromises);
-        }
-      }
-
-      // Wait for all remaining tasks to complete
-      if (activePromises.size > 0) {
-        console.log(`⏳ Waiting for ${activePromises.size} remaining tasks to complete...`);
-        await Promise.all(activePromises);
-      }
-
-    } finally {
-      clearInterval(heartbeatInterval);
-    }
-
-    // IMPROVED: Finalize job status with accurate counts
-    const { data: finalStats } = await supabase
-      .from('batch_tasks')
-      .select('status')
-      .eq('batch_job_id', currentJob.id);
-
-    const completed = finalStats?.filter(t => t.status === 'completed').length || 0;
-    const failed = finalStats?.filter(t => t.status === 'failed').length || 0;
-    const cancelled = finalStats?.filter(t => t.status === 'cancelled').length || 0;
-    const totalProcessed = completed + failed + cancelled;
-
-    // Update final job status
-    const jobStatus = (totalProcessed === currentJob.total_tasks) ? 'completed' : 'failed';
-    
-    await supabase
-      .from('batch_jobs')
-      .update({
-        status: jobStatus,
-        completed_tasks: completed,
-        failed_tasks: failed,
-        completed_at: new Date().toISOString(),
-        last_heartbeat: new Date().toISOString(),
-        metadata: {
-          ...currentJob.metadata,
-          final_stats: { completed, failed, cancelled },
-          runner_id: runnerId,
-          processing_completed_at: new Date().toISOString()
-        }
-      })
-      .eq('id', currentJob.id);
-
-    console.log(`🎉 Job ${currentJob.id} ${jobStatus}: ${completed} success, ${failed} failed, ${cancelled} cancelled`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      batchJobId: currentJob.id,
-      action: resumeJobId ? 'resumed' : 'completed',
-      status: jobStatus,
-      totalTasks: currentJob.total_tasks,
-      completedTasks: completed,
-      failedTasks: failed,
-      cancelledTasks: cancelled,
-      availableProviders: availableProviders,
-      message: `Batch processing ${jobStatus} successfully`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
 
   } catch (error: any) {
     console.error('💥 Batch processor error:', error);
