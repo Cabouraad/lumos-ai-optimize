@@ -52,42 +52,177 @@ function getMissingProviders(): string[] {
     .map(([_, config]) => config.name);
 }
 
-// FIXED: Pass correct parameters to test-single-provider
-async function callProviderAPI(supabase: any, provider: string, prompt: string, orgId: string): Promise<any> {
-  const apiKey = Deno.env.get(PROVIDER_CONFIG[provider as keyof typeof PROVIDER_CONFIG]?.envVar);
-  if (!apiKey) {
-    throw new Error(`API key not configured for ${provider}`);
-  }
-
-  console.log(`🔄 Calling ${provider} for prompt: ${prompt.substring(0, 100)}...`);
-
+// Provider executors and analysis inlined to remove fragile cross-function dependency
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
   try {
-    // CRITICAL FIX: Pass the correct parameters that test-single-provider expects
-    const { data, error } = await supabase.functions.invoke('test-single-provider', {
-      body: { 
-        provider,
-        promptText: prompt,  // Correct parameter name
-        orgId               // Missing parameter added
-      }
-    });
-
-    if (error) {
-      console.error(`❌ ${provider} API error:`, error);
-      throw new Error(`${provider} API error: ${error.message}`);
-    }
-
-    if (!data || data.error) {
-      console.error(`❌ ${provider} returned error:`, data?.error);
-      throw new Error(`${provider} error: ${data?.error || 'Unknown error'}`);
-    }
-
-    console.log(`✅ ${provider} successful response`);
-    return data;
-
-  } catch (err) {
-    console.error(`💥 ${provider} call failed:`, err);
-    throw err;
+    // @ts-ignore - consumers pass fetch promises
+    const res: T = await promise;
+    return res;
+  } catch (e) {
+    throw new Error(`${label} timeout or abort: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+function computeVisibilityScoreInline(orgPresent: boolean, prominenceIdx: number | null, competitorsCount: number): number {
+  if (!orgPresent) return 1;
+  let score = 6;
+  if (prominenceIdx !== null) {
+    if (prominenceIdx === 0) score += 3;
+    else if (prominenceIdx <= 2) score += 2;
+    else if (prominenceIdx <= 5) score += 1;
+  }
+  if (competitorsCount > 8) score -= 2; else if (competitorsCount > 4) score -= 1;
+  return Math.max(1, Math.min(10, score));
+}
+
+async function fetchOrgNameAndBrands(supabase: any, orgId: string): Promise<{ orgName: string | null; orgBrandVariants: string[]; competitorNames: string[]; }>{
+  const [{ data: org }, { data: brands }] = await Promise.all([
+    supabase.from('organizations').select('name').eq('id', orgId).single(),
+    supabase.from('brand_catalog').select('name,is_org_brand,variants_json').eq('org_id', orgId)
+  ]);
+  const orgName = org?.name ?? null;
+  const orgBrandVariants: string[] = [];
+  const competitorNames: string[] = [];
+  (brands || []).forEach((b: any) => {
+    if (b.is_org_brand) {
+      orgBrandVariants.push(b.name);
+      if (Array.isArray(b.variants_json)) orgBrandVariants.push(...b.variants_json);
+    } else {
+      competitorNames.push(b.name);
+    }
+  });
+  return { orgName, orgBrandVariants, competitorNames };
+}
+
+function simpleAnalyze(responseText: string, orgName: string | null, orgVariants: string[], competitorNames: string[]) {
+  const text = (responseText || '').toLowerCase();
+  const allOrgTerms = [ ...(orgName ? [orgName] : []), ...orgVariants ].map(s => String(s).toLowerCase()).filter(Boolean);
+  const orgMatches = allOrgTerms
+    .map(term => ({ term, idx: text.indexOf(term) }))
+    .filter(m => m.idx >= 0)
+    .sort((a, b) => a.idx - b.idx);
+  const orgPresent = orgMatches.length > 0;
+  const orgProminence = orgPresent ? (orgMatches[0].idx === 0 ? 0 : Math.max(0, Math.floor(orgMatches[0].idx / 80))) : null;
+  const competitorsFound = competitorNames
+    .map(c => String(c))
+    .filter(c => c && text.includes(c.toLowerCase()));
+  const competitorsCount = competitorsFound.length;
+  const score = computeVisibilityScoreInline(orgPresent, orgProminence, competitorsCount);
+  return {
+    score,
+    org_brand_present: orgPresent,
+    org_brand_prominence: orgProminence,
+    competitors_count: competitorsCount,
+    competitors: Array.from(new Set(competitorsFound)),
+    brands: orgPresent ? [orgName || (allOrgTerms[0] || 'Brand')] : [],
+    token_usage: { input: 0, output: 0 }
+  };
+}
+
+async function executeOpenAI(promptText: string): Promise<{ model: string; response: string; token_usage: { input: number; output: number } }>{
+  const key = Deno.env.get('OPENAI_API_KEY');
+  if (!key) throw new Error('OPENAI_API_KEY not configured');
+  const res = await withTimeout(fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Be precise and concise.' },
+        { role: 'user', content: promptText }
+      ]
+    })
+  }), 60000, 'openai');
+  const json = await res.json();
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${JSON.stringify(json)}`);
+  const text = json.choices?.[0]?.message?.content ?? '';
+  const usage = json.usage || {};
+  return { model: json.model || 'gpt-4o-mini', response: text, token_usage: { input: usage.prompt_tokens || 0, output: usage.completion_tokens || 0 } };
+}
+
+async function executePerplexity(promptText: string): Promise<{ model: string; response: string; token_usage: { input: number; output: number } }>{
+  const key = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!key) throw new Error('PERPLEXITY_API_KEY not configured');
+  const body = {
+    model: 'llama-3.1-sonar-small-128k-online',
+    messages: [
+      { role: 'system', content: 'Be precise and concise.' },
+      { role: 'user', content: promptText }
+    ],
+    max_tokens: 800
+  };
+  const res = await withTimeout(fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }), 60000, 'perplexity');
+  const json = await res.json();
+  if (!res.ok) throw new Error(`Perplexity ${res.status}: ${JSON.stringify(json)}`);
+  const text = json.choices?.[0]?.message?.content ?? '';
+  const usage = json.usage || {};
+  return { model: json.model || 'llama-3.1-sonar-small-128k-online', response: text, token_usage: { input: usage.prompt_tokens || 0, output: usage.completion_tokens || 0 } };
+}
+
+async function executeGemini(promptText: string): Promise<{ model: string; response: string; token_usage: { input: number; output: number } }>{
+  const key = Deno.env.get('GEMINI_API_KEY');
+  if (!key) throw new Error('GEMINI_API_KEY not configured');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`;
+  const payload = { contents: [{ role: 'user', parts: [{ text: promptText }] }] };
+  const res = await withTimeout(fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }), 60000, 'gemini');
+  const json = await res.json();
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${JSON.stringify(json)}`);
+  const candidates = json.candidates || [];
+  const parts = candidates[0]?.content?.parts || [];
+  const text = parts.map((p: any) => p.text).filter(Boolean).join('\n');
+  return { model: 'gemini-2.0-flash-lite', response: text, token_usage: { input: 0, output: 0 } };
+}
+
+async function callProviderAPI(supabase: any, provider: string, prompt: string, orgId: string): Promise<any> {
+  console.log(`🔄 Calling ${provider} directly (inlined)`);
+  const maxAttempts = 3;
+  let lastErr: any;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      let execRes;
+      if (provider === 'openai') execRes = await executeOpenAI(prompt);
+      else if (provider === 'perplexity') execRes = await executePerplexity(prompt);
+      else if (provider === 'gemini') execRes = await executeGemini(prompt);
+      else throw new Error(`Unknown provider: ${provider}`);
+
+      const { orgName, orgBrandVariants, competitorNames } = await fetchOrgNameAndBrands(supabase, orgId);
+      const analysis = simpleAnalyze(execRes.response, orgName, orgBrandVariants, competitorNames);
+      return {
+        model: execRes.model,
+        response: execRes.response,
+        analysis: {
+          score: analysis.score,
+          org_brand_present: analysis.org_brand_present,
+          org_brand_prominence: analysis.org_brand_prominence,
+          competitors_count: analysis.competitors_count,
+          competitors: analysis.competitors,
+          brands: analysis.brands,
+          token_usage: analysis.token_usage
+        }
+      };
+    } catch (e: any) {
+      lastErr = e;
+      const msg = e?.message || String(e);
+      const retryable = /(timeout|429|5\d\d|rate limit|temporarily unavailable)/i.test(msg);
+      console.warn(`⚠️ ${provider} attempt ${attempt}/${maxAttempts} failed: ${msg}${retryable && attempt < maxAttempts ? ' → retrying' : ''}`);
+      if (!retryable || attempt === maxAttempts) break;
+      const backoff = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+      await new Promise(r => setTimeout(r, backoff));
+    }
+  }
+  throw lastErr || new Error(`${provider} call failed`);
 }
 
 // IMPROVED: Atomic task claiming and robust error handling
