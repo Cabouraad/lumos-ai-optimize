@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -20,24 +19,30 @@ serve(async (req) => {
 
     console.log('🔧 Batch reconciler running - detecting and fixing stuck jobs...');
 
-    // Find stuck batch jobs using aggressive criteria:
+    // AGGRESSIVE: Find stuck batch jobs using multiple criteria:
     // 1. Processing/pending for more than 2 minutes with no recent heartbeat
     // 2. Processing/pending with old heartbeat (>2 minutes ago)
-    // 3. Processing status but appears complete based on task counts
+    // 3. Jobs that started but show no progress for 3+ minutes
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
     
-    const { data: potentiallyStuckJobs } = await supabase
+    const { data: potentiallyStuckJobs, error: fetchError } = await supabase
       .from('batch_jobs')
       .select(`
         id, org_id, status, total_tasks, completed_tasks, failed_tasks, 
         started_at, created_at, last_heartbeat, runner_id, cancellation_requested
       `)
       .in('status', ['processing', 'pending'])
-      .or(`last_heartbeat.lt.${twoMinutesAgo},last_heartbeat.is.null,started_at.lt.${twoMinutesAgo}`)
+      .or(`last_heartbeat.lt.${twoMinutesAgo},last_heartbeat.is.null,started_at.lt.${threeMinutesAgo}`)
       .limit(50);
 
+    if (fetchError) {
+      console.error('❌ Failed to fetch stuck jobs:', fetchError);
+      throw new Error(`Database error: ${fetchError.message}`);
+    }
+
     if (!potentiallyStuckJobs || potentiallyStuckJobs.length === 0) {
-      console.log('✅ No stuck jobs detected');
+      console.log('✅ No stuck jobs detected - system healthy');
       return new Response(JSON.stringify({
         success: true,
         message: 'No stuck jobs found - system healthy',
@@ -58,20 +63,25 @@ serve(async (req) => {
 
     for (const job of potentiallyStuckJobs) {
       try {
+        // SMARTER: Determine if job is actually stuck
+        const now = Date.now();
+        const jobAge = job.started_at ? now - new Date(job.started_at).getTime() : 0;
+        const heartbeatAge = job.last_heartbeat ? now - new Date(job.last_heartbeat).getTime() : Infinity;
+        
         const isReallyStuck = (
           // No heartbeat for 2+ minutes
-          !job.last_heartbeat || new Date(job.last_heartbeat) < new Date(twoMinutesAgo)
+          heartbeatAge > 2 * 60 * 1000
         ) || (
-          // Started over 2 minutes ago with no progress
-          job.started_at && new Date(job.started_at) < new Date(twoMinutesAgo)
+          // Started over 3 minutes ago with minimal progress
+          jobAge > 3 * 60 * 1000 && (job.completed_tasks + job.failed_tasks) === 0
         );
 
         if (!isReallyStuck) {
-          console.log(`⏭️ Skipping job ${job.id} - not actually stuck`);
+          console.log(`⏭️ Job ${job.id} not stuck (age: ${Math.round(jobAge/1000)}s, heartbeat: ${Math.round(heartbeatAge/1000)}s)`);
           continue;
         }
 
-        console.log(`🔧 Reconciling stuck job ${job.id} (status: ${job.status}, last heartbeat: ${job.last_heartbeat || 'never'})`);
+        console.log(`🔧 Reconciling stuck job ${job.id} (status: ${job.status}, heartbeat age: ${Math.round(heartbeatAge/1000)}s)`);
 
         // Use the resume function to handle the stuck job
         const { data: resumeResult, error: resumeError } = await supabase.rpc('resume_stuck_batch_job', {
@@ -96,49 +106,22 @@ serve(async (req) => {
             jobId: job.id,
             action: 'finalized',
             completedTasks: resumeResult.completed_tasks,
-            failedTasks: resumeResult.failed_tasks,
-            message: 'Job was complete, marked as finalized'
+            failedTasks: resumeResult.failed_tasks
           });
           
         } else if (resumeResult?.action === 'resumed') {
+          // SIMPLIFIED: Just prepare for resumption, don't auto-trigger processor
+          // This prevents cascade failures and lets UI handle resumption
           resumedJobs++;
           console.log(`🔄 Prepared job ${job.id} for resumption: ${resumeResult.pending_tasks} tasks pending`);
           
-          // Trigger the robust-batch-processor to actually resume processing
-          try {
-            const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
-              body: { 
-                orgId: job.org_id, 
-                resumeJobId: job.id 
-              }
-            });
-            
-            if (resumeResponse.error) {
-              console.warn(`⚠️ Failed to trigger resume for job ${job.id}:`, resumeResponse.error);
-              results.push({
-                jobId: job.id,
-                action: 'prepared_for_resume',
-                pendingTasks: resumeResult.pending_tasks,
-                warning: 'Job prepared but auto-resume failed - manual trigger needed'
-              });
-            } else {
-              console.log(`📨 Successfully triggered resume for job ${job.id}`);
-              results.push({
-                jobId: job.id,
-                action: 'resumed_successfully',
-                pendingTasks: resumeResult.pending_tasks,
-                message: 'Job resumed and processing restarted'
-              });
-            }
-          } catch (resumeError) {
-            console.warn(`⚠️ Exception triggering resume for job ${job.id}:`, resumeError);
-            results.push({
-              jobId: job.id,
-              action: 'prepared_for_resume',
-              pendingTasks: resumeResult.pending_tasks,
-              warning: 'Job prepared but auto-resume failed - manual trigger needed'
-            });
-          }
+          results.push({
+            jobId: job.id,
+            action: 'resumed',
+            pendingTasks: resumeResult.pending_tasks,
+            completedTasks: resumeResult.completed_tasks,
+            failedTasks: resumeResult.failed_tasks
+          });
         }
 
         processedJobs++;
@@ -154,7 +137,7 @@ serve(async (req) => {
     }
 
     const message = processedJobs > 0 
-      ? `Processed ${processedJobs} stuck jobs: ${finalizedJobs} finalized, ${resumedJobs} resumed`
+      ? `Reconciled ${processedJobs} stuck jobs: ${finalizedJobs} finalized, ${resumedJobs} ready for resume`
       : 'No stuck jobs needed reconciliation';
       
     console.log(`🎯 Reconciliation complete: ${message}`);

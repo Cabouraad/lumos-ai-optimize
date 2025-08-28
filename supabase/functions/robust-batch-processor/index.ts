@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -34,10 +33,10 @@ interface BatchTask {
   error_message?: string;
 }
 
-// Available providers with their API key environment variables
+// Provider configuration
 const PROVIDER_CONFIG = {
   'openai': { envVar: 'OPENAI_API_KEY', name: 'OpenAI' },
-  'perplexity': { envVar: 'PERPLEXITY_API_KEY', name: 'Perplexity' },
+  'perplexity': { envVar: 'PERPLEXITY_API_KEY', name: 'Perplexity' }, 
   'gemini': { envVar: 'GEMINI_API_KEY', name: 'Google Gemini' }
 };
 
@@ -53,7 +52,8 @@ function getMissingProviders(): string[] {
     .map(([_, config]) => config.name);
 }
 
-async function callProviderAPI(provider: string, prompt: string): Promise<any> {
+// FIXED: Pass supabase instance to avoid scope issues
+async function callProviderAPI(supabase: any, provider: string, prompt: string): Promise<any> {
   const apiKey = Deno.env.get(PROVIDER_CONFIG[provider as keyof typeof PROVIDER_CONFIG]?.envVar);
   if (!apiKey) {
     throw new Error(`API key not configured for ${provider}`);
@@ -89,10 +89,11 @@ async function callProviderAPI(provider: string, prompt: string): Promise<any> {
   }
 }
 
+// IMPROVED: Atomic task claiming and robust error handling
 async function processTask(
   supabase: any, 
   task: BatchTask, 
-  prompt: { text: string; org_id: string },
+  promptsCache: Map<string, any>,
   runnerId: string
 ): Promise<void> {
   const startTime = Date.now();
@@ -100,18 +101,32 @@ async function processTask(
   try {
     console.log(`🎯 Processing task ${task.id} (${task.provider})`);
     
-    // Update task status to processing
-    await supabase
+    // Atomically claim the task (prevents duplicate processing)
+    const { data: claimResult, error: claimError } = await supabase
       .from('batch_tasks')
       .update({ 
         status: 'processing', 
         started_at: new Date().toISOString(),
         attempts: task.attempts + 1
       })
-      .eq('id', task.id);
+      .eq('id', task.id)
+      .eq('status', 'pending') // Only update if still pending
+      .select()
+      .single();
 
-    // Call the provider API
-    const response = await callProviderAPI(task.provider, prompt.text);
+    if (claimError || !claimResult) {
+      console.log(`⏭️ Task ${task.id} already claimed or not found, skipping`);
+      return;
+    }
+
+    // Get prompt from cache
+    const prompt = promptsCache.get(task.prompt_id);
+    if (!prompt) {
+      throw new Error(`Prompt ${task.prompt_id} not found in cache`);
+    }
+
+    // Call the provider API (FIXED: pass supabase instance)
+    const response = await callProviderAPI(supabase, task.provider, prompt.text);
     
     // Store the response in the database
     const { error: responseError } = await supabase
@@ -205,7 +220,7 @@ async function checkCancellation(supabase: any, jobId: string): Promise<boolean>
     
     return data?.cancellation_requested === true || !['pending', 'processing'].includes(data?.status);
   } catch {
-    return false;
+    return true; // Assume cancelled if we can't check
   }
 }
 
@@ -226,7 +241,10 @@ serve(async (req) => {
     }
 
     const runnerId = `runner-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    console.log(`🚀 Robust batch processor starting for org: ${orgId}, runner: ${runnerId}`);
+    console.log(`🚀 Starting robust batch processing for org: ${orgId}`);
+    if (resumeJobId) {
+      console.log(`🔄 Resuming batch job: ${resumeJobId}`);
+    }
 
     // Check available providers
     const availableProviders = getAvailableProviders();
@@ -238,6 +256,7 @@ serve(async (req) => {
     console.log(`✅ Available providers: ${availableProviders.join(', ')}`);
 
     let currentJob: BatchJob;
+    let promptsCache: Map<string, any> = new Map();
 
     if (resumeJobId) {
       // Resume existing job
@@ -261,6 +280,8 @@ serve(async (req) => {
         p_job_id: resumeJobId
       });
 
+      console.log(`📊 Resume result:`, resumeResult);
+
       if (!resumeResult?.success) {
         throw new Error(`Failed to resume job: ${resumeResult?.error || 'Unknown error'}`);
       }
@@ -277,8 +298,27 @@ serve(async (req) => {
         });
       }
 
+      // Load prompts cache for resumed job
+      const { data: jobPrompts } = await supabase
+        .from('batch_tasks')
+        .select('prompt_id')
+        .eq('batch_job_id', resumeJobId)
+        .eq('status', 'pending');
+
+      if (jobPrompts && jobPrompts.length > 0) {
+        const promptIds = [...new Set(jobPrompts.map(t => t.prompt_id))];
+        const { data: prompts } = await supabase
+          .from('prompts')
+          .select('id, text, org_id')
+          .in('id', promptIds);
+        
+        if (prompts) {
+          prompts.forEach(prompt => promptsCache.set(prompt.id, prompt));
+        }
+      }
+
     } else {
-      // Start new job - cancel any existing active jobs first
+      // Start new job - IMPROVED: Single-job enforcement
       console.log(`🛑 Cancelling any existing active jobs for org: ${orgId}`);
       
       const { data: cancelResult } = await supabase.rpc('cancel_active_batch_jobs', {
@@ -290,16 +330,23 @@ serve(async (req) => {
         console.log(`✅ Cancelled ${cancelResult.cancelled_jobs} existing jobs and ${cancelResult.cancelled_tasks} tasks`);
       }
 
-      // Get active prompts
-      const { data: prompts } = await supabase
+      // FIXED: Get active prompts separately (no complex joins)
+      const { data: prompts, error: promptsError } = await supabase
         .from('prompts')
         .select('id, text, org_id')
         .eq('org_id', orgId)
         .eq('active', true);
 
+      if (promptsError) {
+        throw new Error(`Failed to fetch prompts: ${promptsError.message}`);
+      }
+
       if (!prompts || prompts.length === 0) {
         throw new Error('No active prompts found for this organization');
       }
+
+      // Build prompts cache
+      prompts.forEach(prompt => promptsCache.set(prompt.id, prompt));
 
       console.log(`📝 Processing ${prompts.length} prompts across ${availableProviders.length} providers`);
 
@@ -354,7 +401,7 @@ serve(async (req) => {
       console.log(`✅ Created ${tasks.length} batch tasks`);
     }
 
-    // Start processing tasks
+    // ROBUST: Start processing with controlled concurrency and heartbeats
     console.log(`🎯 Starting task processing for job: ${currentJob.id}`);
 
     const heartbeatInterval = setInterval(async () => {
@@ -364,6 +411,8 @@ serve(async (req) => {
     try {
       const concurrency = 3; // Process 3 tasks concurrently
       const activePromises = new Set<Promise<void>>();
+      let consecutiveEmptyFetches = 0;
+      const maxEmptyFetches = 5; // Stop after 5 consecutive empty fetches
 
       while (true) {
         // Check for cancellation
@@ -379,35 +428,46 @@ serve(async (req) => {
           }
         }
 
-        // Get pending tasks if we have capacity
+        // Get pending tasks if we have capacity (FIXED: No complex joins)
         if (activePromises.size < concurrency) {
-          const { data: pendingTasks } = await supabase
+          const { data: pendingTasks, error: fetchError } = await supabase
             .from('batch_tasks')
-            .select(`
-              id, batch_job_id, prompt_id, provider, status, attempts, error_message,
-              prompts!inner(text, org_id)
-            `)
+            .select('id, batch_job_id, prompt_id, provider, status, attempts, error_message')
             .eq('batch_job_id', currentJob.id)
             .eq('status', 'pending')
             .limit(concurrency - activePromises.size);
 
+          if (fetchError) {
+            console.error('❌ Error fetching pending tasks:', fetchError);
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s before retry
+            continue;
+          }
+
           if (!pendingTasks || pendingTasks.length === 0) {
-            // No more pending tasks
+            consecutiveEmptyFetches++;
+            console.log(`⏳ No pending tasks found (${consecutiveEmptyFetches}/${maxEmptyFetches})`);
+            
             if (activePromises.size === 0) {
-              console.log(`✅ All tasks completed for job: ${currentJob.id}`);
-              break;
+              if (consecutiveEmptyFetches >= maxEmptyFetches) {
+                console.log(`✅ All tasks completed for job: ${currentJob.id}`);
+                break;
+              }
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before next check
+              continue;
             }
             // Wait for active tasks to complete
             await Promise.race(activePromises);
             continue;
           }
 
+          consecutiveEmptyFetches = 0; // Reset counter
+
           // Start processing available tasks
           for (const task of pendingTasks) {
             const taskPromise = processTask(
               supabase, 
               task, 
-              task.prompts, 
+              promptsCache,
               runnerId
             );
             activePromises.add(taskPromise);
@@ -433,7 +493,7 @@ serve(async (req) => {
       clearInterval(heartbeatInterval);
     }
 
-    // Finalize job status
+    // IMPROVED: Finalize job status with accurate counts
     const { data: finalStats } = await supabase
       .from('batch_tasks')
       .select('status')
@@ -442,9 +502,10 @@ serve(async (req) => {
     const completed = finalStats?.filter(t => t.status === 'completed').length || 0;
     const failed = finalStats?.filter(t => t.status === 'failed').length || 0;
     const cancelled = finalStats?.filter(t => t.status === 'cancelled').length || 0;
+    const totalProcessed = completed + failed + cancelled;
 
     // Update final job status
-    const jobStatus = (completed + failed + cancelled === currentJob.total_tasks) ? 'completed' : 'failed';
+    const jobStatus = (totalProcessed === currentJob.total_tasks) ? 'completed' : 'failed';
     
     await supabase
       .from('batch_jobs')
@@ -463,12 +524,13 @@ serve(async (req) => {
       })
       .eq('id', currentJob.id);
 
-    console.log(`🎉 Job ${currentJob.id} completed: ${completed} success, ${failed} failed, ${cancelled} cancelled`);
+    console.log(`🎉 Job ${currentJob.id} ${jobStatus}: ${completed} success, ${failed} failed, ${cancelled} cancelled`);
 
     return new Response(JSON.stringify({
       success: true,
       batchJobId: currentJob.id,
       action: resumeJobId ? 'resumed' : 'completed',
+      status: jobStatus,
       totalTasks: currentJob.total_tasks,
       completedTasks: completed,
       failedTasks: failed,
@@ -499,8 +561,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: false,
       error: errorMessage,
-      availableProviders: getAvailableProviders(),
-      missingProviders: getMissingProviders()
+      action: 'error',
+      message: 'Batch processing failed'
     }), {
       status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
