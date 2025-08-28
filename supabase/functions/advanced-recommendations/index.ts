@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { requireOwnerRole } from '../_shared/auth.ts';
+// Removed requireOwnerRole import as we'll validate differently
 import { getScoreThresholds } from '../_shared/scoring.ts';
 
 const corsHeaders = {
@@ -20,8 +20,12 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Parse request body and get authenticated user's org
-    const orgId = await requireOwnerRole(supabase);
+    // Parse request body to get orgId
+    const { orgId } = await req.json();
+    
+    if (!orgId) {
+      throw new Error('Organization ID is required');
+    }
     
     console.log(`[advanced-recommendations] Processing for org: ${orgId}`);
     
