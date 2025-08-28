@@ -20,12 +20,37 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Parse request body to get orgId and mode
-    const { orgId, cleanupOnly } = await req.json();
+    // Safe body parsing and robust org resolution
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
+    }
+
+    const requestedOrgId = body.orgId || body.accountId || null;
+    const cleanupOnly = !!body.cleanupOnly;
+
+    let orgId = requestedOrgId as string | null;
+
+    // If orgId not provided, try to resolve from caller JWT via anon client
+    if (!orgId) {
+      try {
+        const supabaseAnon = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+          global: { headers: { Authorization: req.headers.get('Authorization') || '' } },
+        });
+        const { data: resolvedOrgId } = await (supabaseAnon as any).rpc('get_current_user_org_id');
+        if (resolvedOrgId) orgId = resolvedOrgId as string;
+      } catch (e) {
+        console.warn('[advanced-recommendations] Could not resolve org from JWT:', e?.message || e);
+      }
+    }
     
     if (!orgId) {
-      console.log('[advanced-recommendations] Missing orgId in request');
-      throw new Error('Organization ID is required');
+      return new Response(JSON.stringify({ error: 'Organization ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     console.log(`[advanced-recommendations] Processing for org: ${orgId}, cleanupOnly: ${cleanupOnly}`);
@@ -66,65 +91,50 @@ serve(async (req) => {
 
 async function generateEnhancedRecommendations(orgId: string, supabase: any) {
   try {
-    // Get comprehensive data for analysis
-    const [orgData, visibilityData, recentRunsData] = await Promise.all([
-      // Organization info
+    const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Fetch org, prompts, and recent responses in parallel
+    const [orgRes, promptsRes, responsesRes] = await Promise.all([
       supabase
         .from('organizations')
-        .select('name, business_description, target_audience, products_services, keywords')
+        .select('id, name, business_description, target_audience, keywords')
         .eq('id', orgId)
         .single(),
-      
-      // Recent visibility performance with detailed context
       supabase
-        .from('visibility_results')
-        .select(`
-          *,
-          prompt_runs!inner (
-            id,
-            prompt_id,
-            run_at,
-            raw_ai_response,
-            citations,
-            prompts!inner (
-              text,
-              org_id
-            ),
-            llm_providers!inner (
-              name
-            )
-          )
-        `)
-        .eq('prompt_runs.prompts.org_id', orgId)
-        .gte('prompt_runs.run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-        .order('prompt_runs.run_at', { ascending: false })
-        .limit(50),
-      
-      // Recent prompt performance summary using secure function
-      supabase.rpc('get_prompt_visibility_7d', {
-        requesting_org_id: orgId
-      })
+        .from('prompts')
+        .select('id, text')
+        .eq('org_id', orgId),
+      supabase
+        .from('prompt_provider_responses')
+        .select('id, prompt_id, run_at, score, org_brand_present, org_brand_prominence, competitors_count, brands_json, competitors_json, metadata, status')
+        .eq('org_id', orgId)
+        .eq('status', 'success')
+        .gte('run_at', sinceIso)
+        .order('run_at', { ascending: false })
+        .limit(1000)
     ]);
 
-    const org = orgData.data;
-    const detailedResults = visibilityData.data || [];
-    const promptSummary = recentRunsData.data || [];
+    const org = orgRes.data;
+    const prompts = promptsRes.data || [];
+    const responses = responsesRes.data || [];
 
     if (!org) {
       return { success: false, error: 'Organization not found' };
     }
 
-    if (detailedResults.length === 0) {
+    if (responses.length === 0) {
       return { success: true, created: 0, message: 'No recent data to analyze' };
     }
 
-    console.log(`Analyzing ${detailedResults.length} detailed results for ${org.name}`);
+    const promptMap = new Map<string, string>(prompts.map((p: any) => [p.id, p.text]));
 
-    // Analyze data and generate strategic recommendations
-    const analysisResults = analyzeVisibilityData(detailedResults, promptSummary, org);
-    const recommendations = generateDetailedRecommendations(analysisResults, org, orgId);
+    // Analyze data
+    const analysisResults = analyzePPRData(responses, promptMap, org);
 
-    // Remove existing auto-generated recommendations
+    // Build recommendations from analysis
+    const recommendations = buildRecommendationsFromAnalysis(analysisResults, org, orgId);
+
+    // Remove existing open/snoozed to avoid duplicates
     await supabase
       .from('recommendations')
       .delete()
@@ -133,134 +143,181 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
 
     // Insert new recommendations
     let created = 0;
-    for (const recommendation of recommendations) {
-      const { error } = await supabase
-        .from('recommendations')
-        .insert(recommendation);
-
+    for (const rec of recommendations) {
+      const { error } = await supabase.from('recommendations').insert(rec);
       if (error) {
         console.error('Error inserting recommendation:', error);
       } else {
         created++;
-        console.log(`✓ Created: ${recommendation.title.substring(0, 60)}...`);
       }
     }
 
-    // Cleanup old recommendations to maintain max 20
     const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
-    console.log(`[generateEnhanced] Cleanup: deleted ${cleanupResult.deleted} old recommendations`);
 
     return {
       success: true,
       created,
       deleted: cleanupResult.deleted,
       analysisResults: {
-        totalResults: detailedResults.length,
-        visibilityPromptsAnalyzed: analysisResults.lowVisibilityPrompts.length + analysisResults.noMentionPrompts.length,
-        organizationName: org.name,
-        avgVisibilityScore: analysisResults.avgScore
-      }
+        totalResults: responses.length,
+        lowVisibilityPrompts: analysisResults.lowVisibilityPrompts.length,
+        noMentionPrompts: analysisResults.noMentionPrompts.length,
+        topCompetitors: analysisResults.topCompetitors.slice(0, 3).map((c: any) => c[0]),
+        avgVisibilityScore: analysisResults.avgScore,
+      },
     };
-
   } catch (error: any) {
     console.error('Error in generateEnhancedRecommendations:', error);
     return { success: false, error: error.message };
   }
 }
 
-function analyzeVisibilityData(results: any[], promptSummary: any[], org: any) {
+function analyzePPRData(responses: any[], promptMap: Map<string, string>, org: any) {
   const lowVisibilityPrompts: any[] = [];
   const noMentionPrompts: any[] = [];
-  const competitorMentions: Record<string, { count: number, citations: string[], prompts: any[] }> = {};
-  const allCitations: string[] = [];
+  const competitorCounts: Record<string, number> = {};
   let totalScore = 0;
   let scoreCount = 0;
 
-  // Group results by prompt for better analysis
-  const promptGroups = new Map();
+  const groups: Record<string, { id: string, text: string, scores: number[], orgMentions: number, totalRuns: number, runIds: string[] }> = {};
 
-  for (const result of results) {
-    const promptId = result.prompt_runs.prompt_id;
-    const promptText = result.prompt_runs.prompts.text;
-    const score = result.score || 0;
-    const orgPresent = result.org_brand_present;
-    const prominence = result.org_brand_prominence;
-    const citations = result.prompt_runs.citations || [];
-    
-    totalScore += score;
+  for (const r of responses) {
+    const pid = r.prompt_id;
+    if (!groups[pid]) {
+      groups[pid] = { id: pid, text: promptMap.get(pid) || 'Untitled prompt', scores: [], orgMentions: 0, totalRuns: 0, runIds: [] };
+    }
+    groups[pid].scores.push(Number(r.score) || 0);
+    groups[pid].totalRuns++;
+    groups[pid].runIds.push(r.id);
+
+    if (r.org_brand_present) groups[pid].orgMentions++;
+
+    totalScore += Number(r.score) || 0;
     scoreCount++;
 
-    if (!promptGroups.has(promptId)) {
-      promptGroups.set(promptId, {
-        id: promptId,
-        text: promptText,
-        scores: [],
-        citations: [],
-        orgMentions: 0,
-        totalRuns: 0,
-        competitors: new Set(),
-        runIds: []
-      });
-    }
-
-    const group = promptGroups.get(promptId);
-    group.scores.push(score);
-    group.totalRuns++;
-    group.runIds.push(result.prompt_runs.id);
-
-    if (orgPresent) {
-      group.orgMentions++;
-    }
-
-    // Collect citations
-    for (const citation of citations) {
-      if (citation.type === 'url' && citation.value) {
-        allCitations.push(citation.value);
-        group.citations.push(citation);
-      }
-    }
-
-    // Track competitor mentions
-    const brands = result.brands_json || [];
+    const brands = Array.isArray(r.brands_json) ? r.brands_json : [];
     for (const brand of brands) {
-      if (typeof brand === 'string' && brand.length > 1) {
-        const normalized = brand.toLowerCase().trim();
-        
-        // Skip if it's the org's brand
-        if (org?.name && normalized.includes(org.name.toLowerCase())) {
-          continue;
-        }
-        
-        // Skip generic terms
-        const excludeTerms = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'ai', 'artificial intelligence', 'microsoft'];
-        if (excludeTerms.some(term => normalized.includes(term))) {
-          continue;
-        }
-
-        if (!competitorMentions[brand]) {
-          competitorMentions[brand] = { count: 0, citations: [], prompts: [] };
-        }
-        competitorMentions[brand].count++;
-        group.competitors.add(brand);
-
-        // Add citations for this competitor
-        for (const citation of citations) {
-          if (citation.type === 'url' && citation.value) {
-            competitorMentions[brand].citations.push(citation.value);
-          }
-        }
-        
-        // Track which prompts this competitor appears in
-        if (!competitorMentions[brand].prompts.find(p => p.id === promptId)) {
-          competitorMentions[brand].prompts.push({
-            id: promptId,
-            text: promptText,
-            score: score
-          });
-        }
-      }
+      if (typeof brand !== 'string') continue;
+      const normalized = brand.toLowerCase().trim();
+      if (org?.name && normalized.includes(org.name.toLowerCase())) continue;
+      const exclude = ['openai','claude','copilot','google','chatgpt','ai','microsoft'];
+      if (exclude.some(t => normalized.includes(t))) continue;
+      competitorCounts[brand] = (competitorCounts[brand] || 0) + 1;
     }
   }
+
+  const thresholds = getScoreThresholds();
+  for (const pid of Object.keys(groups)) {
+    const g = groups[pid];
+    const avgScore = g.scores.reduce((s, v) => s + v, 0) / g.scores.length;
+    const orgMentionRate = g.orgMentions / g.totalRuns;
+
+    const promptData = { id: g.id, text: g.text, avgScore, orgMentionRate, totalRuns: g.totalRuns, runIds: g.runIds };
+
+    if (orgMentionRate === 0) noMentionPrompts.push(promptData);
+    else if (avgScore < thresholds.fair) lowVisibilityPrompts.push(promptData);
+  }
+
+  const topCompetitors = Object.entries(competitorCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  return {
+    lowVisibilityPrompts: lowVisibilityPrompts.slice(0, 8),
+    noMentionPrompts: noMentionPrompts.slice(0, 8),
+    topCompetitors,
+    avgScore: scoreCount > 0 ? totalScore / scoreCount : 0,
+  };
+}
+
+function buildRecommendationsFromAnalysis(analysis: any, org: any, orgId: string) {
+  const recs: any[] = [];
+
+  // Content hub for no-mention prompts
+  if (analysis.noMentionPrompts.length > 0) {
+    const topic = extractMainTopic(analysis.noMentionPrompts.map((p: any) => p.text));
+    recs.push({
+      org_id: orgId,
+      type: 'content',
+      title: `Build a ${topic} content hub highlighting ${org.name}`,
+      rationale: `${org.name} is absent in ${analysis.noMentionPrompts.length} high-intent queries. A focused hub will establish topical authority and capture missed demand.`,
+      status: 'open',
+      metadata: {
+        steps: [
+          `Create a pillar page covering ${topic} end‑to‑end with expert POV`,
+          'Produce 8–12 clustered articles targeting adjacent long‑tails',
+          'Add FAQs and schema to improve semantic understanding',
+          'Include case studies and proof points to build trust',
+          'Launch social and email to seed engagement',
+        ],
+        estLift: 0.18,
+        sourcePromptIds: analysis.noMentionPrompts.slice(0, 5).map((p: any) => p.id),
+        sourceRunIds: [],
+        cooldownDays: 14,
+        impact: 'high',
+        category: 'content_hub',
+      },
+    });
+  }
+
+  // Competitive comparison against top competitor
+  if (analysis.topCompetitors.length > 0) {
+    const [competitorName] = analysis.topCompetitors[0];
+    recs.push({
+      org_id: orgId,
+      type: 'content',
+      title: `${org.name} vs ${competitorName}: evidence‑based comparison`,
+      rationale: `${competitorName} dominates conversations across multiple prompts. A transparent comparison captures high‑intent demand and reframes evaluation criteria in your favor.`,
+      status: 'open',
+      metadata: {
+        steps: [
+          `Map ${competitorName}'s messaging and differentiators`,
+          `Create a structured, scannable comparison page`,
+          'Include pricing/ROI and migration guidance',
+          'Collect testimonials from recent competitive wins',
+          'Retarget visitors with a demo CTA sequence',
+        ],
+        estLift: 0.15,
+        sourcePromptIds: analysis.lowVisibilityPrompts.slice(0, 5).map((p: any) => p.id),
+        sourceRunIds: [],
+        cooldownDays: 14,
+        impact: 'high',
+        category: 'competitive_analysis',
+      },
+    });
+  }
+
+  // Visibility optimization for low‑performing prompts
+  if (analysis.lowVisibilityPrompts.length > 0) {
+    const avgScore = (
+      analysis.lowVisibilityPrompts.reduce((s: number, p: any) => s + p.avgScore, 0) /
+      analysis.lowVisibilityPrompts.length
+    ) || 0;
+
+    recs.push({
+      org_id: orgId,
+      type: 'site',
+      title: `Raise visibility signals on key pages (avg score ${avgScore.toFixed(1)}/10)`,
+      rationale: `${org.name} is present but underweighted by AI models. Improve authority, structure, and internal signals on affected pages.`,
+      status: 'open',
+      metadata: {
+        steps: [
+          'Add structured data and FAQs to key pages',
+          'Strengthen topical clusters with internal links',
+          'Enrich E‑E‑A‑T with author bios and citations',
+          'Publish linkable assets to earn quality references',
+          'Monitor AI mentions and iterate monthly',
+        ],
+        estLift: 0.22,
+        sourcePromptIds: analysis.lowVisibilityPrompts.map((p: any) => p.id),
+        sourceRunIds: [],
+        cooldownDays: 14,
+        impact: 'high',
+        category: 'visibility_optimization',
+      },
+    });
+  }
+
+  return recs;
+}
 
   // Analyze prompt groups
   for (const [promptId, group] of promptGroups) {
