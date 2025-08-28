@@ -245,28 +245,16 @@ function generateContentRecommendation(
 ): ContentRecommendation {
   const topCompetitors = prompt.topCompetitors.length > 0 ? prompt.topCompetitors : competitors.slice(0, 3);
   
-  // Generate clear, actionable content titles based on prompt analysis
-  const contentTitles = generateContentTitle(prompt.text, org.name);
+  // Generate intelligent, contextual content titles
+  const title = generateIntelligentContentTitle(prompt.text, org);
+  const contentType = detectContentType(prompt.text);
+  const keywords = extractEnhancedKeywords(prompt.text);
   
-  const outline = [
-    'Introduction highlighting the key problem/question',
-    `How ${org.name} uniquely solves this challenge`,
-    'Step-by-step implementation guide',
-    'Real-world examples and case studies',
-    'Comparison with traditional approaches',
-    'Call-to-action with specific next steps'
-  ];
+  // Generate specific content outline based on detected content type
+  const outline = generateContentOutline(contentType, org.name, keywords);
   
-  const steps = [
-    'Research the top 5 search results for this query',
-    'Identify gaps in existing content coverage',
-    'Create a 2000+ word comprehensive guide',
-    'Include original data, screenshots, or examples',
-    'Optimize for the specific keywords in the prompt',
-    'Add internal links to your product/service pages',
-    'Create supporting visuals or infographics',
-    'Develop downloadable resources and templates'
-  ];
+  // Create targeted implementation steps
+  const steps = generateImplementationSteps(contentType, keywords, org.name);
 
   // Clean and truncate prompt text for rationale
   const truncatedPrompt = prompt.text.length > 60 
@@ -275,112 +263,111 @@ function generateContentRecommendation(
 
   return {
     type: 'content',
-    title: contentTitles,
-    rationale: `Your brand is ${prompt.brandPresent ? 'mentioned but scoring low' : 'completely missing'} in AI responses to "${truncatedPrompt}". This content will establish your authority and improve visibility. Current average score: ${prompt.avgScore.toFixed(1)}/10. Competing against: ${topCompetitors.slice(0, 3).join(', ')}.`,
+    title: title,
+    rationale: `Your brand is ${prompt.brandPresent ? 'mentioned but scoring low' : 'completely missing'} in AI responses to "${truncatedPrompt}". This ${contentType} content will establish your authority and improve visibility. Current average score: ${prompt.avgScore.toFixed(1)}/10. Competing against: ${topCompetitors.slice(0, 3).join(', ')}.`,
     targetPrompts: [prompt.text],
     contentOutline: outline,
     implementationSteps: steps,
     expectedImpact: prompt.avgScore < 2 ? 'high' : prompt.avgScore < 4 ? 'medium' : 'low',
-    timeToImplement: '1-2 weeks',
-    seoKeywords: extractKeywords(prompt.text),
+    timeToImplement: getTimeEstimate(contentType),
+    seoKeywords: keywords,
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Industry Forums'],
       postTemplates: [
-        `Just published: "${contentTitles}" - Key insights: [3 bullet points]`,
+        `Just published: "${title}" - Key insights: [3 bullet points]`,
         `${topCompetitors.length > 0 ? `Unlike ${topCompetitors[0]}, ` : ''}here's our approach: [insight]`,
         'Behind the scenes: Creating this guide taught us [key learning]'
       ],
-      hashtagStrategy: generateHashtags(org.products_services, extractKeywords(prompt.text))
+      hashtagStrategy: generateEnhancedHashtags(org.products_services, keywords)
     }
   };
 }
 
 function generateCompetitiveContentRecommendation(prompt: PromptPerformance, org: any): ContentRecommendation {
-  const competitiveTitle = generateCompetitiveTitle(prompt.text, org.name);
+  const title = generateIntelligentCompetitiveTitle(prompt.text, org);
+  const keywords = extractEnhancedKeywords(prompt.text);
   
   return {
     type: 'content',
-    title: competitiveTitle,
+    title: title,
     rationale: `High competition detected (${prompt.competitorCount} competitors) for "${prompt.text}". You need differentiation content to stand out. Top competitors: ${prompt.topCompetitors.join(', ')}.`,
     targetPrompts: [prompt.text],
     contentOutline: [
-      'Market landscape overview',
-      `Unique value proposition of ${org.name}`,
-      'Head-to-head feature comparison',
-      'Customer success stories and testimonials',
-      'Pricing and ROI justification',
-      'Why customers switch to us'
+      'Market landscape overview and analysis',
+      `Why ${org.name} was built differently from the start`,
+      'Head-to-head feature comparison with proof points',
+      'Customer success stories with measurable outcomes',
+      'Total cost of ownership analysis',
+      'Migration guide and support comparison'
     ],
     implementationSteps: [
-      'Analyze top 3 competitors\' positioning and messaging',
-      'Survey recent customers about why they chose you',
-      'Create detailed feature comparison matrix',
-      'Collect quantifiable ROI data from customers',
-      'Develop "switching guide" for prospects',
+      'Analyze top 3 competitors\' positioning, pricing, and messaging',
+      'Survey recent customers about decision factors and switching reasons',
+      'Create detailed feature comparison matrix with screenshots',
+      'Collect quantifiable ROI data and time-to-value metrics',
+      'Develop "switching guide" with migration timelines and costs',
       'Create interactive comparison tool on your website',
-      'Develop competitive battle cards for sales team',
-      'Build landing page focused on competitive advantages'
+      'Develop competitive battle cards for sales and customer success teams',
+      'Build dedicated landing page highlighting competitive advantages'
     ],
     expectedImpact: 'high',
     timeToImplement: '2-3 weeks',
-    seoKeywords: [org.name, 'vs', 'alternative', 'comparison', ...extractKeywords(prompt.text)],
+    seoKeywords: [org.name, 'vs', 'alternative', 'comparison', 'better than', ...keywords],
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Reddit', 'Industry Slack/Discord'],
       postTemplates: [
-        `Honest comparison: ${org.name} vs [Competitor] - Here's what we found`,
-        'Why 85% of our customers switched from [competitor] (data from our analysis)',
-        `[Competitor] is great for X, but if you need Y, here's why ${org.name} wins`
+        `Honest comparison: ${org.name} vs [Competitor] - Here's what surprised us`,
+        'Data from 200+ customer interviews: Why they switched from [competitor]',
+        `[Competitor] works well for X, but if you need Y, here's why ${org.name} is different`
       ],
-      hashtagStrategy: ['#MarketAnalysis', '#ToolComparison', `#${org.name.replace(/\s+/g, '')}`]
+      hashtagStrategy: ['#MarketAnalysis', '#ToolComparison', `#${org.name.replace(/\s+/g, '')}Alternative`]
     }
   };
 }
 
 function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org: any, variant: number = 0): ContentRecommendation {
-  const approaches = [
-    'thought leadership content',
-    'educational guide series',  
-    'industry insights report'
-  ];
-  const approach = approaches[variant] || approaches[0];
+  // Cluster prompts by dominant topic
+  const clusteredPrompts = clusterPromptsByTopic(prompts);
+  const dominantTopic = clusteredPrompts.dominantTopic;
+  const topicKeywords = clusteredPrompts.keywords;
   
-  // Generate a meaningful title based on the business context
-  const title = generateBrandAwarenessTitle(prompts, org.name, approach);
+  // Generate contextually relevant title based on the dominant topic
+  const title = generateIntelligentBrandAwarenessTitle(dominantTopic, org, variant);
   
   return {
     type: 'content',
     title: title,
-    rationale: `Your brand is completely missing from AI responses to ${prompts.length} key prompts. Need foundational content to establish presence. Target prompts: ${prompts.map(p => `"${p.text.length > 40 ? p.text.substring(0, 37) + '...' : p.text}"`).join(', ')}.`,
+    rationale: `Your brand is completely missing from AI responses to ${prompts.length} key ${dominantTopic} prompts. Need foundational content to establish presence. Target prompts: ${prompts.map(p => `"${p.text.length > 40 ? p.text.substring(0, 37) + '...' : p.text}"`).join(', ')}.`,
     targetPrompts: prompts.map(p => p.text),
     contentOutline: [
-      `Introduction: ${org.name}'s philosophy and approach`,
-      'Industry challenges we have identified',
-      'Our unique methodology and framework',
-      'Case studies demonstrating our approach',
-      'Future vision and trends we are watching',
-      'How to get started with our solutions'
+      `Introduction: ${org.name}'s unique approach to ${dominantTopic}`,
+      `Common ${dominantTopic} challenges and misconceptions`,
+      `Our proven ${dominantTopic} methodology and framework`,
+      'Real client success stories and measurable outcomes',
+      `Industry trends and the future of ${dominantTopic}`,
+      `How to get started with ${org.name}'s ${dominantTopic} solutions`
     ],
     implementationSteps: [
-      'Document your unique processes and methodologies',
-      'Create original framework or model',
-      'Develop proprietary research or data',
-      'Write thought leadership articles',
-      'Guest post on industry publications',
-      'Speak at industry events and record sessions',
-      'Create downloadable resources (whitepapers, guides)',
-      'Build backlinks from authoritative sources'
+      `Document your unique ${dominantTopic} processes and methodologies`,
+      `Create original framework or model for ${dominantTopic}`,
+      `Develop proprietary research or data about ${dominantTopic}`,
+      `Write comprehensive ${dominantTopic} thought leadership articles`,
+      'Guest post on industry publications and relevant platforms',
+      'Speak at industry events and record video sessions',
+      `Create downloadable ${dominantTopic} resources (guides, templates, checklists)`,
+      'Build high-quality backlinks from authoritative industry sources'
     ],
     expectedImpact: 'high',
     timeToImplement: '3-4 weeks',
-    seoKeywords: [org.name, 'methodology', 'approach', 'framework', ...extractKeywords(prompts.map(p => p.text).join(' '))],
+    seoKeywords: [org.name, dominantTopic, 'methodology', 'framework', 'guide', ...topicKeywords],
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Medium', 'Industry Publications'],
       postTemplates: [
-        `Why ${org.name} takes a different approach to [industry topic]`,
-        `The methodology we developed after working with 100+ clients`,
-        `Thread: ${org.name}'s proven framework for [topic] 🧵`
+        `Why ${org.name} takes a different approach to ${dominantTopic}`,
+        `The ${dominantTopic} methodology we developed after 3+ years of client work`,
+        `Thread: ${org.name}'s proven ${dominantTopic} framework 🧵`
       ],
-      hashtagStrategy: ['#ThoughtLeadership', '#Industry', `#${org.name.replace(/\s+/g, '')}`, '#Methodology']
+      hashtagStrategy: [`#${dominantTopic.replace(/\s+/g, '')}`, '#ThoughtLeadership', `#${org.name.replace(/\s+/g, '')}`]
     }
   };
 }
@@ -572,12 +559,373 @@ function generateBrandAwarenessTitle(prompts: PromptPerformance[], orgName: stri
   }
 }
 
-function generateHashtags(productsServices: string | null, keywords: string[]): string[] {
-  const baseHashtags = ['#Marketing', '#BusinessGrowth', '#DigitalStrategy'];
-  const keywordHashtags = keywords.map(k => '#' + k.charAt(0).toUpperCase() + k.slice(1).replace(/\s+/g, ''));
-  const productHashtags = productsServices 
-    ? productsServices.split(',').map(p => '#' + p.trim().replace(/\s+/g, '')).slice(0, 2)
-    : [];
+// Enhanced title generation with pattern detection and contextual awareness
+function generateIntelligentContentTitle(promptText: string, org: any): string {
+  const cleanPrompt = normalizePromptText(promptText);
+  const contentType = detectContentType(cleanPrompt);
+  const nounPhrases = extractNounPhrases(cleanPrompt);
+  const keywords = extractEnhancedKeywords(cleanPrompt);
   
-  return [...baseHashtags, ...keywordHashtags.slice(0, 3), ...productHashtags].slice(0, 8);
+  console.log(`Generating title for: "${promptText}" | Type: ${contentType} | Noun phrases: ${nounPhrases.join(', ')}`);
+  
+  // Pattern-based title generation
+  if (contentType === 'how-to') {
+    const action = extractActionWord(cleanPrompt) || 'master';
+    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
+    return formatTitle(`How to ${action} ${subject} - Complete ${org.name} guide`);
+  }
+  
+  if (contentType === 'best-of') {
+    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
+    const year = new Date().getFullYear();
+    return formatTitle(`${year}'s best ${subject} - Expert recommendations from ${org.name}`);
+  }
+  
+  if (contentType === 'comparison') {
+    const subjects = extractComparisonSubjects(cleanPrompt);
+    if (subjects.length >= 2) {
+      return formatTitle(`${subjects[0]} vs ${subjects[1]} - Which should you choose?`);
+    }
+    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
+    return formatTitle(`${subject} comparison guide - Make the right choice`);
+  }
+  
+  if (contentType === 'explanation') {
+    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
+    return formatTitle(`Complete guide to ${subject} - Everything you need to know`);
+  }
+  
+  if (contentType === 'troubleshooting') {
+    const problem = extractProblem(cleanPrompt) || keywords.slice(0, 2).join(' ');
+    return formatTitle(`Fixing ${problem} - Step-by-step troubleshooting guide`);
+  }
+  
+  // Default case with business context
+  const primaryKeyword = keywords[0] || 'business solution';
+  const businessFocus = org.products_services ? extractBusinessFocus(org.products_services) : 'business';
+  return formatTitle(`Ultimate ${primaryKeyword} guide for ${businessFocus} success`);
+}
+
+function generateIntelligentCompetitiveTitle(promptText: string, org: any): string {
+  const cleanPrompt = normalizePromptText(promptText);
+  const nounPhrases = extractNounPhrases(cleanPrompt);
+  const keywords = extractEnhancedKeywords(cleanPrompt);
+  
+  const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
+  const orgNameShort = org.name.split(' ')[0]; // Use first word of org name
+  
+  const competitiveTitles = [
+    `${orgNameShort} vs competitors - Honest ${subject} comparison`,
+    `Why customers choose ${orgNameShort} for ${subject}`,
+    `${subject} alternatives - Complete ${orgNameShort} comparison`,
+    `${orgNameShort} competitive analysis - ${subject} market review`
+  ];
+  
+  return formatTitle(competitiveTitles[Math.floor(Math.random() * competitiveTitles.length)]);
+}
+
+function generateIntelligentBrandAwarenessTitle(dominantTopic: string, org: any, variant: number): string {
+  const approaches = [
+    `The ${org.name} approach to ${dominantTopic} - Our proven methodology`,
+    `${dominantTopic} insights from ${org.name} - Industry expertise guide`,
+    `Mastering ${dominantTopic} - ${org.name}'s comprehensive framework`
+  ];
+  
+  return formatTitle(approaches[variant] || approaches[0]);
+}
+
+// Enhanced helper functions for intelligent content generation
+function normalizePromptText(text: string): string {
+  return text.toLowerCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function detectContentType(cleanPrompt: string): string {
+  if (/how\s+(to|do|can|should)/.test(cleanPrompt)) return 'how-to';
+  if (/best|top\s+\d*|greatest|leading/.test(cleanPrompt)) return 'best-of';
+  if (/vs|versus|compared?\s+to|difference\s+between/.test(cleanPrompt)) return 'comparison';
+  if (/what\s+(is|are)|define|explain|meaning/.test(cleanPrompt)) return 'explanation';
+  if (/fix|solve|troubleshoot|error|problem|issue/.test(cleanPrompt)) return 'troubleshooting';
+  if (/why|benefits|advantages|reasons/.test(cleanPrompt)) return 'benefits';
+  if (/when|timing|schedule/.test(cleanPrompt)) return 'timing';
+  return 'guide';
+}
+
+function extractNounPhrases(text: string): string[] {
+  // Simple noun phrase extraction - gets meaningful 2-3 word combinations
+  const words = text.split(' ').filter(w => w.length > 2);
+  const phrases: string[] = [];
+  
+  for (let i = 0; i < words.length - 1; i++) {
+    const phrase = words.slice(i, i + 2).join(' ');
+    if (phrase.length > 5 && !phrase.includes('how') && !phrase.includes('what')) {
+      phrases.push(phrase);
+    }
+  }
+  
+  return phrases.slice(0, 3);
+}
+
+function extractActionWord(text: string): string | null {
+  const actionWords = ['create', 'build', 'make', 'setup', 'install', 'configure', 'optimize', 'improve', 'choose', 'select', 'implement', 'develop', 'design', 'plan', 'manage', 'use', 'start'];
+  return actionWords.find(word => text.includes(word)) || null;
+}
+
+function extractComparisonSubjects(text: string): string[] {
+  const vsMatch = text.match(/(.+?)\s+(?:vs|versus|compared?\s+to)\s+(.+)/);
+  if (vsMatch) {
+    return [vsMatch[1].trim(), vsMatch[2].trim()].map(s => s.replace(/[^\w\s]/g, '').trim());
+  }
+  return [];
+}
+
+function extractProblem(text: string): string | null {
+  const problemWords = ['error', 'issue', 'problem', 'bug', 'fail', 'broken', 'not working'];
+  const found = problemWords.find(word => text.includes(word));
+  if (found) {
+    const words = text.split(' ');
+    const index = words.findIndex(w => w.includes(found));
+    return words.slice(Math.max(0, index - 1), index + 2).join(' ');
+  }
+  return null;
+}
+
+function extractBusinessFocus(productsServices: string): string {
+  if (!productsServices) return 'business';
+  const focus = productsServices.toLowerCase();
+  if (focus.includes('marketing')) return 'marketing';
+  if (focus.includes('sales')) return 'sales';
+  if (focus.includes('software') || focus.includes('tech')) return 'technology';
+  if (focus.includes('consult')) return 'consulting';
+  return 'business';
+}
+
+function formatTitle(title: string): string {
+  // Ensure proper capitalization and length limits
+  const formatted = title.replace(/\b\w/g, l => l.toUpperCase())
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Truncate if too long but keep it meaningful
+  if (formatted.length > 80) {
+    const truncated = formatted.substring(0, 77) + '...';
+    return truncated;
+  }
+  
+  return formatted;
+}
+
+function extractEnhancedKeywords(text: string): string[] {
+  // Expanded stop words list for better keyword extraction
+  const stopWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+    'will', 'would', 'should', 'could', 'can', 'may', 'might', 'must', 'what', 'how', 'when',
+    'where', 'why', 'which', 'who', 'whom', 'whose', 'this', 'that', 'these', 'those', 'they',
+    'them', 'their', 'there', 'then', 'than', 'from', 'into', 'about', 'after', 'before',
+    'during', 'while', 'since', 'until', 'between', 'among', 'through', 'over', 'under'
+  ]);
+  
+  const words = text.toLowerCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !stopWords.has(word))
+    .filter(word => !/^\d+$/.test(word)); // Remove pure numbers
+  
+  // Get unique words and prioritize longer, more meaningful terms
+  const uniqueWords = [...new Set(words)]
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 10);
+  
+  return uniqueWords;
+}
+
+function generateEnhancedHashtags(productsServices: string | null, keywords: string[]): string[] {
+  const baseHashtags = ['#MarketingTips', '#BusinessGrowth', '#DigitalStrategy'];
+  
+  if (productsServices) {
+    const productKeywords = productsServices.toLowerCase()
+      .split(/[\s,]+/)
+      .filter(word => word.length > 3)
+      .map(word => `#${word.charAt(0).toUpperCase() + word.slice(1).replace(/[^a-zA-Z0-9]/g, '')}`)
+      .slice(0, 2);
+    baseHashtags.push(...productKeywords);
+  }
+  
+  const keywordHashtags = keywords.slice(0, 3).map(keyword => 
+    `#${keyword.charAt(0).toUpperCase() + keyword.slice(1).replace(/[^a-zA-Z0-9]/g, '')}`
+  );
+  
+  return [...new Set([...baseHashtags, ...keywordHashtags])].slice(0, 8);
+}
+
+function clusterPromptsByTopic(prompts: PromptPerformance[]): { dominantTopic: string; keywords: string[] } {
+  // Analyze all prompts to find the dominant topic/theme
+  const allText = prompts.map(p => p.text).join(' ');
+  const keywords = extractEnhancedKeywords(allText);
+  
+  // Simple topic detection based on keywords
+  const topics = [
+    { name: 'marketing automation', keywords: ['marketing', 'automation', 'campaign', 'email', 'lead'] },
+    { name: 'project management', keywords: ['project', 'management', 'task', 'team', 'workflow'] },
+    { name: 'customer support', keywords: ['customer', 'support', 'service', 'help', 'ticket'] },
+    { name: 'sales optimization', keywords: ['sales', 'revenue', 'conversion', 'pipeline', 'crm'] },
+    { name: 'content marketing', keywords: ['content', 'blog', 'seo', 'social', 'engagement'] },
+    { name: 'data analysis', keywords: ['data', 'analytics', 'metrics', 'reporting', 'insights'] },
+    { name: 'software development', keywords: ['software', 'development', 'coding', 'api', 'integration'] }
+  ];
+  
+  let bestMatch = { name: 'business solutions', score: 0 };
+  
+  for (const topic of topics) {
+    const score = topic.keywords.reduce((sum, keyword) => {
+      return sum + (keywords.includes(keyword) ? 1 : 0);
+    }, 0);
+    
+    if (score > bestMatch.score) {
+      bestMatch = { name: topic.name, score };
+    }
+  }
+  
+  return {
+    dominantTopic: bestMatch.name,
+    keywords: keywords.slice(0, 5)
+  };
+}
+
+function generateContentOutline(contentType: string, orgName: string, keywords: string[]): string[] {
+  const mainKeyword = keywords[0] || 'solution';
+  
+  switch (contentType) {
+    case 'how-to':
+      return [
+        `Introduction: Why ${mainKeyword} matters for your business`,
+        'Prerequisites and what you\'ll need to get started',
+        'Step-by-step implementation guide with screenshots',
+        `Common mistakes to avoid when implementing ${mainKeyword}`,
+        `How ${orgName} customers achieve better results`,
+        'Troubleshooting tips and advanced techniques',
+        'Measuring success and key performance indicators',
+        'Next steps and additional resources'
+      ];
+      
+    case 'best-of':
+      return [
+        `Introduction: The ${mainKeyword} landscape in 2024`,
+        'Our evaluation criteria and methodology',
+        `Top ${mainKeyword} options with detailed analysis`,
+        'Feature comparison matrix and pricing breakdown',
+        `Why ${orgName} customers prefer our approach`,
+        'Implementation considerations and migration tips',
+        'ROI analysis and cost-benefit breakdown',
+        'Final recommendations and decision framework'
+      ];
+      
+    case 'comparison':
+      return [
+        `Market overview: Understanding ${mainKeyword} options`,
+        'Head-to-head feature comparison',
+        'Pricing and total cost of ownership analysis',
+        'User experience and ease of implementation',
+        'Customer support and training resources',
+        'Integration capabilities and ecosystem',
+        'Security, compliance, and scalability factors',
+        'Final verdict and recommendations by use case'
+      ];
+      
+    case 'troubleshooting':
+      return [
+        `Common ${mainKeyword} problems and their root causes`,
+        'Quick diagnostic checklist and tools',
+        'Step-by-step troubleshooting methodology',
+        'Advanced debugging techniques',
+        'When to escalate and seek professional help',
+        `How ${orgName} prevents these issues`,
+        'Long-term solutions and best practices',
+        'Resources for ongoing maintenance'
+      ];
+      
+    default: // guide
+      return [
+        `Introduction: Understanding ${mainKeyword} fundamentals`,
+        'Current market trends and opportunities',
+        `${orgName}'s proven approach and methodology`,
+        'Implementation roadmap and timeline',
+        'Best practices and success strategies',
+        'Common challenges and how to overcome them',
+        'Measuring results and optimizing performance',
+        'Future trends and preparing for what\'s next'
+      ];
+  }
+}
+
+function generateImplementationSteps(contentType: string, keywords: string[], orgName: string): string[] {
+  const mainKeyword = keywords[0] || 'solution';
+  
+  switch (contentType) {
+    case 'how-to':
+      return [
+        `Research the top 10 search results for "${mainKeyword}" to identify content gaps`,
+        'Create detailed step-by-step instructions with numbered lists',
+        'Include screenshots, diagrams, or video walkthroughs for complex steps',
+        'Add code snippets, templates, or downloadable resources',
+        `Include a section on how ${orgName} simplifies this process`,
+        'Create companion resources (checklists, templates, tools)',
+        'Optimize for featured snippets and voice search',
+        'Build internal links to relevant product/service pages'
+      ];
+      
+    case 'best-of':
+      return [
+        `Research and test the top 8-10 ${mainKeyword} options in the market`,
+        'Create standardized evaluation criteria and scoring system',
+        'Build detailed comparison matrices with feature breakdowns',
+        'Include real pricing data and total cost calculations',
+        `Position ${orgName} solution within the competitive landscape`,
+        'Add customer testimonials and case studies for social proof',
+        'Create interactive comparison tools or calculators',
+        'Develop supporting content for each recommended option'
+      ];
+      
+    case 'comparison':
+      return [
+        `Identify the top 3-5 alternatives to compare for ${mainKeyword}`,
+        'Create side-by-side feature comparison tables',
+        'Test each solution hands-on and document the experience',
+        'Interview customers who have switched between these solutions',
+        'Calculate total cost of ownership for different scenarios',
+        'Build interactive comparison calculator or decision tree',
+        'Create migration guides for switching between solutions',
+        'Develop battle cards for sales team reference'
+      ];
+      
+    default:
+      return [
+        `Conduct comprehensive research on ${mainKeyword} best practices`,
+        'Interview 3-5 customers about their experiences and challenges',
+        'Document your unique methodology and framework',
+        'Create original data through surveys or case studies',
+        'Include actionable templates, checklists, and resources',
+        'Optimize content for search with long-tail keyword variations',
+        'Build topic clusters with supporting pillar content',
+        'Create multiple content formats (blog, video, podcast, infographic)'
+      ];
+  }
+}
+
+function getTimeEstimate(contentType: string): string {
+  switch (contentType) {
+    case 'how-to':
+      return '1-2 weeks';
+    case 'best-of':
+      return '2-3 weeks';
+    case 'comparison':
+      return '2-3 weeks';
+    case 'troubleshooting':
+      return '1 week';
+    default:
+      return '1-2 weeks';
+  }
 }
