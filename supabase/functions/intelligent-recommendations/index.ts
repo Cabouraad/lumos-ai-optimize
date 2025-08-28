@@ -245,14 +245,8 @@ function generateContentRecommendation(
 ): ContentRecommendation {
   const topCompetitors = prompt.topCompetitors.length > 0 ? prompt.topCompetitors : competitors.slice(0, 3);
   
-  // Clean and truncate prompt text for readable titles
-  const cleanPromptText = prompt.text.trim();
-  const truncatedPrompt = cleanPromptText.length > 60 
-    ? cleanPromptText.substring(0, 57) + '...'
-    : cleanPromptText;
-  
-  const mainTopic = extractMainTopic(cleanPromptText);
-  const contentTitle = `Create comprehensive content about "${mainTopic}"`;
+  // Generate clear, actionable content titles based on prompt analysis
+  const contentTitles = generateContentTitle(prompt.text, org.name);
   
   const outline = [
     'Introduction highlighting the key problem/question',
@@ -274,9 +268,14 @@ function generateContentRecommendation(
     'Develop downloadable resources and templates'
   ];
 
+  // Clean and truncate prompt text for rationale
+  const truncatedPrompt = prompt.text.length > 60 
+    ? prompt.text.substring(0, 57) + '...'
+    : prompt.text;
+
   return {
     type: 'content',
-    title: contentTitle,
+    title: contentTitles,
     rationale: `Your brand is ${prompt.brandPresent ? 'mentioned but scoring low' : 'completely missing'} in AI responses to "${truncatedPrompt}". This content will establish your authority and improve visibility. Current average score: ${prompt.avgScore.toFixed(1)}/10. Competing against: ${topCompetitors.slice(0, 3).join(', ')}.`,
     targetPrompts: [prompt.text],
     contentOutline: outline,
@@ -287,8 +286,8 @@ function generateContentRecommendation(
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Industry Forums'],
       postTemplates: [
-        `Just published: ${contentTitle.split('"')[1]} - Key insights: [3 bullet points]`,
-        `${topCompetitors.length > 0 ? `Unlike ${topCompetitors[0]}, ` : ''}here's how we approach [topic]: [insight]`,
+        `Just published: "${contentTitles}" - Key insights: [3 bullet points]`,
+        `${topCompetitors.length > 0 ? `Unlike ${topCompetitors[0]}, ` : ''}here's our approach: [insight]`,
         'Behind the scenes: Creating this guide taught us [key learning]'
       ],
       hashtagStrategy: generateHashtags(org.products_services, extractKeywords(prompt.text))
@@ -297,9 +296,11 @@ function generateContentRecommendation(
 }
 
 function generateCompetitiveContentRecommendation(prompt: PromptPerformance, org: any): ContentRecommendation {
+  const competitiveTitle = generateCompetitiveTitle(prompt.text, org.name);
+  
   return {
     type: 'content',
-    title: `Create a competitive analysis: "Why choose ${org.name} for ${extractMainTopic(prompt.text)}"`,
+    title: competitiveTitle,
     rationale: `High competition detected (${prompt.competitorCount} competitors) for "${prompt.text}". You need differentiation content to stand out. Top competitors: ${prompt.topCompetitors.join(', ')}.`,
     targetPrompts: [prompt.text],
     contentOutline: [
@@ -336,28 +337,20 @@ function generateCompetitiveContentRecommendation(prompt: PromptPerformance, org
 }
 
 function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org: any, variant: number = 0): ContentRecommendation {
-  const topics = prompts.map(p => extractMainTopic(p.text));
   const approaches = [
-    'thought leadership',
-    'educational content',  
-    'industry insights'
+    'thought leadership content',
+    'educational guide series',  
+    'industry insights report'
   ];
   const approach = approaches[variant] || approaches[0];
   
-  // Create cleaner, more readable topics
-  const cleanTopics = topics
-    .filter(topic => topic.length > 0)
-    .map(topic => topic.length > 30 ? topic.substring(0, 27) + '...' : topic)
-    .slice(0, 2); // Limit to 2 topics for readability
-  
-  const topicsText = cleanTopics.length > 1 
-    ? cleanTopics.slice(0, -1).join(', ') + ' and ' + cleanTopics.slice(-1)[0]
-    : cleanTopics[0] || 'key business areas';
+  // Generate a meaningful title based on the business context
+  const title = generateBrandAwarenessTitle(prompts, org.name, approach);
   
   return {
     type: 'content',
-    title: `Establish ${approach}: ${org.name}'s approach to ${topicsText}`,
-    rationale: `Your brand is completely missing from AI responses to ${prompts.length} key prompts. Need foundational content to establish presence. Target prompts: ${prompts.map(p => `"${p.text}"`).join(', ')}.`,
+    title: title,
+    rationale: `Your brand is completely missing from AI responses to ${prompts.length} key prompts. Need foundational content to establish presence. Target prompts: ${prompts.map(p => `"${p.text.length > 40 ? p.text.substring(0, 37) + '...' : p.text}"`).join(', ')}.`,
     targetPrompts: prompts.map(p => p.text),
     contentOutline: [
       `Introduction: ${org.name}'s philosophy and approach`,
@@ -379,15 +372,15 @@ function generateBrandAwarenessRecommendation(prompts: PromptPerformance[], org:
     ],
     expectedImpact: 'high',
     timeToImplement: '3-4 weeks',
-    seoKeywords: [org.name, ...topics, 'methodology', 'approach', 'framework'],
+    seoKeywords: [org.name, 'methodology', 'approach', 'framework', ...extractKeywords(prompts.map(p => p.text).join(' '))],
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Medium', 'Industry Publications'],
       postTemplates: [
-        `Our approach to ${topics[0]}: Here's what 10 years in the industry taught us`,
-        `Why most ${topics[0]} strategies fail (and what works instead)`,
-        `Thread: ${org.name}'s 5-step framework for ${topics[0]} 🧵`
+        `Why ${org.name} takes a different approach to [industry topic]`,
+        `The methodology we developed after working with 100+ clients`,
+        `Thread: ${org.name}'s proven framework for [topic] 🧵`
       ],
-      hashtagStrategy: ['#ThoughtLeadership', `#${topics[0].replace(/\s+/g, '')}`, '#Industry', `#${org.name.replace(/\s+/g, '')}`]
+      hashtagStrategy: ['#ThoughtLeadership', '#Industry', `#${org.name.replace(/\s+/g, '')}`, '#Methodology']
     }
   };
 }
@@ -502,11 +495,81 @@ function extractKeywords(text: string): string[] {
   return [...new Set(words)].slice(0, 5);
 }
 
-function extractMainTopic(text: string): string {
-  // Extract main topic from prompt text
-  const cleaned = text.replace(/^(what|how|when|where|why|which|are|is|can|do|does)\s+/i, '');
-  const words = cleaned.split(' ').slice(0, 3).join(' ');
-  return words.charAt(0).toUpperCase() + words.slice(1);
+function generateContentTitle(promptText: string, orgName: string): string {
+  const lowercasePrompt = promptText.toLowerCase();
+  
+  // Analyze prompt patterns to generate specific, actionable titles
+  if (lowercasePrompt.includes('best') && (lowercasePrompt.includes('tool') || lowercasePrompt.includes('software') || lowercasePrompt.includes('platform'))) {
+    return `Ultimate guide to choosing the best tools for your business`;
+  } else if (lowercasePrompt.includes('how to') || lowercasePrompt.includes('how do')) {
+    const topic = promptText.replace(/^(how to|how do|how does|how can)\s+/i, '').split(' ').slice(0, 4).join(' ');
+    return `Complete guide: How to ${topic.toLowerCase()}`;
+  } else if (lowercasePrompt.includes('what is') || lowercasePrompt.includes('what are')) {
+    const topic = promptText.replace(/^(what is|what are)\s+/i, '').split(' ').slice(0, 4).join(' ');
+    return `Everything you need to know about ${topic.toLowerCase()}`;
+  } else if (lowercasePrompt.includes('vs') || lowercasePrompt.includes('versus') || lowercasePrompt.includes('comparison')) {
+    return `Comprehensive comparison guide for businesses`;
+  } else if (lowercasePrompt.includes('review') || lowercasePrompt.includes('reviews')) {
+    return `In-depth review and buyer's guide`;
+  } else if (lowercasePrompt.includes('pricing') || lowercasePrompt.includes('cost') || lowercasePrompt.includes('price')) {
+    return `Complete pricing guide and cost breakdown`;
+  } else if (lowercasePrompt.includes('example') || lowercasePrompt.includes('examples')) {
+    return `Real-world examples and case studies`;
+  } else if (lowercasePrompt.includes('strategy') || lowercasePrompt.includes('strategies')) {
+    return `Proven strategies that deliver results`;
+  } else if (lowercasePrompt.includes('tip') || lowercasePrompt.includes('tips')) {
+    return `Expert tips and best practices guide`;
+  } else if (lowercasePrompt.includes('benefit') || lowercasePrompt.includes('advantage')) {
+    return `Key benefits and advantages explained`;
+  } else {
+    // General fallback - create actionable title based on key terms
+    const keywords = extractKeywords(promptText);
+    const mainKeyword = keywords[0] || 'business solutions';
+    return `Comprehensive guide to ${mainKeyword}`;
+  }
+}
+
+function generateCompetitiveTitle(promptText: string, orgName: string): string {
+  const lowercasePrompt = promptText.toLowerCase();
+  
+  if (lowercasePrompt.includes('best') && (lowercasePrompt.includes('tool') || lowercasePrompt.includes('software'))) {
+    return `Why ${orgName} outperforms other tools: Feature comparison`;
+  } else if (lowercasePrompt.includes('alternative')) {
+    return `${orgName} vs competitors: Which is right for you?`;
+  } else if (lowercasePrompt.includes('comparison') || lowercasePrompt.includes('vs')) {
+    return `Head-to-head comparison: ${orgName} advantage`;
+  } else {
+    const keywords = extractKeywords(promptText);
+    const mainKeyword = keywords[0] || 'solutions';
+    return `Why ${orgName} is the smart choice for ${mainKeyword}`;
+  }
+}
+
+function generateBrandAwarenessTitle(prompts: PromptPerformance[], orgName: string, approach: string): string {
+  // Analyze the prompts to understand the business context
+  const allText = prompts.map(p => p.text).join(' ').toLowerCase();
+  
+  if (allText.includes('marketing') && allText.includes('tool')) {
+    return `${orgName}'s comprehensive marketing methodology`;
+  } else if (allText.includes('software') || allText.includes('platform')) {
+    return `${orgName}'s proven software selection framework`;
+  } else if (allText.includes('strategy') || allText.includes('strategies')) {
+    return `${orgName}'s strategic approach to business growth`;
+  } else if (allText.includes('content') && allText.includes('marketing')) {
+    return `${orgName}'s content marketing mastery guide`;
+  } else if (allText.includes('best practices')) {
+    return `${orgName}'s industry best practices guide`;
+  } else if (allText.includes('automation') || allText.includes('workflow')) {
+    return `${orgName}'s business automation blueprint`;
+  } else {
+    // Fallback based on approach type
+    const fallbacks = {
+      'thought leadership content': `${orgName}'s industry leadership insights`,
+      'educational guide series': `${orgName}'s complete business guide series`,
+      'industry insights report': `${orgName}'s annual industry insights report`
+    };
+    return fallbacks[approach] || `${orgName}'s comprehensive business guide`;
+  }
 }
 
 function generateHashtags(productsServices: string | null, keywords: string[]): string[] {
