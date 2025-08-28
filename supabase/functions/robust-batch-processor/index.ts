@@ -22,26 +22,44 @@ interface ProviderConfig {
   model: string;
 }
 
-const PROVIDERS: Record<string, ProviderConfig> = {
-  openai: {
-    name: 'openai',
-    apiKey: Deno.env.get('OPENAI_API_KEY')!,
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4o-mini'
-  },
-  gemini: {
-    name: 'gemini',
-    apiKey: Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY'),
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
-    model: 'gemini-2.0-flash-lite'
-  },
-  perplexity: {
-    name: 'perplexity',
-    apiKey: Deno.env.get('PERPLEXITY_API_KEY')!,
-    endpoint: 'https://api.perplexity.ai/chat/completions',
-    model: 'sonar'
+// Function to get available providers with valid API keys
+function getAvailableProviders(): ProviderConfig[] {
+  const providers: ProviderConfig[] = [];
+  
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  if (openaiKey) {
+    providers.push({
+      name: 'openai',
+      apiKey: openaiKey,
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      model: 'gpt-4o-mini'
+    });
   }
-};
+  
+  const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
+  if (geminiKey) {
+    providers.push({
+      name: 'gemini',
+      apiKey: geminiKey,
+      endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+      model: 'gemini-2.0-flash-lite'
+    });
+  }
+  
+  const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+  if (perplexityKey) {
+    providers.push({
+      name: 'perplexity',
+      apiKey: perplexityKey,
+      endpoint: 'https://api.perplexity.ai/chat/completions',
+      model: 'sonar'
+    });
+  }
+  
+  return providers;
+}
+
+const PROVIDERS = getAvailableProviders();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -102,16 +120,24 @@ serve(async (req) => {
       });
     }
 
-    // Get enabled providers
+    // Get enabled providers that also have valid API keys
     const { data: enabledProviders } = await supabase
       .from('llm_providers')
       .select('name')
       .eq('enabled', true);
 
-    const providers = enabledProviders?.filter(p => PROVIDERS[p.name.toLowerCase()]) || [];
+    const availableProviderNames = PROVIDERS.map(p => p.name.toLowerCase());
+    const providers = enabledProviders?.filter(p => 
+      availableProviderNames.includes(p.name.toLowerCase())
+    ) || [];
     
     if (providers.length === 0) {
-      throw new Error('No enabled providers with valid API keys found');
+      const missingKeys = [];
+      if (!Deno.env.get('OPENAI_API_KEY')) missingKeys.push('OpenAI');
+      if (!Deno.env.get('GEMINI_API_KEY') && !Deno.env.get('GOOGLE_API_KEY') && !Deno.env.get('GOOGLE_GENAI_API_KEY') && !Deno.env.get('GENAI_API_KEY')) missingKeys.push('Gemini');
+      if (!Deno.env.get('PERPLEXITY_API_KEY')) missingKeys.push('Perplexity');
+      
+      throw new Error(`No enabled providers with valid API keys found. Missing API keys: ${missingKeys.join(', ')}`);
     }
 
     console.log(`📝 Processing ${prompts.length} prompts across ${providers.length} providers`);
@@ -272,9 +298,9 @@ async function processTask(supabase: any, task: any, prompts: any[], batchJobId:
     throw new Error(`Prompt not found: ${task.prompt_id}`);
   }
 
-  const provider = PROVIDERS[task.provider];
+  const provider = PROVIDERS.find(p => p.name === task.provider);
   if (!provider) {
-    throw new Error(`Provider not found: ${task.provider}`);
+    throw new Error(`Provider not found or API key not configured: ${task.provider}`);
   }
 
   // Get organization details for brand analysis
@@ -565,7 +591,10 @@ async function handleResumeMode(supabase: any, resumeJobId: string, orgId: strin
         .select('name')
         .eq('enabled', true);
 
-      const providers = enabledProviders?.filter(p => PROVIDERS[p.name.toLowerCase()]) || [];
+      const availableProviderNames = PROVIDERS.map(p => p.name.toLowerCase());
+      const providers = enabledProviders?.filter(p => 
+        availableProviderNames.includes(p.name.toLowerCase())
+      ) || [];
       
       if (providers.length === 0) {
         throw new Error('No enabled providers with valid API keys found');
@@ -670,97 +699,3 @@ async function handleResumeMode(supabase: any, resumeJobId: string, orgId: strin
   }
 }
 
-async function callProviderAPI(provider: ProviderConfig, promptText: string) {
-  const timeout = 30000; // 30 second timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    let response;
-    
-    if (provider.name === 'openai' || provider.name === 'perplexity') {
-      response = await fetch(provider.endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${provider.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          messages: [
-            {
-              role: 'user',
-              content: promptText
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 1000
-        }),
-        signal: controller.signal
-      });
-    } else if (provider.name === 'gemini') {
-      if (!provider.apiKey) {
-        throw new Error('Gemini API key not configured');
-      }
-      console.log(`[Batch] Processing Gemini with key length: ${provider.apiKey.length}`);
-      response = await fetch(provider.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': provider.apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: promptText
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1000
-          }
-        }),
-        signal: controller.signal
-      });
-    } else {
-      throw new Error(`Unsupported provider: ${provider.name}`);
-    }
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API call failed: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    // Extract response text based on provider format
-    let responseText = '';
-    let tokenIn = 0;
-    let tokenOut = 0;
-
-    if (provider.name === 'openai' || provider.name === 'perplexity') {
-      responseText = data.choices?.[0]?.message?.content || '';
-      tokenIn = data.usage?.prompt_tokens || 0;
-      tokenOut = data.usage?.completion_tokens || 0;
-    } else if (provider.name === 'gemini') {
-      responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      tokenIn = data.usageMetadata?.promptTokenCount || 0;
-      tokenOut = data.usageMetadata?.candidatesTokenCount || 0;
-    }
-
-    return {
-      responseText,
-      tokenIn,
-      tokenOut
-    };
-
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error(`API call timed out after ${timeout}ms`);
-    }
-    throw error;
-  }
-}
