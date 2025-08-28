@@ -40,37 +40,46 @@ export type Database = {
       }
       batch_jobs: {
         Row: {
+          cancellation_requested: boolean
           completed_at: string | null
           completed_tasks: number
           created_at: string
           failed_tasks: number
           id: string
+          last_heartbeat: string | null
           metadata: Json | null
           org_id: string
+          runner_id: string | null
           started_at: string | null
           status: string
           total_tasks: number
         }
         Insert: {
+          cancellation_requested?: boolean
           completed_at?: string | null
           completed_tasks?: number
           created_at?: string
           failed_tasks?: number
           id?: string
+          last_heartbeat?: string | null
           metadata?: Json | null
           org_id: string
+          runner_id?: string | null
           started_at?: string | null
           status?: string
           total_tasks?: number
         }
         Update: {
+          cancellation_requested?: boolean
           completed_at?: string | null
           completed_tasks?: number
           created_at?: string
           failed_tasks?: number
           id?: string
+          last_heartbeat?: string | null
           metadata?: Json | null
           org_id?: string
+          runner_id?: string | null
           started_at?: string | null
           status?: string
           total_tasks?: number
@@ -613,6 +622,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_active_batch_jobs: {
+        Args: { p_org_id: string; p_reason?: string }
+        Returns: Json
+      }
       fix_brand_classification_all_providers: {
         Args: Record<PropertyKey, never>
         Returns: string

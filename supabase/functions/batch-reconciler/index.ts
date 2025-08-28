@@ -18,75 +18,93 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('🔍 Batch reconciler running - aggressive stuck job detection...');
+    console.log('🔧 Batch reconciler running - detecting and fixing stuck jobs...');
 
-    // Find stuck batch jobs using multiple criteria:
-    // 1. Processing/pending for more than 2 minutes with no heartbeat
-    // 2. Processing/pending with old heartbeat (>2 minutes)
-    // 3. Processing status but all tasks completed/failed
+    // Find stuck batch jobs using aggressive criteria:
+    // 1. Processing/pending for more than 2 minutes with no recent heartbeat
+    // 2. Processing/pending with old heartbeat (>2 minutes ago)
+    // 3. Processing status but appears complete based on task counts
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     
-    const { data: stuckJobs } = await supabase
+    const { data: potentiallyStuckJobs } = await supabase
       .from('batch_jobs')
       .select(`
         id, org_id, status, total_tasks, completed_tasks, failed_tasks, 
-        started_at, created_at, last_heartbeat, runner_id
+        started_at, created_at, last_heartbeat, runner_id, cancellation_requested
       `)
       .in('status', ['processing', 'pending'])
       .or(`last_heartbeat.lt.${twoMinutesAgo},last_heartbeat.is.null,started_at.lt.${twoMinutesAgo}`)
-      .limit(20);
+      .limit(50);
 
-    if (!stuckJobs || stuckJobs.length === 0) {
-      console.log('✅ No stuck jobs found');
+    if (!potentiallyStuckJobs || potentiallyStuckJobs.length === 0) {
+      console.log('✅ No stuck jobs detected');
       return new Response(JSON.stringify({
         success: true,
-        message: 'No stuck jobs found',
-        processedJobs: 0
+        message: 'No stuck jobs found - system healthy',
+        processedJobs: 0,
+        finalizedJobs: 0,
+        resumedJobs: 0
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log(`🚨 Found ${stuckJobs.length} potentially stuck jobs`);
+    console.log(`🚨 Found ${potentiallyStuckJobs.length} potentially stuck jobs, analyzing...`);
 
-    let reconciledJobs = 0;
+    let processedJobs = 0;
     let resumedJobs = 0;
     let finalizedJobs = 0;
-    const results = [];
+    const results: any[] = [];
 
-    for (const job of stuckJobs) {
+    for (const job of potentiallyStuckJobs) {
       try {
-        console.log(`🔧 Reconciling job ${job.id} (status: ${job.status}, heartbeat: ${job.last_heartbeat})`);
+        const isReallyStuck = (
+          // No heartbeat for 2+ minutes
+          !job.last_heartbeat || new Date(job.last_heartbeat) < new Date(twoMinutesAgo)
+        ) || (
+          // Started over 2 minutes ago with no progress
+          job.started_at && new Date(job.started_at) < new Date(twoMinutesAgo)
+        );
 
-        // Use our database function to handle the reconciliation
-        const { data: result, error } = await supabase.rpc('resume_stuck_batch_job', {
+        if (!isReallyStuck) {
+          console.log(`⏭️ Skipping job ${job.id} - not actually stuck`);
+          continue;
+        }
+
+        console.log(`🔧 Reconciling stuck job ${job.id} (status: ${job.status}, last heartbeat: ${job.last_heartbeat || 'never'})`);
+
+        // Use the resume function to handle the stuck job
+        const { data: resumeResult, error: resumeError } = await supabase.rpc('resume_stuck_batch_job', {
           p_job_id: job.id
         });
 
-        if (error) {
-          console.error(`Failed to reconcile job ${job.id}:`, error);
+        if (resumeError) {
+          console.error(`❌ Failed to reconcile job ${job.id}:`, resumeError);
           results.push({
             jobId: job.id,
             action: 'error',
-            error: error.message
+            error: resumeError.message
           });
           continue;
         }
 
-        if (result.action === 'finalized') {
+        if (resumeResult?.action === 'finalized') {
           finalizedJobs++;
-          console.log(`✅ Finalized job ${job.id}: ${result.completed_tasks} completed, ${result.failed_tasks} failed`);
+          console.log(`✅ Finalized job ${job.id}: ${resumeResult.completed_tasks} completed, ${resumeResult.failed_tasks} failed`);
+          
           results.push({
             jobId: job.id,
             action: 'finalized',
-            completedTasks: result.completed_tasks,
-            failedTasks: result.failed_tasks
+            completedTasks: resumeResult.completed_tasks,
+            failedTasks: resumeResult.failed_tasks,
+            message: 'Job was complete, marked as finalized'
           });
-        } else if (result.action === 'resumed') {
-          resumedJobs++;
-          console.log(`🔄 Prepared job ${job.id} for resumption: ${result.pending_tasks} tasks pending`);
           
-          // Trigger the robust-batch-processor to resume the job
+        } else if (resumeResult?.action === 'resumed') {
+          resumedJobs++;
+          console.log(`🔄 Prepared job ${job.id} for resumption: ${resumeResult.pending_tasks} tasks pending`);
+          
+          // Trigger the robust-batch-processor to actually resume processing
           try {
             const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
               body: { 
@@ -96,45 +114,58 @@ serve(async (req) => {
             });
             
             if (resumeResponse.error) {
-              console.warn(`Failed to trigger resume for job ${job.id}:`, resumeResponse.error);
+              console.warn(`⚠️ Failed to trigger resume for job ${job.id}:`, resumeResponse.error);
+              results.push({
+                jobId: job.id,
+                action: 'prepared_for_resume',
+                pendingTasks: resumeResult.pending_tasks,
+                warning: 'Job prepared but auto-resume failed - manual trigger needed'
+              });
             } else {
               console.log(`📨 Successfully triggered resume for job ${job.id}`);
+              results.push({
+                jobId: job.id,
+                action: 'resumed_successfully',
+                pendingTasks: resumeResult.pending_tasks,
+                message: 'Job resumed and processing restarted'
+              });
             }
           } catch (resumeError) {
-            console.warn(`Exception triggering resume for job ${job.id}:`, resumeError);
+            console.warn(`⚠️ Exception triggering resume for job ${job.id}:`, resumeError);
+            results.push({
+              jobId: job.id,
+              action: 'prepared_for_resume',
+              pendingTasks: resumeResult.pending_tasks,
+              warning: 'Job prepared but auto-resume failed - manual trigger needed'
+            });
           }
-
-          results.push({
-            jobId: job.id,
-            action: 'resumed',
-            pendingTasks: result.pending_tasks,
-            completedTasks: result.completed_tasks,
-            failedTasks: result.failed_tasks
-          });
         }
 
-        reconciledJobs++;
+        processedJobs++;
 
       } catch (jobError) {
-        console.error(`Error processing stuck job ${job.id}:`, jobError);
+        console.error(`💥 Error processing stuck job ${job.id}:`, jobError);
         results.push({
           jobId: job.id,
           action: 'error',
-          error: jobError.message
+          error: jobError instanceof Error ? jobError.message : String(jobError)
         });
       }
     }
 
-    const message = `Processed ${reconciledJobs} jobs: ${finalizedJobs} finalized, ${resumedJobs} resumed`;
+    const message = processedJobs > 0 
+      ? `Processed ${processedJobs} stuck jobs: ${finalizedJobs} finalized, ${resumedJobs} resumed`
+      : 'No stuck jobs needed reconciliation';
+      
     console.log(`🎯 Reconciliation complete: ${message}`);
 
     return new Response(JSON.stringify({
       success: true,
       message,
-      processedJobs: reconciledJobs,
+      processedJobs,
       finalizedJobs,
       resumedJobs,
-      totalStuckFound: stuckJobs.length,
+      totalStuckFound: potentiallyStuckJobs.length,
       results
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -144,7 +175,8 @@ serve(async (req) => {
     console.error('💥 Batch reconciler error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error.message,
+      message: 'Reconciler encountered an error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

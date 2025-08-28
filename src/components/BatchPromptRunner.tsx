@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
@@ -25,6 +24,11 @@ interface BatchJob {
     prompt_count: number;
     provider_count: number;
     provider_names: string[];
+    final_stats?: {
+      completed: number;
+      failed: number;
+      cancelled: number;
+    };
   };
 }
 
@@ -34,6 +38,7 @@ export function BatchPromptRunner() {
   const [isStarting, setIsStarting] = useState(false);
   const [isResuming, setIsResuming] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // Auto-reconcile on mount to fix any stuck jobs immediately
   useEffect(() => {
@@ -46,9 +51,10 @@ export function BatchPromptRunner() {
       }
     };
     autoReconcile();
+    loadRecentJobs();
   }, []);
 
-  // Poll for job updates
+  // Poll for job updates with auto-reconciliation for stuck jobs
   useEffect(() => {
     if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed' || currentJob.status === 'cancelled') {
       return;
@@ -63,15 +69,30 @@ export function BatchPromptRunner() {
           .single();
 
         if (!error && data) {
-          setCurrentJob(data as unknown as BatchJob);
+          const updatedJob = data as unknown as BatchJob;
+          setCurrentJob(updatedJob);
           
-          if ((data as any).status === 'completed' || (data as any).status === 'failed' || (data as any).status === 'cancelled') {
+          // Check if job appears stuck (no heartbeat for 3 minutes)
+          const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
+          const lastHeartbeat = updatedJob.last_heartbeat ? new Date(updatedJob.last_heartbeat).getTime() : 0;
+          
+          if (updatedJob.status === 'processing' && lastHeartbeat < threeMinutesAgo) {
+            console.log('🚨 Job appears stuck, triggering auto-reconciliation...');
+            try {
+              await supabase.functions.invoke('batch-reconciler');
+              toast.warning('Job appeared stuck - attempted automatic recovery');
+            } catch (reconcileError) {
+              console.error('Auto-reconcile failed:', reconcileError);
+            }
+          }
+          
+          if (['completed', 'failed', 'cancelled'].includes(updatedJob.status)) {
             clearInterval(pollInterval);
-            const statusMsg = (data as any).status === 'completed' 
-              ? `Batch completed! ${(data as any).completed_tasks}/${(data as any).total_tasks} tasks successful`
-              : (data as any).status === 'cancelled'
-              ? `Batch cancelled after ${(data as any).completed_tasks} tasks`
-              : `Batch failed after ${(data as any).completed_tasks} tasks`;
+            const statusMsg = updatedJob.status === 'completed' 
+              ? `Batch completed! ${updatedJob.completed_tasks}/${updatedJob.total_tasks} tasks successful`
+              : updatedJob.status === 'cancelled'
+              ? `Batch cancelled after ${updatedJob.completed_tasks} tasks`
+              : `Batch failed after ${updatedJob.completed_tasks} tasks`;
             
             toast.success(statusMsg);
             loadRecentJobs();
@@ -80,15 +101,10 @@ export function BatchPromptRunner() {
       } catch (error) {
         console.error('Error polling job status:', error);
       }
-    }, 2000);
+    }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollInterval);
   }, [currentJob]);
-
-  // Load recent jobs on mount
-  useEffect(() => {
-    loadRecentJobs();
-  }, []);
 
   const loadRecentJobs = async () => {
     try {
@@ -96,10 +112,16 @@ export function BatchPromptRunner() {
         .from('batch_jobs' as any)
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (data) {
         setRecentJobs(data as unknown as BatchJob[]);
+        
+        // Set current job to the most recent active one
+        const activeJob = data.find((job: any) => ['pending', 'processing'].includes(job.status));
+        if (activeJob && (!currentJob || currentJob.id !== activeJob.id)) {
+          setCurrentJob(activeJob as unknown as BatchJob);
+        }
       }
     } catch (error) {
       console.error('Error loading recent jobs:', error);
@@ -108,6 +130,7 @@ export function BatchPromptRunner() {
 
   const runReconciler = async () => {
     setIsReconciling(true);
+    setLastError(null);
     
     try {
       console.log('🔧 Manually running batch reconciler...');
@@ -116,6 +139,7 @@ export function BatchPromptRunner() {
 
       if (error) {
         console.error('❌ Reconciler failed:', error);
+        setLastError(`Reconciler failed: ${error.message}`);
         toast.error(`Reconciler failed: ${error.message}`);
         return;
       }
@@ -125,7 +149,7 @@ export function BatchPromptRunner() {
       if (data.processedJobs > 0) {
         toast.success(`Reconciler processed ${data.processedJobs} jobs: ${data.finalizedJobs} finalized, ${data.resumedJobs} resumed`);
       } else {
-        toast.success('No stuck jobs found - all clean!');
+        toast.success('No stuck jobs found - system healthy!');
       }
       
       // Refresh the job list
@@ -133,7 +157,9 @@ export function BatchPromptRunner() {
       
     } catch (error: any) {
       console.error('💥 Reconciler error:', error);
-      toast.error(`Reconciler error: ${error.message}`);
+      const errorMsg = `Reconciler error: ${error.message}`;
+      setLastError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsReconciling(false);
     }
@@ -141,6 +167,7 @@ export function BatchPromptRunner() {
 
   const startBatchProcessing = async () => {
     setIsStarting(true);
+    setLastError(null);
     
     try {
       console.log('🚀 Starting robust batch processing...');
@@ -153,11 +180,20 @@ export function BatchPromptRunner() {
 
       if (error) {
         console.error('❌ Batch processing failed:', error);
-        toast.error(`Batch processing failed: ${error.message}`);
+        const errorMsg = `Batch processing failed: ${error.message}`;
+        setLastError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
-      console.log('✅ Batch processing started:', data);
+      console.log('✅ Batch processing result:', data);
+      
+      if (!data.success) {
+        const errorMsg = data.error || 'Batch processing failed';
+        setLastError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
       
       if (data.batchJobId) {
         // Load the created job
@@ -169,13 +205,18 @@ export function BatchPromptRunner() {
 
         if (jobData) {
           setCurrentJob(jobData as unknown as BatchJob);
-          toast.success('Batch processing started successfully! Previous jobs cancelled.');
+          toast.success('Batch processing started successfully!');
         }
+      } else if (data.action === 'finalized') {
+        toast.success(`Job already complete: ${data.completedTasks} tasks successful`);
+        loadRecentJobs();
       }
       
     } catch (error: any) {
       console.error('💥 Batch processing error:', error);
-      toast.error(`Batch processing error: ${error.message}`);
+      const errorMsg = `Batch processing error: ${error.message}`;
+      setLastError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsStarting(false);
     }
@@ -183,6 +224,7 @@ export function BatchPromptRunner() {
 
   const resumeStuckJob = async (jobId: string) => {
     setIsResuming(jobId);
+    setLastError(null);
     
     try {
       console.log('🔄 Resuming stuck job:', jobId);
@@ -195,16 +237,25 @@ export function BatchPromptRunner() {
 
       if (error) {
         console.error('❌ Resume failed:', error);
-        toast.error(`Resume failed: ${error.message}`);
+        const errorMsg = `Resume failed: ${error.message}`;
+        setLastError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
       console.log('✅ Resume result:', data);
       
+      if (!data.success) {
+        const errorMsg = data.error || 'Resume failed';
+        setLastError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+      
       if (data.action === 'finalized') {
         toast.success(`Job finalized: ${data.completedTasks}/${data.completedTasks + data.failedTasks} tasks completed`);
       } else if (data.action === 'resumed') {
-        toast.success(`Job resumed: ${data.pendingTasks} tasks will be processed`);
+        toast.success(`Job resumed: processing ${data.totalTasks} tasks`);
       } else {
         toast.success(data.message || 'Job processed successfully');
       }
@@ -212,22 +263,11 @@ export function BatchPromptRunner() {
       // Refresh the job list
       loadRecentJobs();
       
-      // If this was the current job, update it
-      if (currentJob && currentJob.id === jobId) {
-        const { data: jobData } = await supabase
-          .from('batch_jobs' as any)
-          .select('*')
-          .eq('id', jobId)
-          .single();
-
-        if (jobData) {
-          setCurrentJob(jobData as unknown as BatchJob);
-        }
-      }
-      
     } catch (error: any) {
       console.error('💥 Resume error:', error);
-      toast.error(`Resume error: ${error.message}`);
+      const errorMsg = `Resume error: ${error.message}`;
+      setLastError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsResuming(null);
     }
@@ -278,18 +318,18 @@ export function BatchPromptRunner() {
   const isJobStuck = (job: BatchJob) => {
     if (job.status !== 'processing') return false;
     
-    // Check if heartbeat is older than 2 minutes
+    // Check if heartbeat is older than 3 minutes
     if (job.last_heartbeat) {
       const heartbeatTime = new Date(job.last_heartbeat).getTime();
-      const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
-      return heartbeatTime < twoMinutesAgo;
+      const threeMinutesAgo = Date.now() - (3 * 60 * 1000);
+      return heartbeatTime < threeMinutesAgo;
     }
     
-    // If no heartbeat and started more than 2 minutes ago
+    // If no heartbeat and started more than 3 minutes ago
     if (job.started_at) {
       const startTime = new Date(job.started_at).getTime();
-      const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
-      return startTime < twoMinutesAgo;
+      const threeMinutesAgo = Date.now() - (3 * 60 * 1000);
+      return startTime < threeMinutesAgo;
     }
     
     return true; // No heartbeat or start time means it's likely stuck
@@ -350,13 +390,28 @@ export function BatchPromptRunner() {
           </div>
         </div>
         
+        {/* Error Alert */}
+        {lastError && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <div>
+              <strong>Error:</strong> {lastError}
+              {lastError.includes('No provider API keys') && (
+                <div className="mt-1 text-xs">
+                  Go to <Settings className="h-3 w-3 inline mx-1" /> Settings to configure your provider API keys.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
         {currentJob && currentJob.status === 'processing' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <span>Processing batch job...</span>
                 {isJobStuck(currentJob) && (
-                  <Badge variant="destructive" className="text-xs">STUCK</Badge>
+                  <Badge variant="destructive" className="text-xs">STUCK - Auto-healing</Badge>
                 )}
               </div>
               <span>{currentJob.completed_tasks + currentJob.failed_tasks}/{currentJob.total_tasks}</span>
@@ -365,11 +420,14 @@ export function BatchPromptRunner() {
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 {currentJob.metadata?.prompt_count} prompts × {currentJob.metadata?.provider_count} providers
+                {currentJob.metadata?.provider_names && (
+                  <span className="ml-2">({currentJob.metadata.provider_names.join(', ')})</span>
+                )}
               </span>
               <div className="flex items-center gap-2">
-                <span>{formatDuration(currentJob.started_at)}</span>
+                <span>Runtime: {formatDuration(currentJob.started_at)}</span>
                 {currentJob.last_heartbeat && (
-                  <span>💓 {formatDuration(currentJob.last_heartbeat)}</span>
+                  <span title="Last heartbeat">💓 {formatDuration(currentJob.last_heartbeat)}</span>
                 )}
               </div>
             </div>
@@ -389,6 +447,11 @@ export function BatchPromptRunner() {
                   <span className="font-medium">Job {currentJob.id.split('-')[0]}</span>
                   {isJobStuck(currentJob) && (
                     <Badge variant="destructive" className="text-xs">STUCK</Badge>
+                  )}
+                  {currentJob.runner_id && (
+                    <Badge variant="outline" className="text-xs">
+                      {currentJob.runner_id.split('-')[1]}
+                    </Badge>
                   )}
                 </div>
                 <Badge variant={getStatusBadgeVariant(currentJob.status)}>
@@ -414,14 +477,6 @@ export function BatchPromptRunner() {
                   <div className="font-medium">{calculateProgress(currentJob).toFixed(1)}%</div>
                 </div>
               </div>
-
-              {currentJob.metadata && (
-                <div className="mt-3 pt-3 border-t">
-                  <div className="text-xs text-muted-foreground">
-                    Providers: {currentJob.metadata.provider_names?.join(', ')}
-                  </div>
-                </div>
-              )}
 
               {/* Resume button for stuck jobs */}
               {isJobStuck(currentJob) && (
@@ -455,8 +510,8 @@ export function BatchPromptRunner() {
         {recentJobs.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Recent Batch Jobs</h3>
-            <div className="space-y-2">
-              {recentJobs.map((job) => (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {recentJobs.slice(0, 8).map((job) => (
                 <div
                   key={job.id}
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
@@ -476,7 +531,7 @@ export function BatchPromptRunner() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {isJobStuck(job) && (
+                    {isJobStuck(job) && job.status === 'processing' && (
                       <Button
                         onClick={() => resumeStuckJob(job.id)}
                         disabled={isResuming === job.id}
@@ -509,7 +564,8 @@ export function BatchPromptRunner() {
         {!currentJob && recentJobs.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No batch jobs yet. Click "Start Batch Processing" to run all active prompts across enabled providers with robust error handling and progress tracking.</p>
+            <p className="mb-2">No batch jobs yet.</p>
+            <p className="text-sm">Click "Start Batch Processing" to run all active prompts across enabled providers with robust error handling and automatic recovery.</p>
           </div>
         )}
       </CardContent>
