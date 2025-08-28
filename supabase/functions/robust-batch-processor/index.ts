@@ -52,8 +52,8 @@ function getMissingProviders(): string[] {
     .map(([_, config]) => config.name);
 }
 
-// FIXED: Pass supabase instance to avoid scope issues
-async function callProviderAPI(supabase: any, provider: string, prompt: string): Promise<any> {
+// FIXED: Pass correct parameters to test-single-provider
+async function callProviderAPI(supabase: any, provider: string, prompt: string, orgId: string): Promise<any> {
   const apiKey = Deno.env.get(PROVIDER_CONFIG[provider as keyof typeof PROVIDER_CONFIG]?.envVar);
   if (!apiKey) {
     throw new Error(`API key not configured for ${provider}`);
@@ -62,11 +62,12 @@ async function callProviderAPI(supabase: any, provider: string, prompt: string):
   console.log(`🔄 Calling ${provider} for prompt: ${prompt.substring(0, 100)}...`);
 
   try {
+    // CRITICAL FIX: Pass the correct parameters that test-single-provider expects
     const { data, error } = await supabase.functions.invoke('test-single-provider', {
       body: { 
-        provider, 
-        prompt,
-        requireBrandClassification: true 
+        provider,
+        promptText: prompt,  // Correct parameter name
+        orgId               // Missing parameter added
       }
     });
 
@@ -125,33 +126,34 @@ async function processTask(
       throw new Error(`Prompt ${task.prompt_id} not found in cache`);
     }
 
-    // Call the provider API (FIXED: pass supabase instance)
-    const response = await callProviderAPI(supabase, task.provider, prompt.text);
+    // Call the provider API with correct parameters
+    const response = await callProviderAPI(supabase, task.provider, prompt.text, prompt.org_id);
     
-    // Store the response in the database
+    // Store the normalized response in the database
     const { error: responseError } = await supabase
       .from('prompt_provider_responses')
       .insert({
         org_id: prompt.org_id,
         prompt_id: task.prompt_id,
         provider: task.provider,
-        model: response.model || 'unknown',
+        model: response.analysis?.model || response.model || 'unknown',
         status: 'success',
-        score: response.score || 0,
-        org_brand_present: response.org_brand_present || false,
-        org_brand_prominence: response.org_brand_prominence || null,
-        competitors_count: response.competitors_count || 0,
-        competitors_json: response.competitors_json || [],
-        brands_json: response.brands_json || [],
-        token_in: response.token_usage?.input || 0,
-        token_out: response.token_usage?.output || 0,
-        raw_ai_response: response.raw_response,
-        raw_evidence: response.raw_evidence,
+        score: response.analysis?.score || response.score || 0,
+        org_brand_present: response.analysis?.org_brand_present || response.org_brand_present || false,
+        org_brand_prominence: response.analysis?.org_brand_prominence || response.org_brand_prominence || null,
+        competitors_count: response.analysis?.competitors_count || response.competitors_count || 0,
+        competitors_json: response.analysis?.competitors || response.competitors_json || [],
+        brands_json: response.analysis?.brands || response.brands_json || [],
+        token_in: response.analysis?.token_usage?.input || response.token_usage?.input || 0,
+        token_out: response.analysis?.token_usage?.output || response.token_usage?.output || 0,
+        raw_ai_response: response.response || response.raw_response || response.raw_ai_response,
+        raw_evidence: response.analysis?.evidence || response.raw_evidence,
         metadata: {
           batch_job_id: task.batch_job_id,
           batch_task_id: task.id,
           runner_id: runnerId,
-          processing_time_ms: Date.now() - startTime
+          processing_time_ms: Date.now() - startTime,
+          provider_response_format: 'normalized'
         },
         run_at: new Date().toISOString()
       });
@@ -166,7 +168,11 @@ async function processTask(
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        result: { success: true, score: response.score }
+        result: { 
+          success: true, 
+          score: response.analysis?.score || response.score || 0,
+          provider_response_size: JSON.stringify(response).length
+        }
       })
       .eq('id', task.id);
 
@@ -179,20 +185,63 @@ async function processTask(
     console.error(`❌ Task ${task.id} failed:`, error);
     
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const isRetryable = task.attempts < 3 && (
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('network') ||
+      errorMessage.includes('500') ||
+      errorMessage.includes('502') ||
+      errorMessage.includes('503') ||
+      errorMessage.includes('504')
+    );
     
-    // Mark task as failed
-    await supabase
-      .from('batch_tasks')
-      .update({
-        status: 'failed',
-        completed_at: new Date().toISOString(),
-        error_message: errorMessage,
-        result: { success: false, error: errorMessage }
-      })
-      .eq('id', task.id);
+    if (isRetryable) {
+      console.log(`🔄 Retrying task ${task.id} (attempt ${task.attempts + 1}/3)`);
+      
+      // Reset task to pending for retry with exponential backoff
+      const backoffDelay = Math.min(1000 * Math.pow(2, task.attempts), 30000); // Max 30s
+      
+      await supabase
+        .from('batch_tasks')
+        .update({
+          status: 'pending',
+          started_at: null,
+          error_message: `Retry ${task.attempts + 1}/3: ${errorMessage}`,
+          result: { 
+            success: false, 
+            error: errorMessage, 
+            retry_attempt: task.attempts + 1,
+            next_retry_after: new Date(Date.now() + backoffDelay).toISOString()
+          }
+        })
+        .eq('id', task.id);
+        
+      // Wait for backoff delay
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    } else {
+      // Mark task as permanently failed
+      await supabase
+        .from('batch_tasks')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_message: errorMessage,
+          result: { 
+            success: false, 
+            error: errorMessage,
+            final_attempt: task.attempts + 1,
+            processing_time_ms: Date.now() - startTime,
+            diagnostics: {
+              provider: task.provider,
+              error_type: errorMessage.includes('API') ? 'api_error' : 'processing_error',
+              timestamp: new Date().toISOString()
+            }
+          }
+        })
+        .eq('id', task.id);
 
-    // Increment job failed count
-    await supabase.rpc('increment_failed_tasks', { job_id: task.batch_job_id });
+      // Increment job failed count
+      await supabase.rpc('increment_failed_tasks', { job_id: task.batch_job_id });
+    }
   }
 }
 
