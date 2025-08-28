@@ -37,43 +37,58 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get current date in America/New_York timezone
-    const nyTime = new Date().toLocaleString("en-US", {
+    // Get current date and time in America/New_York timezone with proper formatting
+    const now = new Date();
+    const nyFormatter = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/New_York",
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit'
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
     });
     
-    const dateParts = nyTime.split(',')[0].split('/'); // Split MM/DD/YYYY
-    const todayKey = `${dateParts[2]}-${dateParts[0]}-${dateParts[1]}`; // Convert to YYYY-MM-DD
+    const nyParts = nyFormatter.formatToParts(now);
+    const nyMonth = nyParts.find(part => part.type === 'month')?.value;
+    const nyDay = nyParts.find(part => part.type === 'day')?.value;
+    const nyYear = nyParts.find(part => part.type === 'year')?.value;
+    const nyHour = parseInt(nyParts.find(part => part.type === 'hour')?.value || '0');
+    const nyMinute = parseInt(nyParts.find(part => part.type === 'minute')?.value || '0');
     
-    console.log(`Daily scheduler triggered for ${todayKey} (NY time: ${nyTime})`);
-
-    // Check if we've already run today - use atomic update for concurrency safety
-    const { data: updateResult, error: updateError } = await supabase
-      .from('scheduler_state')
-      .update({
-        last_daily_run_key: todayKey,
-        last_daily_run_at: new Date().toISOString()
-      })
-      .eq('id', 'global')
-      .neq('last_daily_run_key', todayKey) // Only update if different day
-      .select();
-
-    if (updateError) {
-      console.error('Error updating scheduler state:', updateError);
-      throw updateError;
+    const todayKey = `${nyYear}-${nyMonth}-${nyDay}`;
+    const nyTimeStr = `${nyYear}-${nyMonth}-${nyDay} ${nyHour}:${nyMinute.toString().padStart(2, '0')} ET`;
+    
+    console.log(`Daily scheduler triggered at ${nyTimeStr} for date ${todayKey}`);
+    
+    // Verify we're in the midnight window (00:00-00:30 ET) for safety
+    if (nyHour === 0 && nyMinute <= 30) {
+      console.log(`✅ Running in midnight window: ${nyHour}:${nyMinute.toString().padStart(2, '0')} ET`);
+    } else {
+      console.log(`⚠️ Running outside midnight window: ${nyHour}:${nyMinute.toString().padStart(2, '0')} ET - This may be a manual trigger or retry`);
     }
 
-    // If no rows were updated, we already ran today
-    if (!updateResult || updateResult.length === 0) {
-      console.log('Daily run already completed for', todayKey);
+    // Use the safer RPC function to check/mark daily run
+    const { data: runCheck, error: runCheckError } = await supabase
+      .rpc('try_mark_daily_run', { p_today_key: todayKey });
+
+    if (runCheckError) {
+      console.error('Error checking/updating scheduler state:', runCheckError);
+      throw runCheckError;
+    }
+
+    console.log('Daily run check result:', runCheck);
+
+    // If we didn't update (already ran today), skip
+    if (!runCheck.updated) {
+      console.log(`Daily run already completed for ${todayKey} at ${runCheck.previous_key}`);
       return new Response(
         JSON.stringify({ 
           message: 'Daily run already completed',
           date: todayKey,
-          skipped: true
+          previous_run: runCheck.previous_key,
+          skipped: true,
+          ny_time: nyTimeStr
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

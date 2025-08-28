@@ -4,6 +4,9 @@ project_id = "cgocsffxqyhojtyzniyz"
 verify_jwt = false
 import_map = ""
 
+[functions.daily-scheduler]
+verify_jwt = false
+
 [functions.sync-cron-secret]
 verify_jwt = true
 

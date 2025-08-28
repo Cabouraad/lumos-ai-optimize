@@ -708,6 +708,10 @@ export type Database = {
         Args: { p_org_id: string; p_test_title?: string }
         Returns: string
       }
+      try_mark_daily_run: {
+        Args: { p_today_key: string }
+        Returns: Json
+      }
       update_subscriber_safe: {
         Args: {
           p_email: string
