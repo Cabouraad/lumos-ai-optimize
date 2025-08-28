@@ -38,6 +38,21 @@ interface Recommendation {
     impact?: 'high' | 'medium' | 'low';
     category?: string;
     competitors?: string;
+    timeline?: string;
+    resources?: string;
+    expectedImpact?: string;
+    wordCount?: string;
+    publishChannels?: string[] | string;
+    contentFormat?: string;
+    kpis?: string[];
+    distributionPlan?: Record<string, string>;
+    seoStrategy?: {
+      primaryKeywords?: string[] | string;
+      contentGaps?: string;
+      linkBuilding?: string;
+    };
+    technicalRequirements?: Record<string, string | string[]>;
+    contentPillars?: Record<string, string>;
   };
 }
 
@@ -242,108 +257,167 @@ export function RecommendationCard({ recommendation, onUpdateStatus, orgId }: Re
                 {showSteps ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
               
-              {showSteps && (
-                <div id="implementation-details" className="px-6 pb-6">
-                  <div className="space-y-6">
-                    <div className="bg-primary/5 p-4 rounded-lg border-l-4 border-primary/30">
-                      <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                        <strong>Strategic Overview:</strong> Create a comprehensive content strategy that addresses the key areas where your brand can gain visibility and authority in your market.
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                        <div>
-                          <span className="font-semibold text-foreground">Timeline:</span>
-                          <p className="text-muted-foreground">2-4 weeks implementation</p>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-foreground">Resources:</span>
-                          <p className="text-muted-foreground">Content team, SEO tools</p>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-foreground">Expected Impact:</span>
-                          <p className="text-muted-foreground">15-25% visibility increase</p>
+          {showSteps && (
+            <div id="implementation-details" className="px-6 pb-6">
+              <div className="space-y-6">
+                <div className="bg-primary/5 p-4 rounded-lg border-l-4 border-primary/30">
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                    <strong>Strategic Overview:</strong> {recommendation.rationale}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="font-semibold text-foreground">Timeline:</span>
+                      <p className="text-muted-foreground">{recommendation.metadata?.timeline || '2-4 weeks implementation'}</p>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-foreground">Resources:</span>
+                      <p className="text-muted-foreground">{recommendation.metadata?.resources || 'Content team, SEO tools'}</p>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-foreground">Expected Impact:</span>
+                      <p className="text-muted-foreground">{recommendation.metadata?.expectedImpact || '15-25% visibility increase'}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Additional metadata fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mt-4 pt-4 border-t border-primary/20">
+                    {recommendation.metadata?.wordCount && (
+                      <div>
+                        <span className="font-semibold text-foreground">Word Count:</span>
+                        <p className="text-muted-foreground">{recommendation.metadata.wordCount}</p>
+                      </div>
+                    )}
+                    {recommendation.metadata?.publishChannels && (
+                      <div>
+                        <span className="font-semibold text-foreground">Publishing Channels:</span>
+                        <p className="text-muted-foreground">{Array.isArray(recommendation.metadata.publishChannels) ? recommendation.metadata.publishChannels.join(', ') : recommendation.metadata.publishChannels}</p>
+                      </div>
+                    )}
+                    {recommendation.metadata?.contentFormat && (
+                      <div>
+                        <span className="font-semibold text-foreground">Content Format:</span>
+                        <p className="text-muted-foreground">{recommendation.metadata.contentFormat}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-5">
+                  {steps.map((step, index) => (
+                    <div key={index} className="bg-card border border-muted rounded-lg p-4 hover:shadow-sm transition-shadow">
+                      <div className="flex items-start gap-4">
+                        <span className="text-sm bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 font-semibold">
+                          {index + 1}
+                        </span>
+                        <div className="flex-1 space-y-3">
+                          <h4 className="text-sm font-semibold text-foreground leading-relaxed">
+                            {step}
+                          </h4>
+                          
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => copyToClipboard(step)}
+                              className="h-7 px-3 text-xs"
+                              aria-label={`Copy step ${index + 1}`}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy Step
+                            </Button>
+                            <Badge variant="outline" className="text-xs">
+                              {index === 0 ? 'Foundation' : index === steps.length - 1 ? 'Optimization' : 'Execution'}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="space-y-5">
-                      {steps.map((step, index) => (
-                        <div key={index} className="bg-card border border-muted rounded-lg p-4 hover:shadow-sm transition-shadow">
-                          <div className="flex items-start gap-4">
-                            <span className="text-sm bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 font-semibold">
-                              {index + 1}
-                            </span>
-                            <div className="flex-1 space-y-3">
-                              <h4 className="text-sm font-semibold text-foreground leading-relaxed">
-                                {step}
-                              </h4>
-                              
-                              {/* Sub-tasks for each step */}
-                              <div className="space-y-2">
-                                <p className="text-xs text-muted-foreground font-medium">Key Actions:</p>
-                                <ul className="space-y-1 text-xs text-muted-foreground">
-                                  <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                                    Research target keywords and search intent
-                                  </li>
-                                  <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                                    Create detailed content outline with H2/H3 structure
-                                  </li>
-                                  <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                                    Include expert quotes and data to build authority
-                                  </li>
-                                  <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-primary mt-2 flex-shrink-0"></span>
-                                    Optimize for featured snippets and AI responses
-                                  </li>
-                                </ul>
-                              </div>
-                              
-                              {/* Success metrics */}
-                              <div className="bg-muted/30 p-3 rounded border-l-2 border-green-500/30">
-                                <p className="text-xs font-medium text-foreground mb-1">Success Metrics:</p>
-                                <p className="text-xs text-muted-foreground">Track ranking improvements, organic traffic increase, and AI mention frequency</p>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => copyToClipboard(step)}
-                                  className="h-7 px-3 text-xs"
-                                  aria-label={`Copy step ${index + 1}`}
-                                >
-                                  <Copy className="h-3 w-3 mr-1" />
-                                  Copy Step
-                                </Button>
-                                <Badge variant="outline" className="text-xs">
-                                  {index === 0 ? 'Foundation' : index === steps.length - 1 ? 'Optimization' : 'Execution'}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
+                  ))}
+                </div>
+                
+                {/* KPIs Section */}
+                {recommendation.metadata?.kpis && (
+                  <div className="bg-muted/30 p-4 rounded-lg border-l-4 border-green-500/30">
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Key Performance Indicators</h4>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      {(Array.isArray(recommendation.metadata.kpis) ? recommendation.metadata.kpis : []).map((kpi: string, idx: number) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="w-1 h-1 rounded-full bg-green-500 mt-2 flex-shrink-0"></span>
+                          {kpi}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {/* Distribution Plan */}
+                {recommendation.metadata?.distributionPlan && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border">
+                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3">Distribution Schedule</h4>
+                    <div className="space-y-2 text-xs">
+                      {Object.entries(recommendation.metadata.distributionPlan).map(([week, activity]) => (
+                        <div key={week} className="flex gap-3">
+                          <span className="font-medium text-blue-600 dark:text-blue-400 capitalize">{week}:</span>
+                          <span className="text-blue-700 dark:text-blue-300">{activity as string}</span>
                         </div>
                       ))}
                     </div>
-                    
-                    {/* Additional resources section */}
-                    <div className="border-t pt-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Resources & Tools</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded border">
-                          <strong className="text-blue-700 dark:text-blue-300">Content Creation:</strong>
-                          <p className="text-blue-600 dark:text-blue-400 mt-1">Use AI writing tools, competitor analysis, and SEO research platforms</p>
+                  </div>
+                )}
+                
+                {/* SEO Strategy */}
+                {recommendation.metadata?.seoStrategy && (
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border">
+                    <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-3">SEO Strategy</h4>
+                    <div className="space-y-2 text-xs">
+                      {recommendation.metadata.seoStrategy.primaryKeywords && (
+                        <div>
+                          <span className="font-medium text-purple-600 dark:text-purple-400">Target Keywords:</span>
+                          <p className="text-purple-700 dark:text-purple-300">{Array.isArray(recommendation.metadata.seoStrategy.primaryKeywords) ? recommendation.metadata.seoStrategy.primaryKeywords.join(', ') : recommendation.metadata.seoStrategy.primaryKeywords}</p>
                         </div>
-                        <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded border">
-                          <strong className="text-green-700 dark:text-green-300">Performance Tracking:</strong>
-                          <p className="text-green-600 dark:text-green-400 mt-1">Monitor rankings, traffic, and AI platform mentions regularly</p>
+                      )}
+                      {recommendation.metadata.seoStrategy.contentGaps && (
+                        <div>
+                          <span className="font-medium text-purple-600 dark:text-purple-400">Content Gaps:</span>
+                          <p className="text-purple-700 dark:text-purple-300">{recommendation.metadata.seoStrategy.contentGaps}</p>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+                
+                {/* Content Pillars */}
+                {recommendation.metadata?.contentPillars && (
+                  <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border">
+                    <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-3">Content Strategy Breakdown</h4>
+                    <div className="space-y-2 text-xs">
+                      {Object.entries(recommendation.metadata.contentPillars).map(([pillar, description]) => (
+                        <div key={pillar} className="flex gap-3">
+                          <span className="font-medium text-orange-600 dark:text-orange-400 capitalize">{pillar.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span>
+                          <span className="text-orange-700 dark:text-orange-300">{description as string}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Technical Requirements */}
+                {recommendation.metadata?.technicalRequirements && (
+                  <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Technical Requirements</h4>
+                    <div className="space-y-2 text-xs">
+                      {Object.entries(recommendation.metadata.technicalRequirements).map(([req, details]) => (
+                        <div key={req} className="flex gap-3">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 capitalize">{req.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span>
+                          <span className="text-gray-700 dark:text-gray-300">{Array.isArray(details) ? (details as string[]).join(', ') : details as string}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
             </div>
           )}
 
