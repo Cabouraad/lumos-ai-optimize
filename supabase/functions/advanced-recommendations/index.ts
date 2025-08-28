@@ -20,14 +20,29 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Parse request body to get orgId
-    const { orgId } = await req.json();
+    // Parse request body to get orgId and mode
+    const { orgId, cleanupOnly } = await req.json();
     
     if (!orgId) {
+      console.log('[advanced-recommendations] Missing orgId in request');
       throw new Error('Organization ID is required');
     }
     
-    console.log(`[advanced-recommendations] Processing for org: ${orgId}`);
+    console.log(`[advanced-recommendations] Processing for org: ${orgId}, cleanupOnly: ${cleanupOnly}`);
+    
+    // Handle cleanup-only mode
+    if (cleanupOnly) {
+      console.log('[advanced-recommendations] Running cleanup only');
+      const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
+      console.log(`[advanced-recommendations] Cleanup completed: deleted ${cleanupResult.deleted}`);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        deleted: cleanupResult.deleted
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     // Generate enhanced recommendations
     const result = await generateEnhancedRecommendations(orgId, supabase);
@@ -131,9 +146,14 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
       }
     }
 
+    // Cleanup old recommendations to maintain max 20
+    const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
+    console.log(`[generateEnhanced] Cleanup: deleted ${cleanupResult.deleted} old recommendations`);
+
     return {
       success: true,
       created,
+      deleted: cleanupResult.deleted,
       analysisResults: {
         totalResults: detailedResults.length,
         visibilityPromptsAnalyzed: analysisResults.lowVisibilityPrompts.length + analysisResults.noMentionPrompts.length,
@@ -415,4 +435,50 @@ function extractMainTopic(promptTexts: string[]): string {
     .sort(([,a], [,b]) => b - a);
   
   return sortedWords.length > 0 ? sortedWords[0][0] : 'industry expertise';
+}
+
+async function cleanupOldRecommendations(supabase: any, orgId: string) {
+  try {
+    console.log(`[cleanup] Starting cleanup for org: ${orgId}`);
+    
+    // Get all recommendations for org, ordered by created_at DESC
+    const { data: allRecs, error: fetchError } = await supabase
+      .from('recommendations')
+      .select('id, created_at')
+      .eq('org_id', orgId)
+      .in('status', ['open', 'snoozed'])
+      .order('created_at', { ascending: false });
+
+    if (fetchError) {
+      console.error('[cleanup] Error fetching recommendations:', fetchError);
+      return { deleted: 0 };
+    }
+
+    // If we have more than 20, delete the oldest ones
+    if (allRecs && allRecs.length > 20) {
+      const toDelete = allRecs.slice(20); // Keep first 20, delete the rest
+      const idsToDelete = toDelete.map(r => r.id);
+      
+      console.log(`[cleanup] Deleting ${idsToDelete.length} old recommendations`);
+      
+      const { error: deleteError } = await supabase
+        .from('recommendations')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (deleteError) {
+        console.error('[cleanup] Error deleting recommendations:', deleteError);
+        return { deleted: 0 };
+      }
+      
+      console.log(`[cleanup] Successfully deleted ${idsToDelete.length} recommendations`);
+      return { deleted: idsToDelete.length };
+    }
+    
+    console.log(`[cleanup] No cleanup needed, only ${allRecs?.length || 0} recommendations`);
+    return { deleted: 0 };
+  } catch (error) {
+    console.error('[cleanup] Cleanup error:', error);
+    return { deleted: 0 };
+  }
 }

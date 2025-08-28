@@ -46,6 +46,7 @@ export default function Recommendations() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
 
   // Show upgrade prompt if no access
@@ -110,20 +111,71 @@ export default function Recommendations() {
   };
 
   const handleGenerateRecommendations = async () => {
-    if (!orgData?.organizations?.id) return;
+    // Enhanced orgId resolution
+    const orgId = orgData?.organizations?.id ?? orgData?.org_id;
+    console.log('[Generate] Resolved orgId:', orgId, 'from orgData:', orgData);
+    
+    if (!orgId) {
+      console.warn('[Generate] No orgId found, showing error');
+      toast({
+        title: "Error",
+        description: "Organization ID not found. Please refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setGenerating(true);
+    console.log('[Generate] Starting recommendation generation for orgId:', orgId);
+    
     try {
+      // Get explicit session for auth headers
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[Generate] Session available:', !!session?.access_token);
+      
+      // Bulletproof invoke with explicit headers
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
-        body: { orgId: orgData.organizations.id }
+        headers: session?.access_token ? { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        } : { 'Content-Type': 'application/json' },
+        body: { orgId }
       });
 
-      if (error) throw error;
+      console.log('[Generate] Response received:', { data, error });
 
-      if (data.success) {
+      if (error) {
+        // Retry once on auth errors
+        if (error.message?.includes('401') || error.message?.includes('403')) {
+          console.log('[Generate] Auth error detected, retrying with fresh session...');
+          const { data: { session: freshSession } } = await supabase.auth.getSession();
+          
+          const retryResult = await supabase.functions.invoke('advanced-recommendations', {
+            headers: freshSession?.access_token ? { 
+              'Authorization': `Bearer ${freshSession.access_token}`,
+              'Content-Type': 'application/json'
+            } : { 'Content-Type': 'application/json' },
+            body: { orgId }
+          });
+          
+          if (retryResult.error) throw retryResult.error;
+          
+          const retryData = retryResult.data;
+          if (retryData.success) {
+            toast({
+              title: "Success",
+              description: `Generated ${retryData.created} recommendations (analyzed ${retryData.analysisResults?.totalResults ?? 0} results)`,
+            });
+          } else {
+            throw new Error(retryData.error || 'Failed to generate recommendations');
+          }
+        } else {
+          throw error;
+        }
+      } else if (data.success) {
         toast({
           title: "Success",
-          description: `Generated ${data.created} new content recommendations from analysis of ${data.analyzed} prompts`,
+          description: `Generated ${data.created} recommendations (analyzed ${data.analysisResults?.totalResults ?? 0} results)`,
         });
       } else {
         throw new Error(data.error || 'Failed to generate recommendations');
@@ -131,7 +183,7 @@ export default function Recommendations() {
 
       await loadRecommendations();
     } catch (error: any) {
-      console.error('Recommendation generation error:', error);
+      console.error('[Generate] Recommendation generation error:', error);
       toast({
         title: "Error", 
         description: error.message || 'Failed to generate recommendations',
@@ -139,6 +191,59 @@ export default function Recommendations() {
       });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    const orgId = orgData?.organizations?.id ?? orgData?.org_id;
+    console.log('[Cleanup] Resolved orgId:', orgId);
+    
+    if (!orgId) {
+      console.warn('[Cleanup] No orgId found');
+      toast({
+        title: "Error",
+        description: "Organization ID not found. Please refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setCleaning(true);
+    console.log('[Cleanup] Starting cleanup for orgId:', orgId);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
+        headers: session?.access_token ? { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        } : { 'Content-Type': 'application/json' },
+        body: { orgId, cleanupOnly: true }
+      });
+
+      console.log('[Cleanup] Response received:', { data, error });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: `Removed ${data.deleted || 0} old recommendations; keeping most recent 20`,
+        });
+        await loadRecommendations();
+      } else {
+        throw new Error(data.error || 'Failed to cleanup recommendations');
+      }
+    } catch (error: any) {
+      console.error('[Cleanup] Error:', error);
+      toast({
+        title: "Error", 
+        description: error.message || 'Failed to cleanup recommendations',
+        variant: "destructive",
+      });
+    } finally {
+      setCleaning(false);
     }
   };
 
@@ -228,14 +333,25 @@ export default function Recommendations() {
               Actionable content recommendations based on your prompt performance
             </p>
           </div>
-          <Button 
-            onClick={handleGenerateRecommendations}
-            disabled={generating}
-            aria-label="Generate new recommendations"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
-            {generating ? 'Analyzing...' : 'Generate New'}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleCleanup}
+              disabled={generating || cleaning}
+              variant="outline"
+              size="sm"
+              aria-label="Cleanup old recommendations"
+            >
+              {cleaning ? 'Cleaning...' : 'Cleanup'}
+            </Button>
+            <Button 
+              onClick={handleGenerateRecommendations}
+              disabled={generating || cleaning}
+              aria-label="Generate new recommendations"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
+              {generating ? 'Analyzing...' : 'Generate New'}
+            </Button>
+          </div>
         </div>
 
         {recommendations.length > 0 ? (
@@ -283,7 +399,7 @@ export default function Recommendations() {
               </p>
               <Button 
                 onClick={handleGenerateRecommendations}
-                disabled={generating}
+                disabled={generating || cleaning}
                 variant="secondary"
                 aria-label="Generate recommendations"
               >
