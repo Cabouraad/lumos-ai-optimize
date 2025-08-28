@@ -115,12 +115,13 @@ export function BatchPromptRunner() {
         .limit(10);
 
       if (data) {
-        setRecentJobs(data as unknown as BatchJob[]);
+        const jobs = (data as unknown as BatchJob[]) || [];
+        setRecentJobs(jobs);
         
         // Set current job to the most recent active one
-        const activeJob = data.find((job: any) => ['pending', 'processing'].includes(job.status));
+        const activeJob = jobs.find((job) => ['pending', 'processing'].includes(job.status));
         if (activeJob && (!currentJob || currentJob.id !== activeJob.id)) {
-          setCurrentJob(activeJob as unknown as BatchJob);
+          setCurrentJob(activeJob);
         }
       }
     } catch (error) {
