@@ -11,6 +11,7 @@ const corsHeaders = {
 interface BatchJobRequest {
   orgId: string;
   promptIds?: string[];
+  resumeJobId?: string; // For resuming stuck jobs
 }
 
 interface ProviderConfig {
@@ -51,9 +52,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { orgId, promptIds }: BatchJobRequest = await req.json();
+    const { orgId, promptIds, resumeJobId }: BatchJobRequest = await req.json();
 
     console.log('🚀 Starting robust batch processing for org:', orgId);
+    
+    // Handle resume mode
+    if (resumeJobId) {
+      return handleResumeMode(supabase, resumeJobId, orgId);
+    }
 
     // Get active prompts for the organization
     let promptQuery = supabase
@@ -149,7 +155,7 @@ serve(async (req) => {
     }
 
     // Process tasks concurrently with controlled concurrency
-    const concurrencyLimit = 3; // Reduced for better stability
+    const concurrencyLimit = 5; // Increased for better throughput
     console.log(`🔄 Starting background processing of ${batchTasks.length} tasks`);
 
     // Use background processing to avoid timeout issues
@@ -180,7 +186,7 @@ serve(async (req) => {
             
             // Small delay between batches to avoid overwhelming APIs
             if (i + concurrencyLimit < batchTasks.length) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise(resolve => setTimeout(resolve, 500)); // Reduced delay
             }
           }
 
@@ -486,6 +492,150 @@ async function callProviderAPI(provider: ProviderConfig, promptText: string) {
       throw new Error(`API call timed out after ${timeout}ms`);
     }
     throw error;
+  }
+}
+
+async function handleResumeMode(supabase: any, resumeJobId: string, orgId: string) {
+  console.log('🔄 Resuming batch job:', resumeJobId);
+
+  try {
+    // Use database function to safely resume/finalize job
+    const { data: resumeResult, error } = await supabase.rpc('resume_stuck_batch_job', {
+      p_job_id: resumeJobId
+    });
+
+    if (error) {
+      throw new Error(`Resume RPC failed: ${error.message}`);
+    }
+
+    console.log('📊 Resume result:', resumeResult);
+
+    if (resumeResult.action === 'finalized') {
+      return new Response(JSON.stringify({
+        success: true,
+        message: resumeResult.message,
+        jobId: resumeJobId,
+        action: 'finalized',
+        completedTasks: resumeResult.completed_tasks,
+        failedTasks: resumeResult.failed_tasks
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (resumeResult.action === 'resumed') {
+      // Get pending tasks for the resumed job
+      const { data: pendingTasks } = await supabase
+        .from('batch_tasks')
+        .select(`
+          id, prompt_id, provider, attempts,
+          prompts!inner(id, text, org_id)
+        `)
+        .eq('batch_job_id', resumeJobId)
+        .eq('status', 'pending');
+
+      if (!pendingTasks || pendingTasks.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'No pending tasks found, job already complete',
+          jobId: resumeJobId
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`🔄 Resuming processing for ${pendingTasks.length} pending tasks`);
+
+      // Get enabled providers
+      const { data: enabledProviders } = await supabase
+        .from('llm_providers')
+        .select('name')
+        .eq('enabled', true);
+
+      const providers = enabledProviders?.filter(p => PROVIDERS[p.name.toLowerCase()]) || [];
+      
+      if (providers.length === 0) {
+        throw new Error('No enabled providers with valid API keys found');
+      }
+
+      // Process remaining tasks with same background logic
+      EdgeRuntime.waitUntil(
+        (async () => {
+          const concurrencyLimit = 5;
+          let completedTasks = 0;
+
+          const processBatch = async (taskBatch: any[]) => {
+            const promises = taskBatch.map(async (task) => {
+              try {
+                // Create a proper prompt structure
+                const prompt = { id: task.prompt_id, text: task.prompts.text };
+                const prompts = [prompt];
+                
+                await processTask(supabase, task, prompts, resumeJobId);
+                completedTasks++;
+                console.log(`✅ Resumed task completed ${completedTasks}/${pendingTasks.length}`);
+              } catch (error) {
+                console.error(`❌ Resumed task failed:`, error);
+                completedTasks++;
+              }
+            });
+            
+            await Promise.all(promises);
+          };
+
+          try {
+            // Process tasks in batches
+            for (let i = 0; i < pendingTasks.length; i += concurrencyLimit) {
+              const batch = pendingTasks.slice(i, i + concurrencyLimit);
+              await processBatch(batch);
+              
+              // Small delay between batches
+              if (i + concurrencyLimit < pendingTasks.length) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+            }
+
+            // Finalize job after all tasks complete
+            await supabase.rpc('resume_stuck_batch_job', { p_job_id: resumeJobId });
+            console.log('🎉 Resumed batch processing completed for job:', resumeJobId);
+          } catch (error) {
+            console.error('💥 Resumed processing failed:', error);
+            await supabase
+              .from('batch_jobs')
+              .update({ status: 'failed', completed_at: new Date().toISOString() })
+              .eq('id', resumeJobId);
+          }
+        })()
+      );
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Batch job resumed successfully',
+        jobId: resumeJobId,
+        action: 'resumed',
+        pendingTasks: pendingTasks.length
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unknown resume action'
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error: any) {
+    console.error('💥 Resume mode error:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 }
 

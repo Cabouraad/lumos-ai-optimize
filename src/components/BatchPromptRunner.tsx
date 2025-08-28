@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, Play, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
@@ -28,6 +28,7 @@ export function BatchPromptRunner() {
   const [currentJob, setCurrentJob] = useState<BatchJob | null>(null);
   const [recentJobs, setRecentJobs] = useState<BatchJob[]>([]);
   const [isStarting, setIsStarting] = useState(false);
+  const [isResuming, setIsResuming] = useState<string | null>(null);
 
   // Poll for job updates
   useEffect(() => {
@@ -127,6 +128,58 @@ export function BatchPromptRunner() {
     }
   };
 
+  const resumeStuckJob = async (jobId: string) => {
+    setIsResuming(jobId);
+    
+    try {
+      console.log('🔄 Resuming stuck job:', jobId);
+      
+      const orgId = await getOrgId();
+      
+      const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
+        body: { orgId, resumeJobId: jobId }
+      });
+
+      if (error) {
+        console.error('❌ Resume failed:', error);
+        toast.error(`Resume failed: ${error.message}`);
+        return;
+      }
+
+      console.log('✅ Resume result:', data);
+      
+      if (data.action === 'finalized') {
+        toast.success(`Job finalized: ${data.completedTasks}/${data.completedTasks + data.failedTasks} tasks completed`);
+      } else if (data.action === 'resumed') {
+        toast.success(`Job resumed: ${data.pendingTasks} tasks will be processed`);
+      } else {
+        toast.success(data.message || 'Job processed successfully');
+      }
+      
+      // Refresh the job list
+      loadRecentJobs();
+      
+      // If this was the current job, update it
+      if (currentJob && currentJob.id === jobId) {
+        const { data: jobData } = await supabase
+          .from('batch_jobs' as any)
+          .select('*')
+          .eq('id', jobId)
+          .single();
+
+        if (jobData) {
+          setCurrentJob(jobData as unknown as BatchJob);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('💥 Resume error:', error);
+      toast.error(`Resume error: ${error.message}`);
+    } finally {
+      setIsResuming(null);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -165,6 +218,17 @@ export function BatchPromptRunner() {
   const calculateProgress = (job: BatchJob) => {
     if (job.total_tasks === 0) return 0;
     return ((job.completed_tasks + job.failed_tasks) / job.total_tasks) * 100;
+  };
+
+  const isJobStuck = (job: BatchJob) => {
+    if (job.status !== 'processing') return false;
+    if (!job.started_at) return true;
+    
+    const startTime = new Date(job.started_at).getTime();
+    const now = Date.now();
+    const fiveMinutesAgo = now - (5 * 60 * 1000);
+    
+    return startTime < fiveMinutesAgo;
   };
 
   return (
@@ -258,6 +322,31 @@ export function BatchPromptRunner() {
                   </div>
                 </div>
               )}
+
+              {/* Resume button for stuck jobs */}
+              {isJobStuck(currentJob) && (
+                <div className="mt-3 pt-3 border-t">
+                  <Button
+                    onClick={() => resumeStuckJob(currentJob.id)}
+                    disabled={isResuming === currentJob.id}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    {isResuming === currentJob.id ? (
+                      <>
+                        <Clock className="h-4 w-4 animate-spin mr-2" />
+                        Resuming...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Resume Stuck Job
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -283,12 +372,28 @@ export function BatchPromptRunner() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <Badge variant={getStatusBadgeVariant(job.status)}>
-                      {job.status}
-                    </Badge>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {formatDuration(job.started_at, job.completed_at)}
+                  <div className="flex items-center gap-2">
+                    {isJobStuck(job) && (
+                      <Button
+                        onClick={() => resumeStuckJob(job.id)}
+                        disabled={isResuming === job.id}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {isResuming === job.id ? (
+                          <Clock className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
+                    <div className="text-right">
+                      <Badge variant={getStatusBadgeVariant(job.status)}>
+                        {job.status}
+                      </Badge>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatDuration(job.started_at, job.completed_at)}
+                      </div>
                     </div>
                   </div>
                 </div>
