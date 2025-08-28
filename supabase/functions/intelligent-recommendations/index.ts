@@ -475,14 +475,52 @@ function generateGeneralRecommendations(org: any, count: number): ContentRecomme
   return generalRecs;
 }
 
+// Comprehensive stopword list for better keyword extraction
+const STOPWORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he', 
+  'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'will', 'with',
+  'can', 'could', 'should', 'would', 'may', 'might', 'must', 'shall', 'do', 'does',
+  'did', 'have', 'had', 'having', 'i', 'you', 'we', 'they', 'them', 'their', 'this',
+  'these', 'those', 'what', 'when', 'where', 'why', 'how', 'which', 'who', 'whom'
+]);
+
+// Extract meaningful subject from "how to" style prompts
+function extractHowToSubject(text: string): string {
+  const cleanText = text.toLowerCase().trim();
+  
+  // Pattern 1: "How to [verb] [object]" - extract the main action and object
+  const howToMatch = cleanText.match(/how\s+to\s+([^?]+)/);
+  if (howToMatch) {
+    const action = howToMatch[1].trim();
+    // Remove common filler words and return meaningful part
+    return action.replace(/\b(the|a|an|my|your|our|their|for|with|in|on|at)\b/g, '').trim();
+  }
+  
+  // Pattern 2: "How can/should/do [subject] [verb] [object]"
+  const howCanMatch = cleanText.match(/how\s+(can|should|do|does)\s+([^?]+)/);
+  if (howCanMatch) {
+    const rest = howCanMatch[2].trim();
+    // Extract meaningful nouns and verbs, skip pronouns
+    const words = rest.split(/\s+/).filter(word => 
+      word.length > 2 && !STOPWORDS.has(word) && !/^(i|you|we|they|it)$/.test(word)
+    );
+    return words.slice(0, 3).join(' ');
+  }
+  
+  // Fallback: extract first meaningful noun phrases
+  const words = cleanText.split(/\s+/).filter(word => 
+    word.length > 3 && !STOPWORDS.has(word) && !/^\d+$/.test(word)
+  );
+  return words.slice(0, 2).join(' ');
+}
+
 function extractKeywords(text: string): string[] {
-  // Simple keyword extraction - in production, use more sophisticated NLP
-  const words = text.toLowerCase()
+  return text
+    .toLowerCase()
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
-    .filter(word => word.length > 3 && !['what', 'how', 'when', 'where', 'why', 'which', 'that', 'this', 'with', 'from', 'they', 'have', 'been', 'were', 'said', 'each', 'more', 'other', 'such', 'only', 'even', 'also', 'just', 'like', 'many', 'most', 'much', 'very', 'well', 'good', 'best'].includes(word));
-  
-  return [...new Set(words)].slice(0, 5);
+    .filter(word => word.length > 3 && !STOPWORDS.has(word))
+    .slice(0, 5);
 }
 
 function generateContentTitle(promptText: string, orgName: string): string {
@@ -562,51 +600,131 @@ function generateBrandAwarenessTitle(prompts: PromptPerformance[], orgName: stri
   }
 }
 
-// Enhanced title generation with pattern detection and contextual awareness
+// Enhanced title generation with better pattern detection and subject extraction
 function generateIntelligentContentTitle(promptText: string, org: any): string {
   const cleanPrompt = normalizePromptText(promptText);
   const contentType = detectContentType(cleanPrompt);
-  const nounPhrases = extractNounPhrases(cleanPrompt);
   const keywords = extractEnhancedKeywords(cleanPrompt);
   
-  console.log(`Generating title for: "${promptText}" | Type: ${contentType} | Noun phrases: ${nounPhrases.join(', ')}`);
+  console.log(`Generating title for: "${promptText}" | Type: ${contentType} | Keywords: ${keywords.join(', ')}`);
   
-  // Pattern-based title generation
+  // Pattern-based title generation with improved subject extraction
   if (contentType === 'how-to') {
-    const action = extractActionWord(cleanPrompt) || 'master';
-    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
-    return formatTitle(`How to ${action} ${subject} - Complete ${org.name} guide`);
+    const subject = extractHowToSubject(promptText);
+    if (subject && subject.length > 3) {
+      return sanitizeTitle(`How to ${subject} - ${org.name} complete guide`);
+    }
+    // Fallback to keywords if subject extraction fails
+    const mainKeyword = keywords.slice(0, 2).join(' ') || 'achieve your goals';
+    return sanitizeTitle(`How to ${mainKeyword} - Complete guide`);
   }
   
   if (contentType === 'best-of') {
-    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
+    const subject = extractSubjectFromBestOf(promptText) || keywords.slice(0, 2).join(' ') || 'tools';
     const year = new Date().getFullYear();
-    return formatTitle(`${year}'s best ${subject} - Expert recommendations from ${org.name}`);
+    return sanitizeTitle(`${year}'s best ${subject} - Expert recommendations`);
   }
   
   if (contentType === 'comparison') {
     const subjects = extractComparisonSubjects(cleanPrompt);
     if (subjects.length >= 2) {
-      return formatTitle(`${subjects[0]} vs ${subjects[1]} - Which should you choose?`);
+      return sanitizeTitle(`${titleCase(subjects[0])} vs ${titleCase(subjects[1])} - Which should you choose?`);
     }
-    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
-    return formatTitle(`${subject} comparison guide - Make the right choice`);
+    const subject = keywords.slice(0, 2).join(' ') || 'solutions';
+    return sanitizeTitle(`${titleCase(subject)} comparison guide - Make the right choice`);
   }
   
   if (contentType === 'explanation') {
-    const subject = nounPhrases[0] || keywords.slice(0, 2).join(' ');
-    return formatTitle(`Complete guide to ${subject} - Everything you need to know`);
+    const subject = extractSubjectFromWhat(promptText) || keywords.slice(0, 2).join(' ') || 'business concepts';
+    return sanitizeTitle(`Complete guide to ${subject} - Everything you need to know`);
   }
   
   if (contentType === 'troubleshooting') {
-    const problem = extractProblem(cleanPrompt) || keywords.slice(0, 2).join(' ');
-    return formatTitle(`Fixing ${problem} - Step-by-step troubleshooting guide`);
+    const problem = extractProblem(cleanPrompt) || keywords.slice(0, 2).join(' ') || 'common issues';
+    return sanitizeTitle(`Fixing ${problem} - Step-by-step troubleshooting guide`);
   }
   
   // Default case with business context
-  const primaryKeyword = keywords[0] || 'business solution';
+  const primaryKeyword = keywords[0] || 'business solutions';
   const businessFocus = org.products_services ? extractBusinessFocus(org.products_services) : 'business';
-  return formatTitle(`Ultimate ${primaryKeyword} guide for ${businessFocus} success`);
+  return sanitizeTitle(`Ultimate ${primaryKeyword} guide for ${businessFocus} success`);
+}
+
+// Helper function to extract subject from "what is/are" questions
+function extractSubjectFromWhat(text: string): string {
+  const whatMatch = text.toLowerCase().match(/what\s+(is|are)\s+([^?]+)/);
+  if (whatMatch) {
+    const subject = whatMatch[2].trim();
+    return subject.replace(/\b(the|a|an|my|your|our|their)\b/g, '').trim();
+  }
+  return '';
+}
+
+// Helper function to extract subject from "best of" questions
+function extractSubjectFromBestOf(text: string): string {
+  const bestMatch = text.toLowerCase().match(/(?:best|top)\s+(?:\d+\s+)?([^?]+)/);
+  if (bestMatch) {
+    const subject = bestMatch[1].trim();
+    return subject.replace(/\b(for|to|in|on|at|the|a|an)\b/g, '').trim();
+  }
+  return '';
+}
+
+// Enhanced noun phrase extraction with domain focus
+function extractNounPhrases(text: string): string[] {
+  const cleanText = text.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+  const words = cleanText.split(/\s+/);
+  
+  const phrases: string[] = [];
+  const businessTerms = ['business', 'company', 'startup', 'marketing', 'sales', 'customer', 'service', 'platform', 'software', 'tool', 'strategy', 'management', 'team', 'product', 'solution'];
+  
+  // Extract 2-3 word phrases, prioritizing business terms
+  for (let i = 0; i < words.length - 1; i++) {
+    if (STOPWORDS.has(words[i])) continue;
+    
+    // Check for business context
+    const isBusinessContext = businessTerms.some(term => 
+      words[i].includes(term) || (i < words.length - 1 && words[i + 1].includes(term))
+    );
+    
+    if (isBusinessContext || (!STOPWORDS.has(words[i]) && words[i].length > 3)) {
+      if (i < words.length - 1 && !STOPWORDS.has(words[i + 1])) {
+        phrases.push(`${words[i]} ${words[i + 1]}`);
+      }
+      if (i < words.length - 2 && !STOPWORDS.has(words[i + 2])) {
+        phrases.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
+      }
+    }
+  }
+  
+  return [...new Set(phrases)].slice(0, 3);
+}
+
+// Function to sanitize and clean up titles
+function sanitizeTitle(title: string): string {
+  return title
+    .replace(/\s+/g, ' ')  // Remove extra spaces
+    .replace(/\b(how to|for)\s+\b/g, (match) => match.toLowerCase())  // Keep common words lowercase
+    .replace(/\b\w/g, (match) => match.toUpperCase())  // Capitalize first letter of words
+    .trim()
+    .substring(0, 100);  // Limit length
+}
+
+// Improved title case function
+function titleCase(str: string): string {
+  const smallWords = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 'of', 'on', 'or', 'the', 'to', 'up', 'via']);
+  
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => {
+      // Always capitalize first and last word, and words not in smallWords set
+      if (index === 0 || !smallWords.has(word)) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      return word;
+    })
+    .join(' ');
 }
 
 function generateIntelligentCompetitiveTitle(promptText: string, org: any): string {
@@ -657,18 +775,32 @@ function detectContentType(cleanPrompt: string): string {
 }
 
 function extractNounPhrases(text: string): string[] {
-  // Simple noun phrase extraction - gets meaningful 2-3 word combinations
-  const words = text.split(' ').filter(w => w.length > 2);
-  const phrases: string[] = [];
+  const cleanText = text.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+  const words = cleanText.split(/\s+/);
   
+  const phrases: string[] = [];
+  const businessTerms = ['business', 'company', 'startup', 'marketing', 'sales', 'customer', 'service', 'platform', 'software', 'tool', 'strategy', 'management', 'team', 'product', 'solution'];
+  
+  // Extract 2-3 word phrases, prioritizing business terms
   for (let i = 0; i < words.length - 1; i++) {
-    const phrase = words.slice(i, i + 2).join(' ');
-    if (phrase.length > 5 && !phrase.includes('how') && !phrase.includes('what')) {
-      phrases.push(phrase);
+    if (STOPWORDS.has(words[i])) continue;
+    
+    // Check for business context
+    const isBusinessContext = businessTerms.some(term => 
+      words[i].includes(term) || (i < words.length - 1 && words[i + 1].includes(term))
+    );
+    
+    if (isBusinessContext || (!STOPWORDS.has(words[i]) && words[i].length > 3)) {
+      if (i < words.length - 1 && !STOPWORDS.has(words[i + 1])) {
+        phrases.push(`${words[i]} ${words[i + 1]}`);
+      }
+      if (i < words.length - 2 && !STOPWORDS.has(words[i + 2])) {
+        phrases.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
+      }
     }
   }
   
-  return phrases.slice(0, 3);
+  return [...new Set(phrases)].slice(0, 3);
 }
 
 function extractActionWord(text: string): string | null {
