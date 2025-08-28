@@ -114,7 +114,7 @@ export default function Recommendations() {
     
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('intelligent-recommendations', {
+      const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
         body: { orgId: orgData.organizations.id }
       });
 
