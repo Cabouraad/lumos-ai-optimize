@@ -704,6 +704,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      resume_stuck_batch_job: {
+        Args: { p_job_id: string }
+        Returns: Json
+      }
       test_reco_insert: {
         Args: { p_org_id: string; p_test_title?: string }
         Returns: string
