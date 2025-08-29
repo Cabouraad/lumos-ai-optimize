@@ -23,64 +23,40 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
     // Find the corresponding detailed data for this prompt
     const details = promptDetails.find(d => d.promptId === prompt.id);
     
-    // Calculate visibility score from latest provider responses
-    let visibilityScore = 0;
-    let brandPresenceCount = 0;
-    let totalResponsesWithData = 0;
-    let totalCompetitors = 0;
-    let competitorResponseCount = 0;
+    // Calculate 7-day runs - count responses from last 7 days
+    let runs_7d = 0;
+    let avg_score_7d = 0;
+    let scoreCount = 0;
     
     if (details) {
-      const providerScores = Object.values(details.providers)
-        .filter((p: any) => p && p.status === 'success')
-        .map((p: any) => p.score);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       
-      if (providerScores.length > 0) {
-        visibilityScore = providerScores.reduce((sum, score) => sum + score, 0) / providerScores.length;
-      } else {
-        visibilityScore = details.overallScore || 0;
-      }
-      
-      // Calculate brand presence percentage
       Object.values(details.providers).forEach((provider: any) => {
         if (provider && provider.status === 'success') {
-          totalResponsesWithData++;
-          if (provider.org_brand_present) {
-            brandPresenceCount++;
-          }
-          if (provider.competitors_count > 0) {
-            totalCompetitors += provider.competitors_count;
-            competitorResponseCount++;
+          const runDate = new Date(provider.run_at);
+          if (runDate >= sevenDaysAgo) {
+            runs_7d++;
+            avg_score_7d += provider.score;
+            scoreCount++;
           }
         }
       });
+      
+      // Calculate average score for 7 days
+      if (scoreCount > 0) {
+        avg_score_7d = avg_score_7d / scoreCount;
+      } else {
+        avg_score_7d = details.overallScore || 0;
+      }
     }
-
-    // Calculate percentages
-    const brandPct = totalResponsesWithData > 0 
-      ? Math.round((brandPresenceCount / totalResponsesWithData) * 100) 
-      : 0;
-    
-    const avgCompetitors = competitorResponseCount > 0 
-      ? Math.round(totalCompetitors / competitorResponseCount) 
-      : 0;
 
     return {
       id: prompt.id,
       text: prompt.text,
-      createdAt: prompt.created_at,
-      category: getPromptCategory(prompt.text),
-      providers: [
-        { name: 'openai', enabled: true, lastRun: prompt.created_at },
-        { name: 'perplexity', enabled: true, lastRun: prompt.created_at },
-      ],
-      lastRunAt: details?.lastRunAt || prompt.created_at,
-      visibilityScore: Math.round(visibilityScore * 10) / 10,
-      brandPct: brandPct,
-      competitorPct: avgCompetitors, // Show average number of competitors instead of percentage
-      sentimentDelta: 0, // Start at 0 until we have actual sentiment data
       active: prompt.active,
-      org_id: prompt.org_id, // Pass org_id for re-analysis
+      created_at: prompt.created_at,
+      runs_7d: runs_7d,
+      avg_score_7d: Math.round(avg_score_7d * 10) / 10,
     };
   });
 };
@@ -411,6 +387,32 @@ export default function Prompts() {
     }
   };
 
+  const handleRunPrompt = async (promptId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('run-prompt-now', {
+        body: { promptId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Prompt queued for execution",
+      });
+
+      // Reload data after a short delay to show new results
+      setTimeout(() => {
+        loadPromptsData(true);
+      }, 2000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Transform data for the PromptList component
   const transformedPrompts = transformPromptData(rawPrompts, providerData);
 
@@ -488,6 +490,7 @@ export default function Prompts() {
                   onEditPrompt={handleEditPrompt}
                   onDuplicatePrompt={handleDuplicatePrompt}
                   onAddPrompt={() => setIsAddModalOpen(true)}
+                  onRunPrompt={handleRunPrompt}
                 />
               </TabsContent>
 

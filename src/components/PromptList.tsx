@@ -20,22 +20,17 @@ import {
   Loader2
 } from 'lucide-react';
 
-interface PromptData {
+interface PromptWithStats {
   id: string;
   text: string;
-  createdAt: string;
-  category: string;
-  providers: Array<{ name: string; enabled: boolean; lastRun?: string }>;
-  lastRunAt?: string;
-  visibilityScore: number;
-  brandPct: number;
-  competitorPct: number;
-  sentimentDelta: number;
   active: boolean;
+  created_at: string;
+  runs_7d?: number;
+  avg_score_7d?: number;
 }
 
 interface PromptListProps {
-  prompts: PromptData[];
+  prompts: PromptWithStats[];
   loading: boolean;
   onToggleActive: (promptId: string, active: boolean) => void;
   onDeletePrompt: (promptId: string) => void;
@@ -43,7 +38,7 @@ interface PromptListProps {
   onEditPrompt: (promptId: string) => void;
   onDuplicatePrompt: (promptId: string) => void;
   onAddPrompt: () => void;
-  
+  onRunPrompt: (promptId: string) => void;
 }
 
 export function PromptList({
@@ -55,13 +50,13 @@ export function PromptList({
   onEditPrompt,
   onDuplicatePrompt,
   onAddPrompt,
+  onRunPrompt,
 }: PromptListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProvider, setFilterProvider] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [selectedPrompts, setSelectedPrompts] = useState<Set<string>>(new Set());
-  const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
@@ -74,17 +69,16 @@ export function PromptList({
       // Search filter
       const searchMatch = prompt.text.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Provider filter
-      const providerMatch = filterProvider === 'all' || 
-                           prompt.providers.some(p => p.name.toLowerCase() === filterProvider.toLowerCase() && p.enabled);
+      // Provider filter (always match since we don't have provider details in the simple interface)
+      const providerMatch = filterProvider === 'all' || true;
       
       // Status filter
       const statusMatch = filterStatus === 'all' || 
                          (filterStatus === 'active' && prompt.active) ||
                          (filterStatus === 'paused' && !prompt.active);
       
-      // Category filter
-      const categoryMatch = filterCategory === 'all' || prompt.category === filterCategory;
+      // Category filter (always match since we don't have categories in the simple interface)
+      const categoryMatch = filterCategory === 'all' || true;
 
       return searchMatch && providerMatch && statusMatch && categoryMatch;
     });
@@ -127,15 +121,6 @@ export function PromptList({
     setSelectedPrompts(newSelected);
   };
 
-  const handleToggleExpand = (promptId: string) => {
-    const newExpanded = new Set(expandedPrompts);
-    if (newExpanded.has(promptId)) {
-      newExpanded.delete(promptId);
-    } else {
-      newExpanded.add(promptId);
-    }
-    setExpandedPrompts(newExpanded);
-  };
 
   const handleBulkEnable = async () => {
     const selectedIds = Array.from(selectedPrompts);
@@ -340,16 +325,10 @@ export function PromptList({
               <PromptRow
                 key={prompt.id}
                 prompt={prompt}
-                isSelected={selectedPrompts.has(prompt.id)}
-                isExpanded={expandedPrompts.has(prompt.id)}
-                onSelect={(checked) => handleSelectPrompt(prompt.id, checked)}
-                onExpand={() => handleToggleExpand(prompt.id)}
-                onToggleActive={(active) => onToggleActive(prompt.id, active)}
-                
-                onEdit={() => onEditPrompt(prompt.id)}
-                onDuplicate={() => onDuplicatePrompt(prompt.id)}
-                onDelete={() => onDeletePrompt(prompt.id)}
-                
+                onRunPrompt={onRunPrompt}
+                onEdit={(p) => onEditPrompt(p.id)}
+                canRunPrompts={true}
+                isRunning={false}
               />
             ))}
 
