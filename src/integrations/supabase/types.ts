@@ -761,6 +761,10 @@ export type Database = {
         Args: { job_id: string }
         Returns: undefined
       }
+      rebuild_competitors_catalog_only: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       reco_upsert: {
         Args: {
           p_citations: Json
