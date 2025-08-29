@@ -442,6 +442,42 @@ export type Database = {
           },
         ]
       }
+      scheduler_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          function_name: string
+          id: string
+          result: Json | null
+          run_key: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          function_name: string
+          id?: string
+          result?: Json | null
+          run_key: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          function_name?: string
+          id?: string
+          result?: Json | null
+          run_key?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       scheduler_state: {
         Row: {
           created_at: string | null
@@ -625,6 +661,10 @@ export type Database = {
       cancel_active_batch_jobs: {
         Args: { p_org_id: string; p_reason?: string }
         Returns: Json
+      }
+      cleanup_old_scheduler_runs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       fix_brand_classification_all_providers: {
         Args: Record<PropertyKey, never>

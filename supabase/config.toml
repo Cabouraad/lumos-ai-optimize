@@ -4,7 +4,10 @@ project_id = "cgocsffxqyhojtyzniyz"
 verify_jwt = false
 import_map = ""
 
-[functions.daily-scheduler]
+[functions.daily-scheduler-deprecated]
+verify_jwt = false
+
+[functions.batch-reconciler]
 verify_jwt = false
 
 [functions.sync-cron-secret]
@@ -19,9 +22,6 @@ verify_jwt = true
 [functions.robust-batch-processor]
 verify_jwt = true
 
-[functions.batch-reconciler]
-verify_jwt = false
-
 [functions.check-subscription]
 verify_jwt = true
 
@@ -30,7 +30,6 @@ verify_jwt = true
 
 [functions.customer-portal]
 verify_jwt = true
-
 
 [functions.weekly-suggestions]
 verify_jwt = true
