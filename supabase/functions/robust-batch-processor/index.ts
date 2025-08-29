@@ -73,7 +73,7 @@ const getProviderConfigs = (): Record<string, ProviderConfig> => ({
   }
 });
 
-// Enhanced AI response analysis with artifact extraction
+// Enhanced AI response analysis using new competitor detector
 async function analyzeAIResponse(
   supabase: any,
   orgId: string,
@@ -82,42 +82,22 @@ async function analyzeAIResponse(
   orgData?: any
 ): Promise<any> {
   try {
-    // Determine industry from org business context
-    const contextText = `${orgData?.products_services || ''} ${orgData?.business_description || ''} ${(orgData?.keywords || []).join(' ')}`.toLowerCase();
-    let industry = 'software';
-    if (/\becommerce|retail|shop|store|cart|checkout|shopify|woocommerce\b/.test(contextText)) {
-      industry = 'ecommerce';
-    } else if (/\bmarketing|crm|sales|automation|email|campaign|social|customer\b/.test(contextText)) {
-      industry = 'marketing';
-    } else if (/\bdesign|creative|graphics|ui|ux|illustration|photo|video\b/.test(contextText)) {
-      industry = 'design';
-    }
-
-    // Create brand gazetteer for improved detection, industry-aware
-    const gazetteer = createBrandGazetteer(brandCatalog, industry);
+    console.log('🔍 Starting enhanced competitor analysis...');
     
-    // Extract user brand normalizations for comparison - with fallback to org name
-    let userBrandNorms = brandCatalog
-      .filter(b => b.is_org_brand)
-      .flatMap(b => [b.name, ...(b.variants_json || [])])
-      .map(name => name.toLowerCase().trim());
-    
-    // BRAND FALLBACK: If no org brands configured, use organization name
-    if (userBrandNorms.length === 0 && orgData?.name) {
-      userBrandNorms = [orgData.name.toLowerCase().trim()];
-      console.log(`🔄 Using organization name "${orgData.name}" as brand fallback`);
-    }
+    // Use enhanced competitor detection
+    const detectionResult = await detectCompetitors(supabase, orgId, responseText, {
+      useNERFallback: true,
+      maxCandidates: 15,
+      confidenceThreshold: 0.6 // Slightly lower threshold for batch processing
+    });
 
-    // Prepare normalized sets for filtering competitors strictly by industry
-    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim();
-    const commonBrands = [
-      'Microsoft','Google','Apple','Amazon','Meta','Facebook','Instagram','Twitter','X','LinkedIn','YouTube','Netflix','Spotify','Adobe',
-      'Salesforce','HubSpot','Zoom','Slack','GitHub','Atlassian','AWS','Azure','Stripe','PayPal','Shopify'
-    ];
-    const blockedGenerics = [
-      // Basic stopwords
-      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-      'for', 'and', 'the', 'with', 'you', 'your', 'our', 'their', 'this', 'that',
+    console.log('✅ Enhanced detection complete:', {
+      competitors: detectionResult.competitors.length,
+      orgBrands: detectionResult.orgBrands.length,
+      gazetteerMatches: detectionResult.metadata.gazetteer_matches,
+      nerMatches: detectionResult.metadata.ner_matches,
+      processingTime: detectionResult.metadata.processing_time_ms
+    });
       // Generic business terms
       'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
       'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',

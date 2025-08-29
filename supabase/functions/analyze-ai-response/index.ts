@@ -1,8 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { extractArtifacts } from '../_shared/visibility/extractArtifacts.ts';
-import { extractBrandsFromText, type BrandCatalogEntry } from '../_shared/unified-brand-extraction.ts';
+import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { computeEnhancedVisibilityScore } from '../_shared/scoring/enhanced-visibility.ts';
 
 const corsHeaders = {
@@ -41,67 +40,71 @@ serve(async (req) => {
 
     console.log(`Analyzing response for prompt ${promptId}`);
 
-    // Get organization brand catalog and prompt data
-    const [brandCatalogResult, promptResult] = await Promise.all([
-      supabase
-        .from('brand_catalog')
-        .select('name, variants_json, is_org_brand')
-        .eq('org_id', orgId),
-      supabase
-        .from('prompts')
-        .select('text')
-        .eq('id', promptId)
-        .single()
-    ]);
+    // Get prompt data
+    const { data: prompt, error: promptError } = await supabase
+      .from('prompts')
+      .select('text')
+      .eq('id', promptId)
+      .single();
 
-    if (brandCatalogResult.error) {
-      console.error('Error fetching brand catalog:', brandCatalogResult.error);
-      throw new Error('Failed to fetch brand catalog');
-    }
-
-    if (promptResult.error) {
-      console.error('Error fetching prompt:', promptResult.error);
+    if (promptError) {
+      console.error('Error fetching prompt:', promptError);
       throw new Error('Failed to fetch prompt');
     }
 
-    const brandCatalog = brandCatalogResult.data;
-    const prompt = promptResult.data;
+    // Use enhanced competitor detection
+    console.log('🔍 Starting enhanced competitor detection...');
+    const detectionResult = await detectCompetitors(supabase, orgId, responseText, {
+      useNERFallback: true,
+      maxCandidates: 15,
+      confidenceThreshold: 0.7
+    });
 
-    // Use unified brand extraction with catalog verification
-    const extractedBrands = extractBrandsFromText(responseText, brandCatalog || []);
-    
+    console.log('✅ Detection complete:', {
+      competitors: detectionResult.competitors.length,
+      orgBrands: detectionResult.orgBrands.length,
+      rejected: detectionResult.rejectedTerms.length,
+      gazetteerMatches: detectionResult.metadata.gazetteer_matches,
+      nerMatches: detectionResult.metadata.ner_matches
+    });
+
     // Convert to legacy artifacts format for compatibility
     const artifacts = {
-      brands: extractedBrands.orgBrands.map(name => ({
-        name,
-        normalized: name.toLowerCase(),
-        confidence: 0.9,
-        first_pos_ratio: 0.5,
-        mentions: 1,
+      brands: detectionResult.orgBrands.map(brand => ({
+        name: brand.name,
+        normalized: brand.normalized,
+        confidence: brand.confidence,
+        first_pos_ratio: brand.first_pos_ratio,
+        mentions: brand.mentions,
         sentiment: 'neutral' as const
       })),
-      competitors: extractedBrands.competitors.map(name => ({
-        name,
-        normalized: name.toLowerCase(),
-        confidence: 0.9,
-        first_pos_ratio: 0.7,
-        mentions: 1,
+      competitors: detectionResult.competitors.map(comp => ({
+        name: comp.name,
+        normalized: comp.normalized,
+        confidence: comp.confidence,
+        first_pos_ratio: comp.first_pos_ratio,
+        mentions: comp.mentions,
         sentiment: 'neutral' as const
       })),
       citations: [],
       metadata: {
         analysis_confidence: 0.9,
         response_length: responseText.length,
-        verified_brands_count: extractedBrands.competitors.length,
-        rejected_terms_count: extractedBrands.rejectedTerms.length
+        verified_brands_count: detectionResult.competitors.length,
+        rejected_terms_count: detectionResult.rejectedTerms.length,
+        detection_method: 'enhanced_v2',
+        processing_time_ms: detectionResult.metadata.processing_time_ms
       }
     };
 
     // Calculate brand presence and prominence
-    const userBrandNorms = extractedBrands.orgBrands.map(name => name.toLowerCase());
-    const orgBrandPresent = extractedBrands.orgBrands.length > 0;
+    const userBrandNorms = detectionResult.orgBrands.map(brand => brand.normalized);
+    const orgBrandPresent = detectionResult.orgBrands.length > 0;
     
-    const orgBrandProminence = orgBrandPresent ? 85 : 0; // Default high prominence when found
+    // Calculate prominence based on actual position data
+    const orgBrandProminence = orgBrandPresent && detectionResult.orgBrands.length > 0
+      ? Math.round((1 - detectionResult.orgBrands[0].first_pos_ratio) * 100) // Convert to prominence score
+      : 0;
 
     // Calculate visibility score using enhanced scoring
     const visibilityMetrics = {
@@ -159,7 +162,10 @@ serve(async (req) => {
         competitors_count: artifacts.competitors.length,
         brands_json: artifacts.brands,
         raw_ai_response: responseText.substring(0, 5000), // Truncate if too long
-        raw_evidence: JSON.stringify(artifacts.citations)
+        raw_evidence: JSON.stringify({
+          detection_metadata: detectionResult.metadata,
+          rejected_terms: detectionResult.rejectedTerms.slice(0, 20)
+        })
       });
 
     if (visibilityError) {

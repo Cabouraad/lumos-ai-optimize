@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
-import { analyzeResponse } from '../_shared/simple-brand-analyzer.ts';
+import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -84,8 +84,30 @@ serve(async (req) => {
 
         if (!response) continue;
 
-        // Analyze brand presence and competitors using new simple analyzer
-        const analysis = await analyzeResponse(supabase, orgId, response.text);
+        // Analyze brand presence and competitors using enhanced detector
+        console.log(`🔍 Running enhanced competitor detection for ${provider.name}...`);
+        const detectionResult = await detectCompetitors(supabase, orgId, response.text, {
+          useNERFallback: true,
+          maxCandidates: 10,
+          confidenceThreshold: 0.7
+        });
+
+        // Convert to legacy analysis format for compatibility
+        const analysis = {
+          score: detectionResult.orgBrands.length > 0 ? 7 : 2, // Simple scoring
+          orgBrandPresent: detectionResult.orgBrands.length > 0,
+          orgBrandProminence: detectionResult.orgBrands.length > 0 
+            ? Math.round((1 - detectionResult.orgBrands[0].first_pos_ratio) * 10) 
+            : null,
+          brands: detectionResult.orgBrands.map(b => b.name),
+          competitors: detectionResult.competitors.map(c => c.name)
+        };
+
+        console.log(`✅ ${provider.name} analysis:`, {
+          score: analysis.score,
+          brands: analysis.brands.length,
+          competitors: analysis.competitors.length
+        });
 
         // Store run (keep existing logging table)
         const { data: run } = await supabase
@@ -126,7 +148,10 @@ serve(async (req) => {
             raw_ai_response: response.text,
             model: providerModel,
             run_at: new Date().toISOString(),
-            metadata: { analysis_method: 'simple_v3' }
+            metadata: { 
+              analysis_method: 'enhanced_v2',
+              detection_metadata: detectionResult.metadata
+            }
           });
         if (pprError) {
           console.error('Failed to insert prompt_provider_responses:', pprError);
