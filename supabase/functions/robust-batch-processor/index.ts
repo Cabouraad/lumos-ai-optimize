@@ -45,10 +45,10 @@ const getProviderConfigs = (): Record<string, ProviderConfig> => ({
     name: 'perplexity',
     apiKey: Deno.env.get('PERPLEXITY_API_KEY') || '',
     baseUrl: 'https://api.perplexity.ai/chat/completions',
-    model: 'llama-3.1-sonar-small-128k-online',
+    model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar-small-online',
     headers: { 'Content-Type': 'application/json' },
     bodyTemplate: (prompt: string) => ({
-      model: 'llama-3.1-sonar-small-128k-online',
+      model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar-small-online',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: 4000
@@ -78,17 +78,24 @@ async function analyzeAIResponse(
   supabase: any,
   orgId: string,
   responseText: string,
-  brandCatalog: any[]
+  brandCatalog: any[],
+  orgData?: any
 ): Promise<any> {
   try {
     // Create brand gazetteer for improved detection
     const gazetteer = createBrandGazetteer(brandCatalog, 'software'); // Default to software industry
     
-    // Extract user brand normalizations for comparison
-    const userBrandNorms = brandCatalog
+    // Extract user brand normalizations for comparison - with fallback to org name
+    let userBrandNorms = brandCatalog
       .filter(b => b.is_org_brand)
       .flatMap(b => [b.name, ...(b.variants_json || [])])
       .map(name => name.toLowerCase().trim());
+    
+    // BRAND FALLBACK: If no org brands configured, use organization name
+    if (userBrandNorms.length === 0 && orgData?.name) {
+      userBrandNorms = [orgData.name.toLowerCase().trim()];
+      console.log(`🔄 Using organization name "${orgData.name}" as brand fallback`);
+    }
     
     // Use enhanced artifact extraction
     const artifacts = extractArtifacts(responseText, userBrandNorms, gazetteer);
@@ -245,7 +252,8 @@ async function callProviderAPI(
 async function processTask(
   supabase: any,
   task: any,
-  brandCatalog: any[]
+  brandCatalog: any[],
+  orgData?: any
 ): Promise<void> {
   const { id: taskId, batch_job_id, prompt_id, provider: providerName } = task;
 
@@ -296,7 +304,8 @@ async function processTask(
       supabase,
       promptData.org_id,
       result.data.responseText,
-      brandCatalog
+      brandCatalog,
+      orgData
     );
 
     // Store response in database
@@ -348,6 +357,43 @@ async function processTask(
   } catch (error: any) {
     console.error(`❌ Task ${taskId} failed:`, error.message);
     
+    // Get prompt details for error record
+    const { data: promptData } = await supabase
+      .from('prompts')
+      .select('org_id')
+      .eq('id', prompt_id)
+      .single();
+    
+    // INSERT ERROR RECORD: Create a failed response record for UI visibility
+    if (promptData) {
+      await supabase
+        .from('prompt_provider_responses')
+        .insert({
+          org_id: promptData.org_id,
+          prompt_id: prompt_id,
+          provider: providerName,
+          model: getProviderConfigs()[providerName]?.model || 'unknown',
+          status: 'error',
+          score: 0,
+          org_brand_present: false,
+          org_brand_prominence: null,
+          brands_json: [],
+          competitors_json: [],
+          competitors_count: 0,
+          raw_ai_response: null,
+          raw_evidence: null,
+          error: error.message,
+          token_in: 0,
+          token_out: 0,
+          metadata: {
+            task_id: taskId,
+            error_type: 'provider_failure',
+            failed_at: new Date().toISOString()
+          },
+          run_at: new Date().toISOString()
+        });
+    }
+    
     // Mark task as failed
     await supabase
       .from('batch_tasks')
@@ -374,14 +420,52 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestBody = await req.json();
-    const { jobId, orgId } = requestBody;
+    const { jobId, orgId, resumeJobId } = requestBody;
     
-    let actualJobId = jobId;
+    let actualJobId = jobId || resumeJobId;
     let jobData;
+    let orgData;
 
-    // If orgId is provided but no jobId, create a new batch job
-    if (orgId && !jobId) {
+    // If resumeJobId is provided, process existing job
+    if (resumeJobId) {
+      console.log(`🔄 Resuming existing batch job: ${resumeJobId}`);
+      
+      const { data: existingJob, error: jobError } = await supabase
+        .from('batch_jobs')
+        .select('*')
+        .eq('id', resumeJobId)
+        .single();
+
+      if (jobError || !existingJob) {
+        throw new Error(`Resume job not found: ${jobError?.message}`);
+      }
+
+      actualJobId = resumeJobId;
+      jobData = existingJob;
+      
+      // Get org data for this job
+      const { data: orgInfo } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', existingJob.org_id)
+        .single();
+      orgData = orgInfo;
+      
+    } else if (orgId && !jobId) {
+      // Create new batch job
       console.log(`🚀 Creating new batch job for org: ${orgId}`);
+      
+      // Get org data
+      const { data: orgInfo, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .single();
+
+      if (orgError) {
+        throw new Error(`Organization not found: ${orgError.message}`);
+      }
+      orgData = orgInfo;
       
       // Get active prompts for the organization
       const { data: prompts, error: promptsError } = await supabase
@@ -399,6 +483,8 @@ serve(async (req) => {
         .from('llm_providers')
         .select('name')
         .eq('enabled', true);
+      
+      const providerNames = providers?.map(p => p.name) || [];
 
       if (providersError || !providers || providers.length === 0) {
         throw new Error(`No enabled providers found: ${providersError?.message}`);
@@ -415,7 +501,8 @@ serve(async (req) => {
           metadata: {
             created_by: 'robust-batch-processor',
             prompts_count: prompts.length,
-            providers_count: providers.length
+            providers_count: providers.length,
+            provider_names: providerNames
           }
         })
         .select()
@@ -468,8 +555,17 @@ serve(async (req) => {
 
       actualJobId = jobId;
       jobData = existingJob;
+      
+      // Get org data for this job
+      const { data: orgInfo } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', existingJob.org_id)
+        .single();
+      orgData = orgInfo;
+      
     } else {
-      throw new Error('Either jobId or orgId must be provided');
+      throw new Error('Either jobId, resumeJobId, or orgId must be provided');
     }
 
     // Update job status and heartbeat
@@ -496,6 +592,18 @@ serve(async (req) => {
     // Process tasks until completion or timeout
     while (currentCheck < maxChecks) {
       currentCheck++;
+      
+      // Check if cancellation was requested
+      const { data: jobCheck } = await supabase
+        .from('batch_jobs')
+        .select('cancellation_requested')
+        .eq('id', actualJobId)
+        .single();
+      
+      if (jobCheck?.cancellation_requested) {
+        console.log('🛑 Cancellation requested, stopping processing');
+        break;
+      }
       
       // Get pending tasks
       const { data: pendingTasks, error: tasksError } = await supabase
@@ -545,7 +653,7 @@ serve(async (req) => {
 
       // Process tasks concurrently (but limited)
       const taskPromises = pendingTasks.map(task => 
-        processTask(supabase, task, brandCatalog || [])
+        processTask(supabase, task, brandCatalog || [], orgData)
       );
 
       await Promise.allSettled(taskPromises);
@@ -572,14 +680,23 @@ serve(async (req) => {
 
     console.log(`🎉 Job ${actualJobId} completed: ${completedCount} success, ${failedCount} failed, ${cancelledCount} cancelled`);
 
+    // Determine action taken
+    const action = resumeJobId ? 'resumed' : (orgId && !jobId) ? 'started' : 'processed';
+    
     return new Response(
       JSON.stringify({
         success: true,
         jobId: actualJobId,
+        batchJobId: actualJobId, // UI compatibility
+        action,
         completedTasks: completedCount,
         failedTasks: failedCount,
         cancelledTasks: cancelledCount,
-        totalProcessed: processedTasks
+        totalTasks: jobData.total_tasks,
+        totalProcessed: processedTasks,
+        message: action === 'started' ? `Batch job created with ${jobData.total_tasks} tasks` :
+                 action === 'resumed' ? `Job resumed with ${completedCount + failedCount}/${jobData.total_tasks} completed` :
+                 `Job processed: ${completedCount} completed, ${failedCount} failed`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

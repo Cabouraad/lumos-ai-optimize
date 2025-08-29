@@ -196,20 +196,24 @@ export function BatchPromptRunner() {
         return;
       }
       
-      if (data.batchJobId) {
+      if (data.batchJobId || data.jobId) {
+        const jobIdToUse = data.batchJobId || data.jobId;
+        
         // Load the created job immediately
         const { data: jobData } = await supabase
           .from('batch_jobs' as any)
           .select('*')
-          .eq('id', data.batchJobId)
+          .eq('id', jobIdToUse)
           .single();
 
         if (jobData) {
           setCurrentJob(jobData as unknown as BatchJob);
           if (data.action === 'started') {
-            toast.success(`Batch started! Processing ${data.totalTasks} tasks`);
+            toast.success(`Batch started! Processing ${data.totalTasks || data.totalProcessed} tasks`);
           } else if (data.action === 'resumed') {
-            toast.success(`Job resumed! ${data.message}`);
+            toast.success(`Job resumed! ${data.message || 'Processing continuation'}`);
+          } else if (data.action === 'processed') {
+            toast.success(`Job processed: ${data.completedTasks} completed, ${data.failedTasks} failed`);
           }
         }
       } else if (data.action === 'finalized') {
