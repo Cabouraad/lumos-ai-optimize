@@ -2,8 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const CRON_SECRET = Deno.env.get('CRON_SECRET');
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -14,21 +12,71 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify cron secret for security (allows both cron and manual calls)
+  const currentTime = new Date();
+  const runId = crypto.randomUUID();
+  
+  console.log('🔧 Batch reconciler started', { runId });
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  // Start logging this run
+  const { error: logError } = await supabase
+    .from('scheduler_runs')
+    .insert({
+      id: runId,
+      run_key: `reconciler-${currentTime.toISOString().split('T')[0]}`,
+      function_name: 'batch-reconciler',
+      started_at: currentTime.toISOString(),
+      status: 'running'
+    });
+
+  if (logError) {
+    console.warn('⚠️ Failed to log scheduler run start:', logError);
+  }
+
+  // Verify cron secret (supports both database and manual calls)
   const cronSecret = req.headers.get('x-cron-secret');
   const isManualCall = req.headers.get('x-manual-call') === 'true';
   
-  if (!isManualCall && (!cronSecret || !CRON_SECRET || cronSecret !== CRON_SECRET)) {
+  if (!isManualCall && !cronSecret) {
+    console.error('❌ Missing cron secret');
+    await supabase.from('scheduler_runs').update({
+      status: 'failed',
+      error_message: 'Missing cron secret',
+      completed_at: new Date().toISOString()
+    }).eq('id', runId);
+    
     return new Response(
-      JSON.stringify({ error: 'Unauthorized - Invalid cron secret' }), 
+      JSON.stringify({ error: 'Missing cron secret' }), 
       { status: 401, headers: corsHeaders }
     );
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Verify secret against database if not manual call
+    if (!isManualCall) {
+      const { data: secretData, error: secretError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'cron_secret')
+        .single();
+
+      if (secretError || !secretData?.value || secretData.value !== cronSecret) {
+        console.error('❌ Invalid cron secret');
+        await supabase.from('scheduler_runs').update({
+          status: 'failed',
+          error_message: 'Invalid cron secret',
+          completed_at: new Date().toISOString()
+        }).eq('id', runId);
+        
+        return new Response(
+          JSON.stringify({ error: 'Invalid cron secret' }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+    }
 
     console.log('🔧 Batch reconciler running - detecting and fixing stuck jobs...');
 
@@ -51,11 +99,28 @@ serve(async (req) => {
 
     if (fetchError) {
       console.error('❌ Failed to fetch stuck jobs:', fetchError);
+      await supabase.from('scheduler_runs').update({
+        status: 'failed',
+        error_message: `Database error: ${fetchError.message}`,
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
       throw new Error(`Database error: ${fetchError.message}`);
     }
 
     if (!potentiallyStuckJobs || potentiallyStuckJobs.length === 0) {
       console.log('✅ No stuck jobs detected - system healthy');
+      
+      await supabase.from('scheduler_runs').update({
+        status: 'completed',
+        result: {
+          message: 'No stuck jobs found - system healthy',
+          processedJobs: 0,
+          finalizedJobs: 0,
+          resumedJobs: 0
+        },
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
+      
       return new Response(JSON.stringify({
         success: true,
         message: 'No stuck jobs found - system healthy',
@@ -123,8 +188,6 @@ serve(async (req) => {
           });
           
         } else if (resumeResult?.action === 'resumed') {
-          // SIMPLIFIED: Just prepare for resumption, don't auto-trigger processor
-          // This prevents cascade failures and lets UI handle resumption
           resumedJobs++;
           console.log(`🔄 Prepared job ${job.id} for resumption: ${resumeResult.pending_tasks} tasks pending`);
           
@@ -155,20 +218,37 @@ serve(async (req) => {
       
     console.log(`🎯 Reconciliation complete: ${message}`);
 
-    return new Response(JSON.stringify({
+    const finalResult = {
       success: true,
       message,
       processedJobs,
-      finalizedJobs,
+      finalizedJobs,  
       resumedJobs,
       totalStuckFound: potentiallyStuckJobs.length,
       results
-    }), {
+    };
+
+    // Log successful completion
+    await supabase.from('scheduler_runs').update({
+      status: 'completed',
+      result: finalResult,
+      completed_at: new Date().toISOString()
+    }).eq('id', runId);
+
+    return new Response(JSON.stringify(finalResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
     console.error('💥 Batch reconciler error:', error);
+    
+    // Log the failure
+    await supabase.from('scheduler_runs').update({
+      status: 'failed',
+      error_message: error.message,
+      completed_at: new Date().toISOString()
+    }).eq('id', runId);
+    
     return new Response(JSON.stringify({
       success: false,
       error: error.message,

@@ -2,8 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const CRON_SECRET = Deno.env.get('CRON_SECRET');
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -51,55 +49,122 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const currentTime = new Date();
+  const todayKey = todayKeyNY(currentTime);
+  const runId = crypto.randomUUID();
+  
+  console.log('🚀 Daily batch trigger started', { runId, todayKey });
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Verify cron secret for security
+  // Start logging this run
+  const { error: logError } = await supabase
+    .from('scheduler_runs')
+    .insert({
+      id: runId,
+      run_key: todayKey,
+      function_name: 'daily-batch-trigger',
+      started_at: currentTime.toISOString(),
+      status: 'running'
+    });
+
+  if (logError) {
+    console.warn('⚠️ Failed to log scheduler run start:', logError);
+  }
+
+  // Verify cron secret (support both env var and database lookup)
   const cronSecret = req.headers.get('x-cron-secret');
+  const manualCall = req.headers.get('x-manual-call') === 'true';
   
-  if (!cronSecret || !CRON_SECRET || cronSecret !== CRON_SECRET) {
+  if (!manualCall && !cronSecret) {
+    console.error('❌ Missing cron secret');
+    await supabase.from('scheduler_runs').update({
+      status: 'failed',
+      error_message: 'Missing cron secret',
+      completed_at: new Date().toISOString()
+    }).eq('id', runId);
+    
     return new Response(
-      JSON.stringify({ error: 'Unauthorized - Invalid cron secret' }), 
+      JSON.stringify({ error: 'Missing cron secret' }),
       { status: 401, headers: corsHeaders }
     );
   }
 
-  // Get current NY time info
-  const now = new Date();
-  const { yyyy, mm, dd, hh, mi } = nyParts(now);
-  const todayKey = todayKeyNY(now);
-  const nyTimeStr = `${yyyy}-${mm}-${dd} ${hh}:${mi} ET`;
-  const inWindow = isInExecutionWindow(now);
-
-  console.log(`Daily batch trigger called at ${nyTimeStr} (key: ${todayKey})`);
-  console.log(`Execution window check: ${inWindow ? '✅ In window (3-6 AM ET)' : '⚠️ Outside window'}`);
-
-  // Execution window guard - only run during scheduled hours unless manual override
-  if (!inWindow) {
-    const isManualOverride = req.headers.get('x-manual-override') === 'true';
-    if (!isManualOverride) {
-      console.log('⏰ Outside execution window, skipping run');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Outside execution window (3-6 AM ET), run skipped',
-        currentTime: nyTimeStr,
-        executionWindow: '3:00-6:00 AM ET'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } else {
-      console.log('🔧 Manual override detected, proceeding despite time window');
-    }
-  }
-
   try {
+    // Verify secret against database if not manual call
+    if (!manualCall) {
+      const { data: secretData, error: secretError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'cron_secret')
+        .single();
+
+      if (secretError || !secretData?.value || secretData.value !== cronSecret) {
+        console.error('❌ Invalid cron secret');
+        await supabase.from('scheduler_runs').update({
+          status: 'failed',
+          error_message: 'Invalid cron secret',
+          completed_at: new Date().toISOString()
+        }).eq('id', runId);
+        
+        return new Response(
+          JSON.stringify({ error: 'Invalid cron secret' }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+    }
+
+    // Get current NY time info
+    const { yyyy, mm, dd, hh, mi } = nyParts(currentTime);
+    const nyTimeStr = `${yyyy}-${mm}-${dd} ${hh}:${mi} ET`;
+    const inWindow = isInExecutionWindow(currentTime);
+
+    console.log(`Daily batch trigger called at ${nyTimeStr} (key: ${todayKey})`);
+    console.log(`Execution window check: ${inWindow ? '✅ In window (3-6 AM ET)' : '⚠️ Outside window'}`);
+
+    // Execution window guard - only run during scheduled hours unless manual override
+    if (!inWindow && !manualCall) {
+      const isManualOverride = req.headers.get('x-manual-override') === 'true';
+      if (!isManualOverride) {
+        console.log('⏰ Outside execution window, skipping run');
+        
+        await supabase.from('scheduler_runs').update({
+          status: 'completed',
+          result: { 
+            message: 'Outside execution window (3-6 AM ET)', 
+            currentTime: nyTimeStr,
+            executionWindow: '3:00-6:00 AM ET',
+            skipped: true 
+          },
+          completed_at: new Date().toISOString()
+        }).eq('id', runId);
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Outside execution window (3-6 AM ET), run skipped',
+          currentTime: nyTimeStr,
+          executionWindow: '3:00-6:00 AM ET'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else {
+        console.log('🔧 Manual override detected, proceeding despite time window');
+      }
+    }
+
     // Use the standardized RPC function for duplicate prevention
     const { data: runCheck, error: runCheckError } = await supabase
       .rpc('try_mark_daily_run', { p_today_key: todayKey });
 
     if (runCheckError) {
       console.error('Error checking/updating scheduler state:', runCheckError);
+      await supabase.from('scheduler_runs').update({
+        status: 'failed',
+        error_message: `Failed to mark daily run: ${runCheckError.message}`,
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
       throw runCheckError;
     }
 
@@ -108,6 +173,19 @@ serve(async (req) => {
     // If we didn't update (already ran today), skip
     if (!runCheck.updated) {
       console.log(`Daily batch already ran for ${todayKey} (previous: ${runCheck.previous_key})`);
+      
+      await supabase.from('scheduler_runs').update({
+        status: 'completed',
+        result: { 
+          message: 'Daily batch already completed today',
+          date: todayKey,
+          previousRun: runCheck.previous_key,
+          skipped: true,
+          currentTime: nyTimeStr
+        },
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
+      
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Daily batch already completed today',
@@ -120,11 +198,10 @@ serve(async (req) => {
       });
     }
 
-
     console.log(`Starting daily batch trigger for ${todayKey} at ${nyTimeStr}`);
 
     // Get all organizations with active prompts
-    const { data: orgs } = await supabase
+    const { data: orgs, error: orgsError } = await supabase
       .from('organizations')
       .select(`
         id,
@@ -133,8 +210,30 @@ serve(async (req) => {
       `)
       .eq('prompts.active', true);
 
+    if (orgsError) {
+      console.error('❌ Failed to fetch organizations:', orgsError);
+      await supabase.from('scheduler_runs').update({
+        status: 'failed',
+        error_message: `Failed to fetch organizations: ${orgsError.message}`,
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
+      throw orgsError;
+    }
+
     if (!orgs || orgs.length === 0) {
       console.log('No organizations with active prompts found');
+      
+      await supabase.from('scheduler_runs').update({
+        status: 'completed',
+        result: { 
+          message: 'No organizations to process',
+          date: todayKey,
+          currentTime: nyTimeStr,
+          totalOrgs: 0
+        },
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
+      
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'No organizations to process',
@@ -155,7 +254,7 @@ serve(async (req) => {
         console.log(`Triggering batch processor for org ${org.id} (${org.name})`);
         
         const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
-          body: { orgId: org.id }
+          body: { orgId: org.id, source: 'daily-batch-trigger' }
         });
 
         if (error) {
@@ -180,7 +279,7 @@ serve(async (req) => {
         totalBatchJobs++;
 
         // Small delay to avoid overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
       } catch (orgError) {
         console.error(`Error processing org ${org.id}:`, orgError);
@@ -201,10 +300,18 @@ serve(async (req) => {
       totalOrgs: totalBatchJobs,
       successfulJobs,
       message: `Triggered batch processing for ${successfulJobs}/${totalBatchJobs} organizations`,
-      orgResults
+      orgResults,
+      runCheck
     };
 
     console.log(`Daily batch trigger completed:`, result);
+
+    // Log successful completion
+    await supabase.from('scheduler_runs').update({
+      status: 'completed',
+      result: result,
+      completed_at: new Date().toISOString()
+    }).eq('id', runId);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -212,11 +319,19 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Daily batch trigger error:', error);
+    
+    // Log the failure
+    await supabase.from('scheduler_runs').update({
+      status: 'failed',
+      error_message: error.message,
+      completed_at: new Date().toISOString()
+    }).eq('id', runId);
+    
     return new Response(JSON.stringify({ 
       success: false,
       error: error.message,
       date: todayKey,
-      currentTime: nyTimeStr
+      currentTime: nyParts(currentTime)
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
