@@ -420,7 +420,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestBody = await req.json();
-    const { jobId, orgId, resumeJobId } = requestBody;
+    const { jobId, orgId, resumeJobId, replace } = requestBody;
     
     let actualJobId = jobId || resumeJobId;
     let jobData;
@@ -454,6 +454,16 @@ serve(async (req) => {
     } else if (orgId && !jobId) {
       // Create new batch job
       console.log(`🚀 Creating new batch job for org: ${orgId}`);
+      
+      // CANCEL EXISTING JOBS: Handle replace=true to cancel active jobs 
+      if (replace) {
+        console.log(`🛑 Cancelling existing active jobs for org ${orgId}`);
+        const { data: cancelResult } = await supabase.rpc('cancel_active_batch_jobs', { 
+          p_org_id: orgId,
+          p_reason: 'replaced by new batch job'
+        });
+        console.log(`✅ Cancelled ${cancelResult?.cancelled_jobs || 0} existing jobs`);
+      }
       
       // Get org data
       const { data: orgInfo, error: orgError } = await supabase
@@ -490,23 +500,56 @@ serve(async (req) => {
         throw new Error(`No enabled providers found: ${providersError?.message}`);
       }
 
-      // Create batch job
+      // Create batch job with unique constraint handling
       const totalTasks = prompts.length * providers.length;
-      const { data: newJob, error: jobError } = await supabase
-        .from('batch_jobs')
-        .insert({
-          org_id: orgId,
-          total_tasks: totalTasks,
-          status: 'pending',
-          metadata: {
-            created_by: 'robust-batch-processor',
-            prompts_count: prompts.length,
-            providers_count: providers.length,
-            provider_names: providerNames
+      let newJob;
+      let jobError;
+      
+      try {
+        const { data, error } = await supabase
+          .from('batch_jobs')
+          .insert({
+            org_id: orgId,
+            total_tasks: totalTasks,
+            status: 'pending',
+            metadata: {
+              created_by: 'robust-batch-processor',
+              prompt_count: prompts.length,  // FIXED: Match UI field names
+              provider_count: providers.length,
+              provider_names: providerNames
+            }
+          })
+          .select()
+          .single();
+          
+        newJob = data;
+        jobError = error;
+        
+      } catch (insertError: any) {
+        // HANDLE DUPLICATE JOBS: If unique constraint error, try to resume existing job
+        if (insertError.message?.includes('duplicate key') || insertError.message?.includes('unique constraint')) {
+          console.log(`🔄 Duplicate job detected, attempting to find and resume existing job...`);
+          
+          const { data: existingJob } = await supabase
+            .from('batch_jobs')
+            .select('*')
+            .eq('org_id', orgId)
+            .in('status', ['pending', 'processing'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+            
+          if (existingJob) {
+            console.log(`✅ Found existing job ${existingJob.id}, resuming...`);
+            newJob = existingJob;
+            jobError = null;
+          } else {
+            throw new Error(`Duplicate job constraint error and no existing job found: ${insertError.message}`);
           }
-        })
-        .select()
-        .single();
+        } else {
+          throw insertError;
+        }
+      }
 
       if (jobError || !newJob) {
         throw new Error(`Failed to create batch job: ${jobError?.message}`);
@@ -586,17 +629,18 @@ serve(async (req) => {
       .eq('org_id', jobData.org_id);
 
     let processedTasks = 0;
-    let maxChecks = 5;
-    let currentCheck = 0;
+    let iterationCount = 0;
+    const MAX_ITERATIONS = 100; // Safety limit, but much higher
+    const TASKS_PER_BATCH = 10; // Process more tasks per iteration
 
-    // Process tasks until completion or timeout
-    while (currentCheck < maxChecks) {
-      currentCheck++;
+    // ROBUST PROCESSING LOOP: Continue until all tasks complete or max iterations
+    while (iterationCount < MAX_ITERATIONS) {
+      iterationCount++;
       
       // Check if cancellation was requested
       const { data: jobCheck } = await supabase
         .from('batch_jobs')
-        .select('cancellation_requested')
+        .select('cancellation_requested, status')
         .eq('id', actualJobId)
         .single();
       
@@ -605,13 +649,13 @@ serve(async (req) => {
         break;
       }
       
-      // Get pending tasks
+      // Get pending tasks with larger batch size
       const { data: pendingTasks, error: tasksError } = await supabase
         .from('batch_tasks')
         .select('*')
         .eq('batch_job_id', actualJobId)
         .eq('status', 'pending')
-        .limit(5);
+        .limit(TASKS_PER_BATCH);
 
       if (tasksError) {
         console.error('Error fetching tasks:', tasksError);
@@ -619,9 +663,9 @@ serve(async (req) => {
       }
 
       if (!pendingTasks || pendingTasks.length === 0) {
-        console.log(`⏳ No pending tasks found (${currentCheck}/${maxChecks})`);
+        console.log(`⏳ No pending tasks found (iteration ${iterationCount})`);
         
-        // Check if all tasks are completed
+        // COMPLETION CHECK: Verify all tasks are truly done
         const { data: allTasks } = await supabase
           .from('batch_tasks')
           .select('status')
@@ -629,43 +673,92 @@ serve(async (req) => {
 
         const completedCount = allTasks?.filter(t => t.status === 'completed').length || 0;
         const failedCount = allTasks?.filter(t => t.status === 'failed').length || 0;
+        const cancelledCount = allTasks?.filter(t => t.status === 'cancelled').length || 0;
+        const processingCount = allTasks?.filter(t => t.status === 'processing').length || 0;
         const totalTasks = allTasks?.length || 0;
 
-        if (completedCount + failedCount === totalTasks) {
-          console.log(`✅ All tasks completed for job: ${actualJobId}`);
+        console.log(`📊 Task status: ${completedCount} completed, ${failedCount} failed, ${cancelledCount} cancelled, ${processingCount} processing, ${totalTasks} total`);
+
+        if (completedCount + failedCount + cancelledCount >= totalTasks && processingCount === 0) {
+          console.log(`✅ All tasks finalized for job: ${actualJobId}`);
           
-          // Update job status to completed
+          // Update job status to completed with final counts
           await supabase
             .from('batch_jobs')
             .update({
               status: 'completed',
-              completed_at: new Date().toISOString()
+              completed_at: new Date().toISOString(),
+              completed_tasks: completedCount,
+              failed_tasks: failedCount,
+              metadata: {
+                ...jobData.metadata,
+                final_stats: {
+                  completed: completedCount,
+                  failed: failedCount,
+                  cancelled: cancelledCount
+                }
+              }
             })
             .eq('id', actualJobId);
           
           break;
         }
         
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // STUCK TASK RECOVERY: Reset processing tasks that are stuck
+        if (processingCount > 0) {
+          console.log(`🔄 Found ${processingCount} potentially stuck processing tasks, resetting...`);
+          await supabase
+            .from('batch_tasks')
+            .update({ 
+              status: 'pending',
+              started_at: null 
+            })
+            .eq('batch_job_id', actualJobId)
+            .eq('status', 'processing')
+            .lt('started_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()); // Reset tasks older than 5 minutes
+        }
+        
+        // Short wait before checking again
+        await new Promise(resolve => setTimeout(resolve, 1000));
         continue;
       }
 
-      // Process tasks concurrently (but limited)
+      // Process tasks concurrently with improved error handling
+      console.log(`🚀 Processing ${pendingTasks.length} tasks in iteration ${iterationCount}`);
+      
       const taskPromises = pendingTasks.map(task => 
         processTask(supabase, task, brandCatalog || [], orgData)
       );
 
-      await Promise.allSettled(taskPromises);
+      const results = await Promise.allSettled(taskPromises);
       processedTasks += pendingTasks.length;
+      
+      const successfulTasks = results.filter(r => r.status === 'fulfilled').length;
+      const failedTasks = results.filter(r => r.status === 'rejected').length;
+      
+      console.log(`📊 Batch ${iterationCount}: ${successfulTasks} successful, ${failedTasks} failed tasks`);
 
-      // Update heartbeat
+      // ROBUST HEARTBEAT: Update heartbeat and current progress
       await supabase
         .from('batch_jobs')
-        .update({ last_heartbeat: new Date().toISOString() })
+        .update({ 
+          last_heartbeat: new Date().toISOString(),
+          // Update progress counters in real-time
+          metadata: {
+            ...jobData.metadata,
+            last_processed_batch: iterationCount,
+            total_processed: processedTasks,
+            last_heartbeat_iteration: iterationCount
+          }
+        })
         .eq('id', actualJobId);
 
-      console.log(`📊 Processed ${processedTasks} tasks so far`);
+      console.log(`📊 Total processed: ${processedTasks} tasks across ${iterationCount} iterations`);
+      
+      // Brief pause to prevent overwhelming the system
+      if (pendingTasks.length === TASKS_PER_BATCH) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
     // Final job completion check and summary

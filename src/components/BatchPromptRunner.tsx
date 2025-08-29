@@ -21,8 +21,10 @@ interface BatchJob {
   runner_id?: string;
   cancellation_requested?: boolean;
   metadata?: {
-    prompt_count: number;
-    provider_count: number;
+    prompt_count?: number;
+    provider_count?: number;
+    prompts_count?: number;  // Legacy field name support
+    providers_count?: number;  // Legacy field name support
     provider_names: string[];
     final_stats?: {
       completed: number;
@@ -176,7 +178,10 @@ export function BatchPromptRunner() {
       const orgId = await getOrgId();
       
       const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
-        body: { orgId }
+        body: { 
+          orgId,
+          replace: true  // CANCEL EXISTING: Always replace existing jobs when starting new batch
+        }
       });
 
       if (error) {
@@ -428,7 +433,7 @@ export function BatchPromptRunner() {
             <Progress value={calculateProgress(currentJob)} className="w-full" />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                {currentJob.metadata?.prompt_count} prompts × {currentJob.metadata?.provider_count} providers
+                {currentJob.metadata?.prompt_count || currentJob.metadata?.prompts_count} prompts × {currentJob.metadata?.provider_count || currentJob.metadata?.providers_count} providers
                 {currentJob.metadata?.provider_names && (
                   <span className="ml-2">({currentJob.metadata.provider_names.join(', ')})</span>
                 )}
