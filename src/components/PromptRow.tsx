@@ -93,16 +93,18 @@ export function PromptRow({
     onDuplicatePrompt(prompt.id);
   };
 
-  // Calculate 7-day performance from provider data
+  // Calculate 7-day performance and current stats from provider data
   const calculate7DayPerformance = () => {
-    if (!promptDetails?.providers) return { avgScore: 0, totalRuns: 0, trend: 0 };
+    if (!promptDetails?.providers) return { avgScore: 0, totalRuns: 0, trend: 0, brandVisible: 0, competitorCount: 0 };
     
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const providers = Object.values(promptDetails.providers) as any[];
+    const providers = Object.values(promptDetails.providers).filter(p => p !== null) as any[];
     
     let totalScore = 0;
     let totalRuns = 0;
     let validScores = 0;
+    let brandVisibleCount = 0;
+    let totalCompetitors = 0;
     
     providers.forEach((provider: any) => {
       if (provider?.status === 'success' && provider.run_at) {
@@ -114,13 +116,23 @@ export function PromptRow({
             validScores++;
           }
         }
+        
+        // Count current brand visibility and competitors from latest responses
+        if (provider.org_brand_present) {
+          brandVisibleCount++;
+        }
+        if (provider.competitors_count) {
+          totalCompetitors += provider.competitors_count;
+        }
       }
     });
     
     return {
       avgScore: validScores > 0 ? totalScore / validScores : 0,
       totalRuns,
-      trend: promptDetails.trend || 0
+      trend: promptDetails.trend || 0,
+      brandVisible: brandVisibleCount,
+      competitorCount: totalCompetitors
     };
   };
 
@@ -245,7 +257,7 @@ export function PromptRow({
                   <span>Brand Visible</span>
                 </div>
                 <div className="text-lg font-semibold text-success">
-                  {promptDetails?.brandVisibleCount || 0}
+                  {performance.brandVisible}
                 </div>
               </div>
               
@@ -255,7 +267,7 @@ export function PromptRow({
                   <span>Competitors</span>
                 </div>
                 <div className="text-lg font-semibold text-warning">
-                  {promptDetails?.competitorCount || 0}
+                  {performance.competitorCount}
                 </div>
               </div>
             </div>
