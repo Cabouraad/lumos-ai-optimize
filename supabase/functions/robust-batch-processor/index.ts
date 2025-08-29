@@ -115,7 +115,19 @@ async function analyzeAIResponse(
       'Salesforce','HubSpot','Zoom','Slack','GitHub','Atlassian','AWS','Azure','Stripe','PayPal','Shopify'
     ];
     const blockedGenerics = [
-      'seo','marketing','social media','facebook','adobe','social','media','instagram','google analytics','linkedin','twitter','x'
+      // Basic stopwords
+      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'for', 'and', 'the', 'with', 'you', 'your', 'our', 'their', 'this', 'that',
+      // Generic business terms
+      'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
+      'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',
+      'customer', 'customers', 'client', 'clients', 'email', 'web', 'mobile', 'app',
+      'digital', 'online', 'social', 'media', 'search', 'analytics', 'insights',
+      'management', 'automation', 'integration', 'optimization', 'performance',
+      'experience', 'strategy', 'campaigns', 'audience', 'engagement', 'conversion',
+      // Social media platforms (too generic)
+      'seo','marketing','social media','facebook','adobe','social','media','instagram',
+      'google analytics','linkedin','twitter','x','youtube','tiktok','pinterest'
     ];
     const commonSet = new Set(commonBrands.map(normalize));
     const blockedSet = new Set(blockedGenerics.map(normalize));
@@ -367,6 +379,27 @@ async function processTask(
 
     if (insertError) {
       throw new Error(`Failed to store response: ${insertError.message}`);
+    }
+
+    // Store competitors in brand catalog for future reference (with strict validation)
+    for (const competitor of analysis.competitors) {
+      const normalized = competitor.toLowerCase().trim();
+      // Double-check filtering before storing in catalog
+      if (normalized.length >= 3 && normalized.length <= 50 && 
+          !/^[0-9]+$/.test(normalized) &&
+          !['tools', 'software', 'platform', 'solution', 'service', 'system', 'data'].includes(normalized)) {
+        try {
+          await supabase.rpc('upsert_competitor_brand', {
+            p_org_id: promptData.org_id,
+            p_brand_name: competitor,
+            p_score: Math.round(analysis.score)
+          });
+        } catch (catalogError) {
+          console.warn(`Failed to catalog competitor "${competitor}":`, catalogError);
+        }
+      } else {
+        console.log(`Skipped cataloging invalid competitor: "${competitor}"`);
+      }
     }
 
     // Mark task as completed

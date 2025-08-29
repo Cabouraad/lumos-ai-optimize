@@ -58,8 +58,8 @@ export function extractArtifacts(
     if (userBrandNorms.includes(brand.normalized)) {
       brands.push(brand);
     } else {
-      // Only include competitors with reasonable confidence
-      if (brand.confidence >= 0.6) {
+      // Only include competitors with high confidence to reduce false positives
+      if (brand.confidence >= 0.75) {
         competitors.push(brand);
       }
     }
@@ -145,21 +145,40 @@ function extractEnhancedBrands(text: string, gazetteer: string[]): BrandArtifact
   const brands: Map<string, BrandArtifact> = new Map();
   const textLength = text.length;
   
-  // Enhanced brand filtering - remove obviously irrelevant terms
+  // Enhanced brand filtering with comprehensive stopword list
   const filteredGazetteer = gazetteer.filter(brandName => {
     const normalized = normalize(brandName);
     
     // Skip very short brands without clear business context
     if (normalized.length < 3) return false;
     
-    // Skip common words that often get capitalized
-    const commonWords = [
-      'search', 'email', 'mobile', 'web', 'online', 'digital', 'smart',
-      'pro', 'plus', 'premium', 'standard', 'basic', 'free', 'custom',
-      'data', 'system', 'platform', 'solution', 'service', 'company'
+    // Comprehensive blocklist of generic terms
+    const blockedGeneric = [
+      // Numbers and basic words
+      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'for', 'and', 'the', 'with', 'you', 'your', 'our', 'their', 'this', 'that',
+      // Generic business terms
+      'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
+      'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',
+      'customer', 'customers', 'client', 'clients', 'email', 'web', 'mobile', 'app',
+      'digital', 'online', 'social', 'media', 'search', 'analytics', 'insights',
+      'management', 'automation', 'integration', 'optimization', 'performance',
+      'experience', 'strategy', 'campaigns', 'audience', 'engagement', 'conversion',
+      'roi', 'kpi', 'dashboard', 'report', 'reporting', 'analysis', 'tracking',
+      // Common descriptors
+      'pro', 'plus', 'premium', 'standard', 'basic', 'free', 'custom', 'smart',
+      // Tech giants (too generic)
+      'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok', 'pinterest',
+      'adobe', 'microsoft', 'google', 'apple', 'amazon', 'meta'
     ];
     
-    if (commonWords.includes(normalized)) return false;
+    if (blockedGeneric.includes(normalized)) return false;
+    
+    // Skip single words that are too generic
+    if (!normalized.includes(' ') && normalized.length < 5 && 
+        !normalized.includes('.') && !normalized.includes('-')) {
+      return false;
+    }
     
     return true;
   });
