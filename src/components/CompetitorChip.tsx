@@ -197,7 +197,7 @@ export function CompetitorChip({
 
   const tooltipContent = (
     <div className="space-y-1">
-      <p className="font-medium">Detected competitor brand in AI response</p>
+      <p className="font-medium">Detected competitor brand from AI response.</p>
       <div className="text-xs text-muted-foreground space-y-0.5">
         <p>Brand: {name}</p>
         {mentions && <p>Mentions: {mentions}</p>}
@@ -267,7 +267,7 @@ export function CompetitorChipList({
     return (
       <div className={`flex items-center gap-2 text-muted-foreground ${className}`}>
         <Building2 className="h-4 w-4" />
-        <span className="text-sm">No competitors found</span>
+        <span className="text-sm">No competitors detected.</span>
       </div>
     );
   }
