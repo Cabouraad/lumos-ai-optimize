@@ -121,15 +121,18 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   if (competitors.length === 0) {
     return (
       <div className="text-xs text-muted-foreground">
-        No competitors detected in recent responses
+        No verified competitors found in recent responses
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <div className="text-xs font-semibold text-muted-foreground mb-2">
-        Top Competitors ({competitors.length})
+      <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+        <span>Verified Competitors ({competitors.length})</span>
+        <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+          ✓ Catalog
+        </Badge>
       </div>
       <div className="space-y-1">
         {competitors.slice(0, 5).map((competitor, index) => (
@@ -137,6 +140,9 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">#{index + 1}</span>
               <span className="font-medium">{competitor.competitor_name}</span>
+              <Badge variant="outline" className="text-xs px-1 py-0 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                ✓
+              </Badge>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs px-1 py-0">
