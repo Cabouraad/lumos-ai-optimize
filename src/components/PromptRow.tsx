@@ -1,28 +1,172 @@
-
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronDown, ChevronRight, PlayCircle, BarChart3, Calendar, Clock, Trophy, Target, Edit2, Copy, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, PlayCircle, BarChart3, Calendar, Clock, Trophy, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { PromptCompetitors } from '@/components/PromptCompetitors';
-import { Checkbox } from '@/components/ui/checkbox';
 
-interface PromptData {
+interface Citation {
+  type: 'url' | 'ref';
+  value: string;
+}
+
+interface BrandArtifact {
+  name: string;
+  normalized: string;
+  mentions: number;
+  first_pos_ratio: number;
+}
+
+interface ExtractedArtifacts {
+  citations: Citation[];
+  brands: BrandArtifact[];
+  competitors: BrandArtifact[];
+}
+
+/**
+ * Extract structured artifacts from AI response text
+ */
+function extractArtifacts(
+  responseText: string, 
+  userBrandNorms: string[], 
+  gazetteer: string[]
+): ExtractedArtifacts {
+  const citations = extractCitations(responseText);
+  const brandArtifacts = extractBrands(responseText, gazetteer);
+  
+  // Separate user brands from competitors
+  const brands: BrandArtifact[] = [];
+  const competitors: BrandArtifact[] = [];
+  
+  for (const brand of brandArtifacts) {
+    if (userBrandNorms.includes(brand.normalized)) {
+      brands.push(brand);
+    } else {
+      competitors.push(brand);
+    }
+  }
+  
+  return {
+    citations,
+    brands,
+    competitors
+  };
+}
+
+/**
+ * Extract URLs and bracket references from text
+ */
+function extractCitations(text: string): Citation[] {
+  const citations: Citation[] = [];
+  
+  // Extract URLs
+  const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
+  let urlMatch;
+  while ((urlMatch = urlRegex.exec(text)) !== null) {
+    citations.push({
+      type: 'url',
+      value: urlMatch[1]
+    });
+  }
+  
+  // Extract bracket references like [1], [Smith 2023], [A], etc.
+  const refRegex = /\[(?:\d+|[A-Za-z][^\]]{0,30})\]/g;
+  let refMatch;
+  while ((refMatch = refRegex.exec(text)) !== null) {
+    // Store without brackets
+    const refValue = refMatch[0].slice(1, -1);
+    citations.push({
+      type: 'ref',
+      value: refValue
+    });
+  }
+  
+  return citations;
+}
+
+/**
+ * Extract brand mentions with positioning and frequency analysis
+ */
+function extractBrands(text: string, gazetteer: string[]): BrandArtifact[] {
+  const brands: Map<string, BrandArtifact> = new Map();
+  const textLength = text.length;
+  
+  // Process each brand in the gazetteer
+  for (const brandName of gazetteer) {
+    const normalized = brandName.toLowerCase().trim();
+    
+    // Skip very short brands to avoid false positives
+    if (normalized.length < 3) continue;
+    
+    // Find all mentions of this brand (case-insensitive)
+    const brandRegex = new RegExp(brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const matches = Array.from(text.matchAll(brandRegex));
+    
+    if (matches.length > 0) {
+      // Calculate first position ratio
+      const firstIndex = matches[0].index || 0;
+      const firstPosRatio = textLength > 0 ? firstIndex / textLength : 0;
+      
+      brands.set(normalized, {
+        name: brandName,
+        normalized,
+        mentions: matches.length,
+        first_pos_ratio: firstPosRatio
+      });
+    }
+  }
+  
+  return Array.from(brands.values());
+}
+
+/**
+ * Create a comprehensive brand gazetteer from brand catalog and common brands
+ */
+function createBrandGazetteer(brandCatalog: Array<{ name: string; variants_json?: string[] }>): string[] {
+  const gazetteer = new Set<string>();
+  
+  // Add user's brands and variants
+  for (const brand of brandCatalog) {
+    gazetteer.add(brand.name);
+    
+    // Add variants if available
+    if (brand.variants_json) {
+      for (const variant of brand.variants_json) {
+        gazetteer.add(variant);
+      }
+    }
+  }
+  
+  // Add common tech brands/companies that frequently appear in AI responses
+  const commonBrands = [
+    'Apple', 'Google', 'Microsoft', 'Amazon', 'Meta', 'Facebook', 'Instagram', 
+    'Twitter', 'X', 'LinkedIn', 'YouTube', 'TikTok', 'Snapchat',
+    'Netflix', 'Spotify', 'Adobe', 'Salesforce', 'Oracle', 'IBM', 'Intel',
+    'NVIDIA', 'Tesla', 'Uber', 'Airbnb', 'Zoom', 'Slack', 'Dropbox',
+    'GitHub', 'GitLab', 'Atlassian', 'Jira', 'Confluence', 'Trello',
+    'Notion', 'Airtable', 'Monday.com', 'Asana', 'ClickUp', 'Basecamp',
+    'HubSpot', 'Mailchimp', 'Stripe', 'PayPal', 'Square', 'Shopify',
+    'AWS', 'Azure', 'GCP', 'Heroku', 'Vercel', 'Netlify', 'Cloudflare'
+  ];
+  
+  for (const brand of commonBrands) {
+    gazetteer.add(brand);
+  }
+  
+  return Array.from(gazetteer);
+}
+
+interface PromptWithStats {
   id: string;
   text: string;
-  createdAt: string;
-  category: string;
-  providers: Array<{ name: string; enabled: boolean; lastRun?: string }>;
-  lastRunAt?: string;
-  visibilityScore: number;
-  brandPct: number;
-  competitorPct: number;
-  sentimentDelta: number;
   active: boolean;
+  created_at: string;
+  runs_7d?: number;
+  avg_score_7d?: number;
 }
 
 interface ProviderResponse {
@@ -36,15 +180,11 @@ interface ProviderResponse {
 }
 
 interface PromptRowProps {
-  prompt: PromptData;
-  isSelected: boolean;
-  isExpanded: boolean;
-  onSelect: (checked: boolean) => void;
-  onExpand: () => void;
-  onToggleActive: (active: boolean) => void;
-  onEdit: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
+  prompt: PromptWithStats;
+  onRunPrompt: (promptId: string) => void;
+  onEdit: (prompt: PromptWithStats) => void;
+  canRunPrompts: boolean;
+  isRunning?: boolean;
 }
 
 const getScoreColor = (score: number) => {
@@ -59,17 +199,8 @@ const getScoreIcon = (score: number) => {
   return '📊';
 };
 
-export function PromptRow({ 
-  prompt, 
-  isSelected,
-  isExpanded,
-  onSelect,
-  onExpand,
-  onToggleActive,
-  onEdit,
-  onDuplicate,
-  onDelete
-}: PromptRowProps) {
+export function PromptRow({ prompt, onRunPrompt, onEdit, canRunPrompts, isRunning = false }: PromptRowProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [responses, setResponses] = useState<ProviderResponse[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -101,54 +232,18 @@ export function PromptRow({
 
   const averageScore = responses.length > 0 
     ? responses.reduce((sum, r) => sum + r.score, 0) / responses.length 
-    : prompt.visibilityScore;
+    : (prompt.avg_score_7d || 0);
 
   const totalCompetitors = responses.reduce((sum, r) => sum + r.competitors_count, 0);
   const brandMentioned = responses.some(r => r.org_brand_present);
 
-  // Safe date formatting
-  const formatSafeDate = (dateStr: string, formatStr: string = 'MMM d, yyyy') => {
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        return 'Invalid date';
-      }
-      return format(date, formatStr);
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Invalid date';
-    }
-  };
-
-  const getLatestRunTime = () => {
-    if (responses.length === 0) return null;
-    
-    try {
-      const latestTime = Math.max(...responses.map(r => new Date(r.run_at).getTime()));
-      if (isNaN(latestTime)) return null;
-      return format(new Date(latestTime), 'MMM d, h:mm a');
-    } catch (error) {
-      console.error('Error formatting latest run time:', error);
-      return null;
-    }
-  };
-
   return (
-    <Collapsible open={isExpanded} onOpenChange={onExpand}>
+    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
         <CollapsibleTrigger asChild>
           <div className="cursor-pointer">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                {/* Selection checkbox */}
-                <div className="flex-shrink-0 mt-1">
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={onSelect}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-
                 {/* Expand/Collapse Icon */}
                 <div className="flex-shrink-0 mt-1">
                   {isExpanded ? (
@@ -169,16 +264,18 @@ export function PromptRow({
                       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          <span>Created {formatSafeDate(prompt.createdAt)}</span>
+                          <span>Created {format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Target className="h-3 w-3" />
-                          <span>{prompt.category}</span>
-                        </div>
-                        {getLatestRunTime() && (
+                        {prompt.runs_7d !== undefined && (
+                          <div className="flex items-center gap-1">
+                            <BarChart3 className="h-3 w-3" />
+                            <span>{prompt.runs_7d} runs (7d)</span>
+                          </div>
+                        )}
+                        {responses.length > 0 && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            <span>Last run {getLatestRunTime()}</span>
+                            <span>Last run {format(new Date(Math.max(...responses.map(r => new Date(r.run_at).getTime()))), 'MMM d, h:mm a')}</span>
                           </div>
                         )}
                       </div>
@@ -201,33 +298,6 @@ export function PromptRow({
                           Inactive
                         </Badge>
                       )}
-
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={onEdit}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={onDuplicate}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={onDelete}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
                     </div>
                   </div>
 
@@ -293,7 +363,7 @@ export function PromptRow({
                               )}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {response.competitors_count} competitors • {formatSafeDate(response.run_at, 'MMM d, h:mm a')}
+                              {response.competitors_count} competitors • {format(new Date(response.run_at), 'MMM d, h:mm a')}
                             </div>
                           </div>
                         ))}
@@ -305,7 +375,7 @@ export function PromptRow({
                   <div>
                     <h4 className="text-sm font-semibold text-foreground mb-3">Competitor Analysis</h4>
                     <div className="bg-card rounded-lg border p-4">
-                      <PromptCompetitors prompt={prompt} />
+                      <PromptCompetitors promptId={prompt.id} />
                     </div>
                   </div>
 
@@ -314,21 +384,21 @@ export function PromptRow({
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleActive(!prompt.active);
+                        onRunPrompt(prompt.id);
                       }}
+                      disabled={!canRunPrompts || isRunning}
                       size="sm"
-                      variant={prompt.active ? "outline" : "default"}
                       className="flex items-center gap-2"
                     >
                       <PlayCircle className="h-4 w-4" />
-                      {prompt.active ? 'Pause' : 'Activate'}
+                      {isRunning ? 'Running...' : 'Run Now'}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onEdit();
+                        onEdit(prompt);
                       }}
                     >
                       Edit Prompt
