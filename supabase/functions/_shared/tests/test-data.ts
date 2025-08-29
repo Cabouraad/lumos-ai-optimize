@@ -78,6 +78,26 @@ export const TEST_CASES = [
     name: 'Complex sentence with mixed entities',
     input: 'TestCorp provides better ROI than HubSpot, Salesforce, or Zoho CRM when implementing marketing automation.',
     expected: { competitors: ['HubSpot', 'Salesforce', 'Zoho CRM'], orgBrands: ['TestCorp'] }
+  },
+  {
+    name: 'Social media tools detection',
+    input: 'HubSpot, Buffer, and Hootsuite are top tools.',
+    expected: { competitors: ['HubSpot', 'Buffer', 'Hootsuite'], orgBrands: [] }
+  },
+  {
+    name: 'Generic platform language filtering',
+    input: 'Using an all-in-one customer platform improves experience.',
+    expected: { competitors: [], orgBrands: [] }
+  },
+  {
+    name: 'Email and automation tools',
+    input: 'Mailchimp and Zapier both support workflows.',
+    expected: { competitors: ['Mailchimp', 'Zapier'], orgBrands: [] }
+  },
+  {
+    name: 'Generic marketing terms filtering',
+    input: 'Marketing automation and customer data are important.',
+    expected: { competitors: [], orgBrands: [] }
   }
 ];
 
