@@ -5,6 +5,7 @@ import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
+import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
@@ -164,6 +165,8 @@ export default function Settings() {
         <h1 className="text-3xl font-semibold">Settings</h1>
         
         <SubscriptionManager />
+
+        <BrandCandidatesManager />
 
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Organization</h2>

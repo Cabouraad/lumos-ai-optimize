@@ -67,24 +67,41 @@ serve(async (req) => {
     const brandCatalog = brandCatalogResult.data;
     const prompt = promptResult.data;
 
-    // Extract enhanced artifacts
-    const userBrandNorms = brandCatalog
-      .filter(b => b.is_org_brand)
-      .flatMap(b => [b.name.toLowerCase(), ...(b.variants_json || []).map((v: string) => v.toLowerCase())]);
+    // Use unified brand extraction with catalog verification
+    const extractedBrands = extractBrandsFromText(responseText, brandCatalog || []);
     
-    const gazetteer = brandCatalog.map(b => b.name);
-    const artifacts = extractArtifacts(responseText, userBrandNorms, gazetteer);
+    // Convert to legacy artifacts format for compatibility
+    const artifacts = {
+      brands: extractedBrands.orgBrands.map(name => ({
+        name,
+        normalized: name.toLowerCase(),
+        confidence: 0.9,
+        first_pos_ratio: 0.5,
+        mentions: 1,
+        sentiment: 'neutral' as const
+      })),
+      competitors: extractedBrands.competitors.map(name => ({
+        name,
+        normalized: name.toLowerCase(),
+        confidence: 0.9,
+        first_pos_ratio: 0.7,
+        mentions: 1,
+        sentiment: 'neutral' as const
+      })),
+      citations: [],
+      metadata: {
+        analysis_confidence: 0.9,
+        response_length: responseText.length,
+        verified_brands_count: extractedBrands.competitors.length,
+        rejected_terms_count: extractedBrands.rejectedTerms.length
+      }
+    };
 
     // Calculate brand presence and prominence
-    const orgBrandPresent = artifacts.brands.some(b => 
-      userBrandNorms.includes(b.normalized)
-    );
+    const userBrandNorms = extractedBrands.orgBrands.map(name => name.toLowerCase());
+    const orgBrandPresent = extractedBrands.orgBrands.length > 0;
     
-    const orgBrandProminence = orgBrandPresent 
-      ? Math.max(...artifacts.brands
-          .filter(b => userBrandNorms.includes(b.normalized))
-          .map(b => b.first_pos_ratio * 100))
-      : 0;
+    const orgBrandProminence = orgBrandPresent ? 85 : 0; // Default high prominence when found
 
     // Calculate visibility score using enhanced scoring
     const visibilityMetrics = {

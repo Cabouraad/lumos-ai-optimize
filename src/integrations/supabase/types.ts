@@ -658,6 +658,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_brand_candidate: {
+        Args: { p_candidate_id: string; p_candidate_name: string }
+        Returns: undefined
+      }
       cancel_active_batch_jobs: {
         Args: { p_org_id: string; p_reason?: string }
         Returns: Json
@@ -681,6 +685,17 @@ export type Database = {
       fix_stuck_batch_jobs: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_brand_candidates_for_org: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          candidate_name: string
+          detection_count: number
+          first_detected_at: string
+          id: string
+          last_detected_at: string
+          status: string
+        }[]
       }
       get_cron_secret: {
         Args: Record<PropertyKey, never>
@@ -782,6 +797,10 @@ export type Database = {
       }
       refresh_dashboard_metrics: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      reject_brand_candidate: {
+        Args: { p_candidate_id: string }
         Returns: undefined
       }
       resume_stuck_batch_job: {

@@ -27,7 +27,10 @@ export function BrandCandidatesManager() {
         .rpc('get_brand_candidates_for_org');
 
       if (error) throw error;
-      setCandidates(data || []);
+      setCandidates((data || []).map(item => ({
+        ...item,
+        status: item.status as 'pending' | 'approved' | 'rejected'
+      })));
     } catch (error) {
       console.error('Error loading brand candidates:', error);
       // Silently fail since this is a new feature
@@ -90,97 +93,6 @@ export function BrandCandidatesManager() {
       });
     }
   };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="w-5 h-5" />
-            Brand Candidates for Review
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">Loading candidates...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (candidates.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="w-5 h-5" />
-            Brand Candidates for Review
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">
-            No brand candidates pending review. New potential competitors will appear here when detected.
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Eye className="w-5 h-5" />
-          Brand Candidates for Review ({candidates.length})
-        </CardTitle>
-        <div className="text-sm text-muted-foreground">
-          Review potential competitors detected in responses. Approved brands will be added to your competitor catalog.
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {candidates.map((candidate) => (
-            <div
-              key={candidate.id}
-              className="flex items-center justify-between p-3 border rounded-lg"
-            >
-              <div className="flex items-center gap-3">
-                <div>
-                  <div className="font-medium">{candidate.candidate_name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    Detected {candidate.detection_count} times
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  {candidate.detection_count} mentions
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleApprove(candidate.id, candidate.candidate_name)}
-                  className="text-green-600 border-green-200 hover:bg-green-50"
-                >
-                  <Check className="w-4 h-4 mr-1" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleReject(candidate.id, candidate.candidate_name)}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  Reject
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
   if (loading) {
     return (
