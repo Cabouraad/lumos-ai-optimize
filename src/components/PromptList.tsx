@@ -34,6 +34,15 @@ interface PromptData {
   active: boolean;
 }
 
+interface PromptWithStats {
+  id: string;
+  text: string;
+  active: boolean;
+  createdAt: string;
+  runs_7d?: number;
+  avg_score_7d?: number;
+}
+
 interface PromptListProps {
   prompts: PromptData[];
   loading: boolean;

@@ -375,7 +375,7 @@ export function PromptRow({ prompt, onRunPrompt, onEdit, canRunPrompts, isRunnin
                   <div>
                     <h4 className="text-sm font-semibold text-foreground mb-3">Competitor Analysis</h4>
                     <div className="bg-card rounded-lg border p-4">
-                      <PromptCompetitors promptId={prompt.id} />
+                      <PromptCompetitors prompt={prompt} />
                     </div>
                   </div>
 
