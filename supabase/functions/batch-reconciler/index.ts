@@ -2,6 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const CRON_SECRET = Deno.env.get('CRON_SECRET');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -10,6 +12,17 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Verify cron secret for security (allows both cron and manual calls)
+  const cronSecret = req.headers.get('x-cron-secret');
+  const isManualCall = req.headers.get('x-manual-call') === 'true';
+  
+  if (!isManualCall && (!cronSecret || !CRON_SECRET || cronSecret !== CRON_SECRET)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid cron secret' }), 
+      { status: 401, headers: corsHeaders }
+    );
   }
 
   try {
