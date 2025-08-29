@@ -82,6 +82,12 @@ export interface UnifiedDashboardData {
     latestScore: number;
     hasData: boolean;
     org_id: string;
+    runs7d: number;
+    avgScore7d: number;
+    brandVisibleCount: number;
+    competitorCount: number;
+    brandPresenceRate: number;
+    latestResponses?: { [provider: string]: ProviderResponseData };
   }>;
 }
 
@@ -271,13 +277,47 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Prompt summaries with latest scores
+    // Get latest responses for calculating the additional metrics
+    const { data: latestResponsesData } = await supabase
+      .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
+    
+    const latestResponses = latestResponsesData || [];
+
+    // Helper function to get latest response per provider
+    function getLatestResponsePerProvider(responses: any[]) {
+      const byProvider: { [provider: string]: any } = {};
+      responses.forEach(response => {
+        if (!byProvider[response.provider] || 
+            new Date(response.run_at) > new Date(byProvider[response.provider].run_at)) {
+          byProvider[response.provider] = response;
+        }
+      });
+      return byProvider;
+    }
+
+    // Prompt summaries with latest scores and additional metrics
     const promptSummaries = prompts.map(prompt => {
       const promptResponses = validResponses.filter(r => r.prompt_id === prompt.id);
+      const sevenDayResponses = promptResponses.filter(
+        r => new Date(r.run_at) >= sevenDaysAgo
+      );
+      
       const latestScore = promptResponses.length > 0 
         ? promptResponses[promptResponses.length - 1].score 
         : 0;
-      
+
+      // Get latest responses for this prompt from the detailed data
+      const promptLatestResponses = latestResponses.filter(r => r.prompt_id === prompt.id);
+      const latestResponsesByProvider = getLatestResponsePerProvider(promptLatestResponses);
+      const latestResponseValues = Object.values(latestResponsesByProvider);
+
+      // Calculate top metrics from latest responses
+      const brandVisibleCount = latestResponseValues.filter((r: any) => r.org_brand_present).length;
+      const competitorCount = latestResponseValues.reduce((sum: number, r: any) => sum + (r.competitors_count || 0), 0);
+      const brandPresenceRate = latestResponseValues.length > 0 
+        ? (brandVisibleCount / latestResponseValues.length) * 100 
+        : 0;
+
       return {
         id: prompt.id,
         text: prompt.text,
@@ -285,7 +325,15 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
         created_at: prompt.created_at,
         latestScore: Math.round(latestScore * 10) / 10,
         hasData: promptResponses.length > 0,
-        org_id: prompt.org_id
+        org_id: prompt.org_id,
+        runs7d: sevenDayResponses.length,
+        avgScore7d: sevenDayResponses.length > 0
+          ? sevenDayResponses.reduce((sum, r) => sum + r.score, 0) / sevenDayResponses.length
+          : 0,
+        brandVisibleCount,
+        competitorCount,
+        brandPresenceRate: Math.round(brandPresenceRate * 10) / 10,
+        latestResponses: latestResponsesByProvider
       };
     });
 
@@ -416,8 +464,41 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       };
     });
 
+    // Update prompts in dashboard data with enhanced details
+    const enhancedPrompts = dashboardData.prompts.map(prompt => {
+      const detail = promptDetails.find(d => d.promptId === prompt.id);
+      if (detail) {
+        const latestResponseValues = Object.values(detail.providers).filter(p => p !== null) as ProviderResponseData[];
+        const brandVisibleCount = latestResponseValues.filter(r => r.org_brand_present).length;
+        const competitorCount = latestResponseValues.reduce((sum, r) => sum + (r.competitors_count || 0), 0);
+        const brandPresenceRate = latestResponseValues.length > 0 
+          ? (brandVisibleCount / latestResponseValues.length) * 100 
+          : 0;
+
+        return {
+          ...prompt,
+          runs7d: detail.sevenDayStats.totalRuns,
+          avgScore7d: detail.sevenDayStats.avgScore,
+          brandVisibleCount,
+          competitorCount,
+          brandPresenceRate: Math.round(brandPresenceRate * 10) / 10,
+          latestResponses: detail.providers
+        };
+      }
+      return {
+        ...prompt,
+        runs7d: 0,
+        avgScore7d: 0,
+        brandVisibleCount: 0,
+        competitorCount: 0,
+        brandPresenceRate: 0,
+        latestResponses: {}
+      };
+    });
+
     const result: UnifiedPromptData = {
       ...dashboardData,
+      prompts: enhancedPrompts,
       promptDetails
     };
 

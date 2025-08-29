@@ -388,9 +388,21 @@ export default function Prompts() {
   };
 
   const handleRunPrompt = async (promptId: string) => {
+    if (!orgData?.organizations?.id) {
+      toast({
+        title: "Error",
+        description: "Organization data not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase.functions.invoke('run-prompt-now', {
-        body: { promptId }
+        body: { 
+          promptId,
+          orgId: orgData.organizations.id
+        }
       });
 
       if (error) throw error;
