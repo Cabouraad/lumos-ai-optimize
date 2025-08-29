@@ -139,55 +139,17 @@ function extractEnhancedCitations(text: string): Citation[] {
 }
 
 /**
- * Enhanced brand extraction with context and confidence scoring
+ * Catalog-only brand extraction - only matches brands from the provided catalog
  */
 function extractEnhancedBrands(text: string, gazetteer: string[]): BrandArtifact[] {
   const brands: Map<string, BrandArtifact> = new Map();
   const textLength = text.length;
   
-  // Enhanced brand filtering with comprehensive stopword list
-  const filteredGazetteer = gazetteer.filter(brandName => {
+  // CRITICAL: Only process brands that are in the catalog - no discovery of new brands
+  for (const brandName of gazetteer) {
     const normalized = normalize(brandName);
     
-    // Skip very short brands without clear business context
-    if (normalized.length < 3) return false;
-    
-    // Comprehensive blocklist of generic terms
-    const blockedGeneric = [
-      // Numbers and basic words
-      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-      'for', 'and', 'the', 'with', 'you', 'your', 'our', 'their', 'this', 'that',
-      // Generic business terms
-      'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
-      'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',
-      'customer', 'customers', 'client', 'clients', 'email', 'web', 'mobile', 'app',
-      'digital', 'online', 'social', 'media', 'search', 'analytics', 'insights',
-      'management', 'automation', 'integration', 'optimization', 'performance',
-      'experience', 'strategy', 'campaigns', 'audience', 'engagement', 'conversion',
-      'roi', 'kpi', 'dashboard', 'report', 'reporting', 'analysis', 'tracking',
-      // Common descriptors
-      'pro', 'plus', 'premium', 'standard', 'basic', 'free', 'custom', 'smart',
-      // Tech giants (too generic)
-      'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok', 'pinterest',
-      'adobe', 'microsoft', 'google', 'apple', 'amazon', 'meta'
-    ];
-    
-    if (blockedGeneric.includes(normalized)) return false;
-    
-    // Skip single words that are too generic
-    if (!normalized.includes(' ') && normalized.length < 5 && 
-        !normalized.includes('.') && !normalized.includes('-')) {
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // Process each brand in the filtered gazetteer
-  for (const brandName of filteredGazetteer) {
-    const normalized = normalize(brandName);
-    
-    // Create more precise regex for brand matching
+    // Create precise regex for exact brand matching with word boundaries
     const brandRegex = createBrandRegex(brandName);
     const matches = Array.from(text.matchAll(brandRegex));
     
@@ -204,21 +166,24 @@ function extractEnhancedBrands(text: string, gazetteer: string[]): BrandArtifact
       // Calculate confidence based on context and match quality
       const confidence = calculateBrandConfidence(brandName, context, matches.length);
       
-      brands.set(normalized, {
-        name: brandName,
-        normalized,
-        mentions: matches.length,
-        first_pos_ratio: firstPosRatio,
-        confidence,
-        context: context.trim()
-      });
+      // Only include high-confidence matches to reduce false positives
+      if (confidence >= 0.6) {
+        brands.set(normalized, {
+          name: brandName,
+          normalized,
+          mentions: matches.length,
+          first_pos_ratio: firstPosRatio,
+          confidence,
+          context: context.trim()
+        });
+      }
     }
   }
   
-  // Sort by confidence and return top candidates
+  // Sort by confidence and return matches
   return Array.from(brands.values())
     .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 20); // Limit to top 20 most confident matches
+    .slice(0, 15); // Limit to top 15 most confident matches
 }
 
 /**
@@ -313,7 +278,7 @@ function calculateAnalysisConfidence(brandArtifacts: BrandArtifact[]): number {
 }
 
 /**
- * Enhanced brand gazetteer with industry-specific brands
+ * CATALOG-ONLY brand gazetteer - only includes brands from the brand_catalog
  */
 export function createBrandGazetteer(
   brandCatalog: Array<{ name: string; variants_json?: string[] }>,
@@ -321,61 +286,26 @@ export function createBrandGazetteer(
 ): string[] {
   const gazetteer = new Set<string>();
   
-  // Add user's brands and variants
+  // CRITICAL: Only add brands and variants from the brand catalog
+  // This prevents discovery of new "competitors" from text analysis
   for (const brand of brandCatalog) {
-    gazetteer.add(brand.name);
+    // Only add legitimate brands (length check prevents generic terms)
+    if (brand.name.trim().length >= 3) {
+      gazetteer.add(brand.name);
+    }
     
-    // Add variants if available
+    // Add variants if available and valid
     if (brand.variants_json) {
       for (const variant of brand.variants_json) {
-        if (variant.trim().length >= 2) { // Filter out empty/short variants
+        if (variant.trim().length >= 3) { // Stricter filter for variants
           gazetteer.add(variant);
         }
       }
     }
   }
   
-  // Industry-specific brand lists
-  const industryBrands: Record<string, string[]> = {
-    'software': [
-      'Microsoft', 'Google', 'Apple', 'Adobe', 'Salesforce', 'Oracle', 'IBM', 'GitHub',
-      'Atlassian', 'Slack', 'Zoom', 'Dropbox', 'Notion', 'Asana', 'Trello', 'Monday.com',
-      'ClickUp', 'Basecamp', 'Airtable', 'Figma', 'Sketch', 'InVision', 'Marvel',
-      'AWS', 'Azure', 'GCP', 'Heroku', 'Vercel', 'Netlify', 'Cloudflare'
-    ],
-    'marketing': [
-      'HubSpot', 'Mailchimp', 'Marketo', 'Pardot', 'Klaviyo', 'Constant Contact',
-      'Hootsuite', 'Buffer', 'Sprout Social', 'Later', 'CoSchedule',
-      'Google Analytics', 'Facebook Ads', 'Google Ads', 'LinkedIn Ads'
-    ],
-    'ecommerce': [
-      'Shopify', 'WooCommerce', 'Magento', 'BigCommerce', 'Squarespace', 'Wix',
-      'Stripe', 'PayPal', 'Square', 'Amazon', 'eBay', 'Etsy'
-    ],
-    'design': [
-      'Adobe Creative Cloud', 'Photoshop', 'Illustrator', 'Figma', 'Sketch',
-      'Canva', 'InVision', 'Marvel', 'Principle', 'Framer', 'Adobe XD'
-    ]
-  };
+  // NO AUTOMATIC ADDITION OF INDUSTRY OR COMMON BRANDS
+  // This ensures we only match against explicitly cataloged competitors
   
-  // Add industry-specific brands
-  if (userIndustry && industryBrands[userIndustry.toLowerCase()]) {
-    for (const brand of industryBrands[userIndustry.toLowerCase()]) {
-      gazetteer.add(brand);
-    }
-  }
-  
-  // Add common business/tech brands (always relevant)
-  const commonBrands = [
-    'Microsoft', 'Google', 'Apple', 'Amazon', 'Meta', 'Facebook', 'Instagram', 
-    'Twitter', 'X', 'LinkedIn', 'YouTube', 'Netflix', 'Spotify', 'Adobe',
-    'Salesforce', 'HubSpot', 'Zoom', 'Slack', 'GitHub', 'Atlassian',
-    'AWS', 'Azure', 'Stripe', 'PayPal', 'Shopify'
-  ];
-  
-  for (const brand of commonBrands) {
-    gazetteer.add(brand);
-  }
-  
-  return Array.from(gazetteer).filter(brand => brand.length >= 2);
+  return Array.from(gazetteer).filter(brand => brand.length >= 3);
 }

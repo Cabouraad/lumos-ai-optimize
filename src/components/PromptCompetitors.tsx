@@ -19,6 +19,46 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Client-side filter for generic terms that shouldn't be competitors
+  const isValidCompetitor = (competitorName: string): boolean => {
+    const normalized = competitorName.toLowerCase().trim();
+    
+    // Comprehensive filter for generic/invalid terms
+    const invalidTerms = [
+      // Generic business terms
+      'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
+      'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',
+      'customer', 'customers', 'client', 'clients', 'email', 'web', 'mobile', 'app',
+      'digital', 'online', 'social', 'media', 'search', 'analytics', 'insights',
+      'management', 'automation', 'integration', 'optimization', 'performance',
+      'experience', 'strategy', 'campaigns', 'audience', 'engagement', 'conversion',
+      'track', 'automate', 'analyze', 'implement', 'use', 'create', 'build',
+      // Words from the specific response
+      'feedback', 'surveys', 'meetings', 'collaboration', 'personalization',
+      'privacy', 'compliance', 'training', 'documentation', 'visualization',
+      // Numbers and basic words
+      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'for', 'and', 'the', 'with', 'you', 'your', 'our', 'their', 'this', 'that'
+    ];
+    
+    // Check if it's in the invalid terms list
+    if (invalidTerms.includes(normalized)) {
+      return false;
+    }
+    
+    // Filter very short terms (likely generic)
+    if (normalized.length < 3) {
+      return false;
+    }
+    
+    // Filter single words that are too generic (unless they contain dots/hyphens indicating brands)
+    if (!normalized.includes(' ') && !normalized.includes('.') && !normalized.includes('-') && normalized.length < 5) {
+      return false;
+    }
+    
+    return true;
+  };
+
   useEffect(() => {
     const fetchCompetitors = async () => {
       try {
@@ -37,7 +77,12 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
           return;
         }
 
-        setCompetitors(data || []);
+        // Apply client-side filtering to remove generic terms
+        const validCompetitors = (data || []).filter((competitor: CompetitorData) => 
+          isValidCompetitor(competitor.competitor_name)
+        );
+
+        setCompetitors(validCompetitors);
       } catch (err) {
         console.error('Error in fetchCompetitors:', err);
         setError('Failed to load competitors');

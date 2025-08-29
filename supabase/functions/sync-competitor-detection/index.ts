@@ -97,26 +97,9 @@ serve(async (req) => {
               console.log(`Updated competitor: ${competitorName} (appearances: ${newAppearances})`);
             }
           } else {
-            // Add new competitor
-            const { error: insertError } = await supabase
-              .from('brand_catalog')
-              .insert({
-                org_id: response.org_id,
-                name: competitorName,
-                is_org_brand: false,
-                variants_json: [competitorName.toLowerCase()],
-                first_detected_at: response.run_at,
-                last_seen_at: response.run_at,
-                total_appearances: 1,
-                average_score: response.score || 0
-              });
-
-            if (insertError) {
-              console.error('Error inserting brand:', insertError);
-            } else {
-              competitorsAdded++;
-              console.log(`Added new competitor: ${competitorName}`);
-            }
+            // DO NOT ADD NEW COMPETITORS AUTOMATICALLY
+            // This prevents generic terms from being added to brand_catalog
+            console.log(`Skipping unknown competitor: ${competitorName} (not in brand catalog)`);
           }
         } catch (error) {
           console.error(`Error processing competitor ${competitorName}:`, error);

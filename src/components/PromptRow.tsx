@@ -170,52 +170,25 @@ export function PromptRow({
                 </div>
               </div>
 
-              {/* Score and actions */}
-              <div className="flex items-center gap-3">
-                <Badge 
-                  variant="outline" 
-                  className={`${getScoreColor(performance.avgScore)} font-medium text-sm px-3 py-1`}
+              {/* Actions only */}
+              <div className="flex items-center gap-1">
+                <Button
+                  onClick={handleToggleActive}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
                 >
-                  {getScoreIcon(performance.avgScore)} {performance.avgScore.toFixed(1)}
-                </Badge>
+                  {prompt.active ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                </Button>
 
-                <div className="flex gap-1">
-                  <Button
-                    onClick={handleToggleActive}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3"
-                  >
-                    {prompt.active ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                  </Button>
-
-                  <Button
-                    onClick={handleEdit}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={handleDuplicate}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={handleDelete}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleDelete}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
             </div>
 
