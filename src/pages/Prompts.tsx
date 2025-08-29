@@ -387,43 +387,6 @@ export default function Prompts() {
     }
   };
 
-  const handleRunPrompt = async (promptId: string) => {
-    if (!orgData?.organizations?.id) {
-      toast({
-        title: "Error",
-        description: "Organization data not available",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase.functions.invoke('run-prompt-now', {
-        body: { 
-          promptId,
-          orgId: orgData.organizations.id
-        }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Prompt queued for execution",
-      });
-
-      // Reload data after a short delay to show new results
-      setTimeout(() => {
-        loadPromptsData(true);
-      }, 2000);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
 
   // Transform data for the PromptList component
   const transformedPrompts = transformPromptData(rawPrompts, providerData);
@@ -503,7 +466,6 @@ export default function Prompts() {
                   onEditPrompt={handleEditPrompt}
                   onDuplicatePrompt={handleDuplicatePrompt}
                   onAddPrompt={() => setIsAddModalOpen(true)}
-                  onRunPrompt={handleRunPrompt}
                 />
               </TabsContent>
 

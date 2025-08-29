@@ -9,7 +9,6 @@ import { PromptCompetitors } from './PromptCompetitors';
 import { 
   Calendar, 
   BarChart3, 
-  PlayCircle,
   Edit,
   Trash2,
   Copy,
@@ -35,13 +34,10 @@ interface PromptWithStats {
 interface PromptRowProps {
   prompt: PromptWithStats;
   promptDetails?: any;
-  onRunPrompt: (promptId: string) => void;
   onEdit: (prompt: PromptWithStats) => void;
   onToggleActive: (promptId: string, active: boolean) => void;
   onDeletePrompt: (promptId: string) => void;
   onDuplicatePrompt: (promptId: string) => void;
-  canRunPrompts: boolean;
-  isRunning?: boolean;
   isSelected: boolean;
   onSelect: (checked: boolean) => void;
 }
@@ -61,21 +57,15 @@ const getScoreIcon = (score: number) => {
 export function PromptRow({ 
   prompt, 
   promptDetails,
-  onRunPrompt, 
   onEdit, 
   onToggleActive,
   onDeletePrompt,
   onDuplicatePrompt,
-  canRunPrompts, 
-  isRunning = false,
   isSelected,
   onSelect
 }: PromptRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleRunPrompt = () => {
-    onRunPrompt(prompt.id);
-  };
 
   const handleToggleActive = () => {
     onToggleActive(prompt.id, !prompt.active);
@@ -190,16 +180,6 @@ export function PromptRow({
                 </Badge>
 
                 <div className="flex gap-1">
-                  <Button
-                    onClick={handleRunPrompt}
-                    disabled={!canRunPrompts || isRunning}
-                    size="sm"
-                    className="h-8 px-3"
-                  >
-                    <PlayCircle className="h-3 w-3 mr-1" />
-                    {isRunning ? 'Running...' : 'Run'}
-                  </Button>
-                  
                   <Button
                     onClick={handleToggleActive}
                     variant="outline"

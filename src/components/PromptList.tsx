@@ -39,7 +39,6 @@ interface PromptListProps {
   onEditPrompt: (promptId: string) => void;
   onDuplicatePrompt: (promptId: string) => void;
   onAddPrompt: () => void;
-  onRunPrompt: (promptId: string) => void;
 }
 
 export function PromptList({
@@ -52,7 +51,6 @@ export function PromptList({
   onEditPrompt,
   onDuplicatePrompt,
   onAddPrompt,
-  onRunPrompt,
 }: PromptListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProvider, setFilterProvider] = useState<string>('all');
@@ -330,13 +328,10 @@ export function PromptList({
                   key={prompt.id}
                   prompt={prompt}
                   promptDetails={promptDetails}
-                  onRunPrompt={onRunPrompt}
                   onEdit={(p) => onEditPrompt(p.id)}
                   onToggleActive={onToggleActive}
                   onDeletePrompt={onDeletePrompt}
                   onDuplicatePrompt={onDuplicatePrompt}
-                  canRunPrompts={true}
-                  isRunning={false}
                   isSelected={selectedPrompts.has(prompt.id)}
                   onSelect={(checked) => handleSelectPrompt(prompt.id, checked)}
                 />
