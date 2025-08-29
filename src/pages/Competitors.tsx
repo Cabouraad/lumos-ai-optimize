@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
@@ -27,6 +28,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
+interface CompetitorData {
+  competitor_name: string;
+  total_mentions: number;
+  distinct_prompts: number;
+  first_seen: string;
+  last_seen: string;
+  avg_score: number;
+}
+
 interface CompetitorBrand {
   id: string;
   name: string;
@@ -37,6 +47,12 @@ interface CompetitorBrand {
   trend?: number;
   sharePercentage?: number;
   isManuallyAdded?: boolean;
+}
+
+interface TrackedCompetitor {
+  id: string;
+  name: string;
+  first_detected_at: string;
 }
 
 const BrandLogo = ({ brandName }: { brandName: string }) => {
@@ -97,7 +113,7 @@ const TrendIcon = ({ trend }: { trend: number }) => {
 
 const CompetitorRow = ({ competitor, rank }: { competitor: CompetitorBrand; rank: number }) => {
   const sharePercentage = competitor.sharePercentage || ((competitor.averageScore / 10) * 100);
-  const trend = competitor.trend || 0; // Use actual trend data only
+  const trend = competitor.trend || 0;
 
   return (
     <div className="flex items-center justify-between p-4 hover:bg-muted/30 rounded-lg transition-colors group min-h-[72px]">
@@ -126,14 +142,13 @@ const CompetitorRow = ({ competitor, rank }: { competitor: CompetitorBrand; rank
 export default function Competitors() {
   const { canAccessCompetitorAnalysis } = useSubscriptionGate();
   const competitorAccess = canAccessCompetitorAnalysis();
-  const [topBrands, setTopBrands] = useState<CompetitorBrand[]>([]);
-  const [nearestCompetitors, setNearestCompetitors] = useState<CompetitorBrand[]>([]);
-  const [upcomingBrands, setUpcomingBrands] = useState<CompetitorBrand[]>([]);
-  const [trackedCompetitors, setTrackedCompetitors] = useState<CompetitorBrand[]>([]);
+  const [competitorData, setCompetitorData] = useState<CompetitorData[]>([]);
+  const [trackedCompetitors, setTrackedCompetitors] = useState<TrackedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [orgName, setOrgName] = useState<string>('Your Brand');
+  const [orgBrand, setOrgBrand] = useState<CompetitorBrand | null>(null);
   
   const { toast } = useToast();
 
@@ -141,14 +156,14 @@ export default function Competitors() {
     fetchCompetitorData();
   }, []);
 
-  const calculateTrend = (lastSeenAt: string, firstDetectedAt: string, totalAppearances: number): number => {
-    const daysSinceFirst = Math.max(1, Math.ceil((new Date().getTime() - new Date(firstDetectedAt).getTime()) / (1000 * 60 * 60 * 24)));
+  const calculateTrend = (lastSeenAt: string, firstSeenAt: string, totalMentions: number): number => {
+    const daysSinceFirst = Math.max(1, Math.ceil((new Date().getTime() - new Date(firstSeenAt).getTime()) / (1000 * 60 * 60 * 24)));
     const daysSinceLast = Math.ceil((new Date().getTime() - new Date(lastSeenAt).getTime()) / (1000 * 60 * 60 * 24));
     
-    if (daysSinceLast <= 7 && totalAppearances / daysSinceFirst > 0.1) {
-      return (totalAppearances / Math.max(daysSinceFirst, 1) * 10) - 5; // Center around 0 for trend
+    if (daysSinceLast <= 7 && totalMentions / daysSinceFirst > 0.1) {
+      return (totalMentions / Math.max(daysSinceFirst, 1) * 10) - 5;
     }
-    return (totalAppearances / Math.max(daysSinceFirst, 1)) - 5;
+    return (totalMentions / Math.max(daysSinceFirst, 1)) - 5;
   };
 
   const fetchCompetitorData = async () => {
@@ -156,105 +171,58 @@ export default function Competitors() {
       setLoading(true);
       const orgId = await getOrgId();
 
-      // Single optimized query to get all data we need
-      const [orgResult, competitorsResult] = await Promise.all([
+      // Get org name and brand info
+      const [orgResult, competitorSummaryResult, trackedResult] = await Promise.all([
         supabase
           .from('organizations')
           .select('name')
           .eq('id', orgId)
           .single(),
         supabase
+          .rpc('get_org_competitor_summary', { p_org_id: orgId, p_days: 30 }),
+        supabase
           .from('brand_catalog')
-          .select('*')
+          .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score')
           .eq('org_id', orgId)
-          .order('total_appearances', { ascending: false })
       ]);
 
-      if (competitorsResult.error) {
-        console.error('Error fetching competitors:', competitorsResult.error);
+      if (competitorSummaryResult.error) {
+        console.error('Error fetching competitor summary:', competitorSummaryResult.error);
         return;
       }
 
       const currentOrgName = orgResult.data?.name || 'Your Brand';
       setOrgName(currentOrgName);
 
-      // Separate org brand from competitors
-      const orgBrands = competitorsResult.data?.filter(b => b.is_org_brand) || [];
-      const competitorBrands = competitorsResult.data?.filter(b => !b.is_org_brand) || [];
-
-      // Transform competitor data with filtering for false positives
-      const competitors: CompetitorBrand[] = competitorBrands
-        .filter(comp => {
-          // Filter out false positives using same logic as ResponseClassificationFixer
-          const name = comp.name.toLowerCase().trim();
-          
-          // Remove generic/suspicious terms
-          const isSuspicious = /^(seo|marketing|social media|facebook|adobe|social|media)$/i.test(name);
-          
-          // Remove very short terms (less than 3 characters)
-          const isTooShort = name.length < 3;
-          
-          // Remove hubspot variants if they should be org brands
-          const isHubSpotVariant = /hubspot|marketing hub|hub.?spot/i.test(name);
-          
-          return !isSuspicious && !isTooShort && !isHubSpotVariant;
-        })
-        .map(comp => ({
-          id: comp.id,
-          name: comp.name,
-          totalAppearances: comp.total_appearances || 0,
-          averageScore: Number(comp.average_score) || 0,
-          firstDetectedAt: comp.first_detected_at,
-          lastSeenAt: comp.last_seen_at,
-          trend: calculateTrend(comp.last_seen_at, comp.first_detected_at, comp.total_appearances || 0),
-          sharePercentage: ((Number(comp.average_score) || 0) / 10) * 100,
-          isManuallyAdded: (comp.total_appearances || 0) === 0
-        }));
+      // Separate org brands from manual competitors
+      const orgBrands = trackedResult.data?.filter(b => b.is_org_brand) || [];
+      const manualCompetitors = trackedResult.data?.filter(b => !b.is_org_brand && b.total_appearances === 0) || [];
 
       // Create org brand data if exists
-      const orgBrand: CompetitorBrand | null = orgBrands[0] ? {
-        id: orgBrands[0].id,
-        name: orgBrands[0].name,
-        totalAppearances: orgBrands[0].total_appearances || 0,
-        averageScore: Number(orgBrands[0].average_score) || 0,
-        firstDetectedAt: orgBrands[0].first_detected_at,
-        lastSeenAt: orgBrands[0].last_seen_at,
-        trend: calculateTrend(orgBrands[0].last_seen_at, orgBrands[0].first_detected_at, orgBrands[0].total_appearances || 0),
-        sharePercentage: ((Number(orgBrands[0].average_score) || 0) / 10) * 100,
-        isManuallyAdded: false
-      } : null;
-      
-      // Sort into categories using the competitors array
-      const top = competitors
-        .filter(c => c.totalAppearances > 0)
-        .sort((a, b) => b.totalAppearances - a.totalAppearances)
-        .slice(0, 5);
-      
-      setTopBrands(orgBrand ? [orgBrand, ...top] : top);
+      if (orgBrands.length > 0) {
+        const orgBrandData = orgBrands[0];
+        setOrgBrand({
+          id: orgBrandData.id,
+          name: orgBrandData.name,
+          totalAppearances: orgBrandData.total_appearances || 0,
+          averageScore: Number(orgBrandData.average_score) || 0,
+          firstDetectedAt: orgBrandData.first_detected_at,
+          lastSeenAt: orgBrandData.first_detected_at,
+          sharePercentage: ((Number(orgBrandData.average_score) || 0) / 10) * 100,
+          isManuallyAdded: false
+        });
+      }
 
-      // Nearest competitors - similar to top but excluding org brand
-      const nearest = competitors
-        .filter(c => c.averageScore > 0)
-        .sort((a, b) => b.averageScore - a.averageScore)
-        .slice(0, 5);
-      setNearestCompetitors(orgBrand ? [orgBrand, ...nearest] : nearest);
+      // Convert RPC data to competitor format
+      const competitors: CompetitorData[] = competitorSummaryResult.data || [];
+      setCompetitorData(competitors);
 
-      // Up and coming - sorted by positive trend, only show real data
-      const upcoming = competitors
-        .filter(c => c.trend && c.trend > 0 && c.totalAppearances > 0)
-        .sort((a, b) => (b.trend || 0) - (a.trend || 0))
-        .slice(0, 4);
-      
-      const upcomingWithOrg = orgBrand ? [orgBrand, ...upcoming] : upcoming;
-      
-      setUpcomingBrands(upcomingWithOrg);
-
-      // User-tracked competitors (manually added, with 0 appearances)
-      const tracked = competitors
-        .filter(c => c.totalAppearances === 0)
-        .sort((a, b) => new Date(b.firstDetectedAt).getTime() - new Date(a.firstDetectedAt).getTime());
-      
-      setTrackedCompetitors(tracked);
+      // Set tracked competitors (manually added, with 0 appearances)
+      setTrackedCompetitors(manualCompetitors.map(comp => ({
+        id: comp.id,
+        name: comp.name,
+        first_detected_at: comp.first_detected_at
+      })));
 
     } catch (error) {
       console.error('Error fetching competitor data:', error);
@@ -266,6 +234,40 @@ export default function Competitors() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const transformCompetitorData = (data: CompetitorData[]): CompetitorBrand[] => {
+    return data.map(comp => ({
+      id: comp.competitor_name, // Use name as ID for display purposes
+      name: comp.competitor_name,
+      totalAppearances: Number(comp.total_mentions),
+      averageScore: Number(comp.avg_score),
+      firstDetectedAt: comp.first_seen,
+      lastSeenAt: comp.last_seen,
+      trend: calculateTrend(comp.last_seen, comp.first_seen, Number(comp.total_mentions)),
+      sharePercentage: (Number(comp.total_mentions) / Math.max(1, competitorData.reduce((sum, c) => sum + Number(c.total_mentions), 0))) * 100,
+      isManuallyAdded: false
+    }));
+  };
+
+  const getTopBrands = (): CompetitorBrand[] => {
+    const competitors = transformCompetitorData(competitorData).slice(0, 5);
+    return orgBrand ? [orgBrand, ...competitors] : competitors;
+  };
+
+  const getNearestCompetitors = (): CompetitorBrand[] => {
+    const competitors = transformCompetitorData(competitorData)
+      .sort((a, b) => b.averageScore - a.averageScore)
+      .slice(0, 5);
+    return orgBrand ? [orgBrand, ...competitors] : competitors;
+  };
+
+  const getUpcomingBrands = (): CompetitorBrand[] => {
+    const competitors = transformCompetitorData(competitorData)
+      .filter(c => c.trend && c.trend > 0)
+      .sort((a, b) => (b.trend || 0) - (a.trend || 0))
+      .slice(0, 4);
+    return orgBrand ? [orgBrand, ...competitors] : competitors;
   };
 
   const handleAddCompetitor = async () => {
@@ -363,7 +365,6 @@ export default function Competitors() {
     }
   };
 
-
   if (!competitorAccess.hasAccess) {
     return (
       <Layout>
@@ -428,6 +429,10 @@ export default function Competitors() {
     );
   }
 
+  const topBrands = getTopBrands();
+  const nearestCompetitors = getNearestCompetitors();
+  const upcomingBrands = getUpcomingBrands();
+
   return (
     <TooltipProvider>
       <Layout>
@@ -447,7 +452,7 @@ export default function Competitors() {
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="bg-card text-sm px-3 py-1">
                   <BarChart3 className="h-4 w-4 mr-1" />
-                  {topBrands.length + nearestCompetitors.length + upcomingBrands.length - 3} tracked
+                  {competitorData.length} tracked
                 </Badge>
                 
                 <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -597,7 +602,7 @@ export default function Competitors() {
                               <p className="font-medium text-foreground">{competitor.name}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <p className="text-xs text-muted-foreground">
-                                  Added {new Date(competitor.firstDetectedAt).toLocaleDateString()}
+                                  Added {new Date(competitor.first_detected_at).toLocaleDateString()}
                                 </p>
                                 <Badge variant="outline" className="text-xs px-2 py-0.5">
                                   <AlertCircle className="w-3 h-3 mr-1" />
@@ -626,14 +631,6 @@ export default function Competitors() {
                         </div>
                       ))}
                     </div>
-                    
-                    {trackedCompetitors.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No manually tracked competitors yet.</p>
-                        <p className="text-xs mt-1">Use the "Track Competitor" button above to add competitors to monitor.</p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </div>

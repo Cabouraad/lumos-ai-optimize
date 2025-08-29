@@ -670,6 +670,25 @@ export type Database = {
           token_out: number
         }[]
       }
+      get_org_competitor_summary: {
+        Args: { p_days?: number; p_org_id?: string }
+        Returns: {
+          avg_score: number
+          competitor_name: string
+          distinct_prompts: number
+          first_seen: string
+          last_seen: string
+          total_mentions: number
+        }[]
+      }
+      get_prompt_competitors: {
+        Args: { p_days?: number; p_prompt_id: string }
+        Returns: {
+          competitor_name: string
+          mentions: number
+          share: number
+        }[]
+      }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }
         Returns: {
