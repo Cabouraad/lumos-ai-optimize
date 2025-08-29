@@ -483,6 +483,7 @@ export default function Prompts() {
               <TabsContent value="prompts" className="mt-6">
                 <PromptList
                   prompts={transformedPrompts}
+                  providerData={providerData}
                   loading={loading}
                   onToggleActive={handleToggleActive}
                   onDeletePrompt={handleDeletePrompt}

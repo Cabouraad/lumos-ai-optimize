@@ -31,6 +31,7 @@ interface PromptWithStats {
 
 interface PromptListProps {
   prompts: PromptWithStats[];
+  providerData: any[];
   loading: boolean;
   onToggleActive: (promptId: string, active: boolean) => void;
   onDeletePrompt: (promptId: string) => void;
@@ -43,6 +44,7 @@ interface PromptListProps {
 
 export function PromptList({
   prompts,
+  providerData,
   loading,
   onToggleActive,
   onDeletePrompt,
@@ -321,16 +323,25 @@ export function PromptList({
       <div className="space-y-2">
         {paginatedPrompts.length > 0 ? (
           <>
-            {paginatedPrompts.map((prompt) => (
-              <PromptRow
-                key={prompt.id}
-                prompt={prompt}
-                onRunPrompt={onRunPrompt}
-                onEdit={(p) => onEditPrompt(p.id)}
-                canRunPrompts={true}
-                isRunning={false}
-              />
-            ))}
+            {paginatedPrompts.map((prompt) => {
+              const promptDetails = providerData.find(pd => pd.promptId === prompt.id);
+              return (
+                <PromptRow
+                  key={prompt.id}
+                  prompt={prompt}
+                  promptDetails={promptDetails}
+                  onRunPrompt={onRunPrompt}
+                  onEdit={(p) => onEditPrompt(p.id)}
+                  onToggleActive={onToggleActive}
+                  onDeletePrompt={onDeletePrompt}
+                  onDuplicatePrompt={onDuplicatePrompt}
+                  canRunPrompts={true}
+                  isRunning={false}
+                  isSelected={selectedPrompts.has(prompt.id)}
+                  onSelect={(checked) => handleSelectPrompt(prompt.id, checked)}
+                />
+              );
+            })}
 
             {/* Pagination */}
             {totalPages > 1 && (
