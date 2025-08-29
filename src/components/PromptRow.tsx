@@ -160,13 +160,18 @@ function createBrandGazetteer(brandCatalog: Array<{ name: string; variants_json?
   return Array.from(gazetteer);
 }
 
-interface PromptWithStats {
+interface PromptData {
   id: string;
   text: string;
+  createdAt: string;
+  category: string;
+  providers: Array<{ name: string; enabled: boolean; lastRun?: string }>;
+  lastRunAt?: string;
+  visibilityScore: number;
+  brandPct: number;
+  competitorPct: number;
+  sentimentDelta: number;
   active: boolean;
-  created_at: string;
-  runs_7d?: number;
-  avg_score_7d?: number;
 }
 
 interface ProviderResponse {
@@ -180,11 +185,15 @@ interface ProviderResponse {
 }
 
 interface PromptRowProps {
-  prompt: PromptWithStats;
-  onRunPrompt: (promptId: string) => void;
-  onEdit: (prompt: PromptWithStats) => void;
-  canRunPrompts: boolean;
-  isRunning?: boolean;
+  prompt: PromptData;
+  isSelected: boolean;
+  isExpanded: boolean;
+  onSelect: (checked: boolean) => void;
+  onExpand: () => void;
+  onToggleActive: (active: boolean) => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
 }
 
 const getScoreColor = (score: number) => {
@@ -199,8 +208,17 @@ const getScoreIcon = (score: number) => {
   return '📊';
 };
 
-export function PromptRow({ prompt, onRunPrompt, onEdit, canRunPrompts, isRunning = false }: PromptRowProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function PromptRow({ 
+  prompt, 
+  isSelected, 
+  isExpanded, 
+  onSelect, 
+  onExpand, 
+  onToggleActive, 
+  onEdit, 
+  onDuplicate, 
+  onDelete 
+}: PromptRowProps) {
   const [responses, setResponses] = useState<ProviderResponse[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -232,13 +250,13 @@ export function PromptRow({ prompt, onRunPrompt, onEdit, canRunPrompts, isRunnin
 
   const averageScore = responses.length > 0 
     ? responses.reduce((sum, r) => sum + r.score, 0) / responses.length 
-    : (prompt.avg_score_7d || 0);
+    : prompt.visibilityScore;
 
   const totalCompetitors = responses.reduce((sum, r) => sum + r.competitors_count, 0);
   const brandMentioned = responses.some(r => r.org_brand_present);
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+    <Collapsible open={isExpanded} onOpenChange={onExpand}>
       <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
         <CollapsibleTrigger asChild>
           <div className="cursor-pointer">
@@ -264,12 +282,12 @@ export function PromptRow({ prompt, onRunPrompt, onEdit, canRunPrompts, isRunnin
                       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          <span>Created {format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
+                          <span>Created {format(new Date(prompt.createdAt), 'MMM d, yyyy')}</span>
                         </div>
-                        {prompt.runs_7d !== undefined && (
+                        {prompt.lastRunAt && (
                           <div className="flex items-center gap-1">
                             <BarChart3 className="h-3 w-3" />
-                            <span>{prompt.runs_7d} runs (7d)</span>
+                            <span>Last run {format(new Date(prompt.lastRunAt), 'MMM d, yyyy')}</span>
                           </div>
                         )}
                         {responses.length > 0 && (
@@ -384,21 +402,21 @@ export function PromptRow({ prompt, onRunPrompt, onEdit, canRunPrompts, isRunnin
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onRunPrompt(prompt.id);
+                        // PromptRow doesn't handle running - this would need to be passed through
                       }}
-                      disabled={!canRunPrompts || isRunning}
+                      disabled={true}
                       size="sm"
                       className="flex items-center gap-2"
                     >
                       <PlayCircle className="h-4 w-4" />
-                      {isRunning ? 'Running...' : 'Run Now'}
+                      Run Now
                     </Button>
-                    <Button
+                   <Button
                       variant="outline"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onEdit(prompt);
+                        onEdit();
                       }}
                     >
                       Edit Prompt
