@@ -373,18 +373,103 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { jobId } = await req.json();
-    console.log(`🚀 Starting robust batch processor for job: ${jobId}`);
+    const requestBody = await req.json();
+    const { jobId, orgId } = requestBody;
+    
+    let actualJobId = jobId;
+    let jobData;
 
-    // Get job details
-    const { data: jobData, error: jobError } = await supabase
-      .from('batch_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .single();
+    // If orgId is provided but no jobId, create a new batch job
+    if (orgId && !jobId) {
+      console.log(`🚀 Creating new batch job for org: ${orgId}`);
+      
+      // Get active prompts for the organization
+      const { data: prompts, error: promptsError } = await supabase
+        .from('prompts')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('active', true);
 
-    if (jobError || !jobData) {
-      throw new Error(`Job not found: ${jobError?.message}`);
+      if (promptsError || !prompts || prompts.length === 0) {
+        throw new Error(`No active prompts found for org ${orgId}: ${promptsError?.message}`);
+      }
+
+      // Get enabled providers
+      const { data: providers, error: providersError } = await supabase
+        .from('llm_providers')
+        .select('name')
+        .eq('enabled', true);
+
+      if (providersError || !providers || providers.length === 0) {
+        throw new Error(`No enabled providers found: ${providersError?.message}`);
+      }
+
+      // Create batch job
+      const totalTasks = prompts.length * providers.length;
+      const { data: newJob, error: jobError } = await supabase
+        .from('batch_jobs')
+        .insert({
+          org_id: orgId,
+          total_tasks: totalTasks,
+          status: 'pending',
+          metadata: {
+            created_by: 'robust-batch-processor',
+            prompts_count: prompts.length,
+            providers_count: providers.length
+          }
+        })
+        .select()
+        .single();
+
+      if (jobError || !newJob) {
+        throw new Error(`Failed to create batch job: ${jobError?.message}`);
+      }
+
+      actualJobId = newJob.id;
+      jobData = newJob;
+      console.log(`✅ Created batch job ${actualJobId} with ${totalTasks} tasks`);
+
+      // Create batch tasks
+      const tasks = [];
+      for (const prompt of prompts) {
+        for (const provider of providers) {
+          tasks.push({
+            batch_job_id: actualJobId,
+            prompt_id: prompt.id,
+            provider: provider.name,
+            status: 'pending'
+          });
+        }
+      }
+
+      const { error: tasksError } = await supabase
+        .from('batch_tasks')
+        .insert(tasks);
+
+      if (tasksError) {
+        throw new Error(`Failed to create batch tasks: ${tasksError.message}`);
+      }
+
+      console.log(`✅ Created ${tasks.length} batch tasks`);
+
+    } else if (jobId) {
+      console.log(`🚀 Processing existing batch job: ${jobId}`);
+      
+      // Get existing job details
+      const { data: existingJob, error: jobError } = await supabase
+        .from('batch_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (jobError || !existingJob) {
+        throw new Error(`Job not found: ${jobError?.message}`);
+      }
+
+      actualJobId = jobId;
+      jobData = existingJob;
+    } else {
+      throw new Error('Either jobId or orgId must be provided');
     }
 
     // Update job status and heartbeat
@@ -396,7 +481,7 @@ serve(async (req) => {
         last_heartbeat: new Date().toISOString(),
         runner_id: 'robust-processor-v2'
       })
-      .eq('id', jobId);
+      .eq('id', actualJobId);
 
     // Get brand catalog for the organization
     const { data: brandCatalog } = await supabase
@@ -416,7 +501,7 @@ serve(async (req) => {
       const { data: pendingTasks, error: tasksError } = await supabase
         .from('batch_tasks')
         .select('*')
-        .eq('batch_job_id', jobId)
+        .eq('batch_job_id', actualJobId)
         .eq('status', 'pending')
         .limit(5);
 
@@ -432,14 +517,14 @@ serve(async (req) => {
         const { data: allTasks } = await supabase
           .from('batch_tasks')
           .select('status')
-          .eq('batch_job_id', jobId);
+          .eq('batch_job_id', actualJobId);
 
         const completedCount = allTasks?.filter(t => t.status === 'completed').length || 0;
         const failedCount = allTasks?.filter(t => t.status === 'failed').length || 0;
         const totalTasks = allTasks?.length || 0;
 
         if (completedCount + failedCount === totalTasks) {
-          console.log(`✅ All tasks completed for job: ${jobId}`);
+          console.log(`✅ All tasks completed for job: ${actualJobId}`);
           
           // Update job status to completed
           await supabase
@@ -448,7 +533,7 @@ serve(async (req) => {
               status: 'completed',
               completed_at: new Date().toISOString()
             })
-            .eq('id', jobId);
+            .eq('id', actualJobId);
           
           break;
         }
@@ -470,7 +555,7 @@ serve(async (req) => {
       await supabase
         .from('batch_jobs')
         .update({ last_heartbeat: new Date().toISOString() })
-        .eq('id', jobId);
+        .eq('id', actualJobId);
 
       console.log(`📊 Processed ${processedTasks} tasks so far`);
     }
@@ -479,18 +564,18 @@ serve(async (req) => {
     const { data: finalTasks } = await supabase
       .from('batch_tasks')
       .select('status')
-      .eq('batch_job_id', jobId);
+      .eq('batch_job_id', actualJobId);
 
     const completedCount = finalTasks?.filter(t => t.status === 'completed').length || 0;
     const failedCount = finalTasks?.filter(t => t.status === 'failed').length || 0;
     const cancelledCount = finalTasks?.filter(t => t.status === 'cancelled').length || 0;
 
-    console.log(`🎉 Job ${jobId} completed: ${completedCount} success, ${failedCount} failed, ${cancelledCount} cancelled`);
+    console.log(`🎉 Job ${actualJobId} completed: ${completedCount} success, ${failedCount} failed, ${cancelledCount} cancelled`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        jobId,
+        jobId: actualJobId,
         completedTasks: completedCount,
         failedTasks: failedCount,
         cancelledTasks: cancelledCount,
