@@ -92,7 +92,7 @@ export default function Prompts() {
       // No auto-refresh to prevent constant page refreshes
       // Users can manually refresh using the "Refresh Data" button
     }
-  }, [orgData]);
+  }, [orgData?.organizations?.id]);
 
   const loadSuggestedPrompts = async () => {
     try {

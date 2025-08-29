@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
 import { Crown, Lock } from 'lucide-react';
@@ -11,13 +12,14 @@ interface RestrictedNavigationProps {
 
 export function RestrictedNavigation({ children, feature, className = '' }: RestrictedNavigationProps) {
   const { canAccessCompetitorAnalysis, canAccessRecommendations } = useSubscriptionGate();
+  const navigate = useNavigate();
   
   const accessCheck = feature === 'competitors' 
     ? canAccessCompetitorAnalysis()
     : canAccessRecommendations();
 
   const handleUpgrade = () => {
-    window.location.href = '/pricing';
+    navigate('/pricing');
   };
 
   if (!accessCheck.hasAccess && !accessCheck.daysRemainingInTrial) {

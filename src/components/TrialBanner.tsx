@@ -1,5 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import { Clock, Crown } from 'lucide-react';
 
 interface TrialBannerProps {
@@ -8,11 +9,13 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ daysRemaining, onUpgrade }: TrialBannerProps) {
+  const navigate = useNavigate();
+  
   const handleUpgrade = () => {
     if (onUpgrade) {
       onUpgrade();
     } else {
-      window.location.href = '/pricing';
+      navigate('/pricing');
     }
   };
 

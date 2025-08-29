@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -11,6 +11,7 @@ interface SubscriptionGateProps {
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const { user, orgData, subscriptionData, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Show loading state
   if (loading) {
@@ -63,7 +64,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
             
             <Button 
               className="w-full" 
-              onClick={() => window.location.href = '/pricing'}
+              onClick={() => navigate('/pricing')}
             >
               Choose Your Plan
             </Button>

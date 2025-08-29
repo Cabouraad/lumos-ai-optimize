@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 import { Crown, Zap, Clock } from 'lucide-react';
 
 interface UpgradePromptProps {
@@ -11,9 +12,11 @@ interface UpgradePromptProps {
 }
 
 export function UpgradePrompt({ feature, reason, isTrialExpired, daysRemainingInTrial }: UpgradePromptProps) {
+  const navigate = useNavigate();
+  
   const handleUpgrade = () => {
     // Navigate to pricing page or trigger checkout
-    window.location.href = '/pricing';
+    navigate('/pricing');
   };
 
   if (isTrialExpired) {

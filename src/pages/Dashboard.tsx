@@ -30,7 +30,7 @@ export default function Dashboard() {
     if (orgData?.organizations?.id) {
       loadRecommendations();
     }
-  }, [orgData]);
+  }, [orgData?.organizations?.id]);
 
   const loadDashboardData = async () => {
     try {

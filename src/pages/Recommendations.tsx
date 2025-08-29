@@ -82,7 +82,7 @@ export default function Recommendations() {
     if (orgData?.organizations?.id) {
       loadRecommendations();
     }
-  }, [orgData]);
+  }, [orgData?.organizations?.id]);
 
   const loadRecommendations = async () => {
     if (!orgData?.organizations?.id) return;
