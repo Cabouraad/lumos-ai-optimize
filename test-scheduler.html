@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Daily Batch Trigger</title>
+</head>
+<body>
+    <h1>Testing Daily Batch Trigger</h1>
+    <button onclick="testTrigger()">Trigger Daily Batch (Manual)</button>
+    <button onclick="testReconciler()">Trigger Batch Reconciler</button>
+    <div id="results"></div>
+
+    <script>
+        const CRON_SECRET = 'a978931713ce1c30123378480cbf38a3fc3ea7b9d299c6c848c463c3ca6e983';
+        
+        async function testTrigger() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<h3>🚀 Triggering Daily Batch (Manual)...</h3>';
+            
+            try {
+                const response = await fetch('https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-manual-call': 'true',
+                        'x-cron-secret': CRON_SECRET
+                    },
+                    body: JSON.stringify({ test: true })
+                });
+                
+                const text = await response.text();
+                results.innerHTML += `<p><strong>Response:</strong> ${response.status}</p>`;
+                results.innerHTML += `<pre>${text}</pre>`;
+                
+                // Wait and check status
+                setTimeout(() => checkStatus(), 3000);
+            } catch (error) {
+                results.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        async function testReconciler() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<h3>🔧 Triggering Batch Reconciler...</h3>';
+            
+            try {
+                const response = await fetch('https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/batch-reconciler', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-manual-call': 'true'
+                    },
+                    body: JSON.stringify({ test: true })
+                });
+                
+                const text = await response.text();
+                results.innerHTML += `<p><strong>Response:</strong> ${response.status}</p>`;
+                results.innerHTML += `<pre>${text}</pre>`;
+            } catch (error) {
+                results.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        async function checkStatus() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<h3>📊 Checking Status...</h3>';
+            results.innerHTML += '<p>Check the Supabase logs and database tables for results.</p>';
+        }
+    </script>
+</body>
+</html>

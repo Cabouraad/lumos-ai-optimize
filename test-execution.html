@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scheduler Test Execution</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-left: 3px solid #007cba; background: #f0f9ff; }
+        .error { border-left-color: #dc2626; background: #fef2f2; }
+        .success { border-left-color: #16a34a; background: #f0fdf4; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow: auto; }
+        button { padding: 10px 20px; margin: 10px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0369a1; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Scheduler System Test Suite</h1>
+    <div id="status">Ready to test...</div>
+    
+    <button onclick="runFullTest()">🚀 Run Full Test Suite</button>
+    <button onclick="testDailyBatch()">📊 Test Daily Batch Only</button>
+    <button onclick="testReconciler()">🔧 Test Reconciler Only</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://cgocsffxqyhojtyzniyz.supabase.co';
+        const CRON_SECRET = 'a978931713ce1c30123378480cbf38a3fc3ea7b9d299c6c848c463c3ca6e983';
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> - ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+        
+        function logJson(data, label = 'Data') {
+            log(`<strong>${label}:</strong><pre>${JSON.stringify(data, null, 2)}</pre>`);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        
+        async function testDailyBatch() {
+            updateStatus('🚀 Testing Daily Batch Trigger...');
+            log('Starting daily batch trigger test', 'info');
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/daily-batch-trigger`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-manual-call': 'true',
+                        'x-cron-secret': CRON_SECRET,
+                        'Authorization': `Bearer ${ANON_KEY}`
+                    },
+                    body: JSON.stringify({ 
+                        manualTest: true,
+                        testStartTime: new Date().toISOString()
+                    })
+                });
+                
+                const endTime = Date.now();
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    log(`✅ Daily batch trigger successful (${endTime - startTime}ms)`, 'success');
+                    try {
+                        const data = JSON.parse(responseText);
+                        logJson(data, 'Response Data');
+                    } catch {
+                        log(`Response: ${responseText}`);
+                    }
+                    return true;
+                } else {
+                    log(`❌ Daily batch trigger failed (${response.status}): ${responseText}`, 'error');
+                    return false;
+                }
+                
+            } catch (error) {
+                log(`🔥 Error calling daily batch trigger: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testReconciler() {
+            updateStatus('🔧 Testing Batch Reconciler...');
+            log('Starting batch reconciler test', 'info');
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/batch-reconciler`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-manual-call': 'true',
+                        'Authorization': `Bearer ${ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        manualTest: true,
+                        testStartTime: new Date().toISOString()
+                    })
+                });
+                
+                const endTime = Date.now();
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    log(`✅ Batch reconciler successful (${endTime - startTime}ms)`, 'success');
+                    try {
+                        const data = JSON.parse(responseText);
+                        logJson(data, 'Reconciler Response');
+                    } catch {
+                        log(`Response: ${responseText}`);
+                    }
+                    return true;
+                } else {
+                    log(`❌ Batch reconciler failed (${response.status}): ${responseText}`, 'error');
+                    return false;
+                }
+                
+            } catch (error) {
+                log(`🔥 Error calling batch reconciler: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testIdempotency() {
+            updateStatus('🔄 Testing Idempotency...');
+            log('Testing idempotency (second daily batch call)', 'info');
+            
+            // Wait a moment then try again
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/daily-batch-trigger`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-manual-call': 'true',
+                        'x-cron-secret': CRON_SECRET,
+                        'Authorization': `Bearer ${ANON_KEY}`
+                    },
+                    body: JSON.stringify({ 
+                        idempotencyTest: true,
+                        testStartTime: new Date().toISOString()
+                    })
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        if (data.message && data.message.includes('already completed')) {
+                            log('✅ Idempotency working correctly - second call properly rejected', 'success');
+                        } else {
+                            log('⚠️ Idempotency check - got success but unclear if duplicate was prevented', 'info');
+                            logJson(data, 'Second Call Response');
+                        }
+                    } catch {
+                        log(`Second call response: ${responseText}`);
+                    }
+                } else {
+                    log(`❌ Idempotency test failed (${response.status}): ${responseText}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`🔥 Error during idempotency test: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runFullTest() {
+            updateStatus('🧪 Running Full Test Suite...');
+            clearResults();
+            log('🚀 Starting comprehensive scheduler test suite', 'info');
+            
+            // Step 1: Test daily batch trigger
+            const dailyBatchSuccess = await testDailyBatch();
+            
+            if (dailyBatchSuccess) {
+                log('⏳ Waiting 10 seconds for batch processing to start...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                
+                // Step 2: Test reconciler
+                await testReconciler();
+                
+                // Step 3: Test idempotency
+                await testIdempotency();
+            }
+            
+            updateStatus('✅ Test suite completed');
+            log('🎉 Full test suite completed! Check Supabase logs and tables for detailed results.', 'success');
+        }
+        
+        // Auto-run on load for convenience
+        window.addEventListener('load', () => {
+            log('Test page loaded and ready', 'info');
+        });
+    </script>
+</body>
+</html>
