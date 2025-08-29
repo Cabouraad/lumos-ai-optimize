@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
 import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle } from 'lucide-react';
 import { ResponseClassificationFixer } from './ResponseClassificationFixer';
+import { CompetitorChipList } from './CompetitorChip';
 
 interface ProviderResponseCardProps {
   provider: 'openai' | 'gemini' | 'perplexity';
@@ -158,53 +159,26 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
             </div>
 
             {/* Competitors Found */}
-            {response.competitors_json && Array.isArray(response.competitors_json) && response.competitors_json.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <p className="text-xs font-medium">Competitors Found:</p>
-                  {response.competitors_count > 20 && (
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <AlertTriangle className="h-3 w-3 text-amber-500" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>High competitor count may indicate classification issues</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {response.competitors_json.slice(0, 4).map((competitor: string, index: number) => {
-                    const isHubSpotVariant = /hubspot|marketing hub|hub.?spot/i.test(competitor);
-                    const isSuspicious = /^(seo|marketing|social media|facebook)$/i.test(competitor.trim());
-                    
-                    return (
-                      <Badge 
-                        key={index} 
-                        variant={isHubSpotVariant ? "destructive" : isSuspicious ? "secondary" : "outline"} 
-                        className={`text-xs px-1.5 py-0.5 ${
-                          isHubSpotVariant ? "animate-pulse border-red-300" : 
-                          isSuspicious ? "opacity-60" : ""
-                        }`}
-                        title={
-                          isHubSpotVariant ? "⚠️ This might be your brand!" :
-                          isSuspicious ? "Generic term - may be false positive" :
-                          competitor
-                        }
-                      >
-                        {competitor}
-                        {isHubSpotVariant && " ⚠️"}
-                      </Badge>
-                    );
-                  })}
-                  {response.competitors_json.length > 4 && (
-                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 text-muted-foreground">
-                      +{response.competitors_json.length - 4} more
-                    </Badge>
-                  )}
-                </div>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs font-medium">Competitors Found:</p>
+                {response.competitors_count > 15 && (
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <AlertTriangle className="h-3 w-3 text-amber-500" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>High competitor count may indicate classification issues</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
-            )}
+              <CompetitorChipList 
+                competitors={response.competitors_json || []}
+                maxDisplay={4}
+                size="sm"
+              />
+            </div>
 
             {/* AI Response Preview */}
             {response.raw_ai_response && (

@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CompetitorChip, isValidCompetitor } from './CompetitorChip';
+import { Building2 } from 'lucide-react';
 
 interface CompetitorData {
   competitor_name: string;
@@ -19,45 +21,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Client-side filter for generic terms that shouldn't be competitors
-  const isValidCompetitor = (competitorName: string): boolean => {
-    const normalized = competitorName.toLowerCase().trim();
-    
-    // Comprehensive filter for generic/invalid terms
-    const invalidTerms = [
-      // Generic business terms
-      'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
-      'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',
-      'customer', 'customers', 'client', 'clients', 'email', 'web', 'mobile', 'app',
-      'digital', 'online', 'social', 'media', 'search', 'analytics', 'insights',
-      'management', 'automation', 'integration', 'optimization', 'performance',
-      'experience', 'strategy', 'campaigns', 'audience', 'engagement', 'conversion',
-      'track', 'automate', 'analyze', 'implement', 'use', 'create', 'build',
-      // Words from the specific response
-      'feedback', 'surveys', 'meetings', 'collaboration', 'personalization',
-      'privacy', 'compliance', 'training', 'documentation', 'visualization',
-      // Numbers and basic words
-      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-      'for', 'and', 'the', 'with', 'you', 'your', 'our', 'their', 'this', 'that'
-    ];
-    
-    // Check if it's in the invalid terms list
-    if (invalidTerms.includes(normalized)) {
-      return false;
-    }
-    
-    // Filter very short terms (likely generic)
-    if (normalized.length < 3) {
-      return false;
-    }
-    
-    // Filter single words that are too generic (unless they contain dots/hyphens indicating brands)
-    if (!normalized.includes(' ') && !normalized.includes('.') && !normalized.includes('-') && normalized.length < 5) {
-      return false;
-    }
-    
-    return true;
-  };
+  // Use imported validation function
 
   useEffect(() => {
     const fetchCompetitors = async () => {
@@ -120,33 +84,47 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
 
   if (competitors.length === 0) {
     return (
-      <div className="text-xs text-muted-foreground">
-        No verified competitors found in recent responses
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Building2 className="h-4 w-4" />
+        <span className="text-sm">No competitors found</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-        <span>Verified Competitors ({competitors.length})</span>
+        <span>Top Competitors ({competitors.length})</span>
         <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
-          ✓ Catalog
+          ✓ Verified
         </Badge>
       </div>
+      
+      {/* Competitor Chips */}
+      <div className="flex flex-wrap gap-2">
+        {competitors.slice(0, 5).map((competitor) => (
+          <CompetitorChip
+            key={competitor.competitor_name}
+            name={competitor.competitor_name}
+            mentions={competitor.mentions}
+            confidence={0.9} // High confidence for catalog-verified competitors
+            size="sm"
+            variant="outline"
+          />
+        ))}
+      </div>
+
+      {/* Detailed List */}
       <div className="space-y-1">
-        {competitors.slice(0, 5).map((competitor, index) => (
+        {competitors.slice(0, 3).map((competitor, index) => (
           <div key={competitor.competitor_name} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">#{index + 1}</span>
               <span className="font-medium">{competitor.competitor_name}</span>
-              <Badge variant="outline" className="text-xs px-1 py-0 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                ✓
-              </Badge>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs px-1 py-0">
-                {competitor.mentions} mentions
+                {competitor.mentions}
               </Badge>
               <span className="text-muted-foreground font-mono">
                 {competitor.share.toFixed(1)}%

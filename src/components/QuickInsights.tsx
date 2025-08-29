@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Users, Award } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { CompetitorChip } from './CompetitorChip';
 
 interface QuickInsightsProps {
   topBrands?: Array<{ name: string; mentions: number }>;
@@ -84,21 +85,32 @@ export function QuickInsights({
           </CardHeader>
           <CardContent className="space-y-2">
             {topCompetitors.length > 0 ? (
-              topCompetitors.slice(0, 3).map((competitor, index) => (
-                <div key={competitor.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      index === 0 ? 'bg-chart-2' : index === 1 ? 'bg-chart-3' : 'bg-chart-4'
-                    }`} />
-                    <span className="text-sm font-medium">{competitor.name}</span>
+              <div className="space-y-2">
+                {topCompetitors.slice(0, 3).map((competitor, index) => (
+                  <div key={competitor.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${
+                        index === 0 ? 'bg-chart-2' : index === 1 ? 'bg-chart-3' : 'bg-chart-4'
+                      }`} />
+                      <CompetitorChip
+                        name={competitor.name}
+                        mentions={competitor.mentions}
+                        size="sm"
+                        variant="outline"
+                        showLogo={true}
+                      />
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {competitor.mentions}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {competitor.mentions}
-                  </Badge>
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No competitor data yet</div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span className="text-sm">No competitors found</span>
+              </div>
             )}
           </CardContent>
         </Card>

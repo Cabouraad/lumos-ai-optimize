@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle } from 'lucide-react';
+import { CompetitorChipList } from './CompetitorChip';
 
 interface ProviderResponse {
   id: string;
@@ -267,18 +268,14 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                 )}
 
                 {/* Competitors */}
-                {result.competitors_json && Array.isArray(result.competitors_json) && result.competitors_json.length > 0 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-sm font-medium mb-2">Competitor Brands:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {result.competitors_json.map((competitor: string, index: number) => (
-                        <Badge key={index} variant="destructive" className="text-xs">
-                          {competitor}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-medium mb-3">Competitor Brands:</p>
+                  <CompetitorChipList 
+                    competitors={result.competitors_json || []}
+                    maxDisplay={8}
+                    size="sm"
+                  />
+                </div>
 
                 {/* Raw AI Response */}
                 {result.raw_ai_response && (

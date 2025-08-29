@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
 import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';
+import { CompetitorDisplayTest } from '@/components/CompetitorDisplayTest';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
@@ -167,6 +168,11 @@ export default function Settings() {
         <SubscriptionManager />
 
         <BrandCandidatesManager />
+
+        {/* Competitor Display Test (Development Only) */}
+        <section className="rounded-xl border p-4">
+          <CompetitorDisplayTest />
+        </section>
 
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Organization</h2>
