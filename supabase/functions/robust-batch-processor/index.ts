@@ -45,10 +45,10 @@ const getProviderConfigs = (): Record<string, ProviderConfig> => ({
     name: 'perplexity',
     apiKey: Deno.env.get('PERPLEXITY_API_KEY') || '',
     baseUrl: 'https://api.perplexity.ai/chat/completions',
-    model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar-small-online',
+    model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar',
     headers: { 'Content-Type': 'application/json' },
     bodyTemplate: (prompt: string) => ({
-      model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar-small-online',
+      model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: 4000
@@ -82,8 +82,19 @@ async function analyzeAIResponse(
   orgData?: any
 ): Promise<any> {
   try {
-    // Create brand gazetteer for improved detection
-    const gazetteer = createBrandGazetteer(brandCatalog, 'software'); // Default to software industry
+    // Determine industry from org business context
+    const contextText = `${orgData?.products_services || ''} ${orgData?.business_description || ''} ${(orgData?.keywords || []).join(' ')}`.toLowerCase();
+    let industry = 'software';
+    if (/\becommerce|retail|shop|store|cart|checkout|shopify|woocommerce\b/.test(contextText)) {
+      industry = 'ecommerce';
+    } else if (/\bmarketing|crm|sales|automation|email|campaign|social|customer\b/.test(contextText)) {
+      industry = 'marketing';
+    } else if (/\bdesign|creative|graphics|ui|ux|illustration|photo|video\b/.test(contextText)) {
+      industry = 'design';
+    }
+
+    // Create brand gazetteer for improved detection, industry-aware
+    const gazetteer = createBrandGazetteer(brandCatalog, industry);
     
     // Extract user brand normalizations for comparison - with fallback to org name
     let userBrandNorms = brandCatalog
@@ -96,6 +107,21 @@ async function analyzeAIResponse(
       userBrandNorms = [orgData.name.toLowerCase().trim()];
       console.log(`🔄 Using organization name "${orgData.name}" as brand fallback`);
     }
+
+    // Prepare normalized sets for filtering competitors strictly by industry
+    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim();
+    const commonBrands = [
+      'Microsoft','Google','Apple','Amazon','Meta','Facebook','Instagram','Twitter','X','LinkedIn','YouTube','Netflix','Spotify','Adobe',
+      'Salesforce','HubSpot','Zoom','Slack','GitHub','Atlassian','AWS','Azure','Stripe','PayPal','Shopify'
+    ];
+    const blockedGenerics = [
+      'seo','marketing','social media','facebook','adobe','social','media','instagram','google analytics','linkedin','twitter','x'
+    ];
+    const commonSet = new Set(commonBrands.map(normalize));
+    const blockedSet = new Set(blockedGenerics.map(normalize));
+    const userSet = new Set(userBrandNorms.map(normalize));
+    const gazetteerSet = new Set(gazetteer.map(normalize));
+    const allowedCompetitorSet = new Set<string>([...gazetteerSet].filter(n => !userSet.has(n) && !commonSet.has(n)));
     
     // Use enhanced artifact extraction
     const artifacts = extractArtifacts(responseText, userBrandNorms, gazetteer);
@@ -144,14 +170,22 @@ async function analyzeAIResponse(
       orgBrandProminence,
       brands: artifacts.brands.map(b => b.name),
       competitors: artifacts.competitors
-        .filter(c => c.confidence >= 0.6) // Filter low-confidence competitors
+        .filter(c => {
+          const n = normalize(c.name);
+          return c.confidence >= 0.75 && allowedCompetitorSet.has(n) && !blockedSet.has(n);
+        })
         .map(c => c.name),
-      competitorsCount: artifacts.competitors.filter(c => c.confidence >= 0.6).length,
+      competitorsCount: artifacts.competitors.filter(c => {
+        const n = normalize(c.name);
+        return c.confidence >= 0.75 && allowedCompetitorSet.has(n) && !blockedSet.has(n);
+      }).length,
       citations: artifacts.citations,
       metadata: {
         ...artifacts.metadata,
-        analysis_version: '2.0',
-        extraction_method: 'enhanced_artifacts'
+        analysis_version: '2.1',
+        extraction_method: 'enhanced_artifacts',
+        industry_used: industry,
+        competitor_conf_threshold: 0.75
       }
     };
   } catch (error) {
