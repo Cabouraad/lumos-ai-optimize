@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface BusinessContext {
   keywords: string[]
+  competitors: string[]
   business_description: string
   products_services: string
   target_audience: string
@@ -184,6 +185,7 @@ Please try manually entering your business information in the form fields below,
 
 {
   "keywords": ["keyword1", "keyword2", "keyword3"],
+  "competitors": ["competitor1", "competitor2", "competitor3"],
   "business_description": "Brief description of what the business does",
   "products_services": "Description of main products and services offered", 
   "target_audience": "Description of ideal customers and target market"
@@ -191,6 +193,7 @@ Please try manually entering your business information in the form fields below,
 
 Instructions:
 - Extract 5-8 specific keywords related to the industry, products, or services (avoid generic terms)
+- Extract 3-6 main competitors mentioned or implied on the website (actual company names only)
 - Keep descriptions concise and professional
 - Focus on concrete business activities, not marketing language
 - If information is unclear, provide reasonable inferences based on context
@@ -258,6 +261,9 @@ Return only the JSON object, no other text:`
       if (!businessContext.keywords || !Array.isArray(businessContext.keywords)) {
         businessContext.keywords = []
       }
+      if (!businessContext.competitors || !Array.isArray(businessContext.competitors)) {
+        businessContext.competitors = []
+      }
       if (typeof businessContext.business_description !== 'string') {
         businessContext.business_description = ''
       }
@@ -274,6 +280,12 @@ Return only the JSON object, no other text:`
         .map(k => k.trim())
         .slice(0, 10) // Limit to 10 keywords
 
+      // Filter out empty or invalid competitors
+      businessContext.competitors = businessContext.competitors
+        .filter(c => c && typeof c === 'string' && c.trim().length > 0)
+        .map(c => c.trim())
+        .slice(0, 8) // Limit to 8 competitors
+
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', analysisText, 'Error:', parseError)
       throw new Error('Failed to parse AI analysis results')
@@ -286,6 +298,7 @@ Return only the JSON object, no other text:`
       .from('organizations')
       .update({
         keywords: businessContext.keywords,
+        competitors: businessContext.competitors,
         business_description: businessContext.business_description,
         products_services: businessContext.products_services,
         target_audience: businessContext.target_audience
