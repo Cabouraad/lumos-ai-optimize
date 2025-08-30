@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts'
+import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -98,6 +99,9 @@ async function analyzeAIResponse(
       nerMatches: detectionResult.metadata.ner_matches,
       processingTime: detectionResult.metadata.processing_time_ms
     });
+    
+    // Define blocked generic terms and common brands for filtering
+    const blockedGenerics = [
       // Generic business terms
       'tools', 'tool', 'software', 'platform', 'service', 'solution', 'system',
       'data', 'content', 'marketing', 'business', 'company', 'team', 'user', 'users',
@@ -109,6 +113,15 @@ async function analyzeAIResponse(
       'seo','marketing','social media','facebook','adobe','social','media','instagram',
       'google analytics','linkedin','twitter','x','youtube','tiktok','pinterest'
     ];
+    
+    // Create normalize function
+    const normalize = (str: string) => str.toLowerCase().trim();
+    
+    // Create brand sets from detection result
+    const commonBrands: string[] = []; // Can be populated from a known list if needed
+    const userBrandNorms = detectionResult.orgBrands.map((b: any) => b.name);
+    const gazetteer = detectionResult.competitors.map((c: any) => c.name);
+    
     const commonSet = new Set(commonBrands.map(normalize));
     const blockedSet = new Set(blockedGenerics.map(normalize));
     const userSet = new Set(userBrandNorms.map(normalize));
@@ -176,7 +189,7 @@ async function analyzeAIResponse(
         ...artifacts.metadata,
         analysis_version: '2.1',
         extraction_method: 'enhanced_artifacts',
-        industry_used: industry,
+        industry_used: orgData?.industry || 'unknown',
         competitor_conf_threshold: 0.75
       }
     };
