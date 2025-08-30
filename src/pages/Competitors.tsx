@@ -252,22 +252,25 @@ export default function Competitors() {
   };
 
   const getTopBrands = (): CompetitorBrand[] => {
-    const competitors = transformCompetitorData(competitorData).slice(0, 5);
+    // Only show competitors that are in catalog AND found in recent prompts
+    const competitors = transformCompetitorData(competitorData).slice(0, 3);
     return orgBrand ? [orgBrand, ...competitors] : competitors;
   };
 
   const getNearestCompetitors = (): CompetitorBrand[] => {
+    // Only show competitors that are in catalog AND found in recent prompts
     const competitors = transformCompetitorData(competitorData)
       .sort((a, b) => b.averageScore - a.averageScore)
-      .slice(0, 5);
+      .slice(0, 3);
     return orgBrand ? [orgBrand, ...competitors] : competitors;
   };
 
   const getUpcomingBrands = (): CompetitorBrand[] => {
+    // Only show competitors that are in catalog AND found in recent prompts
     const competitors = transformCompetitorData(competitorData)
       .filter(c => c.trend && c.trend > 0)
       .sort((a, b) => (b.trend || 0) - (a.trend || 0))
-      .slice(0, 4);
+      .slice(0, 3);
     return orgBrand ? [orgBrand, ...competitors] : competitors;
   };
 
