@@ -1,10 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getUserOrgId } from '../_shared/auth.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://llumos.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Credentials': 'true'
 };
 
 serve(async (req) => {
@@ -13,20 +15,18 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const openaiKey = Deno.env.get('OPENAI_API_KEY')!;
   
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: req.headers.get('Authorization')! } }
+  });
 
   try {
-    const { orgId } = await req.json();
+    // Verify authentication and get user's org ID (ignore orgId from request body for security)
+    const orgId = await getUserOrgId(supabase);
 
-    if (!orgId) {
-      return new Response(JSON.stringify({ error: 'Missing orgId' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    console.log(`Generating enhanced prompt suggestions for authenticated user's org: ${orgId}`);
 
     console.log(`Generating enhanced prompt suggestions for org: ${orgId}`);
 

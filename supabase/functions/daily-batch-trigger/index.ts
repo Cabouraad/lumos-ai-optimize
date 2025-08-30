@@ -74,11 +74,10 @@ serve(async (req) => {
     console.warn('⚠️ Failed to log scheduler run start:', logError);
   }
 
-  // Verify cron secret (support both env var and database lookup)
+  // Verify cron secret
   const cronSecret = req.headers.get('x-cron-secret');
-  const manualCall = req.headers.get('x-manual-call') === 'true';
   
-  if (!manualCall && !cronSecret) {
+  if (!cronSecret) {
     console.error('❌ Missing cron secret');
     await supabase.from('scheduler_runs').update({
       status: 'failed',
@@ -93,66 +92,45 @@ serve(async (req) => {
   }
 
   try {
-    // Verify secret against database if not manual call
-    if (!manualCall) {
-      const { data: secretData, error: secretError } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'cron_secret')
-        .single();
+    // Verify secret against database
+    const { data: secretData, error: secretError } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'cron_secret')
+      .single();
 
-      if (secretError || !secretData?.value || secretData.value !== cronSecret) {
-        console.error('❌ Invalid cron secret');
-        await supabase.from('scheduler_runs').update({
-          status: 'failed',
-          error_message: 'Invalid cron secret',
-          completed_at: new Date().toISOString()
-        }).eq('id', runId);
-        
-        return new Response(
-          JSON.stringify({ error: 'Invalid cron secret' }),
-          { status: 401, headers: corsHeaders }
-        );
-      }
+    if (secretError || !secretData?.value || secretData.value !== cronSecret) {
+      console.error('❌ Invalid cron secret');
+      await supabase.from('scheduler_runs').update({
+        status: 'failed',
+        error_message: 'Invalid cron secret',
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
+      
+      return new Response(
+        JSON.stringify({ error: 'Invalid cron secret' }),
+        { status: 401, headers: corsHeaders }
+      );
     }
 
-    // Get current NY time info
-    const { yyyy, mm, dd, hh, mi } = nyParts(currentTime);
-    const nyTimeStr = `${yyyy}-${mm}-${dd} ${hh}:${mi} ET`;
+    // Check execution window (3:00 AM - 6:00 AM ET) 
     const inWindow = isInExecutionWindow(currentTime);
-
-    console.log(`Daily batch trigger called at ${nyTimeStr} (key: ${todayKey})`);
-    console.log(`Execution window check: ${inWindow ? '✅ In window (3-6 AM ET)' : '⚠️ Outside window'}`);
-
-    // Execution window guard - only run during scheduled hours unless manual override
-    if (!inWindow && !manualCall) {
-      const isManualOverride = req.headers.get('x-manual-override') === 'true';
-      if (!isManualOverride) {
-        console.log('⏰ Outside execution window, skipping run');
-        
-        await supabase.from('scheduler_runs').update({
-          status: 'completed',
-          result: { 
-            message: 'Outside execution window (3-6 AM ET)', 
-            currentTime: nyTimeStr,
-            executionWindow: '3:00-6:00 AM ET',
-            skipped: true 
-          },
-          completed_at: new Date().toISOString()
-        }).eq('id', runId);
-        
-        return new Response(JSON.stringify({ 
-          success: true, 
-          message: 'Outside execution window (3-6 AM ET), run skipped',
-          currentTime: nyTimeStr,
-          executionWindow: '3:00-6:00 AM ET'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } else {
-        console.log('🔧 Manual override detected, proceeding despite time window');
-      }
+    if (!inWindow) {
+      console.log('⏰ Outside execution window, skipping run');
+      await supabase.from('scheduler_runs').update({
+        status: 'completed',
+        result: { message: 'Outside execution window' },
+        completed_at: new Date().toISOString()
+      }).eq('id', runId);
+      
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Outside execution window (3:00 AM - 6:00 AM ET)' 
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
+    console.log('✅ Within execution window');
 
     // Use the standardized RPC function for duplicate prevention
     const { data: runCheck, error: runCheckError } = await supabase
@@ -181,7 +159,7 @@ serve(async (req) => {
           date: todayKey,
           previousRun: runCheck.previous_key,
           skipped: true,
-          currentTime: nyTimeStr
+          currentTime: currentTime.toISOString()
         },
         completed_at: new Date().toISOString()
       }).eq('id', runId);
@@ -192,13 +170,13 @@ serve(async (req) => {
         date: todayKey,
         previousRun: runCheck.previous_key,
         skipped: true,
-        currentTime: nyTimeStr
+        currentTime: currentTime.toISOString()
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Starting daily batch trigger for ${todayKey} at ${nyTimeStr}`);
+    console.log(`Starting daily batch trigger for ${todayKey} at ${currentTime.toISOString()}`);
 
     // Get all organizations with active prompts
     const { data: orgs, error: orgsError } = await supabase
@@ -228,7 +206,7 @@ serve(async (req) => {
         result: { 
           message: 'No organizations to process',
           date: todayKey,
-          currentTime: nyTimeStr,
+          currentTime: currentTime.toISOString(),
           totalOrgs: 0
         },
         completed_at: new Date().toISOString()
@@ -238,7 +216,7 @@ serve(async (req) => {
         success: true, 
         message: 'No organizations to process',
         date: todayKey,
-        currentTime: nyTimeStr
+        currentTime: currentTime.toISOString()
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -296,7 +274,7 @@ serve(async (req) => {
     const result = {
       success: true,
       date: todayKey,
-      currentTime: nyTimeStr,
+      currentTime: currentTime.toISOString(),
       totalOrgs: totalBatchJobs,
       successfulJobs,
       message: `Triggered batch processing for ${successfulJobs}/${totalBatchJobs} organizations`,
@@ -331,7 +309,7 @@ serve(async (req) => {
       success: false,
       error: error.message,
       date: todayKey,
-      currentTime: nyParts(currentTime)
+      currentTime: currentTime.toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

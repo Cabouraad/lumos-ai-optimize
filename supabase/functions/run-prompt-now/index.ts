@@ -2,10 +2,12 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
+import { getUserOrgId } from '../_shared/auth.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://llumos.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Credentials': 'true'
 };
 
 serve(async (req) => {
@@ -14,16 +16,21 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
+    // Initialize Supabase client with user's JWT
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: req.headers.get('Authorization')! } }
+    });
 
-    const { promptId, orgId } = await req.json();
+    // Verify authentication and get user's org ID (ignore orgId from request for security)
+    const orgId = await getUserOrgId(supabase);
+
+    const { promptId } = await req.json();
     console.log('Running single prompt:', { promptId, orgId });
 
-    if (!promptId || !orgId) {
-      throw new Error('Missing promptId or orgId');
+    if (!promptId) {
+      throw new Error('Missing promptId');
     }
 
     // Get prompt
@@ -130,29 +137,29 @@ serve(async (req) => {
             ? 'llama-3.1-sonar-small-128k-online' 
             : 'gemini-2.0-flash-lite';
 
-        const { error: pprError } = await supabase
-          .from('prompt_provider_responses')
-          .insert({
-            org_id: orgId,
-            prompt_id: promptId,
-            provider: provider.name,
-            status: 'success',
-            score: analysis.score,
-            org_brand_present: analysis.orgBrandPresent,
-            org_brand_prominence: analysis.orgBrandProminence,
-            brands_json: analysis.brands,
-            competitors_json: analysis.competitors,
-            competitors_count: analysis.competitors.length,
-            token_in: response.tokenIn || 0,
-            token_out: response.tokenOut || 0,
-            raw_ai_response: response.text,
-            model: providerModel,
-            run_at: new Date().toISOString(),
-            metadata: { 
-              analysis_method: 'enhanced_v2',
-              detection_metadata: detectionResult.metadata
-            }
-          });
+          const { error: pprError } = await supabase
+            .from('prompt_provider_responses')
+            .insert({
+              org_id: orgId,
+              prompt_id: promptId,
+              provider: provider.name,
+              status: 'success',
+              score: analysis.score,
+              org_brand_present: analysis.orgBrandPresent,
+              org_brand_prominence: analysis.orgBrandProminence,
+              brands_json: analysis.brands,
+              competitors_json: analysis.competitors,
+              competitors_count: analysis.competitors.length,
+              token_in: response.tokenIn || 0,
+              token_out: response.tokenOut || 0,
+              raw_ai_response: response.text,
+              model: providerModel,
+              run_at: new Date().toISOString(),
+              metadata: { 
+                analysis_method: 'enhanced_v2',
+                detection_metadata: detectionResult.metadata
+              }
+            });
         if (pprError) {
           console.error('Failed to insert prompt_provider_responses:', pprError);
         }

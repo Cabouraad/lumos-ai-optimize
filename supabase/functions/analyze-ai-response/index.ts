@@ -3,20 +3,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { computeEnhancedVisibilityScore } from '../_shared/scoring/enhanced-visibility.ts';
+import { getUserOrgId } from '../_shared/auth.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://llumos.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Credentials': 'true'
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   
   if (!openaiKey) {
@@ -26,25 +27,31 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: req.headers.get('Authorization')! } }
+  });
 
   try {
-    const { promptId, orgId, providerId, responseText, citations, brands } = await req.json();
+    // Verify authentication and get user's org ID (ignore orgId from request for security)
+    const userOrgId = await getUserOrgId(supabase);
 
-    if (!promptId || !orgId || !providerId || !responseText) {
+    const { promptId, providerId, responseText, citations, brands } = await req.json();
+
+    if (!promptId || !providerId || !responseText) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Analyzing response for prompt ${promptId}`);
+    console.log(`Analyzing response for prompt ${promptId} (org: ${userOrgId})`);
 
-    // Get prompt data
+    // Get prompt data (verify it belongs to user's org)
     const { data: prompt, error: promptError } = await supabase
       .from('prompts')
       .select('text')
       .eq('id', promptId)
+      .eq('org_id', userOrgId)
       .single();
 
     if (promptError) {
@@ -52,9 +59,9 @@ serve(async (req) => {
       throw new Error('Failed to fetch prompt');
     }
 
-    // Use enhanced competitor detection
+    // Use enhanced competitor detection with user's org ID
     console.log('🔍 Starting enhanced competitor detection...');
-    const detectionResult = await detectCompetitors(supabase, orgId, responseText, {
+    const detectionResult = await detectCompetitors(supabase, userOrgId, responseText, {
       useNERFallback: true,
       maxCandidates: 15,
       confidenceThreshold: 0.7
@@ -177,7 +184,7 @@ serve(async (req) => {
     for (const competitor of artifacts.competitors) {
       try {
         const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
-          p_org_id: orgId,
+          p_org_id: userOrgId,
           p_prompt_id: promptId,
           p_competitor_name: competitor.name,
           p_normalized_name: competitor.normalized,
@@ -191,7 +198,7 @@ serve(async (req) => {
 
         // Also update brand catalog
         const { error: brandError } = await supabase.rpc('upsert_competitor_brand', {
-          p_org_id: orgId,
+          p_org_id: userOrgId,
           p_brand_name: competitor.name,
           p_score: Math.round(competitor.confidence * 100)
         });
@@ -208,7 +215,7 @@ serve(async (req) => {
     for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
       try {
         const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
-          p_org_id: orgId,
+          p_org_id: userOrgId,
           p_prompt_id: promptId,
           p_competitor_name: brand.name,
           p_normalized_name: brand.normalized,

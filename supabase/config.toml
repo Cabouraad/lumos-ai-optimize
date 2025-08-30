@@ -10,6 +10,15 @@ verify_jwt = false
 [functions.batch-reconciler]
 verify_jwt = false
 
+[functions.enhanced-prompt-suggestions]
+verify_jwt = true
+
+[functions.analyze-ai-response]
+verify_jwt = true
+
+[functions.brand-enrich]
+verify_jwt = true
+
 [functions.sync-cron-secret]
 verify_jwt = true
 
