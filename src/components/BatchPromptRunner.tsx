@@ -138,7 +138,12 @@ export function BatchPromptRunner() {
     try {
       console.log('🔧 Manually running batch reconciler...');
       
-      const { data, error } = await supabase.functions.invoke('batch-reconciler');
+      const { data, error } = await supabase.functions.invoke('batch-reconciler', {
+        body: {},
+        headers: {
+          'x-manual-call': 'true'
+        }
+      });
 
       if (error) {
         console.error('❌ Reconciler failed:', error);

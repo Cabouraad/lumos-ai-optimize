@@ -59,6 +59,7 @@ async function testScheduler() {
     // Step 1: Test daily batch trigger
     console.log('\n📡 Step 1: Testing daily-batch-trigger...');
     const triggerResult = await makeRequest('daily-batch-trigger', {
+      force: true,
       manual_test: true,
       timestamp: new Date().toISOString()
     });
@@ -86,11 +87,12 @@ async function testScheduler() {
       if (reconcilerResult.status === 200) {
         console.log('✅ Batch reconciler successful');
         
-        // Step 3: Test idempotency
+        // Step 3: Test idempotency (without force flag)
         console.log('\n🔄 Step 3: Testing idempotency (should skip)...');
         const idempotencyResult = await makeRequest('daily-batch-trigger', {
           manual_test: true,
           timestamp: new Date().toISOString()
+          // No force flag this time
         });
         
         console.log(`Status: ${idempotencyResult.status}`);

@@ -113,9 +113,22 @@ serve(async (req) => {
       );
     }
 
-    // Check execution window (3:00 AM - 6:00 AM ET) 
+    // Check for bypass flag
+    let requestBody = {};
+    try {
+      const body = await req.text();
+      if (body) {
+        requestBody = JSON.parse(body);
+      }
+    } catch (e) {
+      // Not JSON or empty body, continue
+    }
+
+    // Check execution window (3:00 AM - 6:00 AM ET) unless force flag is set
     const inWindow = isInExecutionWindow(currentTime);
-    if (!inWindow) {
+    const forceRun = requestBody.force === true;
+    
+    if (!inWindow && !forceRun) {
       console.log('⏰ Outside execution window, skipping run');
       await supabase.from('scheduler_runs').update({
         status: 'completed',
@@ -125,12 +138,17 @@ serve(async (req) => {
       
       return new Response(JSON.stringify({ 
         success: false, 
-        message: 'Outside execution window (3:00 AM - 6:00 AM ET)' 
+        message: 'Outside execution window (3:00 AM - 6:00 AM ET). Use {"force": true} to bypass.' 
       }), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    console.log('✅ Within execution window');
+    
+    if (forceRun) {
+      console.log('🚀 Force flag detected - bypassing execution window');
+    } else {
+      console.log('✅ Within execution window');
+    }
 
     // Use the standardized RPC function for duplicate prevention
     const { data: runCheck, error: runCheckError } = await supabase
