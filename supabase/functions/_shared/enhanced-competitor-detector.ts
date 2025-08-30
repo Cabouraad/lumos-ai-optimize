@@ -51,7 +51,14 @@ export class EnhancedCompetitorDetector {
     console.log('🔍 Initializing account-level competitor gazetteer for org:', orgId);
     
     try {
-      // 1. Load from brand_catalog (competitors + org brands)
+      // 1. Load organization info first to generate org brand aliases
+      const { data: org } = await this.supabase
+        .from('organizations')
+        .select('name, domain, metadata')
+        .eq('id', orgId)
+        .single();
+
+      // 2. Load from brand_catalog (competitors + org brands)
       const { data: brandCatalog } = await this.supabase
         .from('brand_catalog')
         .select('name, variants_json, is_org_brand')
@@ -69,6 +76,9 @@ export class EnhancedCompetitorDetector {
 
           if (brand.is_org_brand) {
             this.orgBrands.add(normalized);
+            
+            // Generate common org brand aliases
+            this.addOrgBrandAliases(brand.name);
           }
           
           this.accountGazetteer.set(normalized, entry);
@@ -79,6 +89,7 @@ export class EnhancedCompetitorDetector {
               const normalizedVariant = this.normalizeName(variant);
               if (brand.is_org_brand) {
                 this.orgBrands.add(normalizedVariant);
+                this.addOrgBrandAliases(variant);
               }
               this.accountGazetteer.set(normalizedVariant, {
                 name: variant,
@@ -91,23 +102,42 @@ export class EnhancedCompetitorDetector {
         }
       }
 
-      // 2. Load from organization's competitorsSeed (if available)
-      const { data: org } = await this.supabase
-        .from('organizations')
-        .select('name, metadata')
-        .eq('id', orgId)
-        .single();
+      // 3. Add organization name and domain as org brands if not already present
+      if (org) {
+        if (org.name) {
+          const orgNameNormalized = this.normalizeName(org.name);
+          if (!this.orgBrands.has(orgNameNormalized)) {
+            this.orgBrands.add(orgNameNormalized);
+            this.addOrgBrandAliases(org.name);
+            console.log(`📋 Added organization name as brand: ${org.name}`);
+          }
+        }
 
-      if (org?.metadata?.competitorsSeed && Array.isArray(org.metadata.competitorsSeed)) {
-        for (const competitor of org.metadata.competitorsSeed) {
-          const normalized = this.normalizeName(competitor);
-          if (!this.accountGazetteer.has(normalized) && !this.orgBrands.has(normalized)) {
-            this.accountGazetteer.set(normalized, {
-              name: competitor,
-              source: 'account_seed',
-              normalized,
-              isOrgBrand: false
-            });
+        if (org.domain) {
+          // Extract brand name from domain (e.g., "hubspot.com" -> "HubSpot")
+          const domainBrand = org.domain.split('.')[0];
+          const domainBrandCapitalized = this.capitalizeProperNoun(domainBrand);
+          const domainNormalized = this.normalizeName(domainBrandCapitalized);
+          
+          if (!this.orgBrands.has(domainNormalized)) {
+            this.orgBrands.add(domainNormalized);
+            this.addOrgBrandAliases(domainBrandCapitalized);
+            console.log(`🌐 Added domain-based brand: ${domainBrandCapitalized}`);
+          }
+        }
+
+        // 4. Load from organization's competitorsSeed (if available)
+        if (org.metadata?.competitorsSeed && Array.isArray(org.metadata.competitorsSeed)) {
+          for (const competitor of org.metadata.competitorsSeed) {
+            const normalized = this.normalizeName(competitor);
+            if (!this.accountGazetteer.has(normalized) && !this.orgBrands.has(normalized)) {
+              this.accountGazetteer.set(normalized, {
+                name: competitor,
+                source: 'account_seed',
+                normalized,
+                isOrgBrand: false
+              });
+            }
           }
         }
       }
@@ -197,8 +227,8 @@ export class EnhancedCompetitorDetector {
 
       const normalized = this.normalizeName(candidate.name);
       
-      // Check if it's an org brand
-      if (this.orgBrands.has(normalized)) {
+      // Check if it's an org brand (including generated aliases)
+      if (this.isOrgBrandCandidate(candidate.name, normalized)) {
         orgBrands.push({
           name: candidate.name,
           normalized,
@@ -477,6 +507,60 @@ export class EnhancedCompetitorDetector {
     const regex = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
     const matches = text.match(regex);
     return matches ? matches.length : 0;
+  }
+
+  /**
+   * Generate common org brand aliases and add them to orgBrands set
+   */
+  private addOrgBrandAliases(brandName: string): void {
+    const normalized = this.normalizeName(brandName);
+    
+    // Common business suffixes that indicate the same organization
+    const businessSuffixes = [
+      'crm', 'platform', 'software', 'app', 'tool', 'suite', 'system',
+      'marketing hub', 'sales hub', 'service hub', 'marketing platform',
+      'sales platform', 'marketing software', 'sales software',
+      'automation', 'analytics', 'insights', 'pro', 'enterprise'
+    ];
+
+    for (const suffix of businessSuffixes) {
+      const alias = this.normalizeName(`${brandName} ${suffix}`);
+      this.orgBrands.add(alias);
+    }
+
+    console.log(`🏷️ Generated ${businessSuffixes.length} aliases for org brand: ${brandName}`);
+  }
+
+  /**
+   * Check if a candidate should be classified as an org brand
+   */
+  private isOrgBrandCandidate(candidateName: string, normalized: string): boolean {
+    // Direct match in org brands set
+    if (this.orgBrands.has(normalized)) {
+      return true;
+    }
+
+    // Check if any org brand is a substring of the candidate
+    // This handles cases like "HubSpot CRM" when "HubSpot" is the org brand
+    for (const orgBrand of this.orgBrands) {
+      if (normalized.includes(orgBrand) || orgBrand.includes(normalized)) {
+        // Additional validation to avoid false positives
+        const words = normalized.split(' ');
+        const orgWords = orgBrand.split(' ');
+        
+        // If the candidate contains all words from an org brand, it's likely the same organization
+        const containsAllOrgWords = orgWords.every(orgWord => 
+          words.some(word => word === orgWord)
+        );
+        
+        if (containsAllOrgWords) {
+          console.log(`🎯 Identified org brand variant: "${candidateName}" matches org brand "${orgBrand}"`);
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 }
 
