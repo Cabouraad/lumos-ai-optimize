@@ -44,9 +44,9 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
     perplexity: {
       apiKey: Deno.env.get('PERPLEXITY_API_KEY') || '',
       baseURL: 'https://api.perplexity.ai/chat/completions',
-      model: 'llama-3.1-sonar-small-128k-online',
+      model: 'sonar',
       buildRequest: (prompt: string) => ({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [
           { role: 'system', content: 'Be precise and informative in your responses. Focus on providing actionable insights.' },
           { role: 'user', content: prompt }
@@ -267,7 +267,15 @@ async function callProviderAPI(
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        const error = new Error(`HTTP ${response.status}: ${errorText}`);
+        
+        // Fail fast for invalid model errors
+        if (response.status === 400 && errorText.includes('Invalid model')) {
+          console.error(`❌ ${provider} invalid model - failing immediately`);
+          throw error;
+        }
+        
+        throw error;
       }
 
       const data = await response.json();
@@ -288,6 +296,14 @@ async function callProviderAPI(
       
     } catch (error: any) {
       console.error(`❌ ${provider} attempt ${attempt} failed:`, error.message);
+      
+      // Fail fast for configuration errors (don't retry)
+      if (error.message.includes('Invalid model') || error.message.includes('invalid_model')) {
+        return {
+          success: false,
+          error: `${provider} failed after ${maxRetries} attempts: ${error.message}`
+        };
+      }
       
       if (attempt === maxRetries) {
         return {

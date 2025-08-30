@@ -134,7 +134,7 @@ serve(async (req) => {
         const providerModel = provider.name === 'openai' 
           ? 'gpt-4o-mini' 
           : provider.name === 'perplexity' 
-            ? 'llama-3.1-sonar-small-128k-online' 
+            ? 'sonar' 
             : 'gemini-2.0-flash-lite';
 
           const { error: pprError } = await supabase
@@ -262,7 +262,7 @@ async function executePerplexity(promptText: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
+      model: 'sonar',
       messages: [{ role: 'user', content: promptText }],
       max_tokens: 1000,
       temperature: 0.2

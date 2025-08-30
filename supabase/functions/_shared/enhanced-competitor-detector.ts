@@ -247,7 +247,9 @@ export class EnhancedCompetitorDetector {
           confidenceThreshold: 0.7
         });
         
-        for (const orgName of nerResult.organizationNames) {
+        // Safely iterate over organizations with fallback to handle undefined/null
+        const organizationNames = Array.isArray(nerResult.organizations) ? nerResult.organizations : [];
+        for (const orgName of organizationNames) {
           // Only add if it's a valid candidate and not already found
           if (this.isValidCompetitorCandidate(orgName) && 
               !competitors.some(c => this.normalizeName(c.name) === this.normalizeName(orgName)) &&
