@@ -136,6 +136,51 @@ export type Database = {
           },
         ]
       }
+      brand_candidates: {
+        Row: {
+          candidate_name: string
+          confidence_score: number
+          created_at: string
+          detection_count: number
+          first_detected_at: string
+          id: string
+          last_detected_at: string
+          org_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_name: string
+          confidence_score?: number
+          created_at?: string
+          detection_count?: number
+          first_detected_at?: string
+          id?: string
+          last_detected_at?: string
+          org_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_name?: string
+          confidence_score?: number
+          created_at?: string
+          detection_count?: number
+          first_detected_at?: string
+          id?: string
+          last_detected_at?: string
+          org_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       brand_catalog: {
         Row: {
           average_score: number | null
