@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CompetitorCatalog } from '@/components/CompetitorCatalog';
 
 interface CompetitorData {
   competitor_name: string;
@@ -635,6 +636,11 @@ export default function Competitors() {
                 </Card>
               </div>
             )}
+
+            {/* Competitor Catalog Section */}
+            <div className="mt-8">
+              <CompetitorCatalog />
+            </div>
           </div>
         </div>
       </Layout>
