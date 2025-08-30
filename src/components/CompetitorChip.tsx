@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertTriangle, Building2 } from 'lucide-react';
+import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
 
 interface CompetitorChipProps {
   name: string;
@@ -257,10 +258,15 @@ export function CompetitorChipList({
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
-  // Normalize competitors to objects and filter valid ones
+  const { isCompetitorInCatalog } = useCatalogCompetitors();
+
+  // Normalize competitors to objects and filter by catalog + validation
   const validCompetitors = competitors
     .map(comp => typeof comp === 'string' ? { name: comp } : comp)
-    .filter(comp => isValidCompetitor(comp.name))
+    .filter(comp => 
+      isValidCompetitor(comp.name) && 
+      isCompetitorInCatalog(comp.name)
+    )
     .slice(0, maxDisplay);
 
   if (validCompetitors.length === 0) {
