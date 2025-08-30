@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Eye, Calendar, TrendingUp } from 'lucide-react';
+import { Trash2, Eye, Calendar, TrendingUp, Sparkles, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface CompetitorCatalogEntry {
@@ -19,6 +19,17 @@ interface CompetitorCatalogEntry {
   total_appearances: number;
   average_score: number;
   variants_json: any; // Using any for Json type from Supabase
+}
+
+interface CleanupResult {
+  success: boolean;
+  dry_run: boolean;
+  total_before: number;
+  to_delete: number;
+  to_keep: number;
+  final_count: number;
+  deletions: any[];
+  error?: string;
 }
 
 const BrandLogo = ({ brandName }: { brandName: string }) => {
@@ -61,6 +72,7 @@ export function CompetitorCatalog() {
   const [loading, setLoading] = useState(true);
   const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -189,6 +201,70 @@ export function CompetitorCatalog() {
     }
   };
 
+  const handleCleanupCatalog = async () => {
+    try {
+      setCleanupLoading(true);
+      
+      // First do a dry run to see what would be cleaned
+      const { data: dryRunResult, error: dryRunError } = await supabase
+        .rpc('clean_competitor_catalog', { p_dry_run: true });
+
+      if (dryRunError) {
+        throw dryRunError;
+      }
+
+      const dryRun = dryRunResult as unknown as CleanupResult;
+      if (!dryRun?.success) {
+        throw new Error(dryRun?.error || 'Unknown error during dry run');
+      }
+
+      // Show confirmation dialog with preview
+      const confirmed = window.confirm(
+        `Catalog Cleanup Preview:\n\n` +
+        `• Current competitors: ${dryRun.total_before}\n` +
+        `• Will be removed: ${dryRun.to_delete}\n` +
+        `• Will be kept: ${dryRun.to_keep}\n` +
+        `• Final count: ${dryRun.final_count}\n\n` +
+        `This will remove generic terms, invalid names, and unused competitors.\n\n` +
+        `Do you want to proceed with the cleanup?`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      // Perform actual cleanup
+      const { data: cleanupResult, error: cleanupError } = await supabase
+        .rpc('clean_competitor_catalog', { p_dry_run: false });
+
+      if (cleanupError) {
+        throw cleanupError;
+      }
+
+      const cleanup = cleanupResult as unknown as CleanupResult;
+      if (!cleanup?.success) {
+        throw new Error(cleanup?.error || 'Unknown error during cleanup');
+      }
+
+      toast({
+        title: "Catalog cleaned up",
+        description: `Removed ${cleanup.to_delete} irrelevant competitors. You now have ${cleanup.final_count} competitors.`
+      });
+
+      setSelectedCompetitors(new Set());
+      fetchCatalog();
+    } catch (error) {
+      console.error('Error cleaning up catalog:', error);
+      toast({
+        title: "Error cleaning up catalog",
+        description: "Failed to clean up the competitor catalog.",
+        variant: "destructive"
+      });
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   const isAllSelected = catalog.length > 0 && selectedCompetitors.size === catalog.length;
   const isPartiallySelected = selectedCompetitors.size > 0 && selectedCompetitors.size < catalog.length;
 
@@ -232,29 +308,55 @@ export function CompetitorCatalog() {
             <Eye className="h-5 w-5" />
             <CardTitle>Competitor Catalog</CardTitle>
             <Badge variant="secondary" className="ml-2">
-              {catalog.length} competitors
+              {catalog.length}/50 competitors
             </Badge>
-          </div>
-          {selectedCompetitors.size > 0 && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">
-                {selectedCompetitors.size} selected
+            {catalog.length >= 50 && (
+              <Badge variant="outline" className="text-warning">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Limit reached
               </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {catalog.length > 10 && (
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
-                onClick={handleBulkDelete}
-                disabled={isDeleting}
+                onClick={handleCleanupCatalog}
+                disabled={cleanupLoading}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? 'Deleting...' : `Delete ${selectedCompetitors.size}`}
+                <Sparkles className="h-4 w-4 mr-2" />
+                {cleanupLoading ? 'Cleaning...' : 'Clean up'}
               </Button>
-            </div>
+            )}
+            {selectedCompetitors.size > 0 && (
+              <>
+                <Badge variant="outline">
+                  {selectedCompetitors.size} selected
+                </Badge>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isDeleting ? 'Deleting...' : `Delete ${selectedCompetitors.size}`}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            All competitors detected and tracked from your prompt responses
+          </p>
+          {catalog.length >= 45 && catalog.length < 50 && (
+            <p className="text-sm text-warning">
+              Approaching 50-competitor limit ({50 - catalog.length} spots remaining)
+            </p>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          All competitors detected and tracked from your prompt responses
-        </p>
       </CardHeader>
       <CardContent>
         {catalog.length === 0 ? (

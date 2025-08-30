@@ -714,6 +714,10 @@ export type Database = {
         Args: { p_org_id: string; p_reason?: string }
         Returns: Json
       }
+      clean_competitor_catalog: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
       cleanup_old_scheduler_runs: {
         Args: Record<PropertyKey, never>
         Returns: undefined

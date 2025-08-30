@@ -277,6 +277,22 @@ export default function Competitors() {
     try {
       const orgId = await getOrgId();
       
+      // Check 50-competitor limit
+      const { data: competitorCount } = await supabase
+        .from('brand_catalog')
+        .select('id', { count: 'exact' })
+        .eq('org_id', orgId)
+        .eq('is_org_brand', false);
+
+      if (competitorCount && competitorCount.length >= 50) {
+        toast({
+          title: "Competitor limit reached",
+          description: "You can track a maximum of 50 competitors. Please remove some competitors first or use the cleanup feature.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       const { data: existing } = await supabase
         .from('brand_catalog')
         .select('id')
