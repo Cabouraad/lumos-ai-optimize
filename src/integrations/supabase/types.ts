@@ -285,6 +285,7 @@ export type Database = {
           business_country: string | null
           business_description: string | null
           business_state: string | null
+          competitors: string[] | null
           created_at: string
           domain: string
           domain_locked_at: string | null
@@ -307,6 +308,7 @@ export type Database = {
           business_country?: string | null
           business_description?: string | null
           business_state?: string | null
+          competitors?: string[] | null
           created_at?: string
           domain: string
           domain_locked_at?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           business_country?: string | null
           business_description?: string | null
           business_state?: string | null
+          competitors?: string[] | null
           created_at?: string
           domain?: string
           domain_locked_at?: string | null

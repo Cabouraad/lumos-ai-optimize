@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompetitorChip, isValidCompetitor } from './CompetitorChip';
 import { Building2 } from 'lucide-react';
+import { getOrganizationKeywords } from '@/lib/org/data';
 
 interface CompetitorData {
   competitor_name: string;
@@ -21,13 +22,15 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Use imported validation function
-
   useEffect(() => {
     const fetchCompetitors = async () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Get organization competitors database
+        const orgData = await getOrganizationKeywords();
+        const allowedCompetitors = orgData.competitors || [];
 
         const { data, error: rpcError } = await supabase
           .rpc('get_prompt_competitors', { 
@@ -41,12 +44,18 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
           return;
         }
 
-        // Apply client-side filtering to remove generic terms
-        const validCompetitors = (data || []).filter((competitor: CompetitorData) => 
-          isValidCompetitor(competitor.competitor_name)
-        );
+        // Filter competitors to only show those in the business context database
+        const filteredCompetitors = (data || []).filter((competitor: CompetitorData) => {
+          // First check if it's in the allowed competitors list (case-insensitive)
+          const isInBusinessContext = allowedCompetitors.some(allowed => 
+            allowed.toLowerCase() === competitor.competitor_name.toLowerCase()
+          );
+          
+          // Also apply the general validation function
+          return isInBusinessContext && isValidCompetitor(competitor.competitor_name);
+        });
 
-        setCompetitors(validCompetitors);
+        setCompetitors(filteredCompetitors);
       } catch (err) {
         console.error('Error in fetchCompetitors:', err);
         setError('Failed to load competitors');
@@ -86,7 +95,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
         <Building2 className="h-4 w-4" />
-        <span className="text-sm">No competitors found</span>
+        <span className="text-sm">No competitors found in business context database</span>
       </div>
     );
   }
@@ -94,9 +103,9 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   return (
     <div className="space-y-3">
       <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-        <span>Top Competitors ({competitors.length})</span>
+        <span>Business Context Competitors ({competitors.length})</span>
         <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
-          ✓ Verified
+          ✓ From Database
         </Badge>
       </div>
       

@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 export function KeywordManagement() {
   const [keywords, setKeywords] = useState<OrganizationKeywords>({
     keywords: [],
+    competitors: [],
     products_services: "",
     target_audience: "",
     business_description: "",
@@ -21,6 +22,7 @@ export function KeywordManagement() {
     business_country: "United States",
   });
   const [newKeyword, setNewKeyword] = useState("");
+  const [newCompetitor, setNewCompetitor] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [autoFilling, setAutoFilling] = useState(false);
@@ -52,6 +54,7 @@ export function KeywordManagement() {
       // Only update business context fields, not localization settings
       const businessContextUpdate = {
         keywords: keywords.keywords,
+        competitors: keywords.competitors,
         products_services: keywords.products_services,
         target_audience: keywords.target_audience,
         business_description: keywords.business_description,
@@ -93,9 +96,32 @@ export function KeywordManagement() {
     }));
   };
 
+  const addCompetitor = () => {
+    if (newCompetitor.trim() && !keywords.competitors?.includes(newCompetitor.trim())) {
+      setKeywords(prev => ({
+        ...prev,
+        competitors: [...(prev.competitors || []), newCompetitor.trim()]
+      }));
+      setNewCompetitor("");
+    }
+  };
+
+  const removeCompetitor = (competitor: string) => {
+    setKeywords(prev => ({
+      ...prev,
+      competitors: prev.competitors?.filter(c => c !== competitor) || []
+    }));
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       addKeyword();
+    }
+  };
+
+  const handleCompetitorKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      addCompetitor();
     }
   };
 
@@ -123,6 +149,7 @@ export function KeywordManagement() {
         setKeywords(prev => ({
           ...prev,
           keywords: [...new Set([...prev.keywords, ...data.data.keywords])], // Merge without duplicates
+          competitors: [...new Set([...(prev.competitors || []), ...(data.data.competitors || [])])], // Merge without duplicates
           business_description: data.data.business_description || prev.business_description,
           products_services: data.data.products_services || prev.products_services,
           target_audience: data.data.target_audience || prev.target_audience,
@@ -233,6 +260,47 @@ export function KeywordManagement() {
               <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/30">
                 <p className="text-sm text-muted-foreground text-center">
                   No keywords saved yet. Add keywords above to improve your AI prompt suggestions.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Competitors Section */}
+        <div>
+          <Label htmlFor="competitors">Competitors Database</Label>
+          <div className="flex gap-2 mt-2">
+            <Input
+              id="competitors"
+              placeholder="Add competitor (e.g., Salesforce, Monday.com)"
+              value={newCompetitor}
+              onChange={(e) => setNewCompetitor(e.target.value)}
+              onKeyPress={handleCompetitorKeyPress}
+            />
+            <Button onClick={addCompetitor} size="sm">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="mt-3">
+            <div className="text-sm font-medium text-foreground mb-2">
+              Saved Competitors ({keywords.competitors?.length || 0}):
+            </div>
+            {keywords.competitors && keywords.competitors.length > 0 ? (
+              <div className="flex flex-wrap gap-2 p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
+                {keywords.competitors.map((competitor, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                    {competitor}
+                    <X 
+                      className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" 
+                      onClick={() => removeCompetitor(competitor)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/30">
+                <p className="text-sm text-muted-foreground text-center">
+                  No competitors saved yet. Only competitors from this list will appear on prompt cards.
                 </p>
               </div>
             )}

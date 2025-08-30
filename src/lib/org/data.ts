@@ -3,6 +3,7 @@ import { getOrgId } from "@/lib/auth";
 
 export interface OrganizationKeywords {
   keywords: string[];
+  competitors?: string[];
   products_services?: string;
   target_audience?: string;
   business_description?: string;
@@ -18,7 +19,7 @@ export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
 
     const { data, error } = await supabase
       .from("organizations")
-      .select("keywords, products_services, target_audience, business_description, business_city, business_state, business_country, enable_localized_prompts")
+      .select("keywords, competitors, products_services, target_audience, business_description, business_city, business_state, business_country, enable_localized_prompts")
       .eq("id", orgId)
       .single();
 
@@ -26,6 +27,7 @@ export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
 
     return {
       keywords: data?.keywords || [],
+      competitors: data?.competitors || [],
       products_services: data?.products_services || "",
       target_audience: data?.target_audience || "",
       business_description: data?.business_description || "",
