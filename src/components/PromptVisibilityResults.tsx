@@ -353,6 +353,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                     competitors={result.competitors_json || []}
                     maxDisplay={8}
                     size="sm"
+                    skipCatalogValidation={true}
                   />
                 </div>
 

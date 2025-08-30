@@ -251,22 +251,30 @@ export function CompetitorChipList({
   competitors, 
   maxDisplay = 6,
   size = 'sm',
-  className = ''
+  className = '',
+  skipCatalogValidation = false
 }: {
   competitors: (string | { name: string; mentions?: number; confidence?: number })[];
   maxDisplay?: number;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  skipCatalogValidation?: boolean;
 }) {
   const { isCompetitorInCatalog } = useCatalogCompetitors();
 
-  // Normalize competitors to objects and filter by catalog + validation
+  // Normalize competitors to objects and filter based on skipCatalogValidation flag
   const validCompetitors = competitors
     .map(comp => typeof comp === 'string' ? { name: comp } : comp)
-    .filter(comp => 
-      isValidCompetitor(comp.name) && 
-      isCompetitorInCatalog(comp.name)
-    )
+    .filter(comp => {
+      // Always check if it's a valid competitor
+      if (!isValidCompetitor(comp.name)) return false;
+      
+      // If skipCatalogValidation is true, don't filter by catalog (data is already server-filtered)
+      if (skipCatalogValidation) return true;
+      
+      // Otherwise, also check catalog validation
+      return isCompetitorInCatalog(comp.name);
+    })
     .slice(0, maxDisplay);
 
   if (validCompetitors.length === 0) {

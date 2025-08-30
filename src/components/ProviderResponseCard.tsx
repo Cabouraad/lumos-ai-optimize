@@ -177,6 +177,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                 competitors={response.competitors_json || []}
                 maxDisplay={4}
                 size="sm"
+                skipCatalogValidation={true}
               />
             </div>
 
