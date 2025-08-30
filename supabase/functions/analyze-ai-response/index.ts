@@ -1,14 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
-import { computeEnhancedVisibilityScore } from '../_shared/scoring/enhanced-visibility.ts';
-import { getUserOrgId } from '../_shared/auth.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://llumos.app',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Credentials': 'true'
 };
 
 serve(async (req) => {
@@ -16,24 +13,43 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const openaiKey = Deno.env.get('OPENAI_API_KEY');
-  
-  if (!openaiKey) {
-    return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: req.headers.get('Authorization')! } }
-  });
-
   try {
-    // Verify authentication and get user's org ID (ignore orgId from request for security)
-    const userOrgId = await getUserOrgId(supabase);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Get authenticated user's org ID
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (userError || !user) {
+      throw new Error('Invalid user token');
+    }
+
+    const { data: userData, error: orgError } = await supabase
+      .from('users')
+      .select('org_id')
+      .eq('id', user.id)
+      .single();
+
+    if (orgError || !userData) {
+      throw new Error('User organization not found');
+    }
+
+    const userOrgId = userData.org_id;
 
     const { promptId, providerId, responseText, citations, brands } = await req.json();
 
@@ -59,82 +75,89 @@ serve(async (req) => {
       throw new Error('Failed to fetch prompt');
     }
 
-    // Use enhanced competitor detection with user's org ID
-    console.log('🔍 Starting enhanced competitor detection...');
-    const detectionResult = await detectCompetitors(supabase, userOrgId, responseText, {
-      useNERFallback: true,
-      maxCandidates: 15,
-      confidenceThreshold: 0.7
-    });
+    // Build org brand variants directly from brand_catalog
+    const { data: orgBrandData, error: orgBrandError } = await supabase
+      .from('brand_catalog')
+      .select('name, variants_json')
+      .eq('org_id', userOrgId)
+      .eq('is_org_brand', true);
 
-    console.log('✅ Detection complete:', {
-      competitors: detectionResult.competitors.length,
-      orgBrands: detectionResult.orgBrands.length,
-      rejected: detectionResult.rejectedTerms.length,
-      gazetteerMatches: detectionResult.metadata.gazetteer_matches,
-      nerMatches: detectionResult.metadata.ner_matches
-    });
+    if (orgBrandError) {
+      console.error('Error fetching org brands:', orgBrandError);
+    }
 
-    // Convert to legacy artifacts format for compatibility
-    const artifacts = {
-      brands: detectionResult.orgBrands.map(brand => ({
-        name: brand.name,
-        normalized: brand.normalized,
-        confidence: brand.confidence,
-        first_pos_ratio: brand.first_pos_ratio,
-        mentions: brand.mentions,
-        sentiment: 'neutral' as const
-      })),
-      competitors: detectionResult.competitors.map(comp => ({
-        name: comp.name,
-        normalized: comp.normalized,
-        confidence: comp.confidence,
-        first_pos_ratio: comp.first_pos_ratio,
-        mentions: comp.mentions,
-        sentiment: 'neutral' as const
-      })),
-      citations: [],
-      metadata: {
-        analysis_confidence: 0.9,
-        response_length: responseText.length,
-        verified_brands_count: detectionResult.competitors.length,
-        rejected_terms_count: detectionResult.rejectedTerms.length,
-        detection_method: 'enhanced_v2',
-        processing_time_ms: detectionResult.metadata.processing_time_ms
+    // Build org brand variants with fallback
+    let orgBrandVariants: string[] = [];
+    if (orgBrandData && orgBrandData.length > 0) {
+      for (const brand of orgBrandData) {
+        orgBrandVariants.push(brand.name);
+        const variants = brand.variants_json || [];
+        orgBrandVariants.push(...variants);
       }
-    };
+    }
 
-    // Calculate brand presence and prominence
-    const userBrandNorms = detectionResult.orgBrands.map(brand => brand.normalized);
-    const orgBrandPresent = detectionResult.orgBrands.length > 0;
-    
-    // Calculate prominence based on actual position data
-    const orgBrandProminence = orgBrandPresent && detectionResult.orgBrands.length > 0
-      ? Math.round((1 - detectionResult.orgBrands[0].first_pos_ratio) * 100) // Convert to prominence score
-      : 0;
+    // Build competitor gazetteer from brand_catalog only
+    const { data: competitorData, error: competitorError } = await supabase
+      .from('brand_catalog')
+      .select('name, variants_json')
+      .eq('org_id', userOrgId)
+      .eq('is_org_brand', false);
 
-    // Calculate visibility score using enhanced scoring
-    const visibilityMetrics = {
-      brandPresent: orgBrandPresent,
-      brandPosition: orgBrandProminence,
-      brandMentions: artifacts.brands.filter(b => userBrandNorms.includes(b.normalized)).length,
-      competitorCount: artifacts.competitors.length,
-      competitorMentions: artifacts.competitors.reduce((sum, c) => sum + c.mentions, 0),
-      sentiment: artifacts.brands.find(b => userBrandNorms.includes(b.normalized))?.sentiment || 'neutral',
-      contextRelevance: artifacts.metadata.analysis_confidence,
-      responseLength: artifacts.metadata.response_length
-    };
+    if (competitorError) {
+      console.error('Error fetching competitors:', competitorError);
+    }
 
-    const visibilityScore = Math.round(computeEnhancedVisibilityScore({
-      brandPresent: orgBrandPresent,
-      brandPosition: orgBrandProminence / 100,
-      brandMentions: visibilityMetrics.brandMentions,
-      competitorCount: visibilityMetrics.competitorCount,
-      competitorMentions: visibilityMetrics.competitorMentions,
-      sentiment: visibilityMetrics.sentiment as 'positive' | 'negative' | 'neutral',
-      contextRelevance: visibilityMetrics.contextRelevance,
-      responseLength: visibilityMetrics.responseLength
-    }).overallScore * 100);
+    const competitorGazetteer = createBrandGazetteer(competitorData || []);
+
+    console.log('📋 Analysis setup:', {
+      orgBrandVariants: orgBrandVariants.length,
+      competitorGazetteer: competitorGazetteer.length,
+      responseLength: responseText.length
+    });
+
+    // Use extractArtifacts for primary matching
+    const artifacts = extractArtifacts(responseText, orgBrandVariants, competitorGazetteer);
+
+    // Determine brand presence and ordinal prominence
+    const orgBrandPresent = artifacts.brands.length > 0;
+    let orgBrandProminence: number | null = null;
+
+    if (orgBrandPresent && artifacts.brands.length > 0) {
+      // Calculate ordinal position (1st, 2nd, 3rd, etc.)
+      const firstBrand = artifacts.brands[0];
+      // Convert first_pos_ratio to ordinal position
+      const position = Math.max(1, Math.round(firstBrand.first_pos_ratio * 10) + 1);
+      orgBrandProminence = Math.min(position, 10); // Cap at 10th position
+    }
+
+    // Calculate visibility score aligned with client-side analyzer
+    let visibilityScore = 1; // Base score
+
+    if (orgBrandPresent) {
+      visibilityScore = 6; // Brand found baseline
+      
+      // Position bonus (earlier = better)
+      if (orgBrandProminence !== null) {
+        if (orgBrandProminence === 1) visibilityScore += 3; // First position
+        else if (orgBrandProminence <= 3) visibilityScore += 2; // Top 3
+        else if (orgBrandProminence <= 6) visibilityScore += 1; // Top 6
+      }
+      
+      // Competition penalty
+      const competitorsCount = artifacts.competitors.length;
+      if (competitorsCount > 8) visibilityScore -= 2;
+      else if (competitorsCount > 4) visibilityScore -= 1;
+    }
+
+    // Ensure score is within bounds
+    visibilityScore = Math.max(1, Math.min(10, visibilityScore));
+
+    console.log('🎯 Analysis complete:', {
+      orgBrandPresent,
+      orgBrandProminence,
+      visibilityScore,
+      catalogCompetitors: artifacts.competitors.length
+    });
 
     // Create prompt run record
     const { data: promptRun, error: runError } = await supabase
@@ -142,13 +165,12 @@ serve(async (req) => {
       .insert({
         prompt_id: promptId,
         provider_id: providerId,
-        status: 'completed',
-        citations: citations || artifacts.citations,
-        brands: artifacts.brands,
-        competitors: artifacts.competitors,
-        token_in: 0, // Would need to calculate from actual usage
-        token_out: 0,
-        cost_est: 0
+        raw_response: responseText,
+        visibility_score: visibilityScore,
+        brands_detected: artifacts.brands.map(b => b.name),
+        competitors_detected: artifacts.competitors.map(c => c.name),
+        citations: citations || [],
+        run_at: new Date().toISOString()
       })
       .select()
       .single();
@@ -158,25 +180,31 @@ serve(async (req) => {
       throw new Error('Failed to create prompt run');
     }
 
-    // Create visibility results
-    const { error: visibilityError } = await supabase
+    // Create visibility results record
+    const { data: visibilityResult, error: visibilityError } = await supabase
       .from('visibility_results')
       .insert({
         prompt_run_id: promptRun.id,
+        org_id: userOrgId,
         org_brand_present: orgBrandPresent,
-        org_brand_prominence: Math.round(orgBrandProminence),
-        score: visibilityScore,
+        org_brand_prominence: orgBrandProminence,
         competitors_count: artifacts.competitors.length,
-        brands_json: artifacts.brands,
-        raw_ai_response: responseText.substring(0, 5000), // Truncate if too long
-        raw_evidence: JSON.stringify({
-          detection_metadata: detectionResult.metadata,
-          rejected_terms: detectionResult.rejectedTerms.slice(0, 20)
-        })
-      });
+        visibility_score: visibilityScore,
+        brands_json: artifacts.brands.map(b => b.name),
+        competitors_json: artifacts.competitors.map(c => c.name),
+        citations_json: citations || [],
+        analysis_metadata: {
+          analysis_version: '2.1',
+          extraction_method: 'enhanced_artifacts',
+          competitor_conf_threshold: 0.8,
+          response_length: responseText.length
+        }
+      })
+      .select()
+      .single();
 
     if (visibilityError) {
-      console.error('Error creating visibility results:', visibilityError);
+      console.error('Error creating visibility result:', visibilityError);
       throw new Error('Failed to create visibility results');
     }
 
@@ -212,7 +240,7 @@ serve(async (req) => {
     }
 
     // Update org brand tracking if mentioned
-    for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
+    for (const brand of artifacts.brands.filter(b => orgBrandVariants.includes(b.normalized))) {
       try {
         const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
           p_org_id: userOrgId,
@@ -236,19 +264,25 @@ serve(async (req) => {
       promptRunId: promptRun.id,
       visibilityScore,
       orgBrandPresent,
-      orgBrandProminence: Math.round(orgBrandProminence),
+      orgBrandProminence: orgBrandProminence,
       competitorsCount: artifacts.competitors.length,
-      brandsFound: artifacts.brands.length,
-      citationsCount: artifacts.citations.length
+      brandsDetected: artifacts.brands.map(b => b.name),
+      competitorsDetected: artifacts.competitors.map(c => c.name),
+      citations: citations || [],
+      metadata: {
+        analysis_version: '2.1',
+        extraction_method: 'enhanced_artifacts',
+        response_length: responseText.length
+      }
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
-    console.error('Error in analyze-ai-response function:', error);
+  } catch (error: any) {
+    console.error('Error analyzing AI response:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

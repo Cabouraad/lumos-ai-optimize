@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle, RefreshCw } from 'lucide-react';
 import { CompetitorChipList } from './CompetitorChip';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProviderResponse {
   id: string;
@@ -38,6 +39,8 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
   const [loading, setLoading] = useState(true);
   const [showAllResults, setShowAllResults] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchResults();
@@ -104,6 +107,48 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     if (prominence === 2) return '2nd position';
     if (prominence === 3) return '3rd position';
     return `${prominence}th position`;
+  };
+
+  const handleFixClassification = async () => {
+    setFixing(true);
+    try {
+      const { data, error } = await supabase.rpc('fix_brand_classification_all_providers');
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Classification Fixed",
+        description: data || "Brand classification has been corrected",
+      });
+      
+      // Refresh results after fix
+      await fetchResults();
+    } catch (error) {
+      console.error('Error fixing classification:', error);
+      toast({
+        title: "Fix Failed",
+        description: "Unable to fix classification. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  // Detect potential misclassification
+  const detectMisclassification = (result: ProviderResponse) => {
+    if (!result.raw_ai_response) return false;
+    
+    // Simple heuristic: if brand is not detected but response contains common brand indicators
+    if (!result.org_brand_present) {
+      const response = result.raw_ai_response.toLowerCase();
+      const brandIndicators = ['hubspot', 'marketing hub', 'our platform', 'our solution', 'our tool'];
+      return brandIndicators.some(indicator => response.includes(indicator));
+    }
+    
+    return false;
   };
 
   if (loading) {
@@ -214,6 +259,37 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
               </div>
             ) : (
               <>
+                {/* Potential Misclassification Alert */}
+                {detectMisclassification(result) && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800">Potential Misclassification</p>
+                          <p className="text-sm text-amber-600 mt-1">
+                            The response may contain your brand but wasn't detected. This can happen with partial matches.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleFixClassification}
+                        disabled={fixing}
+                        className="ml-2"
+                      >
+                        {fixing ? (
+                          <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                        )}
+                        Fix
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Brand Presence */}
                   <div className="flex items-center gap-2">
@@ -226,6 +302,9 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                       <p className="text-sm font-medium">Brand Present</p>
                       <p className="text-sm text-muted-foreground">
                         {result.org_brand_present ? 'Yes' : 'No'}
+                        {detectMisclassification(result) && (
+                          <span className="text-amber-600 ml-1">(?)</span>
+                        )}
                       </p>
                     </div>
                   </div>
