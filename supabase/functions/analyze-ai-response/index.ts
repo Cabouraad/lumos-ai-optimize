@@ -7,8 +7,10 @@ import {
   diffDetections, 
   logDetections, 
   normalizeDetectionResult,
+  runV2Detection,
   type DetectionResult,
-  type LogContext 
+  type LogContext,
+  type AccountBrand
 } from '../../src/lib/detect/diagnostics.ts';
 import { preprocessText } from '../../src/lib/detect/preprocess.ts';
 
@@ -204,6 +206,51 @@ serve(async (req) => {
         };
         
         logDetections(preprocessedContext, preprocessedDiffs, preprocessedSample);
+        
+        // Test V2 detection
+        try {
+          // Get organization data for V2
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('name, domain')
+            .eq('id', userOrgId)
+            .single();
+
+          if (org) {
+            const accountBrand: AccountBrand = {
+              canonical: org.name || '',
+              aliases: orgBrandVariants,
+              domain: org.domain || undefined
+            };
+
+            const competitorsSeed = competitorGazetteer;
+            const v2Result = runV2Detection(responseText, providerId, accountBrand, competitorsSeed);
+
+            const v2Diffs = diffDetections(currentResult, v2Result);
+
+            const v2Context: LogContext = {
+              provider: providerId + '-v2',
+              promptId,
+              runId,
+              method: 'artifacts_vs_v2'
+            };
+
+            const v2Sample = {
+              responseLength: responseText.length,
+              confidence: artifacts.metadata.analysis_confidence,
+              metadata: {
+                current_method: 'extractArtifacts',
+                proposed_method: 'v2_detection',
+                current_total: currentResult.brands.length + currentResult.competitors.length,
+                proposed_total: v2Result.brands.length + v2Result.competitors.length
+              }
+            };
+
+            logDetections(v2Context, v2Diffs, v2Sample);
+          }
+        } catch (v2Error) {
+          console.warn('V2 detection failed:', v2Error.message);
+        }
         
       } catch (error) {
         console.warn('Shadow diagnostics failed:', error.message);

@@ -11,8 +11,10 @@ import {
   diffDetections, 
   logDetections, 
   normalizeDetectionResult,
+  runV2Detection,
   type DetectionResult,
-  type LogContext 
+  type LogContext,
+  type AccountBrand
 } from '../../../src/lib/detect/diagnostics.ts';
 import { preprocessText } from '../../../src/lib/detect/preprocess.ts';
 
@@ -48,8 +50,10 @@ export class EnhancedCompetitorDetector {
   private strictDetector: StrictCompetitorDetector;
   private legacyDetector: LegacyCompetitorDetector;
   private logger: any;
+  private supabase: any;
 
   constructor(supabase: any, logger?: any) {
+    this.supabase = supabase;
     this.strictDetector = new StrictCompetitorDetector(supabase, logger);
     this.legacyDetector = new LegacyCompetitorDetector(supabase, logger);
     this.logger = logger || createEdgeLogger('enhanced-competitor-detector');
@@ -81,7 +85,7 @@ export class EnhancedCompetitorDetector {
 
           const finalResult = this.normalizeResult(strictResult, 'strict', performance.now() - startTime);
           
-          // Shadow mode diagnostics - compare with legacy and preprocessed if enabled
+          // Shadow mode diagnostics - compare with legacy, preprocessed, and v2 if enabled
           if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
             try {
               const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
@@ -91,6 +95,9 @@ export class EnhancedCompetitorDetector {
               const preprocessed = preprocessText(text);
               const preprocessedLegacyResult = await this.legacyDetector.detectCompetitors(preprocessed.plainText, orgId);
               this.runShadowDiagnosticsWithPreprocessing(runId, orgId, 'strict_vs_preprocessed_legacy', finalResult, preprocessedLegacyResult, text.length, preprocessed);
+              
+              // Test V2 detection
+              await this.runV2ShadowDiagnostics(runId, orgId, text, finalResult);
             } catch (error) {
               this.logger.warn('Shadow diagnostics failed', { error: error.message });
             }
@@ -116,7 +123,7 @@ export class EnhancedCompetitorDetector {
       // Use legacy detection when strict mode is disabled
       const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
       
-      // Shadow mode diagnostics - compare with strict and preprocessed if enabled
+      // Shadow mode diagnostics - compare with strict, preprocessed, and v2 if enabled
       if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
         try {
           const strictResult = await this.strictDetector.detectCompetitors(text, orgId);
@@ -127,6 +134,9 @@ export class EnhancedCompetitorDetector {
           const preprocessed = preprocessText(text);
           const preprocessedStrictResult = await this.strictDetector.detectCompetitors(preprocessed.plainText, orgId);
           this.runShadowDiagnosticsWithPreprocessing(runId, orgId, 'legacy_vs_preprocessed_strict', finalResult, preprocessedStrictResult, text.length, preprocessed);
+          
+          // Test V2 detection
+          await this.runV2ShadowDiagnostics(runId, orgId, text, finalResult);
           
           return finalResult;
         } catch (error) {
@@ -271,6 +281,94 @@ export class EnhancedCompetitorDetector {
       logDetections(context, diffs, sample);
     } catch (error) {
       this.logger.warn('Shadow diagnostics with preprocessing execution failed', { error: error.message });
+    }
+  }
+
+  /**
+   * Run V2 shadow diagnostics
+   */
+  private async runV2ShadowDiagnostics(
+    runId: string,
+    orgId: string,
+    text: string,
+    current: EnhancedDetectionResult
+  ): Promise<void> {
+    try {
+      // Get organization data for V2 detection
+      const { data: org } = await this.supabase
+        .from('organizations')
+        .select('name, domain')
+        .eq('id', orgId)
+        .single();
+
+      const { data: brandCatalog } = await this.supabase
+        .from('brand_catalog')
+        .select('name, variants_json, is_org_brand')
+        .eq('org_id', orgId);
+
+      if (!org) return;
+
+      // Build account brand for V2
+      const accountBrand: AccountBrand = {
+        canonical: org.name || '',
+        aliases: [],
+        domain: org.domain || undefined
+      };
+
+      // Add org brand aliases from catalog
+      if (brandCatalog) {
+        brandCatalog
+          .filter(b => b.is_org_brand)
+          .forEach(brand => {
+            accountBrand.aliases.push(brand.name);
+            if (brand.variants_json && Array.isArray(brand.variants_json)) {
+              accountBrand.aliases.push(...brand.variants_json);
+            }
+          });
+      }
+
+      // Build competitors seed
+      const competitorsSeed = brandCatalog
+        ?.filter(b => !b.is_org_brand)
+        .map(b => b.name) || [];
+
+      // Run V2 detection
+      const v2Result = runV2Detection(text, 'enhanced-detector', accountBrand, competitorsSeed);
+
+      // Compare with current results
+      const currentNormalized = normalizeDetectionResult({
+        brands: current.orgBrands.map(b => b.name),
+        competitors: current.competitors.map(c => c.name)
+      });
+
+      const diffs = diffDetections(currentNormalized, v2Result);
+
+      const context: LogContext = {
+        provider: 'enhanced-detector-v2',
+        promptId: orgId,
+        runId,
+        method: `${current.metadata.detection_method}_vs_v2`
+      };
+
+      const sample = {
+        responseLength: text.length,
+        confidence: current.metadata.detection_method,
+        metadata: {
+          current_method: current.metadata.detection_method,
+          proposed_method: 'v2_detection',
+          processing_time_current: current.metadata.processing_time_ms,
+          current_total: currentNormalized.brands.length + currentNormalized.competitors.length,
+          proposed_total: v2Result.brands.length + v2Result.competitors.length,
+          v2_metrics: {
+            candidates_generated: 'N/A', // Would need to expose from v2 result
+            gazetteer_size: 'N/A'
+          }
+        }
+      };
+
+      logDetections(context, diffs, sample);
+    } catch (error) {
+      this.logger.warn('V2 shadow diagnostics execution failed', { error: error.message });
     }
   }
 }

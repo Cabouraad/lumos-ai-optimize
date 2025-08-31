@@ -3,6 +3,8 @@
  * Shadow mode analysis for brand/competitor detection changes
  */
 
+import { detectBrandsV2, type DetectionInputs, type AccountBrand } from './v2.ts';
+
 export interface DetectionResult {
   brands: string[];
   competitors: string[];
@@ -135,6 +137,30 @@ export function normalizeDetectionResult(
   return {
     brands: [],
     competitors: []
+  };
+}
+
+/**
+ * Run V2 detection for shadow comparison
+ */
+export function runV2Detection(
+  rawText: string,
+  provider: string,
+  accountBrand: AccountBrand,
+  competitorsSeed: string[]
+): DetectionResult {
+  const inputs: DetectionInputs = {
+    rawText,
+    provider,
+    accountBrand,
+    competitorsSeed
+  };
+  
+  const v2Result = detectBrandsV2(inputs);
+  
+  return {
+    brands: v2Result.detectedBrands,
+    competitors: v2Result.detectedCompetitors
   };
 }
 
