@@ -7,6 +7,7 @@ import { advancedCache, CacheEventManager } from "../advanced-cache/redis-cache"
 import { backgroundPreloader } from "../background-optimization/data-preloader";
 import { isOptimizationFeatureEnabled, withFeatureFlag } from "@/config/featureFlags";
 import { getBulkPromptData, groupResponsesByPrompt, groupStatsByPrompt } from "./bulk-fetcher";
+import { processUnifiedData } from "./dashboard-helpers";
 import { responseCache } from "../cache/response-cache";
 
 // Initialize Phase 2 cache event management
@@ -195,7 +196,7 @@ async function getUnifiedDashboardDataBulk(orgId: string): Promise<UnifiedDashbo
       totalRuns: 0,
       recentRunsCount: 0,
       chartData: [],
-      providers: await getProviders(),
+      providers: [], // await getProviders(), // Temporarily disabled
       prompts: []
     };
   }

@@ -125,7 +125,7 @@ export function processUnifiedData(
     totalRuns: validResponses.length,
     recentRunsCount: last7DaysResponses.length,
     chartData,
-    providers: await getProviders(),
+    providers: [], // await getProviders(), // Temporarily disabled
     prompts: promptSummaries
   };
 }

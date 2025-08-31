@@ -75,7 +75,7 @@ export async function getBulkPromptData(): Promise<BulkPromptData> {
   
   return {
     prompts: promptsResult.data || [],
-    latestResponses: latestResponsesResult.data || [],
+    latestResponses: [], // latestResponsesResult.data || [], // Temporarily disabled
     sevenDayStats: statsResult.data || []
   };
 }
@@ -142,9 +142,11 @@ export async function getBulkCompetitorData(promptIds: string[]) {
     const competitors = response.competitors_json || [];
     const competitorCounts = new Map<string, number>();
     
-    competitors.forEach((comp: string) => {
-      competitorCounts.set(comp, (competitorCounts.get(comp) || 0) + 1);
-    });
+    if (Array.isArray(competitors)) {
+      competitors.forEach((comp: string) => {
+        competitorCounts.set(comp, (competitorCounts.get(comp) || 0) + 1);
+      });
+    }
     
     const currentCompetitors = competitorMap.get(response.prompt_id)!;
     competitorCounts.forEach((count, name) => {

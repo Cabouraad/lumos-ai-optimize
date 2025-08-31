@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CondensedRecentPromptCard } from '@/components/CondensedPromptRow';
 import { RecentPromptsWidget } from '@/components/RecentPromptsWidget';
 import { isOptimizationFeatureEnabled } from '@/config/featureFlags';
 
@@ -48,7 +47,7 @@ export const EnhancedRecentPromptsWidget: React.FC<EnhancedRecentPromptsWidgetPr
 
   if (!isLightUI) {
     // Return existing widget when flag is off
-    return <RecentPromptsWidget />;
+    return <RecentPromptsWidget prompts={prompts} />;
   }
 
   return (
@@ -71,11 +70,12 @@ export const EnhancedRecentPromptsWidget: React.FC<EnhancedRecentPromptsWidgetPr
           {prompts.map((prompt, index) => (
             <div 
               key={prompt.id}
+              className="text-sm text-muted-foreground"
               role={isA11y ? 'listitem' : undefined}
               aria-posinset={isA11y ? index + 1 : undefined}
               aria-setsize={isA11y ? prompts.length : undefined}
             >
-              <CondensedRecentPromptCard prompt={prompt} />
+              {prompt.text}
             </div>
           ))}
         </div>
