@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { getBulkPromptData, groupResponsesByPrompt, groupStatsByPrompt, getBulkCompetitorData } from '../bulk-fetcher';
+import { getBulkPromptData, groupResponsesByPrompt, groupStatsByPrompt, getBulkCompetitorData } from '../../lib/data/bulk-fetcher';
 
 // Mock feature flags
 const mockFeatureFlags = {
@@ -17,6 +17,8 @@ vi.mock('@/lib/auth', () => ({
   getOrgId: vi.fn().mockResolvedValue('test-org-id')
 }));
 
+const mockPromptId = 'test-prompt-id';
+
 // Mock supabase
 const mockSupabase = {
   from: vi.fn(() => ({
@@ -27,7 +29,7 @@ const mockSupabase = {
             { id: 'prompt-1', text: 'Test prompt', active: true, created_at: '2024-01-01', org_id: 'test-org-id' }
           ], 
           error: null 
-        }))
+        })
       }))
     })),
     in: vi.fn(() => ({
@@ -42,9 +44,12 @@ const mockSupabase = {
     }))
   })),
   rpc: vi.fn().mockResolvedValue({ 
-    data: [
-      { id: 'response-1', prompt_id: 'prompt-1', provider: 'openai', score: 7.5 }
-    ], 
+    data: [{
+      id: 'response-1',
+      org_id: 'test-org-id',
+      prompt_id: mockPromptId,
+      run_at: new Date().toISOString()
+    }], 
     error: null 
   })
 };
@@ -52,6 +57,27 @@ const mockSupabase = {
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFeatureFlags.FEATURE_BULK_QUERIES = true;
+});
+
+it('should batch fetch prompts with responses when flag enabled', async () => {
+  const result = await getBulkPromptData();
+  
+  expect(result).toHaveProperty('prompts');
+  expect(result).toHaveProperty('latestResponses');
+  expect(result).toHaveProperty('sevenDayStats');
+  
+  // Verify parallel execution (all 3 queries called)
+  expect(mockSupabase.from).toHaveBeenCalledWith('prompts');
+  expect(mockSupabase.rpc).toHaveBeenCalledWith('get_latest_prompt_provider_responses_catalog_only', expect.any(Object));
+  expect(mockSupabase.rpc).toHaveBeenCalledWith('get_prompt_visibility_7d', expect.any(Object));
+  
+  expect(result.prompts).toHaveLength(1);
+  expect(result.responses).toHaveLength(1);
+});
 
 describe('Bulk Query Optimization', () => {
   beforeEach(() => {

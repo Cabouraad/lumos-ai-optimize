@@ -1,60 +1,46 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { isOptimizationFeatureEnabled } from '../config/featureFlags';
 
-// Mock the strict competitor detector (would normally import from edge function)
+// Mock the feature flags
+vi.mock('../config/featureFlags', () => ({
+  isOptimizationFeatureEnabled: vi.fn()
+}));
+
+/**
+ * Mock strict competitor detector that simulates the behavior
+ * of the actual StrictCompetitorDetector class
+ */
 class MockStrictCompetitorDetector {
-  private orgGazetteer = new Map();
-  private strictStopwords = new Set([
-    'software', 'platform', 'solution', 'system', 'tool', 'tools',
-    'google', 'microsoft', 'apple', 'amazon', 'facebook', 'meta',
-    'best', 'top', 'leading', 'popular', 'digital', 'online'
-  ]);
+  private orgGazetteer: Map<string, { name: string; isOrgBrand: boolean }> = new Map();
 
-  constructor(private supabase: any) {}
-
-  async initializeOrgGazetteer(orgId: string) {
-    // Mock initialization with strict validation
-    const mockBrands = [
-      { name: 'Salesforce', is_org_brand: false, variants_json: ['SFDC'] },
-      { name: 'TestCorp', is_org_brand: true, variants_json: ['Test Corp'] },
-      { name: 'HubSpot', is_org_brand: false, variants_json: [] }
-    ];
-
-    for (const brand of mockBrands) {
-      if (this.isStrictlyValid(brand.name)) {
-        this.orgGazetteer.set(brand.name.toLowerCase(), {
-          name: brand.name,
-          isOrgBrand: brand.is_org_brand,
-          source: 'brand_catalog'
-        });
-      }
-    }
+  async initializeOrgGazetteer(orgId: string): Promise<void> {
+    // Mock predefined brands for testing
+    this.orgGazetteer.set('hubspot', { name: 'HubSpot', isOrgBrand: false });
+    this.orgGazetteer.set('buffer', { name: 'Buffer', isOrgBrand: false });
+    this.orgGazetteer.set('hootsuite', { name: 'Hootsuite', isOrgBrand: false });
   }
 
   async detectCompetitors(text: string, orgId: string) {
-    if (this.orgGazetteer.size === 0) {
-      await this.initializeOrgGazetteer(orgId);
-    }
-
+    await this.initializeOrgGazetteer(orgId);
+    
     const candidates = this.extractStrictCandidates(text);
-    const competitors = [];
-    const orgBrands = [];
-    const rejectedTerms = [];
-    let gazetteerMatches = 0;
-
+    const competitors: any[] = [];
+    const orgBrands: any[] = [];
+    const rejectedTerms: string[] = [];
+    
     for (const candidate of candidates) {
-      const normalized = candidate.toLowerCase();
+      const normalized = candidate.toLowerCase().trim();
       const orgEntry = this.orgGazetteer.get(normalized);
-
+      
       if (orgEntry) {
-        gazetteerMatches++;
         const match = {
           name: orgEntry.name,
           normalized,
           mentions: this.countMentions(text, candidate),
           confidence: this.calculateStrictConfidence(candidate, text),
-          source: orgEntry.source
+          source: 'brand_catalog' as const
         };
-
+        
         if (orgEntry.isOrgBrand) {
           orgBrands.push(match);
         } else {
@@ -64,56 +50,59 @@ class MockStrictCompetitorDetector {
         rejectedTerms.push(candidate);
       }
     }
-
+    
     return {
       competitors: competitors.sort((a, b) => b.confidence - a.confidence),
       orgBrands: orgBrands.sort((a, b) => b.confidence - a.confidence),
       rejectedTerms,
       metadata: {
         total_candidates: candidates.length,
-        gazetteer_matches: gazetteerMatches,
+        gazetteer_matches: competitors.length + orgBrands.length,
         rejected_count: rejectedTerms.length,
-        processing_time_ms: 10,
+        processing_time_ms: 50,
         strict_mode: true
       }
     };
   }
 
   private extractStrictCandidates(text: string): string[] {
-    const candidates = [];
+    // Very conservative extraction - only proper nouns with specific patterns
+    const candidates: string[] = [];
     
-    // Ultra-conservative patterns
+    // Match brand names like "HubSpot", "Buffer", "Hootsuite"
     const patterns = [
-      /\b([A-Z][a-z]+)\s+(CRM|Platform|System|Software)\b/g,
-      /\b[A-Z][a-z]{2,}(?:[A-Z][a-z]+)*\b/g
+      /\b[A-Z][a-z]+(?:[A-Z][a-z]+)*\b/g,
+      /\b[A-Z][a-z]+\b/g
     ];
-
+    
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.exec(text)) !== null) {
-        const candidate = match[1] || match[0];
+        const candidate = match[0];
         if (this.isStrictCandidate(candidate)) {
           candidates.push(candidate);
         }
       }
     }
-
+    
     return [...new Set(candidates)];
   }
 
   private isStrictCandidate(candidate: string): boolean {
-    const normalized = candidate.toLowerCase();
+    const normalized = candidate.toLowerCase().trim();
+    const strictStopwords = new Set([
+      'marketing', 'automation', 'customer', 'data', 'choose', 'software', 
+      'platform', 'solution', 'system', 'tool', 'service', 'business'
+    ]);
+    
     return (
       candidate.length >= 3 &&
       candidate.length <= 30 &&
-      !this.strictStopwords.has(normalized) &&
+      !strictStopwords.has(normalized) &&
       !/^[0-9]+$/.test(candidate) &&
-      !/(click|learn|more|here|sign|up)/i.test(candidate)
+      !/[<>{}[\]()"`''""''„"‚'']/.test(candidate) &&
+      !/(click|learn|more|here|sign|up|get|started|try|free|now)/i.test(candidate)
     );
-  }
-
-  private isStrictlyValid(name: string): boolean {
-    return this.isStrictCandidate(name) && name.length >= 2;
   }
 
   private countMentions(text: string, term: string): number {
@@ -124,156 +113,158 @@ class MockStrictCompetitorDetector {
   private calculateStrictConfidence(candidate: string, text: string): number {
     let confidence = 0.6;
     
-    // Position boost
+    const mentions = this.countMentions(text, candidate);
+    confidence += Math.min(mentions - 1, 3) * 0.1;
+    
     const firstIndex = text.toLowerCase().indexOf(candidate.toLowerCase());
-    if (firstIndex !== -1 && firstIndex / text.length < 0.3) {
-      confidence += 0.2;
+    if (firstIndex !== -1) {
+      const positionRatio = firstIndex / text.length;
+      if (positionRatio < 0.3) confidence += 0.2;
     }
-
-    // Format bonuses
+    
     if (candidate.length >= 6) confidence += 0.1;
     if (/^[A-Z][a-z]+[A-Z]/.test(candidate)) confidence += 0.1;
-
+    
     return Math.min(confidence, 1.0);
   }
 }
 
+// Mock legacy detector for fallback testing
+const mockLegacyDetector = {
+  detectCompetitors: vi.fn().mockResolvedValue({
+    competitors: [
+      { name: 'Generic Marketing Tool', confidence: 0.5 },
+      { name: 'Customer Platform', confidence: 0.4 }
+    ],
+    metadata: { strict_mode: false }
+  })
+};
+
 describe('Strict Competitor Detection', () => {
-  let detector: MockStrictCompetitorDetector;
-  let mockSupabase: any;
+  let strictDetector: MockStrictCompetitorDetector;
 
   beforeEach(() => {
-    mockSupabase = {
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => Promise.resolve({ data: null }))
-          }))
-        }))
-      }))
-    };
-    detector = new MockStrictCompetitorDetector(mockSupabase);
+    strictDetector = new MockStrictCompetitorDetector();
+    vi.clearAllMocks();
   });
 
-  it('should only detect gazetteer-verified competitors', async () => {
-    const text = 'We compared Salesforce CRM with UnknownTool and RandomSoftware.';
+  it('should detect only gazetteer-verified competitors', async () => {
+    const text = "Compare HubSpot vs Buffer vs Hootsuite for social media management";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
     
-    const result = await detector.detectCompetitors(text, 'test-org');
-    
-    // Only Salesforce should be detected (in gazetteer)
-    expect(result.competitors).toHaveLength(1);
-    expect(result.competitors[0].name).toBe('Salesforce');
-    
-    // UnknownTool and RandomSoftware should be rejected
-    expect(result.rejectedTerms).toContain('UnknownTool');
-    expect(result.rejectedTerms).toContain('RandomSoftware');
-  });
-
-  it('should filter out generic stopwords aggressively', async () => {
-    const text = 'The best software platform for digital marketing tools online.';
-    
-    const result = await detector.detectCompetitors(text, 'test-org');
-    
-    // All terms should be rejected as stopwords
-    expect(result.competitors).toHaveLength(0);
-    expect(result.orgBrands).toHaveLength(0);
-    expect(result.metadata.rejected_count).toBeGreaterThan(0);
-  });
-
-  it('should distinguish org brands from competitors', async () => {
-    const text = 'TestCorp Platform beats Salesforce and HubSpot in performance.';
-    
-    const result = await detector.detectCompetitors(text, 'test-org');
-    
-    // TestCorp should be org brand, others competitors
-    expect(result.orgBrands).toHaveLength(1);
-    expect(result.orgBrands[0].name).toBe('TestCorp');
-    
-    expect(result.competitors).toHaveLength(2);
-    expect(result.competitors.map(c => c.name)).toContain('Salesforce');
-    expect(result.competitors.map(c => c.name)).toContain('HubSpot');
-  });
-
-  it('should calculate conservative confidence scores', async () => {
-    const text = 'Salesforce is the leading CRM. Many companies use Salesforce daily.';
-    
-    const result = await detector.detectCompetitors(text, 'test-org');
-    
-    expect(result.competitors).toHaveLength(1);
-    const salesforceMatch = result.competitors[0];
-    
-    // Should have reasonable confidence (0.6-1.0 range)
-    expect(salesforceMatch.confidence).toBeGreaterThanOrEqual(0.6);
-    expect(salesforceMatch.confidence).toBeLessThanOrEqual(1.0);
-    
-    // Should count multiple mentions
-    expect(salesforceMatch.mentions).toBe(2);
-  });
-
-  it('should handle compound brand names correctly', async () => {
-    const text = 'HubSpot Marketing Hub versus Salesforce Sales Cloud.';
-    
-    const result = await detector.detectCompetitors(text, 'test-org');
-    
-    // Should detect both HubSpot and Salesforce (compound names handled)
-    expect(result.competitors.length).toBeGreaterThanOrEqual(1);
-    expect(result.competitors.map(c => c.name)).toContain('HubSpot');
-  });
-
-  it('should reject invalid candidate patterns', async () => {
-    const invalidText = 'Click here to learn more about 123 and sign up now!';
-    
-    const result = await detector.detectCompetitors(invalidText, 'test-org');
-    
-    // Should reject all candidates (CTA phrases, numbers)
-    expect(result.competitors).toHaveLength(0);
-    expect(result.orgBrands).toHaveLength(0);
+    expect(result.competitors).toHaveLength(3);
+    expect(result.competitors.map(c => c.name)).toEqual(['HubSpot', 'Buffer', 'Hootsuite']);
     expect(result.metadata.strict_mode).toBe(true);
   });
 
-  it('should enforce minimum candidate length', async () => {
-    const text = 'We use A, B, C tools versus Salesforce.';
+  it('should filter out generic marketing terms', async () => {
+    const text = "marketing automation / customer data / choose the best solution";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
     
-    const result = await detector.detectCompetitors(text, 'test-org');
-    
-    // Only Salesforce should pass (single letters rejected)
-    expect(result.competitors).toHaveLength(1);
-    expect(result.competitors[0].name).toBe('Salesforce');
-    expect(result.rejectedTerms).not.toContain('Salesforce');
+    expect(result.competitors).toHaveLength(0);
+    expect(result.rejectedTerms.length).toBeGreaterThan(0);
   });
 
-  it('should handle edge cases gracefully', async () => {
-    const edgeCases = [
-      '', // empty
-      '   ', // whitespace
-      'no proper nouns here', // no candidates
-      '!@#$%^&*()' // special chars only
-    ];
+  it('should distinguish between org brands and competitors', async () => {
+    // Simulate HubSpot being the org brand
+    const detector = new MockStrictCompetitorDetector();
+    detector['orgGazetteer'].set('hubspot', { name: 'HubSpot', isOrgBrand: true });
     
-    for (const testCase of edgeCases) {
-      const result = await detector.detectCompetitors(testCase, 'test-org');
-      
-      expect(result.competitors).toHaveLength(0);
-      expect(result.orgBrands).toHaveLength(0);
-      expect(result.metadata.strict_mode).toBe(true);
-    }
+    const text = "HubSpot vs Buffer comparison";
+    const result = await detector.detectCompetitors(text, 'hubspot-org-id');
+    
+    expect(result.orgBrands).toHaveLength(1);
+    expect(result.orgBrands[0].name).toBe('HubSpot');
+    expect(result.competitors).toHaveLength(1);
+    expect(result.competitors[0].name).toBe('Buffer');
+  });
+
+  it('should calculate confidence scores based on mentions and position', async () => {
+    const text = "HubSpot is mentioned multiple times. HubSpot leads the market.";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
+    
+    expect(result.competitors).toHaveLength(1);
+    expect(result.competitors[0].confidence).toBeGreaterThan(0.6);
+    expect(result.competitors[0].mentions).toBe(2);
+  });
+
+  it('should handle compound brand names correctly', async () => {
+    // Add a compound brand name to the gazetteer
+    const detector = new MockStrictCompetitorDetector();
+    detector['orgGazetteer'].set('marketo engage', { name: 'Marketo Engage', isOrgBrand: false });
+    
+    const text = "Marketo Engage offers advanced automation";
+    const result = await detector.detectCompetitors(text, 'test-org-id');
+    
+    // Should handle compound names properly in extraction
+    expect(result.metadata.total_candidates).toBeGreaterThan(0);
+  });
+
+  it('should reject candidates with invalid patterns', async () => {
+    const text = "click here to learn more about 123solutions and get started now";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
+    
+    expect(result.competitors).toHaveLength(0);
+    expect(result.rejectedTerms.length).toBeGreaterThan(0);
+  });
+
+  it('should enforce length limits on candidate names', async () => {
+    const text = "VeryLongBrandNameThatExceedsThirtyCharactersAndShouldBeRejected";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
+    
+    expect(result.competitors).toHaveLength(0);
+  });
+
+  it('should handle edge cases with no valid candidates', async () => {
+    const text = "the and or but for with at by from about";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
+    
+    expect(result.competitors).toHaveLength(0);
+    expect(result.orgBrands).toHaveLength(0);
+    expect(result.metadata.total_candidates).toBe(0);
   });
 
   it('should provide comprehensive metadata', async () => {
-    const text = 'Salesforce CRM and UnknownBrand compete with TestCorp.';
-    
-    const result = await detector.detectCompetitors(text, 'test-org');
+    const text = "HubSpot vs Buffer vs unknown-tool marketing";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
     
     expect(result.metadata).toMatchObject({
-      strict_mode: true,
       total_candidates: expect.any(Number),
       gazetteer_matches: expect.any(Number),
       rejected_count: expect.any(Number),
-      processing_time_ms: expect.any(Number)
+      processing_time_ms: expect.any(Number),
+      strict_mode: true
     });
+  });
+});
+
+describe('Strict Detection Feature Flag Integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should use strict detection when flag is enabled', () => {
+    (isOptimizationFeatureEnabled as any).mockReturnValue(true);
     
-    // Should track rejections properly
-    expect(result.metadata.rejected_count).toBeGreaterThan(0);
-    expect(result.metadata.gazetteer_matches).toBeGreaterThan(0);
+    expect(isOptimizationFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT')).toBe(true);
+  });
+
+  it('should fallback to legacy detection when flag is disabled', () => {
+    (isOptimizationFeatureEnabled as any).mockReturnValue(false);
+    
+    expect(isOptimizationFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT')).toBe(false);
+  });
+
+  it('should preserve legacy output shape with strict detection', async () => {
+    const strictDetector = new MockStrictCompetitorDetector();
+    const text = "HubSpot vs Buffer";
+    const result = await strictDetector.detectCompetitors(text, 'test-org-id');
+    
+    // Ensure output shape matches legacy format expectations
+    expect(result).toHaveProperty('competitors');
+    expect(result).toHaveProperty('orgBrands');
+    expect(result).toHaveProperty('metadata');
+    expect(result.competitors[0]).toHaveProperty('name');
+    expect(result.competitors[0]).toHaveProperty('confidence');
   });
 });

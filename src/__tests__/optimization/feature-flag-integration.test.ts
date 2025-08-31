@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { getUnifiedDashboardData } from '../unified-fetcher';
+import { getUnifiedDashboardData } from '../../lib/data/unified-fetcher';
 
 // Mock feature flags
 const mockFeatureFlags = {
@@ -17,7 +17,7 @@ vi.mock('@/config/featureFlags', () => ({
 }));
 
 // Mock dependencies
-vi.mock('../bulk-fetcher', () => ({
+vi.mock('../../lib/data/bulk-fetcher', () => ({
   getBulkPromptData: vi.fn().mockResolvedValue({
     prompts: [{ id: 'prompt-1', text: 'Test', active: true, created_at: '2024-01-01', org_id: 'test-org' }],
     latestResponses: [{ id: 'resp-1', prompt_id: 'prompt-1', provider: 'openai', score: 7.5 }],
@@ -27,7 +27,7 @@ vi.mock('../bulk-fetcher', () => ({
   groupStatsByPrompt: vi.fn().mockReturnValue(new Map())
 }));
 
-vi.mock('../dashboard-helpers', () => ({
+vi.mock('../../lib/data/dashboard-helpers', () => ({
   getProviders: vi.fn().mockResolvedValue([{ id: 'prov-1', name: 'OpenAI', enabled: true }]),
   processUnifiedData: vi.fn().mockReturnValue({
     avgScore: 7.5,
@@ -46,7 +46,7 @@ vi.mock('@/lib/auth', () => ({
   getOrgId: vi.fn().mockResolvedValue('test-org-id')
 }));
 
-vi.mock('../advanced-cache/redis-cache', () => ({
+vi.mock('../../lib/advanced-cache/redis-cache', () => ({
   advancedCache: {
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn(),
@@ -57,7 +57,7 @@ vi.mock('../advanced-cache/redis-cache', () => ({
   }
 }));
 
-vi.mock('../background-optimization/data-preloader', () => ({
+vi.mock('../../lib/background-optimization/data-preloader', () => ({
   backgroundPreloader: {
     preloadCriticalData: vi.fn()
   }
@@ -71,7 +71,7 @@ const mockSupabase = {
         order: vi.fn().mockResolvedValue({ 
           data: [{ id: 'prompt-1', text: 'Test', active: true, created_at: '2024-01-01', org_id: 'test-org' }], 
           error: null 
-        })),
+        }),
         gte: vi.fn(() => ({
           order: vi.fn().mockResolvedValue({ data: [], error: null })
         }))
@@ -112,7 +112,7 @@ describe('Feature Flag Integration Tests', () => {
 
     it('should use bulk data fetching when FEATURE_BULK_QUERIES enabled', async () => {
       mockFeatureFlags.FEATURE_BULK_QUERIES = true;
-      const { getBulkPromptData } = await import('../bulk-fetcher');
+      const { getBulkPromptData } = await import('../../lib/data/bulk-fetcher');
       
       await getUnifiedDashboardData();
       
@@ -144,7 +144,7 @@ describe('Feature Flag Integration Tests', () => {
     it('should not use caching when FEATURE_RESPONSE_CACHE disabled', async () => {
       mockFeatureFlags.FEATURE_RESPONSE_CACHE = false;
       
-      const { responseCache } = await import('../cache/response-cache');
+      const { responseCache } = await import('../../lib/cache/response-cache');
       const getSpy = vi.spyOn(responseCache, 'get');
       
       // Cache operations should be bypassed
@@ -155,7 +155,7 @@ describe('Feature Flag Integration Tests', () => {
       mockFeatureFlags.FEATURE_RESPONSE_CACHE = true;
       
       // Test that caching mechanisms are available
-      const { responseCache } = await import('../cache/response-cache');
+      const { responseCache } = await import('../../lib/cache/response-cache');
       expect(responseCache).toBeDefined();
       expect(typeof responseCache.set).toBe('function');
       expect(typeof responseCache.get).toBe('function');
@@ -214,7 +214,7 @@ describe('Feature Flag Integration Tests', () => {
     it('should fallback gracefully when bulk queries fail', async () => {
       mockFeatureFlags.FEATURE_BULK_QUERIES = true;
       
-      const { getBulkPromptData } = await import('../bulk-fetcher');
+      const { getBulkPromptData } = await import('../../lib/data/bulk-fetcher');
       vi.mocked(getBulkPromptData).mockRejectedValueOnce(new Error('Bulk query failed'));
       
       // Should still throw the error (no silent fallback in current implementation)
