@@ -7,6 +7,13 @@ import { StrictCompetitorDetector } from './strict-detector.ts';
 import { LegacyCompetitorDetector } from './legacy-detector.ts';
 import { createEdgeLogger } from '../observability/structured-logger.ts';
 import { isOptimizationFeatureEnabled } from '../../../src/config/featureFlags.ts';
+import { 
+  diffDetections, 
+  logDetections, 
+  normalizeDetectionResult,
+  type DetectionResult,
+  type LogContext 
+} from '../../../src/lib/detect/diagnostics.ts';
 
 export interface EnhancedDetectionResult {
   competitors: Array<{
@@ -49,11 +56,13 @@ export class EnhancedCompetitorDetector {
 
   async detectCompetitors(text: string, orgId: string): Promise<EnhancedDetectionResult> {
     const startTime = performance.now();
+    const runId = crypto.randomUUID();
     
     this.logger.info('Starting enhanced competitor detection', { 
       orgId, 
       textLength: text.length,
-      strictModeEnabled: isOptimizationFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT')
+      strictModeEnabled: isOptimizationFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT'),
+      runId
     });
 
     // Check if strict mode is enabled
@@ -69,7 +78,19 @@ export class EnhancedCompetitorDetector {
             orgBrands: strictResult.orgBrands.length
           });
 
-          return this.normalizeResult(strictResult, 'strict', performance.now() - startTime);
+          const finalResult = this.normalizeResult(strictResult, 'strict', performance.now() - startTime);
+          
+          // Shadow mode diagnostics - compare with legacy if enabled
+          if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
+            try {
+              const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
+              this.runShadowDiagnostics(runId, orgId, 'strict_vs_legacy', finalResult, legacyResult, text.length);
+            } catch (error) {
+              this.logger.warn('Shadow diagnostics failed', { error: error.message });
+            }
+          }
+          
+          return finalResult;
         }
 
         // If strict detection yielded empty results, fall back to legacy
@@ -88,6 +109,19 @@ export class EnhancedCompetitorDetector {
     } else {
       // Use legacy detection when strict mode is disabled
       const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
+      
+      // Shadow mode diagnostics - compare with strict if enabled
+      if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
+        try {
+          const strictResult = await this.strictDetector.detectCompetitors(text, orgId);
+          const finalResult = this.normalizeResult(legacyResult, 'legacy', performance.now() - startTime);
+          this.runShadowDiagnostics(runId, orgId, 'legacy_vs_strict', finalResult, strictResult, text.length);
+          return finalResult;
+        } catch (error) {
+          this.logger.warn('Shadow diagnostics failed', { error: error.message });
+        }
+      }
+      
       return this.normalizeResult(legacyResult, 'legacy', performance.now() - startTime);
     }
   }
@@ -122,5 +156,53 @@ export class EnhancedCompetitorDetector {
         fallback_used: fallbackUsed
       }
     };
+  }
+
+  /**
+   * Run shadow diagnostics to compare detection methods
+   */
+  private runShadowDiagnostics(
+    runId: string, 
+    orgId: string, 
+    comparison: string, 
+    current: EnhancedDetectionResult, 
+    proposed: any, 
+    responseLength: number
+  ): void {
+    try {
+      const currentNormalized = normalizeDetectionResult({
+        brands: current.orgBrands.map(b => b.name),
+        competitors: current.competitors.map(c => c.name)
+      });
+
+      const proposedNormalized = normalizeDetectionResult({
+        brands: proposed.orgBrands?.map((b: any) => b.name) || [],
+        competitors: proposed.competitors?.map((c: any) => c.name) || []
+      });
+
+      const diffs = diffDetections(currentNormalized, proposedNormalized);
+      
+      const context: LogContext = {
+        provider: 'enhanced-detector',
+        promptId: orgId, // Using orgId as identifier since we don't have promptId here
+        runId,
+        method: comparison
+      };
+
+      const sample = {
+        responseLength,
+        confidence: current.metadata.detection_method,
+        metadata: {
+          current_method: current.metadata.detection_method,
+          proposed_method: proposed.metadata?.detection_method || 'unknown',
+          processing_time_current: current.metadata.processing_time_ms,
+          processing_time_proposed: proposed.metadata?.processing_time_ms
+        }
+      };
+
+      logDetections(context, diffs, sample);
+    } catch (error) {
+      this.logger.warn('Shadow diagnostics execution failed', { error: error.message });
+    }
   }
 }

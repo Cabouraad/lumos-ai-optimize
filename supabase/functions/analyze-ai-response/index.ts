@@ -2,6 +2,14 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts';
+import { isOptimizationFeatureEnabled } from '../../src/config/featureFlags.ts';
+import { 
+  diffDetections, 
+  logDetections, 
+  normalizeDetectionResult,
+  type DetectionResult,
+  type LogContext 
+} from '../../src/lib/detect/diagnostics.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,7 +68,8 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Analyzing response for prompt ${promptId} (org: ${userOrgId})`);
+    const runId = crypto.randomUUID();
+    console.log(`Analyzing response for prompt ${promptId} (org: ${userOrgId}, run: ${runId})`);
 
     // Get prompt data (verify it belongs to user's org)
     const { data: prompt, error: promptError } = await supabase
@@ -117,6 +126,50 @@ serve(async (req) => {
 
     // Use extractArtifacts for primary matching
     const artifacts = extractArtifacts(responseText, orgBrandVariants, competitorGazetteer);
+
+    // Shadow mode diagnostics - test alternative extraction methods if enabled
+    if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
+      try {
+        // Import enhanced detector for comparison
+        const { detectCompetitorsWithFallback } = await import('../_shared/competitor-detection/integration.ts');
+        const enhancedResult = await detectCompetitorsWithFallback(responseText, userOrgId, supabase);
+        
+        // Compare results
+        const currentResult = normalizeDetectionResult({
+          brands: artifacts.brands.map(b => b.name),
+          competitors: artifacts.competitors.map(c => c.name)
+        });
+        
+        const proposedResult = normalizeDetectionResult({
+          brands: enhancedResult.orgBrands.map(b => b.name),
+          competitors: enhancedResult.competitors.map(c => c.name)
+        });
+        
+        const diffs = diffDetections(currentResult, proposedResult);
+        
+        const context: LogContext = {
+          provider: providerId,
+          promptId,
+          runId,
+          method: 'artifacts_vs_enhanced'
+        };
+        
+        const sample = {
+          responseLength: responseText.length,
+          confidence: artifacts.metadata.analysis_confidence,
+          metadata: {
+            current_method: 'extractArtifacts',
+            proposed_method: enhancedResult.metadata.detection_method,
+            current_total: currentResult.brands.length + currentResult.competitors.length,
+            proposed_total: proposedResult.brands.length + proposedResult.competitors.length
+          }
+        };
+        
+        logDetections(context, diffs, sample);
+      } catch (error) {
+        console.warn('Shadow diagnostics failed:', error.message);
+      }
+    }
 
     // Determine brand presence and ordinal prominence
     const orgBrandPresent = artifacts.brands.length > 0;

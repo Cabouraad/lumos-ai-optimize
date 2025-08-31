@@ -10,6 +10,7 @@ export interface OptimizationFeatureFlags {
   
   // Detection and processing flags  
   FEATURE_STRICT_COMPETITOR_DETECT: boolean;
+  FEATURE_DETECTOR_SHADOW: boolean;
   
   // UI optimization flags
   FEATURE_LIGHT_UI: boolean;
@@ -20,6 +21,7 @@ const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
   FEATURE_BULK_QUERIES: false,
   FEATURE_RESPONSE_CACHE: false, 
   FEATURE_STRICT_COMPETITOR_DETECT: false,
+  FEATURE_DETECTOR_SHADOW: false,
   FEATURE_LIGHT_UI: false,
   FEATURE_A11Y: false,
 };
@@ -32,6 +34,7 @@ const getOptimizationFeatureFlags = (): OptimizationFeatureFlags => {
       FEATURE_BULK_QUERIES: import.meta.env.VITE_FEATURE_BULK_QUERIES === 'true',
       FEATURE_RESPONSE_CACHE: import.meta.env.VITE_FEATURE_RESPONSE_CACHE === 'true',
       FEATURE_STRICT_COMPETITOR_DETECT: import.meta.env.VITE_FEATURE_STRICT_COMPETITOR_DETECT === 'true',
+      FEATURE_DETECTOR_SHADOW: import.meta.env.VITE_FEATURE_DETECTOR_SHADOW === 'true',
       FEATURE_LIGHT_UI: import.meta.env.VITE_FEATURE_LIGHT_UI === 'true',
       FEATURE_A11Y: import.meta.env.VITE_FEATURE_A11Y === 'true',
     };
