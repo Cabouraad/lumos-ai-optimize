@@ -85,19 +85,18 @@ export class EnhancedCompetitorDetector {
 
           const finalResult = this.normalizeResult(strictResult, 'strict', performance.now() - startTime);
           
-          // Shadow mode diagnostics - compare with legacy, preprocessed, and v2 if enabled
+          // SHADOW MODE: Compare current (strict) with V2 when flag enabled 
           if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
             try {
-              const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
-              this.runShadowDiagnostics(runId, orgId, 'strict_vs_legacy', finalResult, legacyResult, text.length);
+              // Compute current from existing strict results (unchanged)
+              const current: DetectionResult = {
+                brands: finalResult.orgBrands.map(b => b.name),
+                competitors: finalResult.competitors.map(c => c.name)
+              };
               
-              // Also test with preprocessed text
-              const preprocessed = preprocessText(text);
-              const preprocessedLegacyResult = await this.legacyDetector.detectCompetitors(preprocessed.plainText, orgId);
-              this.runShadowDiagnosticsWithPreprocessing(runId, orgId, 'strict_vs_preprocessed_legacy', finalResult, preprocessedLegacyResult, text.length, preprocessed);
+              // Compute proposed via V2 detection
+              await this.runV2ShadowDiagnostics(runId, orgId, text, current, 'strict');
               
-              // Test V2 detection
-              await this.runV2ShadowDiagnostics(runId, orgId, text, finalResult);
             } catch (error) {
               this.logger.warn('Shadow diagnostics failed', { error: error.message });
             }
@@ -123,20 +122,19 @@ export class EnhancedCompetitorDetector {
       // Use legacy detection when strict mode is disabled
       const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
       
-      // Shadow mode diagnostics - compare with strict, preprocessed, and v2 if enabled
+      // SHADOW MODE: Compare current (legacy) with V2 when flag enabled
       if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
         try {
-          const strictResult = await this.strictDetector.detectCompetitors(text, orgId);
           const finalResult = this.normalizeResult(legacyResult, 'legacy', performance.now() - startTime);
-          this.runShadowDiagnostics(runId, orgId, 'legacy_vs_strict', finalResult, strictResult, text.length);
           
-          // Also test with preprocessed text
-          const preprocessed = preprocessText(text);
-          const preprocessedStrictResult = await this.strictDetector.detectCompetitors(preprocessed.plainText, orgId);
-          this.runShadowDiagnosticsWithPreprocessing(runId, orgId, 'legacy_vs_preprocessed_strict', finalResult, preprocessedStrictResult, text.length, preprocessed);
+          // Compute current from existing legacy results (unchanged)
+          const current: DetectionResult = {
+            brands: finalResult.orgBrands.map(b => b.name),
+            competitors: finalResult.competitors.map(c => c.name)
+          };
           
-          // Test V2 detection
-          await this.runV2ShadowDiagnostics(runId, orgId, text, finalResult);
+          // Compute proposed via V2 detection
+          await this.runV2ShadowDiagnostics(runId, orgId, text, current, 'legacy');
           
           return finalResult;
         } catch (error) {
@@ -285,13 +283,14 @@ export class EnhancedCompetitorDetector {
   }
 
   /**
-   * Run V2 shadow diagnostics
+   * Run V2 shadow diagnostics in the run pipeline
    */
   private async runV2ShadowDiagnostics(
     runId: string,
     orgId: string,
     text: string,
-    current: EnhancedDetectionResult
+    current: DetectionResult,
+    method: string
   ): Promise<void> {
     try {
       // Get organization data for V2 detection
@@ -336,10 +335,7 @@ export class EnhancedCompetitorDetector {
       const v2Result = runV2Detection(text, 'enhanced-detector', accountBrand, competitorsSeed);
 
       // Compare with current results
-      const currentNormalized = normalizeDetectionResult({
-        brands: current.orgBrands.map(b => b.name),
-        competitors: current.competitors.map(c => c.name)
-      });
+      const currentNormalized = normalizeDetectionResult(current);
 
       const diffs = diffDetections(currentNormalized, v2Result);
 
@@ -347,22 +343,18 @@ export class EnhancedCompetitorDetector {
         provider: 'enhanced-detector-v2',
         promptId: orgId,
         runId,
-        method: `${current.metadata.detection_method}_vs_v2`
+        method: `${method}_vs_v2`
       };
 
       const sample = {
         responseLength: text.length,
-        confidence: current.metadata.detection_method,
+        confidence: method,
         metadata: {
-          current_method: current.metadata.detection_method,
+          text_sample: text.substring(0, 200), // First 200 chars for spot checks
+          current_method: method,
           proposed_method: 'v2_detection',
-          processing_time_current: current.metadata.processing_time_ms,
           current_total: currentNormalized.brands.length + currentNormalized.competitors.length,
-          proposed_total: v2Result.brands.length + v2Result.competitors.length,
-          v2_metrics: {
-            candidates_generated: 'N/A', // Would need to expose from v2 result
-            gazetteer_size: 'N/A'
-          }
+          proposed_total: v2Result.brands.length + v2Result.competitors.length
         }
       };
 

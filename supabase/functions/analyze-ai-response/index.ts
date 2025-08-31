@@ -127,133 +127,63 @@ serve(async (req) => {
       responseLength: responseText.length
     });
 
-    // Use extractArtifacts for primary matching
+    // Use extractArtifacts for primary matching (current results - UNCHANGED)
     const artifacts = extractArtifacts(responseText, orgBrandVariants, competitorGazetteer);
 
-    // Shadow mode diagnostics - test alternative extraction methods if enabled
+    // SHADOW MODE: Compare current with V2 detection when flag enabled
     if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
       try {
-        // Import enhanced detector for comparison
-        const { detectCompetitorsWithFallback } = await import('../_shared/competitor-detection/integration.ts');
-        const enhancedResult = await detectCompetitorsWithFallback(responseText, userOrgId, supabase);
-        
-        // Compare results
-        const currentResult = normalizeDetectionResult({
+        // Compute current results from existing code (unchanged)
+        const current: DetectionResult = {
           brands: artifacts.brands.map(b => b.name),
           competitors: artifacts.competitors.map(c => c.name)
-        });
-        
-        const proposedResult = normalizeDetectionResult({
-          brands: enhancedResult.orgBrands.map(b => b.name),
-          competitors: enhancedResult.competitors.map(c => c.name)
-        });
-        
-        const diffs = diffDetections(currentResult, proposedResult);
-        
-        const context: LogContext = {
-          provider: providerId,
-          promptId,
-          runId,
-          method: 'artifacts_vs_enhanced'
         };
         
-        const sample = {
-          responseLength: responseText.length,
-          confidence: artifacts.metadata.analysis_confidence,
-          metadata: {
-            current_method: 'extractArtifacts',
-            proposed_method: enhancedResult.metadata.detection_method,
-            current_total: currentResult.brands.length + currentResult.competitors.length,
-            proposed_total: proposedResult.brands.length + proposedResult.competitors.length
-          }
-        };
-        
-        logDetections(context, diffs, sample);
-        
-        // Also test with preprocessed text
-        const preprocessed = preprocessText(responseText);
-        const preprocessedArtifacts = extractArtifacts(preprocessed.plainText, orgBrandVariants, competitorGazetteer);
-        const preprocessedResult = normalizeDetectionResult({
-          brands: preprocessedArtifacts.brands.map(b => b.name),
-          competitors: preprocessedArtifacts.competitors.map(c => c.name)
-        });
-        
-        const preprocessedDiffs = diffDetections(currentResult, preprocessedResult);
-        
-        const preprocessedContext: LogContext = {
-          provider: providerId + '-preprocessed',
-          promptId,
-          runId,
-          method: 'artifacts_vs_preprocessed_artifacts'
-        };
-        
-        const preprocessedSample = {
-          responseLength: responseText.length,
-          confidence: artifacts.metadata.analysis_confidence,
-          metadata: {
-            current_method: 'extractArtifacts',
-            proposed_method: 'extractArtifacts_preprocessed',
-            current_total: currentResult.brands.length + currentResult.competitors.length,
-            proposed_total: preprocessedResult.brands.length + preprocessedResult.competitors.length,
-            preprocessing: {
-              original_length: responseText.length,
-              processed_length: preprocessed.plainText.length,
-              anchors_extracted: preprocessed.anchors.length,
-              domains_extracted: preprocessed.domains.length,
-              size_reduction_pct: Math.round(((responseText.length - preprocessed.plainText.length) / responseText.length) * 100)
+        // Get organization data for V2 detection
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, domain')
+          .eq('id', userOrgId)
+          .single();
+
+        if (org) {
+          // Compute proposed via V2 detection with preprocessed input
+          const accountBrand: AccountBrand = {
+            canonical: org.name || '',
+            aliases: orgBrandVariants,
+            domain: org.domain || undefined
+          };
+
+          const competitorsSeed = competitorGazetteer;
+          const proposed = runV2Detection(responseText, providerId, accountBrand, competitorsSeed);
+
+          const diffs = diffDetections(current, proposed);
+
+          const context: LogContext = {
+            provider: providerId,
+            promptId,
+            runId,
+            method: 'current_vs_v2'
+          };
+
+          const sample = {
+            responseLength: responseText.length,
+            confidence: artifacts.metadata.analysis_confidence,
+            metadata: {
+              text_sample: responseText.substring(0, 200), // First 200 chars for spot checks
+              current_method: 'extractArtifacts',
+              proposed_method: 'v2_detection',
+              current_total: current.brands.length + current.competitors.length,
+              proposed_total: proposed.brands.length + proposed.competitors.length
             }
-          }
-        };
-        
-        logDetections(preprocessedContext, preprocessedDiffs, preprocessedSample);
-        
-        // Test V2 detection
-        try {
-          // Get organization data for V2
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('name, domain')
-            .eq('id', userOrgId)
-            .single();
+          };
 
-          if (org) {
-            const accountBrand: AccountBrand = {
-              canonical: org.name || '',
-              aliases: orgBrandVariants,
-              domain: org.domain || undefined
-            };
-
-            const competitorsSeed = competitorGazetteer;
-            const v2Result = runV2Detection(responseText, providerId, accountBrand, competitorsSeed);
-
-            const v2Diffs = diffDetections(currentResult, v2Result);
-
-            const v2Context: LogContext = {
-              provider: providerId + '-v2',
-              promptId,
-              runId,
-              method: 'artifacts_vs_v2'
-            };
-
-            const v2Sample = {
-              responseLength: responseText.length,
-              confidence: artifacts.metadata.analysis_confidence,
-              metadata: {
-                current_method: 'extractArtifacts',
-                proposed_method: 'v2_detection',
-                current_total: currentResult.brands.length + currentResult.competitors.length,
-                proposed_total: v2Result.brands.length + v2Result.competitors.length
-              }
-            };
-
-            logDetections(v2Context, v2Diffs, v2Sample);
-          }
-        } catch (v2Error) {
-          console.warn('V2 detection failed:', v2Error.message);
+          // Log the comparison (no DB writes)
+          logDetections(context, diffs, sample);
         }
         
       } catch (error) {
-        console.warn('Shadow diagnostics failed:', error.message);
+        console.warn('Shadow V2 diagnostics failed:', error.message);
       }
     }
 
