@@ -76,7 +76,7 @@ it('should batch fetch prompts with responses when flag enabled', async () => {
   expect(mockSupabase.rpc).toHaveBeenCalledWith('get_prompt_visibility_7d', expect.any(Object));
   
   expect(result.prompts).toHaveLength(1);
-  expect(result.responses).toHaveLength(1);
+  expect(result.latestResponses).toHaveLength(1);
 });
 
 describe('Bulk Query Optimization', () => {
