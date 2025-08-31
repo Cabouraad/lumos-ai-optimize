@@ -71,7 +71,7 @@ class MockStrictCompetitorDetector {
       rejectedTerms,
       metadata: {
         total_candidates: candidates.length,
-        gazetteer_matches,
+        gazetteer_matches: gazetteerMatches,
         rejected_count: rejectedTerms.length,
         processing_time_ms: 10,
         strict_mode: true
