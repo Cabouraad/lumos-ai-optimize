@@ -14,6 +14,7 @@ import {
   type DetectionResult,
   type LogContext 
 } from '../../../src/lib/detect/diagnostics.ts';
+import { preprocessText } from '../../../src/lib/detect/preprocess.ts';
 
 export interface EnhancedDetectionResult {
   competitors: Array<{
@@ -80,11 +81,16 @@ export class EnhancedCompetitorDetector {
 
           const finalResult = this.normalizeResult(strictResult, 'strict', performance.now() - startTime);
           
-          // Shadow mode diagnostics - compare with legacy if enabled
+          // Shadow mode diagnostics - compare with legacy and preprocessed if enabled
           if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
             try {
               const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
               this.runShadowDiagnostics(runId, orgId, 'strict_vs_legacy', finalResult, legacyResult, text.length);
+              
+              // Also test with preprocessed text
+              const preprocessed = preprocessText(text);
+              const preprocessedLegacyResult = await this.legacyDetector.detectCompetitors(preprocessed.plainText, orgId);
+              this.runShadowDiagnosticsWithPreprocessing(runId, orgId, 'strict_vs_preprocessed_legacy', finalResult, preprocessedLegacyResult, text.length, preprocessed);
             } catch (error) {
               this.logger.warn('Shadow diagnostics failed', { error: error.message });
             }
@@ -110,12 +116,18 @@ export class EnhancedCompetitorDetector {
       // Use legacy detection when strict mode is disabled
       const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
       
-      // Shadow mode diagnostics - compare with strict if enabled
+      // Shadow mode diagnostics - compare with strict and preprocessed if enabled
       if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
         try {
           const strictResult = await this.strictDetector.detectCompetitors(text, orgId);
           const finalResult = this.normalizeResult(legacyResult, 'legacy', performance.now() - startTime);
           this.runShadowDiagnostics(runId, orgId, 'legacy_vs_strict', finalResult, strictResult, text.length);
+          
+          // Also test with preprocessed text
+          const preprocessed = preprocessText(text);
+          const preprocessedStrictResult = await this.strictDetector.detectCompetitors(preprocessed.plainText, orgId);
+          this.runShadowDiagnosticsWithPreprocessing(runId, orgId, 'legacy_vs_preprocessed_strict', finalResult, preprocessedStrictResult, text.length, preprocessed);
+          
           return finalResult;
         } catch (error) {
           this.logger.warn('Shadow diagnostics failed', { error: error.message });
@@ -203,6 +215,62 @@ export class EnhancedCompetitorDetector {
       logDetections(context, diffs, sample);
     } catch (error) {
       this.logger.warn('Shadow diagnostics execution failed', { error: error.message });
+    }
+  }
+
+  /**
+   * Run shadow diagnostics with preprocessing analysis
+   */
+  private runShadowDiagnosticsWithPreprocessing(
+    runId: string, 
+    orgId: string, 
+    comparison: string, 
+    current: EnhancedDetectionResult, 
+    proposed: any, 
+    responseLength: number,
+    preprocessed: { plainText: string; anchors: string[]; domains: string[] }
+  ): void {
+    try {
+      const currentNormalized = normalizeDetectionResult({
+        brands: current.orgBrands.map(b => b.name),
+        competitors: current.competitors.map(c => c.name)
+      });
+
+      const proposedNormalized = normalizeDetectionResult({
+        brands: proposed.orgBrands?.map((b: any) => b.name) || [],
+        competitors: proposed.competitors?.map((c: any) => c.name) || []
+      });
+
+      const diffs = diffDetections(currentNormalized, proposedNormalized);
+      
+      const context: LogContext = {
+        provider: 'enhanced-detector-preprocessed',
+        promptId: orgId,
+        runId,
+        method: comparison
+      };
+
+      const sample = {
+        responseLength,
+        confidence: current.metadata.detection_method,
+        metadata: {
+          current_method: current.metadata.detection_method,
+          proposed_method: proposed.metadata?.detection_method || 'unknown',
+          processing_time_current: current.metadata.processing_time_ms,
+          processing_time_proposed: proposed.metadata?.processing_time_ms,
+          preprocessing: {
+            original_length: responseLength,
+            processed_length: preprocessed.plainText.length,
+            anchors_extracted: preprocessed.anchors.length,
+            domains_extracted: preprocessed.domains.length,
+            size_reduction_pct: Math.round(((responseLength - preprocessed.plainText.length) / responseLength) * 100)
+          }
+        }
+      };
+
+      logDetections(context, diffs, sample);
+    } catch (error) {
+      this.logger.warn('Shadow diagnostics with preprocessing execution failed', { error: error.message });
     }
   }
 }

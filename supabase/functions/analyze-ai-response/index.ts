@@ -10,6 +10,7 @@ import {
   type DetectionResult,
   type LogContext 
 } from '../../src/lib/detect/diagnostics.ts';
+import { preprocessText } from '../../src/lib/detect/preprocess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -166,6 +167,44 @@ serve(async (req) => {
         };
         
         logDetections(context, diffs, sample);
+        
+        // Also test with preprocessed text
+        const preprocessed = preprocessText(responseText);
+        const preprocessedArtifacts = extractArtifacts(preprocessed.plainText, orgBrandVariants, competitorGazetteer);
+        const preprocessedResult = normalizeDetectionResult({
+          brands: preprocessedArtifacts.brands.map(b => b.name),
+          competitors: preprocessedArtifacts.competitors.map(c => c.name)
+        });
+        
+        const preprocessedDiffs = diffDetections(currentResult, preprocessedResult);
+        
+        const preprocessedContext: LogContext = {
+          provider: providerId + '-preprocessed',
+          promptId,
+          runId,
+          method: 'artifacts_vs_preprocessed_artifacts'
+        };
+        
+        const preprocessedSample = {
+          responseLength: responseText.length,
+          confidence: artifacts.metadata.analysis_confidence,
+          metadata: {
+            current_method: 'extractArtifacts',
+            proposed_method: 'extractArtifacts_preprocessed',
+            current_total: currentResult.brands.length + currentResult.competitors.length,
+            proposed_total: preprocessedResult.brands.length + preprocessedResult.competitors.length,
+            preprocessing: {
+              original_length: responseText.length,
+              processed_length: preprocessed.plainText.length,
+              anchors_extracted: preprocessed.anchors.length,
+              domains_extracted: preprocessed.domains.length,
+              size_reduction_pct: Math.round(((responseText.length - preprocessed.plainText.length) / responseText.length) * 100)
+            }
+          }
+        };
+        
+        logDetections(preprocessedContext, preprocessedDiffs, preprocessedSample);
+        
       } catch (error) {
         console.warn('Shadow diagnostics failed:', error.message);
       }
