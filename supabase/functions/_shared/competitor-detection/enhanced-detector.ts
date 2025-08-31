@@ -6,17 +6,14 @@
 import { StrictCompetitorDetector } from './strict-detector.ts';
 import { LegacyCompetitorDetector } from './legacy-detector.ts';
 import { createEdgeLogger } from '../observability/structured-logger.ts';
-import { isOptimizationFeatureEnabled } from '../../../src/config/featureFlags.ts';
+import { isEdgeFeatureEnabled } from '../feature-flags.ts';
 import { 
   diffDetections, 
   logDetections, 
-  normalizeDetectionResult,
-  runV2Detection,
+  runSimpleV2Detection,
   type DetectionResult,
-  type LogContext,
-  type AccountBrand
-} from '../../../src/lib/detect/diagnostics.ts';
-import { preprocessText } from '../../../src/lib/detect/preprocess.ts';
+  type LogContext
+} from '../detection-diagnostics.ts';
 
 export interface EnhancedDetectionResult {
   competitors: Array<{
@@ -66,12 +63,12 @@ export class EnhancedCompetitorDetector {
     this.logger.info('Starting enhanced competitor detection', { 
       orgId, 
       textLength: text.length,
-      strictModeEnabled: isOptimizationFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT'),
+      strictModeEnabled: isEdgeFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT'),
       runId
     });
 
     // Check if strict mode is enabled
-    if (isOptimizationFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT')) {
+    if (isEdgeFeatureEnabled('FEATURE_STRICT_COMPETITOR_DETECT')) {
       try {
         // Try strict detection first
         const strictResult = await this.strictDetector.detectCompetitors(text, orgId);
@@ -86,7 +83,7 @@ export class EnhancedCompetitorDetector {
           const finalResult = this.normalizeResult(strictResult, 'strict', performance.now() - startTime);
           
           // SHADOW MODE: Compare current (strict) with V2 when flag enabled 
-          if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
+          if (isEdgeFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
             try {
               // Compute current from existing strict results (unchanged)
               const current: DetectionResult = {
@@ -123,7 +120,7 @@ export class EnhancedCompetitorDetector {
       const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
       
       // SHADOW MODE: Compare current (legacy) with V2 when flag enabled
-      if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
+      if (isEdgeFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
         try {
           const finalResult = this.normalizeResult(legacyResult, 'legacy', performance.now() - startTime);
           
@@ -190,15 +187,15 @@ export class EnhancedCompetitorDetector {
     responseLength: number
   ): void {
     try {
-      const currentNormalized = normalizeDetectionResult({
+      const currentNormalized: DetectionResult = {
         brands: current.orgBrands.map(b => b.name),
         competitors: current.competitors.map(c => c.name)
-      });
+      };
 
-      const proposedNormalized = normalizeDetectionResult({
+      const proposedNormalized: DetectionResult = {
         brands: proposed.orgBrands?.map((b: any) => b.name) || [],
         competitors: proposed.competitors?.map((c: any) => c.name) || []
-      });
+      };
 
       const diffs = diffDetections(currentNormalized, proposedNormalized);
       
@@ -239,15 +236,15 @@ export class EnhancedCompetitorDetector {
     preprocessed: { plainText: string; anchors: string[]; domains: string[] }
   ): void {
     try {
-      const currentNormalized = normalizeDetectionResult({
+      const currentNormalized: DetectionResult = {
         brands: current.orgBrands.map(b => b.name),
         competitors: current.competitors.map(c => c.name)
-      });
+      };
 
-      const proposedNormalized = normalizeDetectionResult({
+      const proposedNormalized: DetectionResult = {
         brands: proposed.orgBrands?.map((b: any) => b.name) || [],
         competitors: proposed.competitors?.map((c: any) => c.name) || []
-      });
+      };
 
       const diffs = diffDetections(currentNormalized, proposedNormalized);
       
@@ -307,21 +304,17 @@ export class EnhancedCompetitorDetector {
 
       if (!org) return;
 
-      // Build account brand for V2
-      const accountBrand: AccountBrand = {
-        canonical: org.name || '',
-        aliases: [],
-        domain: org.domain || undefined
-      };
+      // Build account brand aliases for simplified V2
+      const orgBrands: string[] = [];
 
       // Add org brand aliases from catalog
       if (brandCatalog) {
         brandCatalog
           .filter(b => b.is_org_brand)
           .forEach(brand => {
-            accountBrand.aliases.push(brand.name);
+            orgBrands.push(brand.name);
             if (brand.variants_json && Array.isArray(brand.variants_json)) {
-              accountBrand.aliases.push(...brand.variants_json);
+              orgBrands.push(...brand.variants_json);
             }
           });
       }
@@ -331,13 +324,10 @@ export class EnhancedCompetitorDetector {
         ?.filter(b => !b.is_org_brand)
         .map(b => b.name) || [];
 
-      // Run V2 detection
-      const v2Result = runV2Detection(text, 'enhanced-detector', accountBrand, competitorsSeed);
+      // Run simplified V2 detection
+      const v2Result = runSimpleV2Detection(text, 'enhanced-detector', orgBrands, competitorsSeed);
 
-      // Compare with current results
-      const currentNormalized = normalizeDetectionResult(current);
-
-      const diffs = diffDetections(currentNormalized, v2Result);
+      const diffs = diffDetections(current, v2Result);
 
       const context: LogContext = {
         provider: 'enhanced-detector-v2',
@@ -353,7 +343,7 @@ export class EnhancedCompetitorDetector {
           text_sample: text.substring(0, 200), // First 200 chars for spot checks
           current_method: method,
           proposed_method: 'v2_detection',
-          current_total: currentNormalized.brands.length + currentNormalized.competitors.length,
+          current_total: current.brands.length + current.competitors.length,
           proposed_total: v2Result.brands.length + v2Result.competitors.length
         }
       };

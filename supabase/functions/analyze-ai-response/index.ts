@@ -2,17 +2,14 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts';
-import { isOptimizationFeatureEnabled } from '../../src/config/featureFlags.ts';
+import { isEdgeFeatureEnabled } from '../_shared/feature-flags.ts';
 import { 
   diffDetections, 
   logDetections, 
-  normalizeDetectionResult,
-  runV2Detection,
+  runSimpleV2Detection,
   type DetectionResult,
-  type LogContext,
-  type AccountBrand
-} from '../../src/lib/detect/diagnostics.ts';
-import { preprocessText } from '../../src/lib/detect/preprocess.ts';
+  type LogContext
+} from '../_shared/detection-diagnostics.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,7 +132,7 @@ serve(async (req) => {
     const artifacts = extractArtifacts(responseText, normalizedUserBrands, competitorGazetteer);
 
     // SHADOW MODE: Compare current with V2 detection when flag enabled
-    if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
+    if (isEdgeFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
       try {
         // Compute current results from existing code (unchanged)
         const current: DetectionResult = {
@@ -143,48 +140,32 @@ serve(async (req) => {
           competitors: artifacts.competitors.map(c => c.name)
         };
         
-        // Get organization data for V2 detection
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name, domain')
-          .eq('id', userOrgId)
-          .single();
+        // Compute proposed via simplified V2 detection
+        const proposed = runSimpleV2Detection(responseText, providerId, orgBrandVariants, competitorGazetteer);
 
-        if (org) {
-          // Compute proposed via V2 detection with preprocessed input
-          const accountBrand: AccountBrand = {
-            canonical: org.name || '',
-            aliases: orgBrandVariants,
-            domain: org.domain || undefined
-          };
+        const diffs = diffDetections(current, proposed);
 
-          const competitorsSeed = competitorGazetteer;
-          const proposed = runV2Detection(responseText, providerId, accountBrand, competitorsSeed);
+        const context: LogContext = {
+          provider: providerId,
+          promptId,
+          runId,
+          method: 'current_vs_v2'
+        };
 
-          const diffs = diffDetections(current, proposed);
+        const sample = {
+          responseLength: responseText.length,
+          confidence: artifacts.metadata.analysis_confidence,
+          metadata: {
+            text_sample: responseText.substring(0, 200), // First 200 chars for spot checks
+            current_method: 'extractArtifacts',
+            proposed_method: 'simple_v2_detection',
+            current_total: current.brands.length + current.competitors.length,
+            proposed_total: proposed.brands.length + proposed.competitors.length
+          }
+        };
 
-          const context: LogContext = {
-            provider: providerId,
-            promptId,
-            runId,
-            method: 'current_vs_v2'
-          };
-
-          const sample = {
-            responseLength: responseText.length,
-            confidence: artifacts.metadata.analysis_confidence,
-            metadata: {
-              text_sample: responseText.substring(0, 200), // First 200 chars for spot checks
-              current_method: 'extractArtifacts',
-              proposed_method: 'v2_detection',
-              current_total: current.brands.length + current.competitors.length,
-              proposed_total: proposed.brands.length + proposed.competitors.length
-            }
-          };
-
-          // Log the comparison (no DB writes)
-          logDetections(context, diffs, sample);
-        }
+        // Log the comparison (no DB writes)
+        logDetections(context, diffs, sample);
         
       } catch (error) {
         console.warn('Shadow V2 diagnostics failed:', error.message);
