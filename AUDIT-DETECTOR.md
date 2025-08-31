@@ -1,6 +1,168 @@
-# Brand/Competitor Detection System Audit
+# Detection System Audit Guide
+
+This guide covers auditing and evaluating the brand/competitor detection system.
 
 ## Overview
+
+The detection system has two modes:
+- **Current**: Production detection logic using existing algorithms
+- **V2 Shadow**: New detection pipeline (v2.ts) that runs alongside for comparison
+
+## Evaluation Script
+
+### Basic Usage
+
+```bash
+# Evaluate last 50 runs across all organizations
+deno run --allow-all scripts/eval-detection.ts
+
+# Evaluate last 100 runs
+deno run --allow-all scripts/eval-detection.ts --runs=100
+
+# Evaluate specific organization
+deno run --allow-all scripts/eval-detection.ts --org-id=12345678-1234-1234-1234-123456789012
+```
+
+### Output Format
+
+The script outputs CSV data to stdout with these columns:
+
+| Column | Description |
+|--------|-------------|
+| `runId` | Unique identifier for the AI response run |
+| `provider` | AI provider (perplexity, openai, gemini) |
+| `orgId` | Organization UUID |
+| `currentBrands` | Brands detected by current system |
+| `v2Brands` | Brands detected by V2 system |
+| `currentCompetitors` | Competitors detected by current system |
+| `v2Competitors` | Competitors detected by V2 system |
+| `brandAdds` | Number of brands V2 added |
+| `brandDrops` | Number of brands V2 removed |
+| `competitorAdds` | Number of competitors V2 added |
+| `competitorDrops` | Number of competitors V2 removed |
+| `textSample` | First 200 chars of AI response (for spot checks) |
+
+### Analysis Examples
+
+```bash
+# Save to file for analysis
+deno run --allow-all scripts/eval-detection.ts > detection-eval.csv
+
+# Count differences by provider
+cat detection-eval.csv | tail -n +2 | cut -d, -f2,8,9,10,11 | sort | uniq -c
+
+# Find runs with high competitor differences
+cat detection-eval.csv | awk -F, '$10+$11 > 5 {print $1,$2,$10,$11}'
+```
+
+## Shadow Mode Logs
+
+When `FEATURE_DETECTOR_SHADOW` is enabled, the system logs real-time comparison data.
+
+### Log Format
+
+```json
+{
+  "type": "detection_shadow",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "context": {
+    "provider": "perplexity",
+    "promptId": "uuid",
+    "runId": "uuid",
+    "method": "enhanced-detector"
+  },
+  "changes": {
+    "hasChanges": true,
+    "totalChanges": 3,
+    "brands": {
+      "adds": 1,
+      "drops": 0,
+      "added": ["HubSpot"],
+      "dropped": []
+    },
+    "competitors": {
+      "adds": 2,
+      "drops": 0,
+      "added": ["Mailchimp", "Buffer"],
+      "dropped": []
+    }
+  },
+  "sample": {
+    "responseLength": 1524,
+    "confidence": 0.85
+  }
+}
+```
+
+### Monitoring Shadow Logs
+
+```bash
+# View recent shadow logs from Supabase Edge Functions
+supabase functions logs --project-ref=cgocsffxqyhojtyzniyz
+
+# Filter for detection shadow logs
+supabase functions logs --project-ref=cgocsffxqyhojtyzniyz | grep "detection_shadow"
+```
+
+## Key Metrics to Monitor
+
+### 1. Precision/Recall Changes
+- **High competitor adds**: V2 may be over-detecting
+- **High competitor drops**: V2 may be under-detecting
+- **Brand recognition**: V2 should better identify user's own brand
+
+### 2. Provider Differences
+- **Perplexity**: Should handle markdown links and citations better
+- **OpenAI/Gemini**: Should have consistent behavior across providers
+
+### 3. False Positive Reduction
+- Monitor for generic terms being eliminated: "marketing automation", "customer data"
+- Check domain-to-brand mapping: "hubspot.com" → "HubSpot"
+
+## Troubleshooting
+
+### No Results
+```bash
+# Check if responses exist
+deno run --allow-all -e "
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabase = createClient('https://cgocsffxqyhojtyzniyz.supabase.co', 'ANON_KEY');
+const { count } = await supabase.from('prompt_provider_responses').select('*', { count: 'exact', head: true });
+console.log('Total responses:', count);
+"
+```
+
+### Performance Issues
+- Reduce `--runs` parameter for faster execution
+- Focus on specific org with `--org-id` parameter
+- Check for memory usage with large datasets
+
+### Validation
+- Spot-check `textSample` column for context
+- Verify brand recognition using known test cases
+- Compare results across different time periods
+
+## Feature Flags
+
+- `FEATURE_DETECTOR_SHADOW`: Enable shadow mode logging (default: false)
+- `FEATURE_STRICT_COMPETITOR_DETECT`: Use strict detection in production
+
+## Test Suite
+
+Run comprehensive detection tests:
+
+```bash
+# V2 detection unit tests
+npm test src/__tests__/detect.v2.spec.ts
+
+# Integration tests
+npm test src/__tests__/competitor-detection.test.ts
+```
+
+---
+
+# Original System Architecture
+
 This document maps the complete brand/competitor extraction system, analyzing detection patterns, heuristics, and provider-specific processing quirks.
 
 ## Detection Architecture
