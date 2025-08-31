@@ -59,7 +59,7 @@ export async function getBulkPromptData(): Promise<BulkPromptData> {
       .order("created_at", { ascending: false }),
     
     // Latest responses via optimized RPC (already batched)
-    supabase.rpc('get_latest_prompt_provider_responses_catalog_only', { 
+    supabase.rpc('get_latest_prompt_provider_responses', { 
       p_org_id: orgId 
     }),
     

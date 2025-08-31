@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts';
+import { GLOBAL_COMPETITORS, findGlobalCompetitor } from '../_shared/global-competitors-gazetteer.ts';
 import { isEdgeFeatureEnabled } from '../_shared/feature-flags.ts';
 import { 
   diffDetections, 
@@ -108,7 +109,7 @@ serve(async (req) => {
       }
     }
 
-    // Build competitor gazetteer from brand_catalog only
+    // Build comprehensive competitor gazetteer from brand_catalog + global competitors
     const { data: competitorData, error: competitorError } = await supabase
       .from('brand_catalog')
       .select('name, variants_json')
@@ -119,7 +120,22 @@ serve(async (req) => {
       console.error('Error fetching competitors:', competitorError);
     }
 
-    const competitorGazetteer = createBrandGazetteer(competitorData || []);
+    // Create comprehensive gazetteer: catalog competitors + global competitors
+    const catalogGazetteer = createBrandGazetteer(competitorData || []);
+    const globalCompetitorNames = GLOBAL_COMPETITORS.map(c => c.name);
+    const globalCompetitorAliases = GLOBAL_COMPETITORS.flatMap(c => c.aliases);
+    const competitorGazetteer = [
+      ...catalogGazetteer,
+      ...globalCompetitorNames,
+      ...globalCompetitorAliases
+    ];
+
+    console.log('🔍 Initializing comprehensive competitor gazetteer:', {
+      catalogEntries: catalogGazetteer.length,
+      globalCompetitors: globalCompetitorNames.length,
+      globalAliases: globalCompetitorAliases.length,
+      total: competitorGazetteer.length
+    });
 
     console.log('📋 Analysis setup:', {
       orgBrandVariants: orgBrandVariants.length,

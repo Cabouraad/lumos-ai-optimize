@@ -41,13 +41,12 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
           return;
         }
 
-        // Filter competitors to only show those in the brand catalog
-        const filteredCompetitors = (data || []).filter((competitor: CompetitorData) => {
-          return isValidCompetitor(competitor.competitor_name) && 
-                 isCompetitorInCatalog(competitor.competitor_name);
+        // Show all valid competitors, not just catalog ones
+        const validCompetitors = (data || []).filter((competitor: CompetitorData) => {
+          return isValidCompetitor(competitor.competitor_name);
         });
 
-        setCompetitors(filteredCompetitors);
+        setCompetitors(validCompetitors);
       } catch (err) {
         console.error('Error in fetchCompetitors:', err);
         setError('Failed to load competitors');
@@ -87,7 +86,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
         <Building2 className="h-4 w-4" />
-        <span className="text-sm">No catalog competitors found in recent responses</span>
+        <span className="text-sm">No competitors found in recent responses</span>
       </div>
     );
   }
@@ -95,9 +94,9 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   return (
     <div className="space-y-3">
       <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-        <span>Catalog Competitors ({competitors.length})</span>
-        <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
-          ✓ From Catalog
+        <span>Competitors ({competitors.length})</span>
+        <Badge variant="outline" className="text-xs px-1.5 py-0 bg-secondary/10 text-foreground border-border">
+          All Detected
         </Badge>
       </div>
       
@@ -108,7 +107,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
             key={competitor.competitor_name}
             name={competitor.competitor_name}
             mentions={competitor.mentions}
-            confidence={0.9} // High confidence for catalog-verified competitors
+            confidence={isCompetitorInCatalog(competitor.competitor_name) ? 0.9 : 0.7}
             size="sm"
             variant="outline"
           />

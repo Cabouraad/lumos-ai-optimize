@@ -67,9 +67,9 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
 
         setResults((data as ProviderResponse[]) || []);
       } else {
-        // Get latest results per provider with catalog-filtered competitors
+        // Get latest results per provider with all detected competitors
         const { data, error } = await supabase
-          .rpc('get_latest_prompt_provider_responses_catalog_only', { p_prompt_id: promptId });
+          .rpc('get_latest_prompt_provider_responses', { p_prompt_id: promptId });
 
         if (error) {
           console.error('Error fetching latest results:', error);

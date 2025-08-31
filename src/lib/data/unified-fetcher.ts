@@ -340,7 +340,7 @@ async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDa
 
   // Get latest responses for calculating the additional metrics
   const { data: latestResponsesData } = await supabase
-    .rpc('get_latest_prompt_provider_responses_catalog_only', { p_org_id: orgId });
+    .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
   
   const latestResponses = latestResponsesData || [];
 
@@ -460,7 +460,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     // Get latest provider responses and simplified data in parallel
     const [latestResponsesResult, sevenDayResult] = await Promise.all([
       supabase
-        .rpc('get_latest_prompt_provider_responses_catalog_only', { p_org_id: orgId }),
+        .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId }),
         
       supabase
         .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
