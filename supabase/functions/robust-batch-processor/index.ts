@@ -99,19 +99,23 @@ async function analyzeAIResponse(
       console.error('Error fetching org brands:', orgBrandError);
     }
     
-    // Build org brand variants with fallback
+    // Build org brand variants with fallback - NORMALIZE for proper matching
     let orgBrandVariants: string[] = [];
+    const normalizedUserBrands: string[] = [];
     if (orgBrandData && orgBrandData.length > 0) {
       for (const brand of orgBrandData) {
         orgBrandVariants.push(brand.name);
+        normalizedUserBrands.push(brand.name.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim());
         const variants = brand.variants_json || [];
         orgBrandVariants.push(...variants);
+        variants.forEach(v => normalizedUserBrands.push(v.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim()));
       }
     }
     
-    // Fallback to org name if no brands in catalog
+    // Fallback to org name if no brands in catalog - NORMALIZE too
     if (orgBrandVariants.length === 0 && orgData?.name) {
       orgBrandVariants = [orgData.name];
+      normalizedUserBrands.push(orgData.name.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim());
     }
     
     // Build competitor gazetteer from brand_catalog only
@@ -129,12 +133,13 @@ async function analyzeAIResponse(
     
     console.log('📋 Analysis setup:', {
       orgBrandVariants: orgBrandVariants.length,
+      normalizedUserBrands: normalizedUserBrands.length,
       competitorGazetteer: competitorGazetteer.length,
       responseLength: responseText.length
     });
     
-    // Use extractArtifacts for primary matching
-    const artifacts = extractArtifacts(responseText, orgBrandVariants, competitorGazetteer);
+    // Use extractArtifacts for primary matching - PASS NORMALIZED USER BRANDS
+    const artifacts = extractArtifacts(responseText, normalizedUserBrands, competitorGazetteer);
     
     // Determine brand presence and ordinal prominence
     const orgBrandPresent = artifacts.brands.length > 0;

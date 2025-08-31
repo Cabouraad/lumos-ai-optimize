@@ -98,13 +98,16 @@ serve(async (req) => {
       console.error('Error fetching org brands:', orgBrandError);
     }
 
-    // Build org brand variants with fallback
+    // Build org brand variants with fallback - NORMALIZE for proper matching
     let orgBrandVariants: string[] = [];
+    const normalizedUserBrands: string[] = [];
     if (orgBrandData && orgBrandData.length > 0) {
       for (const brand of orgBrandData) {
         orgBrandVariants.push(brand.name);
+        normalizedUserBrands.push(brand.name.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim());
         const variants = brand.variants_json || [];
         orgBrandVariants.push(...variants);
+        variants.forEach(v => normalizedUserBrands.push(v.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim()));
       }
     }
 
@@ -123,12 +126,13 @@ serve(async (req) => {
 
     console.log('📋 Analysis setup:', {
       orgBrandVariants: orgBrandVariants.length,
+      normalizedUserBrands: normalizedUserBrands.length,
       competitorGazetteer: competitorGazetteer.length,
       responseLength: responseText.length
     });
 
-    // Use extractArtifacts for primary matching (current results - UNCHANGED)
-    const artifacts = extractArtifacts(responseText, orgBrandVariants, competitorGazetteer);
+    // Use extractArtifacts for primary matching - PASS NORMALIZED USER BRANDS
+    const artifacts = extractArtifacts(responseText, normalizedUserBrands, competitorGazetteer);
 
     // SHADOW MODE: Compare current with V2 detection when flag enabled
     if (isOptimizationFeatureEnabled('FEATURE_DETECTOR_SHADOW')) {
@@ -308,8 +312,8 @@ serve(async (req) => {
       }
     }
 
-    // Update org brand tracking if mentioned
-    for (const brand of artifacts.brands.filter(b => orgBrandVariants.includes(b.normalized))) {
+    // Update org brand tracking if mentioned - FIX: Use normalized brands for filtering
+    for (const brand of artifacts.brands.filter(b => normalizedUserBrands.includes(b.normalized))) {
       try {
         const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
           p_org_id: userOrgId,
