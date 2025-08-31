@@ -179,109 +179,63 @@ async function executePerplexity(promptText: string): Promise<{ responseText: st
   };
 }
 
-// Simple analysis function  
-function analyzeResponse(responseText: string, orgName: string): { 
-  score: number; 
-  brandPresent: boolean; 
-  brands: string[]; 
-  competitors: string[]; 
-  orgBrands: string[];
-  orgBrandPresent: boolean;
-  orgBrandPosition: number | null;
-  competitorCount: number;
-} {
-  const text = (responseText || '').toLowerCase();
-  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-  const makeBoundaryRegex = (term: string) => new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(term)}(?![A-Za-z0-9])`, 'gi');
+// Response analysis using comprehensive brand analyzer
+async function analyzeResponse(responseText: string, orgName: string) {
+  console.log(`Analyzing response for org: ${orgName}`);
   
-  const base = (orgName || '').trim();
-  const baseLower = base.toLowerCase();
-  const orgVariants = Array.from(new Set([
-    baseLower,
-    baseLower.replace(/\s+/g, ''),
-    baseLower.replace(/\s+/g, '-'),
-    `${baseLower} crm`,
-    `${baseLower} marketing hub`,
-  ].filter(Boolean)));
-
-  const findEarliestIndex = (t: string, terms: string[]): number | null => {
-    let min: number | null = null;
-    for (const term of terms) {
-      const re = makeBoundaryRegex(term);
-      const m = re.exec(t);
-      if (m) {
-        const idx = m.index;
-        if (min === null || idx < min) min = idx;
-      }
-    }
-    return min;
-  };
-
-  const competitorKeywords = [
-    'salesforce','marketo','pardot','mailchimp','hootsuite','buffer',
-    'sprout social','semrush','ahrefs','buzzsumo','getresponse',
-    'activecampaign','convertkit','monday.com','trello','asana','notion',
-    'intercom','zendesk','pipedrive','freshsales','hubspot','klaviyo',
-    'constant contact','aweber','drip','omnisend','sendinblue','brevo',
-    'mailerlite','campaign monitor','emma','benchmark email'
-  ];
-
-  // Detect org presence and position with boundaries
-  const orgPos = findEarliestIndex(text, orgVariants);
-  const brandPresent = orgPos !== null;
-
-  // Detect competitors with boundaries and de-duplication
-  const competitorSet = new Set<string>();
-  const competitorPositions: Array<{ name: string; pos: number }> = [];
-  
-  for (const comp of competitorKeywords) {
-    // Skip if this competitor matches any org brand variant
-    const isOrgBrand = orgVariants.some(variant => 
-      variant.toLowerCase() === comp.toLowerCase() ||
-      comp.toLowerCase().includes(variant.toLowerCase()) ||
-      variant.toLowerCase().includes(comp.toLowerCase())
+  try {
+    // Use comprehensive brand analyzer
+    const { analyzePromptResponse } = await import('../_shared/brand-response-analyzer.ts');
+    
+    // Create mock brand catalog with org name
+    const mockBrandCatalog = [
+      { name: orgName, is_org_brand: true, variants_json: [orgName.toLowerCase()] }
+    ];
+    
+    const analysis = await analyzePromptResponse(
+      responseText,
+      { name: orgName },
+      mockBrandCatalog
     );
     
-    if (isOrgBrand) continue;
+    console.log(`Comprehensive analysis complete: Brand=${analysis.org_brand_present}, Competitors=${analysis.competitors_json.length}, Score=${analysis.score}`);
     
-    const re = makeBoundaryRegex(comp);
-    re.lastIndex = 0; // Reset regex state
-    const match = re.exec(text);
-    if (match) {
-      // Only add if we haven't seen this competitor already
-      if (!competitorSet.has(comp)) {
-        competitorSet.add(comp);
-        competitorPositions.push({ name: comp, pos: match.index });
-      }
-    }
+    return {
+      brandPresent: analysis.org_brand_present,
+      brandMentions: analysis.brands_json.length,
+      brandPosition: analysis.org_brand_prominence || 0,
+      competitors: analysis.competitors_json,
+      competitorMentions: analysis.competitors_json.length,
+      score: analysis.score,
+      confidence: analysis.metadata.confidence_score,
+      globalCompetitorsFound: analysis.metadata.global_competitors,
+      catalogCompetitors: analysis.metadata.catalog_competitors,
+      discoveredCompetitors: analysis.metadata.discovered_competitors,
+      enhancedAnalysis: true,
+      method: analysis.metadata.analysis_method
+    };
+    
+  } catch (error) {
+    console.error('Comprehensive analysis failed, using fallback:', error);
+    
+    // Fallback basic analysis
+    const brandPresent = responseText.toLowerCase().includes(orgName.toLowerCase());
+    const brandMentions = brandPresent ? 1 : 0;
+    const score = brandPresent ? 6.0 : 1.0;
+    
+    return {
+      brandPresent,
+      brandMentions,
+      brandPosition: brandPresent ? 1 : 0,
+      competitors: [],
+      competitorMentions: 0,
+      score,
+      confidence: 0.5,
+      globalCompetitorsFound: 0,
+      enhancedAnalysis: false,
+      fallbackUsed: true
+    };
   }
-
-  // Compute prominence index: how many brand mentions occur before org mention
-  let prominenceIdx: number | null = null;
-  if (brandPresent) {
-    const allPositions = [
-      ...competitorPositions.map(c => ({ type: 'comp' as const, pos: c.pos })),
-      { type: 'org' as const, pos: orgPos as number }
-    ].sort((a, b) => a.pos - b.pos);
-    prominenceIdx = allPositions.findIndex(x => x.type === 'org');
-  }
-
-  // Score using unified scoring
-  const score = computeVisibilityScore(brandPresent, prominenceIdx, competitorSet.size);
-
-  const competitors = Array.from(competitorSet);
-  const foundBrands = brandPresent ? [base] : [];
-
-  return { 
-    score: Math.round(score),
-    brandPresent,
-    brands: foundBrands,
-    competitors,
-    orgBrands: foundBrands,
-    orgBrandPresent: brandPresent,
-    orgBrandPosition: orgPos,
-    competitorCount: competitors.length
-  };
 }
 
 serve(async (req) => {

@@ -78,45 +78,103 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
   };
 }
 
-// Enhanced AI response analysis using brand catalog and artifacts
-async function analyzeAIResponse(
-  supabase: any,
-  orgId: string,
-  responseText: string,
-  orgData?: any
-): Promise<any> {
+// Enhanced AI response analysis using comprehensive brand analyzer
+async function analyzeAIResponse(supabase: any, orgId: string, responseText: string, orgData: any) {
   try {
-    console.log('🔍 Starting enhanced AI response analysis...');
+    console.log('🔍 Starting comprehensive AI response analysis...');
     
-    // Build org brand variants directly from brand_catalog
-    const { data: orgBrandData, error: orgBrandError } = await supabase
+    // Get brand catalog for this org
+    const { data: brandCatalog } = await supabase
       .from('brand_catalog')
-      .select('name, variants_json')
-      .eq('org_id', orgId)
-      .eq('is_org_brand', true);
+      .select('name, is_org_brand, variants_json')
+      .eq('org_id', orgId);
     
-    if (orgBrandError) {
-      console.error('Error fetching org brands:', orgBrandError);
+    if (!brandCatalog) {
+      console.log('⚠️ No brand catalog found for org');
+      return getDefaultAnalysis();
     }
     
-    // Build org brand variants with fallback - NORMALIZE for proper matching
-    let orgBrandVariants: string[] = [];
-    const normalizedUserBrands: string[] = [];
-    if (orgBrandData && orgBrandData.length > 0) {
-      for (const brand of orgBrandData) {
-        orgBrandVariants.push(brand.name);
-        normalizedUserBrands.push(brand.name.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim());
-        const variants = brand.variants_json || [];
-        orgBrandVariants.push(...variants);
-        variants.forEach(v => normalizedUserBrands.push(v.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim()));
+    // Use comprehensive brand analyzer
+    const { analyzePromptResponse } = await import('../_shared/brand-response-analyzer.ts');
+    
+    const analysis = await analyzePromptResponse(
+      responseText,
+      {
+        name: orgData?.name || 'Unknown',
+        domain: orgData?.domain,
+        keywords: orgData?.keywords,
+        competitors: orgData?.competitors,
+        products_services: orgData?.products_services
+      },
+      brandCatalog
+    );
+    
+    console.log('✅ Comprehensive analysis complete:', {
+      orgBrandPresent: analysis.org_brand_present,
+      orgBrandProminence: analysis.org_brand_prominence,
+      score: analysis.score,
+      competitors: analysis.competitors_json.length,
+      method: analysis.metadata.analysis_method
+    });
+    
+    // Queue discovered competitors for manual review
+    if (analysis.metadata.discovered_competitors > 0) {
+      await queueCompetitorCandidates(supabase, orgId, analysis.metadata.ner_organizations);
+    }
+    
+    return {
+      orgBrandPresent: analysis.org_brand_present,
+      orgBrandProminence: analysis.org_brand_prominence,
+      competitors: analysis.competitors_json,
+      orgBrands: analysis.brands_json,
+      visibilityScore: analysis.score,
+      competitorsCount: analysis.competitors_json.length,
+      metadata: analysis.metadata
+    };
+  } catch (error) {
+    console.error('❌ Analysis error:', error);
+    return getDefaultAnalysis();
+  }
+
+  function getDefaultAnalysis() {
+    return {
+      orgBrandPresent: false,
+      orgBrandProminence: null,
+      competitors: [],
+      orgBrands: [],
+      visibilityScore: 1.0,
+      competitorsCount: 0,
+      metadata: {
+        detection_method: 'fallback',
+        analysis_failed: true,
+        error: 'Analysis failed'
       }
+    };
+  }
+}
+
+// Helper function to queue competitor candidates for manual review
+async function queueCompetitorCandidates(supabase: any, orgId: string, candidates: string[]) {
+  for (const candidate of candidates.slice(0, 5)) { // Limit to top 5
+    try {
+      await supabase
+        .from('brand_candidates')
+        .upsert({
+          org_id: orgId,
+          candidate_name: candidate,
+          detection_count: 1,
+          first_detected_at: new Date().toISOString(),
+          last_detected_at: new Date().toISOString(),
+          status: 'pending'
+        }, {
+          onConflict: 'org_id,candidate_name',
+          ignoreDuplicates: false
+        });
+    } catch (error) {
+      console.error('Error queueing competitor candidate:', error);
     }
-    
-    // Fallback to org name if no brands in catalog - NORMALIZE too
-    if (orgBrandVariants.length === 0 && orgData?.name) {
-      orgBrandVariants = [orgData.name];
-      normalizedUserBrands.push(orgData.name.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/\s+/g, ' ').trim());
-    }
+  }
+}
     
     // Build competitor gazetteer from brand_catalog only
     const { data: competitorData, error: competitorError } = await supabase
