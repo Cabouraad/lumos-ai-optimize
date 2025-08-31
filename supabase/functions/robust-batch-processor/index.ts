@@ -1,8 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
-import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts'
-import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts'
+import { analyzePromptResponse } from '../_shared/brand-response-analyzer.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,81 +77,6 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
   };
 }
 
-// Enhanced AI response analysis using comprehensive brand analyzer
-async function analyzeAIResponse(supabase: any, orgId: string, responseText: string, orgData: any) {
-  try {
-    console.log('🔍 Starting comprehensive AI response analysis...');
-    
-    // Get brand catalog for this org
-    const { data: brandCatalog } = await supabase
-      .from('brand_catalog')
-      .select('name, is_org_brand, variants_json')
-      .eq('org_id', orgId);
-    
-    if (!brandCatalog) {
-      console.log('⚠️ No brand catalog found for org');
-      return getDefaultAnalysis();
-    }
-    
-    // Use comprehensive brand analyzer
-    const { analyzePromptResponse } = await import('../_shared/brand-response-analyzer.ts');
-    
-    const analysis = await analyzePromptResponse(
-      responseText,
-      {
-        name: orgData?.name || 'Unknown',
-        domain: orgData?.domain,
-        keywords: orgData?.keywords,
-        competitors: orgData?.competitors,
-        products_services: orgData?.products_services
-      },
-      brandCatalog
-    );
-    
-    console.log('✅ Comprehensive analysis complete:', {
-      orgBrandPresent: analysis.org_brand_present,
-      orgBrandProminence: analysis.org_brand_prominence,
-      score: analysis.score,
-      competitors: analysis.competitors_json.length,
-      method: analysis.metadata.analysis_method
-    });
-    
-    // Queue discovered competitors for manual review
-    if (analysis.metadata.discovered_competitors > 0) {
-      await queueCompetitorCandidates(supabase, orgId, analysis.metadata.ner_organizations);
-    }
-    
-    return {
-      orgBrandPresent: analysis.org_brand_present,
-      orgBrandProminence: analysis.org_brand_prominence,
-      competitors: analysis.competitors_json,
-      orgBrands: analysis.brands_json,
-      visibilityScore: analysis.score,
-      competitorsCount: analysis.competitors_json.length,
-      metadata: analysis.metadata
-    };
-  } catch (error) {
-    console.error('❌ Analysis error:', error);
-    return getDefaultAnalysis();
-  }
-
-  function getDefaultAnalysis() {
-    return {
-      orgBrandPresent: false,
-      orgBrandProminence: null,
-      competitors: [],
-      orgBrands: [],
-      visibilityScore: 1.0,
-      competitorsCount: 0,
-      metadata: {
-        detection_method: 'fallback',
-        analysis_failed: true,
-        error: 'Analysis failed'
-      }
-    };
-  }
-}
-
 // Helper function to queue competitor candidates for manual review
 async function queueCompetitorCandidates(supabase: any, orgId: string, candidates: string[]) {
   for (const candidate of candidates.slice(0, 5)) { // Limit to top 5
@@ -173,114 +97,6 @@ async function queueCompetitorCandidates(supabase: any, orgId: string, candidate
     } catch (error) {
       console.error('Error queueing competitor candidate:', error);
     }
-  }
-}
-    
-    // Build competitor gazetteer from brand_catalog only
-    const { data: competitorData, error: competitorError } = await supabase
-      .from('brand_catalog')
-      .select('name, variants_json')
-      .eq('org_id', orgId)
-      .eq('is_org_brand', false);
-    
-    if (competitorError) {
-      console.error('Error fetching competitors:', competitorError);
-    }
-    
-    const competitorGazetteer = createBrandGazetteer(competitorData || []);
-    
-    console.log('📋 Analysis setup:', {
-      orgBrandVariants: orgBrandVariants.length,
-      normalizedUserBrands: normalizedUserBrands.length,
-      competitorGazetteer: competitorGazetteer.length,
-      responseLength: responseText.length
-    });
-    
-    // Use extractArtifacts for primary matching - PASS NORMALIZED USER BRANDS
-    const artifacts = extractArtifacts(responseText, normalizedUserBrands, competitorGazetteer);
-    
-    // Determine brand presence and ordinal prominence
-    const orgBrandPresent = artifacts.brands.length > 0;
-    let orgBrandProminence: number | null = null;
-    
-    if (orgBrandPresent && artifacts.brands.length > 0) {
-      // Calculate ordinal position (1st, 2nd, 3rd, etc.)
-      const firstBrand = artifacts.brands[0];
-      // Convert first_pos_ratio to ordinal position
-      const position = Math.max(1, Math.round(firstBrand.first_pos_ratio * 10) + 1);
-      orgBrandProminence = Math.min(position, 10); // Cap at 10th position
-    }
-    
-    // Calculate visibility score aligned with client-side analyzer
-    let score = 1; // Base score
-    
-    if (orgBrandPresent) {
-      score = 6; // Brand found baseline
-      
-      // Position bonus (earlier = better)
-      if (orgBrandProminence !== null) {
-        if (orgBrandProminence === 1) score += 3; // First position
-        else if (orgBrandProminence <= 3) score += 2; // Top 3
-        else if (orgBrandProminence <= 6) score += 1; // Top 6
-      }
-      
-      // Competition penalty
-      const competitorsCount = artifacts.competitors.length;
-      if (competitorsCount > 8) score -= 2;
-      else if (competitorsCount > 4) score -= 1;
-    }
-    
-    // Ensure score is within bounds
-    score = Math.max(1, Math.min(10, score));
-    
-    // Use enhanced competitor detection for high-confidence unknowns
-    const detectionResult = await detectCompetitors(supabase, orgId, responseText, {
-      useNERFallback: true,
-      maxCandidates: 10,
-      confidenceThreshold: 0.8
-    });
-    
-    // Collect high-confidence competitors not in catalog for brand_candidates
-    const normalize = (str: string) => str.toLowerCase().trim();
-    const competitorSet = new Set(competitorGazetteer.map(normalize));
-    const orgBrandSet = new Set(orgBrandVariants.map(normalize));
-    
-    const unknownCompetitors = detectionResult.competitors.filter(c => 
-      !competitorSet.has(normalize(c.name)) && 
-      !orgBrandSet.has(normalize(c.name)) &&
-      c.confidence > 0.8 &&
-      c.name.length >= 3 &&
-      !/^(seo|marketing|social|media|facebook|adobe|google|linkedin|twitter|instagram)$/i.test(c.name)
-    );
-    
-    console.log('🎯 Analysis complete:', {
-      orgBrandPresent,
-      orgBrandProminence,
-      score,
-      catalogCompetitors: artifacts.competitors.length,
-      unknownCandidates: unknownCompetitors.length
-    });
-
-    return {
-      score,
-      orgBrandPresent,
-      orgBrandProminence,
-      brands: artifacts.brands.map(b => b.name),
-      competitors: artifacts.competitors.map(c => c.name),
-      citations: artifacts.citations,
-      unknownCompetitors: unknownCompetitors.map(c => ({
-        name: c.name,
-        confidence: c.confidence,
-        mentions: c.mentions
-      })),
-      analysis_version: '2.1',
-      extraction_method: 'enhanced_artifacts',
-      industry_used: orgData?.industry || 'unknown',
-      competitor_conf_threshold: 0.8
-    };
-  } catch (error) {
-    console.error('❌ Analysis error:', error);
-    throw error;
   }
 }
 
@@ -443,19 +259,26 @@ async function processTask(
       throw new Error(result.error || 'API call failed');
     }
 
+    // Get brand catalog for this org
+    const { data: brandCatalog } = await supabase
+      .from('brand_catalog')
+      .select('name, is_org_brand, variants_json')
+      .eq('org_id', prompt.org_id);
+    
     // Analyze the AI response
-    const analysis = await analyzeAIResponse(supabase, prompt.org_id, result.response!, orgData);
+    const analysis = await analyzePromptResponse(result.response!, orgData, brandCatalog || []);
 
-    // Queue unknown competitors as brand candidates for review
-    for (const candidate of analysis.unknownCompetitors) {
+    // Extract unknown competitors from metadata for brand candidates
+    const unknownCompetitors = analysis.metadata?.ner_organizations || [];
+    for (const candidateName of unknownCompetitors.slice(0, 5)) {
       try {
         const { error: candidateError } = await supabase
           .from('brand_candidates')
           .upsert({
             org_id: prompt.org_id,
-            candidate_name: candidate.name,
-            detection_count: candidate.mentions,
-            confidence_score: candidate.confidence,
+            candidate_name: candidateName,
+            detection_count: 1,
+            confidence_score: 0.8,
             status: 'pending'
           });
         
@@ -478,19 +301,18 @@ async function processTask(
         status: 'success',
         raw_ai_response: result.response,
         score: analysis.score,
-        org_brand_present: analysis.orgBrandPresent,
-        org_brand_prominence: analysis.orgBrandProminence,
-        competitors_count: analysis.competitors.length,
-        competitors_json: analysis.competitors,
-        brands_json: analysis.brands,
+        org_brand_present: analysis.org_brand_present,
+        org_brand_prominence: analysis.org_brand_prominence,
+        competitors_count: analysis.competitors_json.length,
+        competitors_json: analysis.competitors_json,
+        brands_json: analysis.brands_json,
         token_in: result.tokenIn || 0,
         token_out: result.tokenOut || 0,
         metadata: {
-          analysis_version: analysis.analysis_version,
-          extraction_method: analysis.extraction_method,
-          industry_used: analysis.industry_used,
-          competitor_conf_threshold: analysis.competitor_conf_threshold,
-          unknown_candidates_queued: analysis.unknownCompetitors.length
+          analysis_method: analysis.metadata.analysis_method || 'comprehensive',
+          detected_competitors: analysis.metadata.catalog_competitors || 0,
+          discovered_competitors: analysis.metadata.global_competitors || 0,
+          ner_candidates: unknownCompetitors.length
         }
       })
       .select()
@@ -509,8 +331,8 @@ async function processTask(
         result: {
           response_id: responseData.id,
           score: analysis.score,
-          brand_present: analysis.orgBrandPresent,
-          competitors_count: analysis.competitors.length
+          brand_present: analysis.org_brand_present,
+          competitors_count: analysis.competitors_json.length
         }
       })
       .eq('id', task.id);
