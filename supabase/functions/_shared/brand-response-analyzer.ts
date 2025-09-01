@@ -20,8 +20,11 @@ export interface BrandAnalysisResult {
     global_competitors: number; 
     discovered_competitors: number;
     ner_organizations: string[];
-    analysis_method: 'comprehensive';
+    analysis_method: 'comprehensive' | 'deterministic';
     confidence_score: number;
+    analysis_hash?: string; // For deduplication
+    deterministic_mode?: boolean;
+    processing_time_ms?: number;
   };
 }
 
@@ -45,8 +48,10 @@ export interface BrandCatalogEntry {
 export async function analyzePromptResponse(
   responseText: string,
   orgData: OrgData,
-  brandCatalog: BrandCatalogEntry[]
+  brandCatalog: BrandCatalogEntry[],
+  options: { deterministicMode?: boolean; enableNER?: boolean } = {}
 ): Promise<BrandAnalysisResult> {
+  const startTime = Date.now();
   console.log('🔍 Starting comprehensive brand analysis...');
   console.log(`📊 Response length: ${responseText.length} chars`);
   
@@ -64,8 +69,10 @@ export async function analyzePromptResponse(
   const catalogMatches = findBrandMentions(responseText, catalogCompetitors);
   const globalMatches = findGlobalCompetitorMentions(responseText);
   
-  // Step 3: Discover new organizations via proper noun extraction + NER
-  const discoveredOrgs = await extractOrganizationsNER(responseText, [...orgBrandVariants, ...catalogCompetitors, ...globalMatches]);
+  // Step 3: Discover new organizations via proper noun extraction + NER (if enabled)
+  const discoveredOrgs = options.enableNER !== false 
+    ? await extractOrganizationsNER(responseText, [...orgBrandVariants, ...catalogCompetitors, ...globalMatches])
+    : [];
   
   console.log(`✅ Analysis results:`);
   console.log(`  - Org brands found: ${orgBrands.length}`);
@@ -99,6 +106,10 @@ export async function analyzePromptResponse(
     responseText.length
   );
   
+  // Generate analysis hash for deduplication
+  const analysisHash = generateAnalysisHash(responseText, orgBrands, uniqueCompetitors, score);
+  const processingTime = Date.now() - startTime;
+
   return {
     org_brand_present: orgBrandPresent,
     org_brand_prominence: orgBrandProminence,
@@ -111,8 +122,11 @@ export async function analyzePromptResponse(
       global_competitors: globalMatches.length,
       discovered_competitors: discoveredOrgs.length,
       ner_organizations: discoveredOrgs,
-      analysis_method: 'comprehensive',
-      confidence_score: calculateConfidence(orgBrands, uniqueCompetitors)
+      analysis_method: options.deterministicMode ? 'deterministic' : 'comprehensive',
+      confidence_score: calculateConfidence(orgBrands, uniqueCompetitors),
+      analysis_hash: analysisHash,
+      deterministic_mode: options.deterministicMode || false,
+      processing_time_ms: processingTime
     }
   };
 }
@@ -500,6 +514,32 @@ function normalize(str: string): string {
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Generate analysis hash for deduplication
+ */
+function generateAnalysisHash(
+  responseText: string, 
+  orgBrands: string[], 
+  competitors: string[], 
+  score: number
+): string {
+  const hashInput = [
+    responseText.substring(0, 500), // First 500 chars
+    orgBrands.sort().join('|'),
+    competitors.sort().join('|'),
+    Math.round(score * 10).toString()
+  ].join('::');
+  
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < hashInput.length; i++) {
+    const char = hashInput.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
 }
 
 function extractSurroundingText(text: string, target: string, radius: number): string {

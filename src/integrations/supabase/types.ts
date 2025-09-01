@@ -834,6 +834,10 @@ export type Database = {
           text: string
         }[]
       }
+      get_unified_dashboard_data: {
+        Args: { p_org_id?: string }
+        Returns: Json
+      }
       get_user_subscription_status: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -909,6 +913,28 @@ export type Database = {
       upsert_competitor_brand: {
         Args: { p_brand_name: string; p_org_id: string; p_score?: number }
         Returns: undefined
+      }
+      upsert_prompt_provider_response: {
+        Args: {
+          p_brands_json?: Json
+          p_competitors_count?: number
+          p_competitors_json?: Json
+          p_error?: string
+          p_metadata?: Json
+          p_model?: string
+          p_org_brand_present?: boolean
+          p_org_brand_prominence?: number
+          p_org_id: string
+          p_prompt_id: string
+          p_provider: string
+          p_raw_ai_response?: string
+          p_raw_evidence?: string
+          p_score?: number
+          p_status?: string
+          p_token_in?: number
+          p_token_out?: number
+        }
+        Returns: string
       }
     }
     Enums: {

@@ -9,9 +9,10 @@ import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RefreshButton } from '@/components/RefreshButton';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb } from 'lucide-react';
-import { getUnifiedDashboardData } from '@/lib/data/unified-fetcher';
+import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,40 +21,31 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const { toast } = useToast();
+  
+  // Use real-time dashboard hook
+  const { data: dashboardData, loading, error, refresh, lastUpdated } = useRealTimeDashboard({
+    autoRefreshInterval: 60000, // 1 minute
+    enableAutoRefresh: true
+  });
 
   useEffect(() => {
-    loadDashboardData();
     if (orgData?.organizations?.id) {
       loadRecommendations();
     }
   }, [orgData?.organizations?.id]);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      const data = await getUnifiedDashboardData();
-      setDashboardData({
-        ...data,
-        // Ensure we have default values to prevent rendering issues
-        chartData: data.chartData || [],
-        providers: data.providers || [],
-        prompts: data.prompts || []
-      });
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
+  // Show error if dashboard fetch failed
+  useEffect(() => {
+    if (error) {
       toast({
-        title: 'Error loading dashboard',
-        description: 'Failed to load dashboard data. Please refresh the page.',
+        title: 'Dashboard Error',
+        description: 'Failed to load dashboard data. Please try refreshing.',
         variant: 'destructive'
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [error, toast]);
 
   const loadRecommendations = async () => {
     try {
@@ -172,6 +164,13 @@ export default function Dashboard() {
               <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
               <p className="text-muted-foreground">AI visibility insights for your organization</p>
             </div>
+            <RefreshButton 
+              onRefresh={refresh}
+              loading={loading}
+              lastUpdated={lastUpdated}
+              autoRefreshEnabled={true}
+              showLastUpdated={true}
+            />
           </div>
 
           {/* Key Metrics */}
@@ -185,11 +184,11 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-2">
-                  <div className="text-2xl font-bold text-primary">{formatScore(dashboardData?.avgScore || 0)}/10</div>
-                  {getTrendIcon(dashboardData?.trend || 0)}
-                  {(dashboardData?.trend || 0) !== 0 && (
+                  <div className="text-2xl font-bold text-primary">{formatScore(dashboardData?.metrics?.avgScore || 0)}/10</div>
+                  {getTrendIcon(dashboardData?.metrics?.trend || 0)}
+                  {(dashboardData?.metrics?.trend || 0) !== 0 && (
                     <span className="text-xs text-muted-foreground">
-                      {Math.abs(dashboardData.trend).toFixed(1)}%
+                      {Math.abs(dashboardData.metrics.trend).toFixed(1)}%
                     </span>
                   )}
                 </div>
@@ -204,7 +203,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-secondary">{formatScore(dashboardData?.overallScore || 0)}/10</div>
+                <div className="text-2xl font-bold text-secondary">{formatScore(dashboardData?.metrics?.overallScore || 0)}/10</div>
                 <p className="text-xs text-muted-foreground">Last 7 days average</p>
               </CardContent>
             </Card>
@@ -217,7 +216,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-accent">{dashboardData?.promptCount || 0}</div>
+                <div className="text-2xl font-bold text-accent">{dashboardData?.metrics?.promptCount || 0}</div>
                 <p className="text-xs text-muted-foreground">Being monitored</p>
               </CardContent>
             </Card>
@@ -230,7 +229,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-warning">{dashboardData?.totalRuns || 0}</div>
+                <div className="text-2xl font-bold text-warning">{dashboardData?.metrics?.totalRuns || 0}</div>
                 <p className="text-xs text-muted-foreground">Last 30 days</p>
               </CardContent>
             </Card>
