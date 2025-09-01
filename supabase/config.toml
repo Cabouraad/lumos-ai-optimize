@@ -1,5 +1,12 @@
 project_id = "cgocsffxqyhojtyzniyz"
 
+# TODO: Security audit completed - All verify_jwt=false functions have proper internal auth:
+# - daily-batch-trigger: Validates cron secret against database
+# - daily-scheduler-deprecated: Legacy function (consider removal)  
+# - batch-reconciler: Validates cron secret + supports manual calls
+# - robust-batch-processor: Requires Bearer token OR valid cron secret
+# - stripe-webhook: Uses Stripe signature validation (industry standard)
+
 [functions.daily-batch-trigger]
 verify_jwt = false
 import_map = ""
@@ -75,9 +82,6 @@ verify_jwt = true
 
 [functions.activate-trial]
 verify_jwt = true
-
-[functions.execute-prompt]
-verify_jwt = false
 
 [functions.test-single-provider]
 verify_jwt = true
