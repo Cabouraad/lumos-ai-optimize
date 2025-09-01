@@ -33,10 +33,14 @@ export function useSubscriptionGate() {
   const gracePeriodHours = allowTrialGrace ? 24 : 0;
   
   const trialExpiresAt = subscriptionData?.trial_expires_at;
+  // Simplified access logic: subscribed OR (trial_expires_at > now AND payment_collected === true)
+  const hasValidAccess = isSubscribed || 
+    (trialExpiresAt && new Date(trialExpiresAt) > new Date() && subscriptionData?.payment_collected === true);
+  
   const isOnTrial = currentTier === 'starter' && trialExpiresAt && subscriptionData?.payment_collected === true;
-  const trialExpired = isOnTrial && new Date().getTime() > (new Date(trialExpiresAt).getTime() + (gracePeriodHours * 60 * 60 * 1000));
-  const daysRemainingInTrial = isOnTrial && !trialExpired 
-    ? Math.max(0, Math.ceil(((new Date(trialExpiresAt).getTime() + (gracePeriodHours * 60 * 60 * 1000)) - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+  const trialExpired = !hasValidAccess && trialExpiresAt && new Date(trialExpiresAt) <= new Date();
+  const daysRemainingInTrial = isOnTrial && hasValidAccess && trialExpiresAt
+    ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   
   // Get tier limits
@@ -93,19 +97,19 @@ export function useSubscriptionGate() {
 
   const limits = getTierLimits(currentTier);
 
-  // Feature gate functions
+  // Feature gate functions - updated to use new access logic
   const canAccessRecommendations = (): FeatureGate => {
-    // Check trial expiry first
-    if (trialExpired) {
+    // Check valid access first
+    if (!hasValidAccess) {
       return {
         hasAccess: false,
-        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        reason: 'Access requires an active subscription or valid trial with payment method.',
         upgradeRequired: true,
-        isTrialExpired: true,
+        isTrialExpired: trialExpired,
       };
     }
     
-    // Only allow access if they have a growth/pro plan - remove trial access
+    // Check tier permissions
     if (limits.hasRecommendations) {
       return { 
         hasAccess: true,
@@ -119,17 +123,17 @@ export function useSubscriptionGate() {
   };
 
   const canAccessCompetitorAnalysis = (): FeatureGate => {
-    // Check trial expiry first
-    if (trialExpired) {
+    // Check valid access first
+    if (!hasValidAccess) {
       return {
         hasAccess: false,
-        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        reason: 'Access requires an active subscription or valid trial with payment method.',
         upgradeRequired: true,
-        isTrialExpired: true,
+        isTrialExpired: trialExpired,
       };
     }
     
-    // Only allow access if they have a growth/pro plan - remove trial access
+    // Check tier permissions
     if (limits.hasCompetitorAnalysis) {
       return { 
         hasAccess: true,
@@ -165,13 +169,13 @@ export function useSubscriptionGate() {
   };
 
   const canCreatePrompts = (currentCount: number): FeatureGate => {
-    // Check trial expiry first
-    if (trialExpired) {
+    // Check valid access first
+    if (!hasValidAccess) {
       return {
         hasAccess: false,
-        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        reason: 'Access requires an active subscription or valid trial with payment method.',
         upgradeRequired: true,
-        isTrialExpired: true,
+        isTrialExpired: trialExpired,
       };
     }
     
@@ -190,12 +194,12 @@ export function useSubscriptionGate() {
   };
 
   const hasAccessToApp = (): FeatureGate => {
-    if (trialExpired) {
+    if (!hasValidAccess) {
       return {
         hasAccess: false,
-        reason: 'Your 7-day trial has expired. Upgrade to continue using Llumos.',
+        reason: 'Access requires an active subscription or valid trial with payment method.',
         upgradeRequired: true,
-        isTrialExpired: true,
+        isTrialExpired: trialExpired,
       };
     }
     return { hasAccess: true };

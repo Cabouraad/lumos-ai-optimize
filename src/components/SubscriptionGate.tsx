@@ -37,7 +37,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
 
   // Check if subscription is required
   const hasValidSubscription = subscriptionData?.subscribed || 
-    (subscriptionData?.trial_expires_at && new Date(subscriptionData.trial_expires_at) > new Date());
+    (subscriptionData?.trial_expires_at && new Date(subscriptionData.trial_expires_at) > new Date() && subscriptionData?.payment_collected === true);
 
   // If user requires subscription and doesn't have one, show subscription required page
   if (subscriptionData?.requires_subscription || !hasValidSubscription) {
