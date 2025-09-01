@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { getQuotasForTier } from '../../lib/tiers/quotas';
+import { optimizationFlags } from '@/config/featureFlags';
 
 export interface FeatureGate {
   hasAccess: boolean;
@@ -27,12 +28,15 @@ export function useSubscriptionGate() {
   const currentTier = subscriptionData?.subscription_tier || 'free';
   const isSubscribed = subscriptionData?.subscribed || false;
   
-  // Trial logic - only valid if payment method was collected
+  // Trial status with feature flag protection
+  const allowTrialGrace = optimizationFlags.FEATURE_TRIAL_GRACE;
+  const gracePeriodHours = allowTrialGrace ? 24 : 0;
+  
   const trialExpiresAt = subscriptionData?.trial_expires_at;
   const isOnTrial = currentTier === 'starter' && trialExpiresAt && subscriptionData?.payment_collected === true;
-  const trialExpired = isOnTrial && new Date() > new Date(trialExpiresAt);
+  const trialExpired = isOnTrial && new Date().getTime() > (new Date(trialExpiresAt).getTime() + (gracePeriodHours * 60 * 60 * 1000));
   const daysRemainingInTrial = isOnTrial && !trialExpired 
-    ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.ceil(((new Date(trialExpiresAt).getTime() + (gracePeriodHours * 60 * 60 * 1000)) - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   
   // Get tier limits

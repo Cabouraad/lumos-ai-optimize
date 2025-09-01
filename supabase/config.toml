@@ -81,3 +81,9 @@ verify_jwt = false
 
 [functions.test-single-provider]
 verify_jwt = true
+
+[functions.convert-competitor-to-brand]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false

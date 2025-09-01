@@ -701,6 +701,30 @@ export type Database = {
           },
         ]
       }
+      webhook_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          idempotency_key: string
+          processed: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          idempotency_key: string
+          processed?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          idempotency_key?: string
+          processed?: boolean | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
