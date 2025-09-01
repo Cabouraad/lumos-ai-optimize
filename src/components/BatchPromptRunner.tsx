@@ -47,7 +47,12 @@ export function BatchPromptRunner() {
     const autoReconcile = async () => {
       try {
         console.log('🔄 Auto-reconciling stuck jobs on mount...');
-        await supabase.functions.invoke('batch-reconciler');
+        await supabase.functions.invoke('batch-reconciler', {
+          body: {},
+          headers: {
+            'x-manual-call': 'true'
+          }
+        });
       } catch (error) {
         console.warn('Auto-reconcile failed:', error);
       }
@@ -81,7 +86,12 @@ export function BatchPromptRunner() {
           if (updatedJob.status === 'processing' && lastHeartbeat < threeMinutesAgo) {
             console.log('🚨 Job appears stuck, triggering auto-reconciliation...');
             try {
-              await supabase.functions.invoke('batch-reconciler');
+              await supabase.functions.invoke('batch-reconciler', {
+                body: {},
+                headers: {
+                  'x-manual-call': 'true'
+                }
+              });
               toast.warning('Job appeared stuck - attempted automatic recovery');
             } catch (reconcileError) {
               console.error('Auto-reconcile failed:', reconcileError);
@@ -206,6 +216,13 @@ export function BatchPromptRunner() {
         return;
       }
       
+      // Handle in-progress status (time budget exceeded)
+      if (data.action === 'in_progress') {
+        toast.success(`Processing started! ${data.processedSoFar} tasks completed so far. Processing continues in background.`);
+        loadRecentJobs();
+        return;
+      }
+      
       if (data.batchJobId || data.jobId) {
         const jobIdToUse = data.batchJobId || data.jobId;
         
@@ -268,6 +285,13 @@ export function BatchPromptRunner() {
         const errorMsg = data.error || 'Resume failed';
         setLastError(errorMsg);
         toast.error(errorMsg);
+        return;
+      }
+      
+      // Handle in-progress status for resumes too
+      if (data.action === 'in_progress') {
+        toast.success(`Resume in progress! ${data.processedSoFar} tasks completed so far.`);
+        loadRecentJobs();
         return;
       }
       

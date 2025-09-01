@@ -679,41 +679,74 @@ serve(async (req) => {
       console.log(`📋 Resumed batch job ${jobId}: ${JSON.stringify(resumeResult.data)}`);
     }
 
-    // Start processing tasks with robust error handling
+    // Start processing tasks with atomic task claiming and time budgets
     const BATCH_SIZE = 5; // Process 5 tasks concurrently
+    const TIME_BUDGET_MS = 45000; // 45 seconds to ensure we return before timeout
+    const startTime = Date.now();
     let processedCount = 0;
     let failedCount = 0;
 
     while (true) {
-      // Get pending tasks
-      const { data: pendingTasks, error: tasksError } = await supabase
-        .from('batch_tasks')
-        .select('*')
-        .eq('batch_job_id', jobId)
-        .eq('status', 'pending')
-        .limit(BATCH_SIZE);
+      // Check time budget to avoid edge function timeout
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime > TIME_BUDGET_MS) {
+        console.log(`⏰ Time budget exceeded (${elapsedTime}ms), returning with in_progress status`);
+        
+        // Update job status to indicate it's still in progress
+        await supabase
+          .from('batch_jobs')
+          .update({ 
+            status: 'processing',
+            last_heartbeat: new Date().toISOString(),
+            metadata: {
+              ...totalTasks && { total_tasks: totalTasks },
+              time_budget_exceeded: true,
+              elapsed_time_ms: elapsedTime
+            }
+          })
+          .eq('id', jobId);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          action: 'in_progress',
+          batchJobId: jobId,
+          totalProcessed: processedCount + failedCount,
+          processedSoFar: processedCount,
+          failedSoFar: failedCount,
+          elapsedTime: elapsedTime,
+          message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Use atomic task claiming to get and lock tasks
+      const { data: claimedTasks, error: tasksError } = await supabase
+        .rpc('claim_batch_tasks', {
+          p_job_id: jobId,
+          p_limit: BATCH_SIZE,
+          p_max_attempts: 3
+        });
 
       if (tasksError) {
-        console.error('❌ Failed to fetch pending tasks:', tasksError);
+        console.error('❌ Error claiming tasks:', tasksError);
         break;
       }
 
-      if (!pendingTasks || pendingTasks.length === 0) {
-        console.log('⏳ No more pending tasks found');
+      if (!claimedTasks || claimedTasks.length === 0) {
+        console.log('⏳ No more claimable tasks found');
         break;
       }
 
-      console.log(`🚀 Processing ${pendingTasks.length} tasks...`);
-
-      const currentBatch = pendingTasks;
+      console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
 
       // Process batch of tasks concurrently with individual error handling
       const results = await Promise.allSettled(
-        currentBatch.map(task => processTask(supabase, task, configs))
+        claimedTasks.map(task => processTask(supabase, task, configs))
       );
 
       results.forEach((result, index) => {
-        const taskId = currentBatch[index]?.id || 'unknown';
+        const taskId = claimedTasks[index]?.id || 'unknown';
         if (result.status === 'fulfilled' && result.value.success) {
           processedCount++;
           console.log(`✅ Task ${taskId} completed successfully`);
@@ -731,18 +764,35 @@ serve(async (req) => {
         .eq('id', jobId);
     }
 
-    // Final job completion
-    const { error: finalError } = await supabase
-      .from('batch_jobs')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        last_heartbeat: new Date().toISOString()
-      })
-      .eq('id', jobId);
+    // Check if job is actually complete before finalizing
+    const { data: taskStats } = await supabase
+      .from('batch_tasks')
+      .select('status')
+      .eq('batch_job_id', jobId);
 
-    if (finalError) {
-      console.error('❌ Failed to mark job as completed:', finalError);
+    const completedTasksCount = taskStats?.filter(t => t.status === 'completed').length || 0;
+    const failedTasksCount = taskStats?.filter(t => t.status === 'failed').length || 0;
+    const totalCompletedOrFailed = completedTasksCount + failedTasksCount;
+    const actualTotalTasks = taskStats?.length || totalTasks;
+
+    // Only mark as completed if all tasks are truly done
+    if (totalCompletedOrFailed >= actualTotalTasks) {
+      const { error: finalError } = await supabase
+        .from('batch_jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          last_heartbeat: new Date().toISOString(),
+          completed_tasks: completedTasksCount,
+          failed_tasks: failedTasksCount
+        })
+        .eq('id', jobId);
+
+      if (finalError) {
+        console.error('❌ Failed to mark job as completed:', finalError);
+      }
+    } else {
+      console.log(`📊 Job not fully complete: ${totalCompletedOrFailed}/${actualTotalTasks} tasks done`);
     }
 
     console.log(`🏁 Batch processing completed: ${processedCount} successful, ${failedCount} failed`);
