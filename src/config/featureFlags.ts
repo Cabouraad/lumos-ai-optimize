@@ -15,6 +15,10 @@ export interface OptimizationFeatureFlags {
   // UI optimization flags
   FEATURE_LIGHT_UI: boolean;
   FEATURE_A11Y: boolean;
+  
+  // Billing and security flags
+  FEATURE_TRIAL_GRACE: boolean;
+  FEATURE_BACKEND_QUOTA_ENFORCE: boolean;
 }
 
 const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
@@ -24,6 +28,8 @@ const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
   FEATURE_DETECTOR_SHADOW: false,
   FEATURE_LIGHT_UI: false,
   FEATURE_A11Y: false,
+  FEATURE_TRIAL_GRACE: false,
+  FEATURE_BACKEND_QUOTA_ENFORCE: false,
 };
 
 // Override flags from environment in development only
@@ -37,6 +43,8 @@ const getOptimizationFeatureFlags = (): OptimizationFeatureFlags => {
       FEATURE_DETECTOR_SHADOW: import.meta.env.VITE_FEATURE_DETECTOR_SHADOW === 'true',
       FEATURE_LIGHT_UI: import.meta.env.VITE_FEATURE_LIGHT_UI === 'true',
       FEATURE_A11Y: import.meta.env.VITE_FEATURE_A11Y === 'true',
+      FEATURE_TRIAL_GRACE: import.meta.env.VITE_FEATURE_TRIAL_GRACE === 'true',
+      FEATURE_BACKEND_QUOTA_ENFORCE: import.meta.env.VITE_FEATURE_BACKEND_QUOTA_ENFORCE === 'true',
     };
   }
   

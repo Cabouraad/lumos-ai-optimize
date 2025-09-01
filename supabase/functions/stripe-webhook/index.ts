@@ -1,0 +1,255 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@14.21.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "https://llumos.app",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
+  "Access-Control-Allow-Methods": "POST",
+};
+
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details, (key, value) => {
+    if (key.toLowerCase().includes('secret') || key.toLowerCase().includes('key')) {
+      return '[REDACTED]';
+    }
+    return value;
+  })}` : '';
+  console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+  }
+
+  try {
+    logStep("Webhook received");
+    
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    
+    if (!stripeKey || !webhookSecret) {
+      logStep("ERROR: Missing Stripe configuration");
+      return new Response("Server configuration error", { 
+        status: 500, 
+        headers: corsHeaders 
+      });
+    }
+
+    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+    
+    // Get the raw body and signature
+    const body = await req.text();
+    const signature = req.headers.get("stripe-signature");
+
+    if (!signature) {
+      logStep("ERROR: Missing Stripe signature");
+      return new Response("Missing signature", { status: 400, headers: corsHeaders });
+    }
+
+    // Verify webhook signature
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      logStep("Webhook signature verified", { type: event.type });
+    } catch (err) {
+      logStep("ERROR: Invalid signature", { error: err.message });
+      return new Response("Invalid signature", { status: 400, headers: corsHeaders });
+    }
+
+    // Initialize Supabase client with service role
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    // Check for idempotency
+    const idempotencyKey = `stripe_${event.id}`;
+    const { data: existing } = await supabaseClient
+      .from("webhook_events")
+      .select("id")
+      .eq("idempotency_key", idempotencyKey)
+      .single();
+
+    if (existing) {
+      logStep("Duplicate webhook ignored", { eventId: event.id });
+      return new Response("OK", { status: 200, headers: corsHeaders });
+    }
+
+    // Log webhook event
+    await supabaseClient
+      .from("webhook_events")
+      .insert({
+        idempotency_key: idempotencyKey,
+        event_type: event.type,
+        processed: false,
+        created_at: new Date().toISOString()
+      });
+
+    // Handle different event types
+    switch (event.type) {
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+        await handleSubscriptionEvent(supabaseClient, event, stripe);
+        break;
+      case "customer.subscription.deleted":
+        await handleSubscriptionCancellation(supabaseClient, event, stripe);
+        break;
+      case "invoice.payment_succeeded":
+        await handlePaymentSuccess(supabaseClient, event, stripe);
+        break;
+      case "invoice.payment_failed":
+        await handlePaymentFailed(supabaseClient, event, stripe);
+        break;
+      default:
+        logStep("Unhandled event type", { type: event.type });
+    }
+
+    // Mark as processed
+    await supabaseClient
+      .from("webhook_events")
+      .update({ processed: true })
+      .eq("idempotency_key", idempotencyKey);
+
+    logStep("Webhook processed successfully", { type: event.type });
+    return new Response("OK", { status: 200, headers: corsHeaders });
+
+  } catch (error) {
+    logStep("ERROR: Webhook processing failed", { 
+      error: error.message,
+      stack: error.stack?.split('\n')[0] 
+    });
+    
+    return new Response("Internal server error", { 
+      status: 500, 
+      headers: corsHeaders 
+    });
+  }
+});
+
+async function handleSubscriptionEvent(
+  supabaseClient: any, 
+  event: Stripe.Event, 
+  stripe: Stripe
+) {
+  const subscription = event.data.object as Stripe.Subscription;
+  
+  logStep("Processing subscription event", { 
+    subscriptionId: subscription.id,
+    status: subscription.status 
+  });
+
+  // Get customer details
+  const customer = await stripe.customers.retrieve(subscription.customer as string);
+  if (!customer || customer.deleted) {
+    throw new Error("Customer not found");
+  }
+
+  const email = (customer as Stripe.Customer).email;
+  if (!email) {
+    throw new Error("Customer email not found");
+  }
+
+  // Get user by email
+  const { data: user } = await supabaseClient.auth.admin.listUsers();
+  const matchedUser = user?.users?.find((u: any) => u.email === email);
+  
+  if (!matchedUser) {
+    logStep("User not found for subscription", { email });
+    return;
+  }
+
+  // Determine subscription tier from price
+  let subscriptionTier = "starter";
+  const price = subscription.items.data[0]?.price;
+  if (price) {
+    const amount = price.unit_amount || 0;
+    if (amount >= 2999) subscriptionTier = "pro";
+    else if (amount >= 1499) subscriptionTier = "growth";
+  }
+
+  // Update subscription record
+  await supabaseClient
+    .from("subscribers")
+    .upsert({
+      user_id: matchedUser.id,
+      email: email,
+      stripe_customer_id: subscription.customer,
+      stripe_subscription_id: subscription.id,
+      subscription_tier: subscriptionTier,
+      subscribed: subscription.status === "active",
+      subscription_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      payment_collected: subscription.status === "active",
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+  logStep("Subscription updated", { 
+    userId: matchedUser.id, 
+    tier: subscriptionTier,
+    status: subscription.status 
+  });
+}
+
+async function handleSubscriptionCancellation(
+  supabaseClient: any, 
+  event: Stripe.Event, 
+  stripe: Stripe
+) {
+  const subscription = event.data.object as Stripe.Subscription;
+  
+  logStep("Processing subscription cancellation", { 
+    subscriptionId: subscription.id 
+  });
+
+  // Update subscription to mark as cancelled
+  await supabaseClient
+    .from("subscribers")
+    .update({
+      subscribed: false,
+      subscription_end: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq("stripe_subscription_id", subscription.id);
+}
+
+async function handlePaymentSuccess(
+  supabaseClient: any, 
+  event: Stripe.Event, 
+  stripe: Stripe
+) {
+  const invoice = event.data.object as Stripe.Invoice;
+  
+  if (invoice.subscription) {
+    await supabaseClient
+      .from("subscribers")
+      .update({
+        payment_collected: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq("stripe_subscription_id", invoice.subscription);
+  }
+}
+
+async function handlePaymentFailed(
+  supabaseClient: any, 
+  event: Stripe.Event, 
+  stripe: Stripe
+) {
+  const invoice = event.data.object as Stripe.Invoice;
+  
+  if (invoice.subscription) {
+    await supabaseClient
+      .from("subscribers")
+      .update({
+        payment_collected: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq("stripe_subscription_id", invoice.subscription);
+  }
+}
