@@ -41,6 +41,7 @@ export function BatchPromptRunner() {
   const [isResuming, setIsResuming] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [isDriverRunning, setIsDriverRunning] = useState(false);
 
   // Auto-reconcile on mount to fix any stuck jobs immediately
   useEffect(() => {
@@ -61,6 +62,69 @@ export function BatchPromptRunner() {
     loadRecentJobs();
   }, []);
 
+  // Client-side driver loop to keep batch processing alive
+  useEffect(() => {
+    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed' || currentJob.status === 'cancelled' || isDriverRunning) {
+      return;
+    }
+
+    // Start driver loop for processing jobs
+    if (currentJob.status === 'processing') {
+      setIsDriverRunning(true);
+      
+      const driverLoop = async () => {
+        try {
+          const orgId = await getOrgId();
+          console.log('🔄 Driver loop: Continuing batch processing...');
+          
+          const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
+            body: { orgId, resumeJobId: currentJob.id, action: 'resume' }
+          });
+
+          if (!error && data) {
+            // Update job status after processing
+            const { data: updatedJobData } = await supabase
+              .from('batch_jobs' as any)
+              .select('*')
+              .eq('id', currentJob.id)
+              .maybeSingle();
+
+            if (updatedJobData) {
+              const updatedJob = updatedJobData as unknown as BatchJob;
+              setCurrentJob(updatedJob);
+              
+              // Continue processing if still in progress
+              if (updatedJob.status === 'processing' && data.action === 'in_progress') {
+                setTimeout(driverLoop, 1000); // Continue after 1 second
+              } else {
+                setIsDriverRunning(false);
+                if (updatedJob.status === 'completed') {
+                  toast.success(`Batch completed! ${updatedJob.completed_tasks} tasks successful`);
+                  loadRecentJobs();
+                }
+              }
+            } else {
+              setIsDriverRunning(false);
+            }
+          } else {
+            console.error('Driver loop error:', error);
+            setIsDriverRunning(false);
+          }
+        } catch (error) {
+          console.error('Driver loop exception:', error);
+          setIsDriverRunning(false);
+        }
+      };
+
+      // Start the driver loop after a short delay
+      setTimeout(driverLoop, 2000);
+    }
+
+    return () => {
+      setIsDriverRunning(false);
+    };
+  }, [currentJob?.id, currentJob?.status, isDriverRunning]);
+
   // Poll for job updates with auto-reconciliation for stuck jobs
   useEffect(() => {
     if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed' || currentJob.status === 'cancelled') {
@@ -73,28 +137,30 @@ export function BatchPromptRunner() {
           .from('batch_jobs' as any)
           .select('*')
           .eq('id', currentJob.id)
-          .single();
+          .maybeSingle();
 
         if (!error && data) {
           const updatedJob = data as unknown as BatchJob;
           setCurrentJob(updatedJob);
           
-          // Check if job appears stuck (no heartbeat for 3 minutes)
-          const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
-          const lastHeartbeat = updatedJob.last_heartbeat ? new Date(updatedJob.last_heartbeat).getTime() : 0;
-          
-          if (updatedJob.status === 'processing' && lastHeartbeat < threeMinutesAgo) {
-            console.log('🚨 Job appears stuck, triggering auto-reconciliation...');
-            try {
-              await supabase.functions.invoke('batch-reconciler', {
-                body: {},
-                headers: {
-                  'x-manual-call': 'true'
-                }
-              });
-              toast.warning('Job appeared stuck - attempted automatic recovery');
-            } catch (reconcileError) {
-              console.error('Auto-reconcile failed:', reconcileError);
+          // Check if job appears stuck (no heartbeat for 3 minutes) and driver not running
+          if (!isDriverRunning && updatedJob.status === 'processing') {
+            const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
+            const lastHeartbeat = updatedJob.last_heartbeat ? new Date(updatedJob.last_heartbeat).getTime() : 0;
+            
+            if (lastHeartbeat < threeMinutesAgo) {
+              console.log('🚨 Job appears stuck, triggering auto-reconciliation...');
+              try {
+                await supabase.functions.invoke('batch-reconciler', {
+                  body: {},
+                  headers: {
+                    'x-manual-call': 'true'
+                  }
+                });
+                toast.warning('Job appeared stuck - attempted automatic recovery');
+              } catch (reconcileError) {
+                console.error('Auto-reconcile failed:', reconcileError);
+              }
             }
           }
           
@@ -113,10 +179,10 @@ export function BatchPromptRunner() {
       } catch (error) {
         console.error('Error polling job status:', error);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(pollInterval);
-  }, [currentJob]);
+  }, [currentJob?.id, currentJob?.status, isDriverRunning]);
 
   const loadRecentJobs = async () => {
     try {
@@ -268,7 +334,7 @@ export function BatchPromptRunner() {
       const orgId = await getOrgId();
       
       const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
-        body: { orgId, resumeJobId: jobId }
+        body: { orgId, resumeJobId: jobId, action: 'resume' }
       });
 
       if (error) {
@@ -350,7 +416,8 @@ export function BatchPromptRunner() {
     if (!startTime) return 'N/A';
     const start = new Date(startTime).getTime();
     const end = endTime ? new Date(endTime).getTime() : Date.now();
-    return `${((end - start) / 1000).toFixed(1)}s`;
+    const duration = Math.max(0, (end - start) / 1000); // Clamp to prevent negative values
+    return `${duration.toFixed(1)}s`;
   };
 
   const calculateProgress = (job: BatchJob) => {

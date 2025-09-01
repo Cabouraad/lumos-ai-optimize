@@ -718,6 +718,7 @@ export type Database = {
         Args: { p_job_id: string; p_limit?: number; p_max_attempts?: number }
         Returns: {
           attempts: number
+          batch_job_id: string
           id: string
           prompt_id: string
           provider: string

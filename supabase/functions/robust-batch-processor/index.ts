@@ -214,15 +214,8 @@ async function processTask(
   try {
     console.log(`🎯 Processing task ${task.id} (${task.provider})`);
     
-    // Update task status to processing
-    await supabase
-      .from('batch_tasks')
-      .update({
-        status: 'processing',
-        started_at: new Date().toISOString(),
-        attempts: (task.attempts || 0) + 1
-      })
-      .eq('id', task.id);
+    // Task status is already updated by claim_batch_tasks RPC
+    // No need for redundant update here
 
     // Get prompt details
     const { data: prompt, error: promptError } = await supabase
@@ -338,7 +331,7 @@ async function processTask(
       })
       .eq('id', task.id);
 
-    // Update job progress
+    // Update job progress using batch_job_id from the task
     await supabase.rpc('increment_completed_tasks', { job_id: task.batch_job_id });
 
     console.log(`✅ Task ${task.id} completed successfully`);
@@ -358,7 +351,7 @@ async function processTask(
       })
       .eq('id', task.id);
 
-    // Update job progress
+    // Update job progress using batch_job_id from the task
     await supabase.rpc('increment_failed_tasks', { job_id: task.batch_job_id });
 
     return { success: false, error: error.message };
