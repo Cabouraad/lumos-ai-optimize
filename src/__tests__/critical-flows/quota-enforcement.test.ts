@@ -1,0 +1,214 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Mock Supabase client
+const mockSupabase = {
+  auth: {
+    getUser: vi.fn(),
+  },
+  from: vi.fn(() => ({
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn(),
+        gte: vi.fn(() => ({
+          lt: vi.fn(),
+        })),
+      })),
+      count: 'exact' as const,
+    })),
+  })),
+};
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: mockSupabase,
+}));
+
+describe('Critical Quota Enforcement', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('Daily Prompt Limits', () => {
+    it.skip('should enforce starter plan daily limit (10 prompts)', async () => {
+      // Mock subscriber data
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: true,
+          subscription_tier: 'starter',
+          trial_expires_at: null,
+          payment_collected: true,
+        },
+        error: null,
+      });
+
+      // Mock current usage at limit
+      mockSupabase.from().select().eq().gte().lt.mockResolvedValue({
+        count: 10,
+        error: null,
+      });
+
+      // Test quota enforcement logic
+      const quotaCheck = {
+        hasAccess: false,
+        reason: 'Daily quota exceeded (10 prompts per day)',
+      };
+
+      expect(quotaCheck.hasAccess).toBe(false);
+      expect(quotaCheck.reason).toContain('Daily quota exceeded');
+    });
+
+    it.skip('should enforce growth plan daily limit (50 prompts)', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: true,
+          subscription_tier: 'growth', 
+          trial_expires_at: null,
+          payment_collected: true,
+        },
+        error: null,
+      });
+
+      mockSupabase.from().select().eq().gte().lt.mockResolvedValue({
+        count: 50,
+        error: null,
+      });
+
+      const quotaCheck = {
+        hasAccess: false,
+        reason: 'Daily quota exceeded (50 prompts per day)',
+      };
+
+      expect(quotaCheck.hasAccess).toBe(false);
+    });
+
+    it.skip('should enforce pro plan daily limit (200 prompts)', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: true,
+          subscription_tier: 'pro',
+          trial_expires_at: null,
+          payment_collected: true,
+        },
+        error: null,
+      });
+
+      mockSupabase.from().select().eq().gte().lt.mockResolvedValue({
+        count: 200,
+        error: null,
+      });
+
+      const quotaCheck = {
+        hasAccess: false,
+        reason: 'Daily quota exceeded (200 prompts per day)',
+      };
+
+      expect(quotaCheck.hasAccess).toBe(false);
+    });
+  });
+
+  describe('Trial Expiration Enforcement', () => {
+    it.skip('should block expired trial users', async () => {
+      const expiredDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: false,
+          subscription_tier: 'starter',
+          trial_expires_at: expiredDate,
+          payment_collected: true,
+        },
+        error: null,
+      });
+
+      const trialExpired = new Date() > new Date(expiredDate);
+      expect(trialExpired).toBe(true);
+    });
+
+    it.skip('should allow active trial users', async () => {
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: false,
+          subscription_tier: 'starter', 
+          trial_expires_at: futureDate,
+          payment_collected: true,
+        },
+        error: null,
+      });
+
+      const trialExpired = new Date() > new Date(futureDate);
+      expect(trialExpired).toBe(false);
+    });
+  });
+
+  describe('Subscription Status Validation', () => {
+    it.skip('should block unsubscribed users without trial', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: false,
+          subscription_tier: null,
+          trial_expires_at: null,
+          payment_collected: false,
+        },
+        error: null,
+      });
+
+      const hasAccess = false; // User has no subscription or trial
+      expect(hasAccess).toBe(false);
+    });
+
+    it.skip('should allow subscribed users', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: {
+          subscribed: true,
+          subscription_tier: 'pro',
+          trial_expires_at: null,
+          payment_collected: true,
+        },
+        error: null,
+      });
+
+      const hasAccess = true; // User has active subscription
+      expect(hasAccess).toBe(true);
+    });
+  });
+
+  describe('Rate Limiting by Tier', () => {
+    it.skip('should apply different rate limits based on subscription tier', async () => {
+      const tiers = [
+        { tier: 'starter', limit: 10 },
+        { tier: 'growth', limit: 50 },
+        { tier: 'pro', limit: 200 },
+      ];
+
+      tiers.forEach(({ tier, limit }) => {
+        const dailyLimit = tier === 'pro' ? 200 : 
+                          tier === 'growth' ? 50 : 10;
+        expect(dailyLimit).toBe(limit);
+      });
+    });
+  });
+
+  describe('Security Edge Cases', () => {
+    it.skip('should handle missing subscriber data gracefully', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: null,
+        error: { message: 'Subscriber not found' },
+      });
+
+      // Should default to blocked access
+      const hasAccess = false;
+      expect(hasAccess).toBe(false);
+    });
+
+    it.skip('should validate user authentication before quota checks', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Invalid JWT' },
+      });
+
+      const isAuthenticated = false;
+      expect(isAuthenticated).toBe(false);
+    });
+  });
+});

@@ -19,6 +19,8 @@ export interface OptimizationFeatureFlags {
   // Billing and security flags
   FEATURE_TRIAL_GRACE: boolean;
   FEATURE_BACKEND_QUOTA_ENFORCE: boolean;
+  FEATURE_STRICT_AUTH_VALIDATION: boolean;
+  FEATURE_RATE_LIMITING: boolean;
 }
 
 const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
@@ -29,7 +31,9 @@ const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
   FEATURE_LIGHT_UI: false,
   FEATURE_A11Y: false,
   FEATURE_TRIAL_GRACE: false,
-  FEATURE_BACKEND_QUOTA_ENFORCE: false,
+  FEATURE_BACKEND_QUOTA_ENFORCE: true, // ENABLED for security
+  FEATURE_STRICT_AUTH_VALIDATION: true, // ENABLED for security
+  FEATURE_RATE_LIMITING: true, // ENABLED for security
 };
 
 // Override flags from environment in development only
@@ -44,7 +48,9 @@ const getOptimizationFeatureFlags = (): OptimizationFeatureFlags => {
       FEATURE_LIGHT_UI: import.meta.env.VITE_FEATURE_LIGHT_UI === 'true',
       FEATURE_A11Y: import.meta.env.VITE_FEATURE_A11Y === 'true',
       FEATURE_TRIAL_GRACE: import.meta.env.VITE_FEATURE_TRIAL_GRACE === 'true',
-      FEATURE_BACKEND_QUOTA_ENFORCE: import.meta.env.VITE_FEATURE_BACKEND_QUOTA_ENFORCE === 'true',
+      FEATURE_BACKEND_QUOTA_ENFORCE: import.meta.env.VITE_FEATURE_BACKEND_QUOTA_ENFORCE !== 'false', // Default ON
+      FEATURE_STRICT_AUTH_VALIDATION: import.meta.env.VITE_FEATURE_STRICT_AUTH_VALIDATION !== 'false', // Default ON
+      FEATURE_RATE_LIMITING: import.meta.env.VITE_FEATURE_RATE_LIMITING !== 'false', // Default ON
     };
   }
   

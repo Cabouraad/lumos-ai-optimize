@@ -5,9 +5,8 @@ import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { getUserOrgId } from '../_shared/auth.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://llumos.app',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Credentials': 'true'
 };
 
 serve(async (req) => {
@@ -25,6 +24,36 @@ serve(async (req) => {
 
     // Verify authentication and get user's org ID (ignore orgId from request for security)
     const orgId = await getUserOrgId(supabase);
+
+    // Check subscription and quota limits
+    const { data: subscriber } = await supabase
+      .from('subscribers')
+      .select('subscribed, subscription_tier, trial_expires_at, payment_collected')
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    const isOnTrial = subscriber?.subscription_tier === 'starter' && subscriber?.trial_expires_at;
+    const trialExpired = isOnTrial && new Date() > new Date(subscriber.trial_expires_at);
+    
+    if (trialExpired || (!subscriber?.subscribed && !isOnTrial)) {
+      throw new Error('Subscription required to run prompts');
+    }
+
+    // Check daily quota (simple implementation)
+    const today = new Date().toISOString().split('T')[0];
+    const { count: todayRuns } = await supabase
+      .from('prompt_provider_responses')
+      .select('id', { count: 'exact' })
+      .eq('org_id', orgId)
+      .gte('run_at', `${today}T00:00:00Z`)
+      .lt('run_at', `${today}T23:59:59Z`);
+
+    const dailyLimit = subscriber?.subscription_tier === 'pro' ? 200 : 
+                      subscriber?.subscription_tier === 'growth' ? 50 : 10;
+
+    if ((todayRuns || 0) >= dailyLimit) {
+      throw new Error(`Daily quota exceeded (${dailyLimit} prompts per day)`);
+    }
 
     const { promptId } = await req.json();
     console.log('Running single prompt:', { promptId, orgId });

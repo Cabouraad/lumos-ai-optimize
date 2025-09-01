@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -72,6 +74,7 @@ const getPromptCategory = (text: string) => {
 export default function Prompts() {
   const { orgData } = useAuth();
   const { toast } = useToast();
+  const { canCreatePrompts, hasAccessToApp } = useSubscriptionGate();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
   const [providerData, setProviderData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,7 +178,23 @@ export default function Prompts() {
   };
 
   const handleAddPrompt = async () => {
-    if (!newPromptText.trim() || !orgData?.organizations?.id) return;
+    if (!newPromptText.trim()) {
+      toast({ title: 'Error', description: 'Prompt text is required', variant: 'destructive' });
+      return;
+    }
+
+    // Check billing limits before adding prompt
+    const canCreate = canCreatePrompts(rawPrompts.length);
+    if (!canCreate.hasAccess) {
+      toast({ 
+        title: 'Subscription Required', 
+        description: canCreate.reason, 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    if (!orgData?.organizations?.id) return;
 
     try {
       const { error } = await supabase
@@ -390,6 +409,22 @@ export default function Prompts() {
 
   // Transform data for the PromptList component
   const transformedPrompts = transformPromptData(rawPrompts, providerData);
+
+  // Check app access first
+  const appAccess = hasAccessToApp();
+  if (!appAccess.hasAccess) {
+    return (
+      <Layout>
+        <div className="container mx-auto p-6">
+          <UpgradePrompt 
+            feature="prompts management"
+            reason={appAccess.reason}
+            isTrialExpired={appAccess.isTrialExpired}
+          />
+        </div>
+      </Layout>
+    );
+  }
 
   if (error) {
     return (
