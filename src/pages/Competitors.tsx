@@ -195,28 +195,44 @@ export default function Competitors() {
       const currentOrgName = orgResult.data?.name || 'Your Brand';
       setOrgName(currentOrgName);
 
+      // Convert RPC data to competitor format
+      const competitors: CompetitorData[] = competitorSummaryResult.data || [];
+      setCompetitorData(competitors);
+
       // Separate org brands from manual competitors
       const orgBrands = trackedResult.data?.filter(b => b.is_org_brand) || [];
       const manualCompetitors = trackedResult.data?.filter(b => !b.is_org_brand && b.total_appearances === 0) || [];
 
-      // Create org brand data if exists
-      if (orgBrands.length > 0) {
+      // Get real-time org brand visibility from recent competitor data
+      const orgBrandInCompetitors = competitors.find(c => 
+        c.competitor_name.toLowerCase() === currentOrgName.toLowerCase()
+      );
+      
+      if (orgBrandInCompetitors) {
+        setOrgBrand({
+          id: orgBrandInCompetitors.competitor_name,
+          name: orgBrandInCompetitors.competitor_name,
+          totalAppearances: Number(orgBrandInCompetitors.total_mentions),
+          averageScore: Number(orgBrandInCompetitors.avg_score),
+          firstDetectedAt: orgBrandInCompetitors.first_seen,
+          lastSeenAt: orgBrandInCompetitors.last_seen,
+          sharePercentage: (Number(orgBrandInCompetitors.total_mentions) / Math.max(1, competitors.reduce((sum, c) => sum + Number(c.total_mentions), 0))) * 100,
+          isManuallyAdded: false
+        });
+      } else if (orgBrands.length > 0) {
+        // Fallback to catalog data if no recent mentions
         const orgBrandData = orgBrands[0];
         setOrgBrand({
           id: orgBrandData.id,
           name: orgBrandData.name,
-          totalAppearances: orgBrandData.total_appearances || 0,
-          averageScore: Number(orgBrandData.average_score) || 0,
+          totalAppearances: 0,
+          averageScore: 0,
           firstDetectedAt: orgBrandData.first_detected_at,
           lastSeenAt: orgBrandData.first_detected_at,
-          sharePercentage: ((Number(orgBrandData.average_score) || 0) / 10) * 100,
+          sharePercentage: 0,
           isManuallyAdded: false
         });
       }
-
-      // Convert RPC data to competitor format
-      const competitors: CompetitorData[] = competitorSummaryResult.data || [];
-      setCompetitorData(competitors);
 
       // Set tracked competitors (manually added, with 0 appearances)
       setTrackedCompetitors(manualCompetitors.map(comp => ({
@@ -252,26 +268,27 @@ export default function Competitors() {
   };
 
   const getTopBrands = (): CompetitorBrand[] => {
-    // Only show competitors that are in catalog AND found in recent prompts
-    const competitors = transformCompetitorData(competitorData).slice(0, 3);
-    return orgBrand ? [orgBrand, ...competitors] : competitors;
+    // Show top competitors by total mentions (exclude org brand)
+    return transformCompetitorData(competitorData)
+      .filter(c => c.name.toLowerCase() !== orgName.toLowerCase())
+      .sort((a, b) => b.totalAppearances - a.totalAppearances)
+      .slice(0, 5);
   };
 
   const getNearestCompetitors = (): CompetitorBrand[] => {
-    // Only show competitors that are in catalog AND found in recent prompts
-    const competitors = transformCompetitorData(competitorData)
+    // Show competitors with similar scores (exclude org brand)
+    return transformCompetitorData(competitorData)
+      .filter(c => c.name.toLowerCase() !== orgName.toLowerCase())
       .sort((a, b) => b.averageScore - a.averageScore)
-      .slice(0, 3);
-    return orgBrand ? [orgBrand, ...competitors] : competitors;
+      .slice(0, 5);
   };
 
   const getUpcomingBrands = (): CompetitorBrand[] => {
-    // Only show competitors that are in catalog AND found in recent prompts
-    const competitors = transformCompetitorData(competitorData)
-      .filter(c => c.trend && c.trend > 0)
+    // Show competitors with positive trends (exclude org brand)
+    return transformCompetitorData(competitorData)
+      .filter(c => c.name.toLowerCase() !== orgName.toLowerCase() && c.trend && c.trend > 0)
       .sort((a, b) => (b.trend || 0) - (a.trend || 0))
-      .slice(0, 3);
-    return orgBrand ? [orgBrand, ...competitors] : competitors;
+      .slice(0, 5);
   };
 
   const handleAddCompetitor = async () => {
