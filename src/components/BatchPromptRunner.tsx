@@ -294,7 +294,8 @@ export function BatchPromptRunner() {
       const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
         body: { 
           orgId,
-          replace: true  // CANCEL EXISTING: Always replace existing jobs when starting new batch
+          action: 'create',  // Explicitly set action to create
+          replace: true      // CANCEL EXISTING: Always replace existing jobs when starting new batch
         }
       });
 
@@ -313,6 +314,12 @@ export function BatchPromptRunner() {
         setLastError(errorMsg);
         toast.error(errorMsg);
         return;
+      }
+      
+      // Show success message for job replacement
+      if (currentJob && currentJob.status === 'processing') {
+        toast.success('Previous job cancelled successfully');
+        setCurrentJob(null); // Clear the old job
       }
       
       // Handle in-progress status (time budget exceeded)
@@ -524,12 +531,12 @@ export function BatchPromptRunner() {
               {isStarting ? (
                 <>
                   <Clock className="h-4 w-4 animate-spin" />
-                  Starting...
+                  {isCurrentlyRunning ? 'Cancelling & Starting...' : 'Starting...'}
                 </>
               ) : isCurrentlyRunning ? (
                 <>
-                  <Clock className="h-4 w-4 animate-spin" />
-                  Replace Running Job
+                  <XCircle className="h-4 w-4" />
+                  Cancel & Start New Job
                 </>
               ) : (
                 <>
