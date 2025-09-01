@@ -1,39 +1,195 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Levenshtein distance implementation for similarity checking
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+  
+  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+function similarity(str1: string, str2: string): number {
+  const maxLen = Math.max(str1.length, str2.length);
+  if (maxLen === 0) return 1.0;
+  return 1.0 - levenshteinDistance(str1, str2) / maxLen;
+}
+
+// Secure CORS headers with configurable origin
+const getSecureCorsHeaders = () => {
+  const appOrigin = Deno.env.get('APP_ORIGIN') || 'https://llumos.app';
+  return {
+    'Access-Control-Allow-Origin': appOrigin,
+    'Access-Control-Allow-Headers': 'authorization, content-type',
+    'Access-Control-Allow-Credentials': 'true',
+  };
 };
 
+// Error response helper with stable error codes
+interface ApiError {
+  error: string;
+  code: string;
+  details?: string;
+}
+
+function createErrorResponse(status: number, code: string, message: string, details?: string): Response {
+  const error: ApiError = { error: message, code, details };
+  return new Response(JSON.stringify(error), {
+    status,
+    headers: { ...getSecureCorsHeaders(), 'Content-Type': 'application/json' }
+  });
+}
+
+// Input sanitization and validation
+function sanitizeCompetitorName(name: string): string {
+  if (typeof name !== 'string') {
+    throw new Error('Competitor name must be a string');
+  }
+  
+  // Trim whitespace
+  let sanitized = name.trim();
+  
+  // Unicode normalize
+  sanitized = sanitized.normalize('NFKC');
+  
+  // Remove dangerous characters (control chars, some unicode categories)
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F\p{C}\p{Z}&&[^\x20]]/gu, '');
+  
+  // Remove script tags and other dangerous patterns
+  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  sanitized = sanitized.replace(/javascript:/gi, '');
+  sanitized = sanitized.replace(/data:/gi, '');
+  
+  // Limit length
+  if (sanitized.length > 100) {
+    throw new Error('Competitor name too long (max 100 characters)');
+  }
+  
+  if (sanitized.length < 2) {
+    throw new Error('Competitor name too short (min 2 characters)');
+  }
+  
+  return sanitized;
+}
+
 serve(async (req) => {
+  const corsHeaders = getSecureCorsHeaders();
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return createErrorResponse(405, 'METHOD_NOT_ALLOWED', 'Only POST requests allowed');
+  }
+
   try {
+    // Create Supabase client with user's JWT (not service role)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return createErrorResponse(401, 'MISSING_AUTH', 'Authorization header required');
+    }
+
     const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: { headers: { Authorization: authHeader } }
+      }
+    );
+
+    // Verify user authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.log('Authentication failed:', authError?.message);
+      return createErrorResponse(401, 'INVALID_JWT', 'Invalid authentication token');
+    }
+
+    // Parse and validate request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      return createErrorResponse(422, 'INVALID_JSON', 'Invalid JSON body');
+    }
+
+    const { competitorName, orgId, isMergeOperation = false } = body;
+
+    // Validate required fields
+    if (!competitorName || !orgId) {
+      return createErrorResponse(422, 'MISSING_FIELDS', 'Missing required fields: competitorName, orgId');
+    }
+
+    // Validate orgId format (UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(orgId)) {
+      return createErrorResponse(422, 'INVALID_ORG_ID', 'Invalid organization ID format');
+    }
+
+    // Sanitize competitor name
+    let sanitizedName: string;
+    try {
+      sanitizedName = sanitizeCompetitorName(competitorName);
+    } catch (error: any) {
+      return createErrorResponse(422, 'INVALID_INPUT', error.message);
+    }
+
+    // Get user's organization and role
+    const { data: userRecord, error: userError } = await supabase
+      .from('users')
+      .select('org_id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userRecord) {
+      console.log('User record not found:', userError?.message);
+      return createErrorResponse(403, 'USER_NOT_FOUND', 'User not properly onboarded');
+    }
+
+    // Verify user belongs to the requested organization
+    if (userRecord.org_id !== orgId) {
+      console.log('Org access denied:', { userOrg: userRecord.org_id, requestedOrg: orgId });
+      return createErrorResponse(403, 'ORG_ACCESS_DENIED', 'Access denied: user does not belong to this organization');
+    }
+
+    // Verify user has required role (owner or admin)
+    const allowedRoles = ['owner', 'admin'];
+    if (!allowedRoles.includes(userRecord.role)) {
+      console.log('Role access denied:', { userRole: userRecord.role, allowedRoles });
+      return createErrorResponse(403, 'INSUFFICIENT_ROLE', `Access denied: requires role in [${allowedRoles.join(', ')}], got: ${userRecord.role}`);
+    }
+
+    console.log('Converting competitor to org brand:', { 
+      competitorName: sanitizedName, 
+      orgId, 
+      userId: user.id,
+      userRole: userRecord.role,
+      isMergeOperation
+    });
+
+    // Switch to service role for database operations
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { competitorName, orgId } = await req.json();
-
-    if (!competitorName || !orgId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: competitorName, orgId' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    console.log('Converting competitor to org brand:', { competitorName, orgId });
-
     // Get organization details to validate brand name similarity
-    const { data: org, error: orgError } = await supabase
+    const { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
       .select('name, domain')
       .eq('id', orgId)
@@ -41,139 +197,146 @@ serve(async (req) => {
 
     if (orgError || !org) {
       console.error('Organization not found:', orgError);
-      return new Response(
-        JSON.stringify({ error: 'Organization not found' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+      return createErrorResponse(404, 'ORG_NOT_FOUND', 'Organization not found');
+    }
+
+    // Enhanced similarity checking with Levenshtein distance
+    const orgName = org.name.toLowerCase().trim();
+    const orgDomain = org.domain.toLowerCase().replace(/\.(com|org|net|io|co).*$/, '').trim();
+    const competitorLower = sanitizedName.toLowerCase().trim();
+
+    // Calculate similarity scores
+    const nameToCompetitorSim = similarity(orgName, competitorLower);
+    const domainToCompetitorSim = similarity(orgDomain, competitorLower);
+    const maxSimilarity = Math.max(nameToCompetitorSim, domainToCompetitorSim);
+
+    // For merge operations, enforce minimum similarity threshold
+    if (isMergeOperation && maxSimilarity < 0.8) {
+      return createErrorResponse(422, 'SIMILARITY_TOO_LOW', 
+        `Competitor name similarity too low for merge operation (${maxSimilarity.toFixed(2)} < 0.8). Use manual conversion instead.`,
+        `Similarity scores: name=${nameToCompetitorSim.toFixed(2)}, domain=${domainToCompetitorSim.toFixed(2)}`
       );
     }
 
-    // Check if competitor name has some similarity to org name or domain
-    const orgName = org.name.toLowerCase();
-    const orgDomain = org.domain.toLowerCase().replace(/\.(com|org|net|io|co).*$/, '');
-    const competitorLower = competitorName.toLowerCase();
-
-    const hasNameSimilarity = competitorLower.includes(orgName.split(' ')[0]) || 
-                             orgName.includes(competitorLower.split(' ')[0]) ||
-                             competitorLower.includes(orgDomain) ||
-                             orgDomain.includes(competitorLower);
-
-    if (!hasNameSimilarity && competitorName.length > 3) {
-      // Allow manual override but warn
-      console.warn('Competitor name may not match organization:', { competitorName, orgName, orgDomain });
-    }
+    // Log similarity for audit trail
+    console.log('Similarity analysis:', {
+      orgName,
+      orgDomain, 
+      competitorName: sanitizedName,
+      nameToCompetitorSim: nameToCompetitorSim.toFixed(3),
+      domainToCompetitorSim: domainToCompetitorSim.toFixed(3),
+      maxSimilarity: maxSimilarity.toFixed(3),
+      passesThreshold: maxSimilarity >= 0.8
+    });
 
     // Check if this competitor already exists as org brand
-    const { data: existingBrand, error: checkError } = await supabase
+    const { data: existingBrand, error: checkError } = await supabaseAdmin
       .from('brand_catalog')
-      .select('id, is_org_brand')
+      .select('id, is_org_brand, name')
       .eq('org_id', orgId)
-      .ilike('name', competitorName)
+      .ilike('name', sanitizedName)
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') {
       console.error('Error checking existing brand:', checkError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to check existing brand' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return createErrorResponse(500, 'DATABASE_ERROR', 'Failed to check existing brand');
     }
+
+    let brandId: string;
+    let isNewBrand = false;
 
     if (existingBrand) {
       if (existingBrand.is_org_brand) {
         return new Response(
-          JSON.stringify({ success: true, message: 'Already marked as organization brand' }),
+          JSON.stringify({ 
+            success: true, 
+            message: 'Already marked as organization brand',
+            brandId: existingBrand.id,
+            code: 'ALREADY_ORG_BRAND'
+          }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       } else {
         // Update existing competitor to be org brand
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
           .from('brand_catalog')
           .update({ 
             is_org_brand: true,
+            name: sanitizedName, // Use sanitized version
             last_seen_at: new Date().toISOString()
           })
           .eq('id', existingBrand.id);
 
         if (updateError) {
           console.error('Error updating brand:', updateError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to update brand' }),
-            { 
-              status: 500, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
+          return createErrorResponse(500, 'UPDATE_FAILED', 'Failed to update brand');
         }
+        brandId = existingBrand.id;
       }
     } else {
       // Create new org brand entry
-      const { error: insertError } = await supabase
+      const { data: newBrand, error: insertError } = await supabaseAdmin
         .from('brand_catalog')
         .insert({
           org_id: orgId,
-          name: competitorName,
+          name: sanitizedName,
           is_org_brand: true,
           variants_json: [],
           first_detected_at: new Date().toISOString(),
           last_seen_at: new Date().toISOString(),
           total_appearances: 1,
           average_score: 8.0 // High score for org brand
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) {
         console.error('Error creating org brand:', insertError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create organization brand' }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
+        return createErrorResponse(500, 'INSERT_FAILED', 'Failed to create organization brand');
       }
+      
+      brandId = newBrand.id;
+      isNewBrand = true;
     }
 
     // Update recent prompt responses to fix classification
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: responses, error: responseError } = await supabase
+    const { data: responses, error: responseError } = await supabaseAdmin
       .from('prompt_provider_responses')
-      .select('id, competitors_json, brands_json, competitors_count, score, org_brand_present')
+      .select('id, competitors_json, brands_json, competitors_count, score, org_brand_present, metadata')
       .eq('org_id', orgId)
       .gte('run_at', thirtyDaysAgo.toISOString())
       .eq('status', 'success');
 
+    let updatedResponseCount = 0;
     if (responseError) {
-      console.error('Error fetching responses:', responseError);
+      console.error('Error fetching responses for update:', responseError);
     } else {
-      let updatedCount = 0;
-      
       for (const response of responses || []) {
         const competitors = response.competitors_json || [];
         const brands = response.brands_json || [];
         
-        // Check if this competitor is in the list
+        // Check if this competitor is in the list (case-insensitive)
         const competitorIndex = competitors.findIndex((comp: string) => 
-          comp.toLowerCase() === competitorName.toLowerCase()
+          comp.toLowerCase().trim() === sanitizedName.toLowerCase().trim()
         );
 
         if (competitorIndex !== -1) {
           // Remove from competitors, add to brands if not already there
           const updatedCompetitors = competitors.filter((_: any, idx: number) => idx !== competitorIndex);
-          const updatedBrands = brands.includes(competitorName) ? brands : [...brands, competitorName];
+          const brandExists = brands.some((brand: string) => 
+            brand.toLowerCase().trim() === sanitizedName.toLowerCase().trim()
+          );
+          const updatedBrands = brandExists ? brands : [...brands, sanitizedName];
           
           // Calculate new score (higher because org brand found)
           const newScore = response.org_brand_present ? response.score : Math.min(10, response.score + 3);
           
-          const { error: updateResponseError } = await supabase
+          const { error: updateResponseError } = await supabaseAdmin
             .from('prompt_provider_responses')
             .update({
               competitors_json: updatedCompetitors,
@@ -185,40 +348,53 @@ serve(async (req) => {
               metadata: {
                 ...(response.metadata || {}),
                 competitor_converted_to_brand: true,
-                converted_competitor: competitorName,
-                converted_at: new Date().toISOString()
+                converted_competitor: sanitizedName,
+                converted_by: user.id,
+                converted_at: new Date().toISOString(),
+                similarity_score: maxSimilarity.toFixed(3)
               }
             })
             .eq('id', response.id);
 
           if (!updateResponseError) {
-            updatedCount++;
+            updatedResponseCount++;
+          } else {
+            console.error('Error updating response:', updateResponseError);
           }
         }
       }
-
-      console.log(`Updated ${updatedCount} responses after competitor conversion`);
     }
+
+    console.log(`Successfully converted competitor: ${updatedResponseCount} responses updated`);
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        message: `Successfully converted "${competitorName}" to organization brand`,
-        warning: !hasNameSimilarity ? 'Brand name may not closely match organization name' : undefined
+        success: true,
+        code: isNewBrand ? 'BRAND_CREATED' : 'COMPETITOR_CONVERTED',
+        message: `Successfully converted "${sanitizedName}" to organization brand`,
+        data: {
+          brandId,
+          originalName: competitorName,
+          sanitizedName,
+          isNewBrand,
+          similarityScore: maxSimilarity.toFixed(3),
+          responsesUpdated: updatedResponseCount
+        },
+        warning: maxSimilarity < 0.5 ? 'Brand name has low similarity to organization name' : undefined
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
 
-  } catch (error) {
-    console.error('Error in convert-competitor-to-brand:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+  } catch (error: any) {
+    console.error('Unexpected error in convert-competitor-to-brand:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Don't expose internal error details
+    return createErrorResponse(500, 'INTERNAL_ERROR', 'An unexpected error occurred');
   }
 });
