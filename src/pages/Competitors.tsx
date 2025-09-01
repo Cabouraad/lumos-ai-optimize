@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
 import { 
@@ -28,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompetitorCatalog } from '@/components/CompetitorCatalog';
+import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';
 
 interface CompetitorData {
   competitor_name: string;
@@ -539,144 +541,160 @@ export default function Competitors() {
               </div>
             </div>
 
-            {/* Three Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Top Brands */}
-              <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-amber-600" />
-                    <CardTitle className="text-lg font-semibold">Top Brands</CardTitle>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Brands with highest visibility scores in AI responses</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {topBrands.map((competitor, index) => (
-                    <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
-                  ))}
-                </CardContent>
-              </Card>
+            {/* Tabs for different competitor views */}
+            <Tabs defaultValue="competitors" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2 max-w-md">
+                <TabsTrigger value="competitors">Competitors</TabsTrigger>
+                <TabsTrigger value="potential">Potential Competitors</TabsTrigger>
+              </TabsList>
 
-              {/* Nearest Competitors */}
-              <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-blue-600" />
-                    <CardTitle className="text-lg font-semibold">Nearest Competitors</CardTitle>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Direct competitors in your market space</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {nearestCompetitors.map((competitor, index) => (
-                    <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
-                  ))}
-                </CardContent>
-              </Card>
+              {/* Main Competitors Tab */}
+              <TabsContent value="competitors" className="space-y-6">
+                {/* Three Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Top Brands */}
+                  <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-amber-600" />
+                        <CardTitle className="text-lg font-semibold">Top Brands</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="w-4 h-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Brands with highest visibility scores in AI responses</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {topBrands.map((competitor, index) => (
+                        <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
+                      ))}
+                    </CardContent>
+                  </Card>
 
-              {/* Up and Coming Brands */}
-              <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-green-600" />
-                    <CardTitle className="text-lg font-semibold">Up and Coming Brands</CardTitle>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Emerging competitors with growing visibility</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {upcomingBrands.map((competitor, index) => (
-                    <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
+                  {/* Nearest Competitors */}
+                  <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-blue-600" />
+                        <CardTitle className="text-lg font-semibold">Nearest Competitors</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="w-4 h-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Direct competitors in your market space</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {nearestCompetitors.map((competitor, index) => (
+                        <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
+                      ))}
+                    </CardContent>
+                  </Card>
 
-            {/* User-Tracked Competitors Section */}
-            {trackedCompetitors.length > 0 && (
-              <div className="mt-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Eye className="w-5 h-5 text-purple-600" />
-                  <h2 className="text-xl font-semibold text-foreground">Your Tracked Competitors</h2>
-                  <Badge variant="secondary" className="text-xs px-2 py-1">
-                    {trackedCompetitors.length} tracked
-                  </Badge>
+                  {/* Up and Coming Brands */}
+                  <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-green-600" />
+                        <CardTitle className="text-lg font-semibold">Up and Coming Brands</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="w-4 h-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Emerging competitors with growing visibility</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {upcomingBrands.map((competitor, index) => (
+                        <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
+                      ))}
+                    </CardContent>
+                  </Card>
                 </div>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Competitors you've manually added for monitoring. These will appear when mentioned in AI responses.
-                </p>
-                
-                <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                  <CardContent className="pt-6">
-                    <div className="grid gap-3">
-                      {trackedCompetitors.map((competitor) => (
-                        <div 
-                          key={competitor.id} 
-                          className="flex items-center justify-between p-4 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <BrandLogo brandName={competitor.name} />
-                            <div>
-                              <p className="font-medium text-foreground">{competitor.name}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <p className="text-xs text-muted-foreground">
-                                  Added {new Date(competitor.first_detected_at).toLocaleDateString()}
-                                </p>
-                                <Badge variant="outline" className="text-xs px-2 py-0.5">
-                                  <AlertCircle className="w-3 h-3 mr-1" />
-                                  Awaiting detection
-                                </Badge>
+
+                {/* User-Tracked Competitors Section */}
+                {trackedCompetitors.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Eye className="w-5 h-5 text-purple-600" />
+                      <h2 className="text-xl font-semibold text-foreground">Your Tracked Competitors</h2>
+                      <Badge variant="secondary" className="text-xs px-2 py-1">
+                        {trackedCompetitors.length} tracked
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Competitors you've manually added for monitoring. These will appear when mentioned in AI responses.
+                    </p>
+                    
+                    <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="grid gap-3">
+                          {trackedCompetitors.map((competitor) => (
+                            <div 
+                              key={competitor.id} 
+                              className="flex items-center justify-between p-4 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors"
+                            >
+                              <div className="flex items-center gap-3">
+                                <BrandLogo brandName={competitor.name} />
+                                <div>
+                                  <p className="font-medium text-foreground">{competitor.name}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-xs text-muted-foreground">
+                                      Added {new Date(competitor.first_detected_at).toLocaleDateString()}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                      <AlertCircle className="w-3 h-3 mr-1" />
+                                      Awaiting detection
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveCompetitor(competitor.id)}
+                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Remove from tracking</p>
+                                  </TooltipContent>
+                                </Tooltip>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveCompetitor(competitor.id)}
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Remove from tracking</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
-            {/* Competitor Catalog Section */}
-            <div className="mt-8">
-              <CompetitorCatalog />
-            </div>
+                {/* Competitor Catalog Section */}
+                <div>
+                  <CompetitorCatalog />
+                </div>
+              </TabsContent>
+
+              {/* Potential Competitors Tab */}
+              <TabsContent value="potential" className="space-y-6">
+                <BrandCandidatesManager />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </Layout>
