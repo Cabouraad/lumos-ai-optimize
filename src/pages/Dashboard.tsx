@@ -14,7 +14,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'rec
 import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb } from 'lucide-react';
 import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function Dashboard() {
   const { user, orgData } = useAuth();

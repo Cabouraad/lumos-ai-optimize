@@ -26,7 +26,7 @@ import {
   Eye,
   AlertCircle
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompetitorCatalog } from '@/components/CompetitorCatalog';
 import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';

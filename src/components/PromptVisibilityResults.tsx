@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle, RefreshCw } from 'lucide-react';
 import { CompetitorChipList } from './CompetitorChip';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ProviderResponse {
   id: string;

@@ -40,7 +40,7 @@ vi.mock('@/hooks/useCatalogCompetitors', () => ({
 }));
 
 // Mock toast hook
-vi.mock('@/hooks/use-toast', () => ({
+vi.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({
     toast: vi.fn()
   })

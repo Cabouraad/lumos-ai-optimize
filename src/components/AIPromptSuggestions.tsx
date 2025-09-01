@@ -17,7 +17,7 @@ import {
   Award
 } from 'lucide-react';
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from '@/lib/org/data';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Suggestion {
   id: string;

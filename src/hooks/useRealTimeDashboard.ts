@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { dashboardFetcher, UnifiedDashboardResponse } from '@/lib/data/unified-rpc-fetcher';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export interface UseRealTimeDashboardOptions {
   autoRefreshInterval?: number; // milliseconds

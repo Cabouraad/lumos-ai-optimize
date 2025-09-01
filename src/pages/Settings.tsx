@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
 import { CompetitorDisplayTest } from '@/components/CompetitorDisplayTest';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Trash2 } from 'lucide-react';
 
 export default function Settings() {
