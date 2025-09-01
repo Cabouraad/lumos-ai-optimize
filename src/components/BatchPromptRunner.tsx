@@ -74,14 +74,32 @@ export function BatchPromptRunner() {
       
       const driverLoop = async () => {
         try {
-          const orgId = await getOrgId();
+          let orgId;
+          try {
+            orgId = await getOrgId();
+          } catch (orgError) {
+            console.error('🚨 Driver loop getOrgId failed:', orgError);
+            setLastError(`Authentication error: ${orgError.message}. Please refresh the page.`);
+            setIsDriverRunning(false);
+            return;
+          }
+          
           console.log('🔄 Driver loop: Continuing batch processing...');
           
           const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
             body: { orgId, resumeJobId: currentJob.id, action: 'resume' }
           });
 
-          if (!error && data) {
+          if (error) {
+            console.error('Driver loop error:', error);
+            setLastError(`Driver loop error: ${error.message}`);
+            setIsDriverRunning(false);
+            return;
+          }
+
+          if (data) {
+            console.log('🔄 Driver loop response:', data.action, data);
+            
             // Update job status after processing
             const { data: updatedJobData } = await supabase
               .from('batch_jobs' as any)
@@ -93,10 +111,15 @@ export function BatchPromptRunner() {
               const updatedJob = updatedJobData as unknown as BatchJob;
               setCurrentJob(updatedJob);
               
-              // Continue processing if still in progress
+              // Continue processing if still in progress and action indicates more work
               if (updatedJob.status === 'processing' && data.action === 'in_progress') {
-                setTimeout(driverLoop, 1000); // Continue after 1 second
+                console.log('🔄 Driver loop continuing - more work to do');
+                setTimeout(driverLoop, 2000); // Continue after 2 seconds
+              } else if (updatedJob.status === 'processing' && data.action !== 'in_progress') {
+                console.log('🔄 Driver loop continuing - checking for more tasks');
+                setTimeout(driverLoop, 3000); // Check again after 3 seconds
               } else {
+                console.log('🏁 Driver loop stopping - job complete or failed');
                 setIsDriverRunning(false);
                 if (updatedJob.status === 'completed') {
                   toast.success(`Batch completed! ${updatedJob.completed_tasks} tasks successful`);
@@ -104,14 +127,16 @@ export function BatchPromptRunner() {
                 }
               }
             } else {
+              console.log('🏁 Driver loop stopping - job not found');
               setIsDriverRunning(false);
             }
           } else {
-            console.error('Driver loop error:', error);
+            console.error('Driver loop - no data in response');
             setIsDriverRunning(false);
           }
         } catch (error) {
           console.error('Driver loop exception:', error);
+          setLastError(`Driver loop error: ${error.message}`);
           setIsDriverRunning(false);
         }
       };
@@ -256,7 +281,15 @@ export function BatchPromptRunner() {
     try {
       console.log('🚀 Starting robust batch processing...');
       
-      const orgId = await getOrgId();
+      let orgId;
+      try {
+        orgId = await getOrgId();
+      } catch (orgError) {
+        console.error('🚨 getOrgId failed:', orgError);
+        setLastError(`Authentication error: ${orgError.message}. Please refresh the page.`);
+        setIsStarting(false);
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
         body: { 
@@ -331,7 +364,15 @@ export function BatchPromptRunner() {
     try {
       console.log('🔄 Resuming stuck job:', jobId);
       
-      const orgId = await getOrgId();
+      let orgId;
+      try {
+        orgId = await getOrgId();
+      } catch (orgError) {
+        console.error('🚨 Resume getOrgId failed:', orgError);
+        setLastError(`Authentication error: ${orgError.message}. Please refresh the page.`);
+        setIsResuming(null);
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
         body: { orgId, resumeJobId: jobId, action: 'resume' }

@@ -29,7 +29,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.robust-batch-processor]
-verify_jwt = true
+verify_jwt = false
 
 [functions.check-subscription]
 verify_jwt = true

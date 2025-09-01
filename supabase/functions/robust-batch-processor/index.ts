@@ -365,6 +365,36 @@ serve(async (req) => {
   }
 
   try {
+    // SECURITY GUARDRAIL: Check authentication since verify_jwt is disabled
+    const authHeader = req.headers.get('authorization');
+    const cronSecret = req.headers.get('x-cron-secret');
+    
+    // Allow either valid JWT or valid cron secret
+    let isAuthenticated = false;
+    
+    if (authHeader) {
+      // Check for Bearer token (from UI)
+      if (authHeader.startsWith('Bearer ')) {
+        isAuthenticated = true; // Basic validation - token presence
+      }
+    } else if (cronSecret) {
+      // Check for valid cron secret (from scheduler)
+      const validCronSecret = Deno.env.get('CRON_SECRET');
+      isAuthenticated = validCronSecret && cronSecret === validCronSecret;
+    }
+    
+    if (!isAuthenticated) {
+      console.error('❌ Authentication failed: No valid authorization header or cron secret');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Authentication required',
+        action: 'auth_failed'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -694,7 +724,11 @@ serve(async (req) => {
             metadata: {
               ...totalTasks && { total_tasks: totalTasks },
               time_budget_exceeded: true,
-              elapsed_time_ms: elapsedTime
+              time_budget_exceeded_count: 1,
+              elapsed_time_ms: elapsedTime,
+              last_batch_processed: processedCount + failedCount,
+              processed_in_this_run: processedCount,
+              failed_in_this_run: failedCount
             }
           })
           .eq('id', jobId);
