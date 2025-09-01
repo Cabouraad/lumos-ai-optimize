@@ -714,6 +714,15 @@ export type Database = {
         Args: { p_org_id: string; p_reason?: string }
         Returns: Json
       }
+      claim_batch_tasks: {
+        Args: { p_job_id: string; p_limit?: number; p_max_attempts?: number }
+        Returns: {
+          attempts: number
+          id: string
+          prompt_id: string
+          provider: string
+        }[]
+      }
       clean_competitor_catalog: {
         Args: { p_dry_run?: boolean }
         Returns: Json
