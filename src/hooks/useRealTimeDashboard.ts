@@ -1,3 +1,4 @@
+
 /**
  * Real-time dashboard hook with optimized fetching and auto-refresh
  */
@@ -60,7 +61,7 @@ export function useRealTimeDashboard(
       } else {
         toast({
           title: 'Dashboard Error',
-          description: 'Failed to load dashboard data. Please try again.',
+          description: error.message || 'Failed to load dashboard data. Please try again.',
           variant: 'destructive'
         });
       }

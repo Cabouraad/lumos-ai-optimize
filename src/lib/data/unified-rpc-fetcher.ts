@@ -1,3 +1,4 @@
+
 /**
  * Unified RPC-based data fetcher for optimal performance
  * Uses single database call instead of multiple queries
@@ -39,59 +40,92 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
     if (error) {
       logger.error('RPC fetch failed', error, { 
         component: 'unified-rpc-fetcher',
+        metadata: { fetchTimeMs: fetchTime, error: error.message }
+      });
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    // Validate that we received data
+    if (!data) {
+      logger.error('RPC returned null data', new Error('No data returned'), { 
+        component: 'unified-rpc-fetcher',
         metadata: { fetchTimeMs: fetchTime }
       });
-      throw error;
+      throw new Error('No data returned from database');
     }
 
     const result = data as any;
     
-    if (!result?.success) {
-      const errorMsg = result?.error || 'Unknown RPC error';
-      logger.error('RPC returned error', new Error(errorMsg), { 
+    // Check if the RPC returned an error structure
+    if (result && typeof result === 'object' && result.success === false) {
+      const errorMsg = result.error || 'Unknown RPC error';
+      logger.error('RPC returned error response', new Error(errorMsg), { 
         component: 'unified-rpc-fetcher',
-        metadata: { fetchTimeMs: fetchTime }
+        metadata: { fetchTimeMs: fetchTime, rpcError: errorMsg }
       });
-      throw new Error(errorMsg);
+      throw new Error(`Dashboard data error: ${errorMsg}`);
     }
+
+    // Validate the structure of successful response
+    if (!result || typeof result !== 'object') {
+      logger.error('RPC returned invalid structure', new Error('Invalid response structure'), { 
+        component: 'unified-rpc-fetcher',
+        metadata: { fetchTimeMs: fetchTime, resultType: typeof result }
+      });
+      throw new Error('Invalid response structure from database');
+    }
+
+    // Ensure we have the expected properties
+    const safeResult = {
+      success: true,
+      prompts: Array.isArray(result.prompts) ? result.prompts : [],
+      responses: Array.isArray(result.responses) ? result.responses : [],
+      chartData: Array.isArray(result.chartData) ? result.chartData : [],
+      metrics: result.metrics && typeof result.metrics === 'object' 
+        ? {
+            avgScore: Number(result.metrics.avgScore) || 0,
+            overallScore: Number(result.metrics.overallScore) || 0,
+            trend: Number(result.metrics.trend) || 0,
+            promptCount: Number(result.metrics.promptCount) || 0,
+            totalRuns: Number(result.metrics.totalRuns) || 0,
+            recentRunsCount: Number(result.metrics.recentRunsCount) || 0
+          }
+        : {
+            avgScore: 0,
+            overallScore: 0,
+            trend: 0,
+            promptCount: 0,
+            totalRuns: 0,
+            recentRunsCount: 0
+          },
+      timestamp: result.timestamp || new Date().toISOString()
+    };
 
     logger.info('RPC fetch completed successfully', {
       component: 'unified-rpc-fetcher',
       metadata: {
         fetchTimeMs: fetchTime,
-        promptCount: result.prompts?.length || 0,
-        responseCount: result.responses?.length || 0,
-        chartDataPoints: result.chartData?.length || 0
+        promptCount: safeResult.prompts.length,
+        responseCount: safeResult.responses.length,
+        chartDataPoints: safeResult.chartData.length
       }
     });
 
-    return {
-      success: true,
-      prompts: result.prompts || [],
-      responses: result.responses || [],
-      chartData: result.chartData || [],
-      metrics: result.metrics || {
-        avgScore: 0,
-        overallScore: 0,
-        trend: 0,
-        promptCount: 0,
-        totalRuns: 0,
-        recentRunsCount: 0
-      },
-      timestamp: result.timestamp
-    };
+    return safeResult;
 
   } catch (error) {
     const fetchTime = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
     logger.error('Unified RPC fetch failed', error as Error, { 
       component: 'unified-rpc-fetcher',
-      metadata: { fetchTimeMs: fetchTime }
+      metadata: { fetchTimeMs: fetchTime, errorMessage }
     });
     
-    // Return error structure
+    // Return safe error structure
     return {
       success: false,
-      error: (error as Error).message,
+      error: errorMessage,
       prompts: [],
       responses: [],
       chartData: [],
@@ -124,7 +158,7 @@ export class RealTimeDashboardFetcher {
     const now = Date.now();
     
     // Return cached data if recent and not forcing refresh
-    if (!forceRefresh && this.cache && (now - this.lastFetch) < this.CACHE_DURATION) {
+    if (!forceRefresh && this.cache && this.cache.success && (now - this.lastFetch) < this.CACHE_DURATION) {
       logger.info('Returning cached dashboard data', { 
         component: 'unified-rpc-fetcher',
         metadata: {
@@ -138,20 +172,24 @@ export class RealTimeDashboardFetcher {
     // Fetch fresh data
     const data = await getUnifiedDashboardDataRPC();
     
-    // Update cache
-    this.cache = data;
-    this.lastFetch = now;
+    // Only update cache if successful
+    if (data.success) {
+      this.cache = data;
+      this.lastFetch = now;
+    }
 
-    // Notify subscribers
-    this.refreshCallbacks.forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        logger.error('Refresh callback failed', error as Error, { 
-          component: 'unified-rpc-fetcher' 
-        });
-      }
-    });
+    // Notify subscribers only of successful data
+    if (data.success) {
+      this.refreshCallbacks.forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          logger.error('Refresh callback failed', error as Error, { 
+            component: 'unified-rpc-fetcher' 
+          });
+        }
+      });
+    }
 
     return data;
   }
