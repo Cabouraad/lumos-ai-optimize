@@ -4,9 +4,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { createUnifiedLogger } from '../observability/structured-logs';
-
-const logger = createUnifiedLogger('unified-rpc-fetcher');
+import { logger } from '../observability/logger';
 
 export interface UnifiedDashboardResponse {
   success: boolean;
@@ -32,14 +30,17 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
   const startTime = Date.now();
   
   try {
-    logger.info('Fetching unified dashboard data via RPC');
+    logger.info('Fetching unified dashboard data via RPC', { component: 'unified-rpc-fetcher' });
     
     const { data, error } = await supabase.rpc('get_unified_dashboard_data');
     
     const fetchTime = Date.now() - startTime;
     
     if (error) {
-      logger.error('RPC fetch failed', error, { fetchTimeMs: fetchTime });
+      logger.error('RPC fetch failed', error, { 
+        component: 'unified-rpc-fetcher',
+        metadata: { fetchTimeMs: fetchTime }
+      });
       throw error;
     }
 
@@ -47,15 +48,21 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
     
     if (!result?.success) {
       const errorMsg = result?.error || 'Unknown RPC error';
-      logger.error('RPC returned error', new Error(errorMsg), { fetchTimeMs: fetchTime });
+      logger.error('RPC returned error', new Error(errorMsg), { 
+        component: 'unified-rpc-fetcher',
+        metadata: { fetchTimeMs: fetchTime }
+      });
       throw new Error(errorMsg);
     }
 
     logger.info('RPC fetch completed successfully', {
-      fetchTimeMs: fetchTime,
-      promptCount: result.prompts?.length || 0,
-      responseCount: result.responses?.length || 0,
-      chartDataPoints: result.chartData?.length || 0
+      component: 'unified-rpc-fetcher',
+      metadata: {
+        fetchTimeMs: fetchTime,
+        promptCount: result.prompts?.length || 0,
+        responseCount: result.responses?.length || 0,
+        chartDataPoints: result.chartData?.length || 0
+      }
     });
 
     return {
@@ -76,7 +83,10 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
 
   } catch (error) {
     const fetchTime = Date.now() - startTime;
-    logger.error('Unified RPC fetch failed', error as Error, { fetchTimeMs: fetchTime });
+    logger.error('Unified RPC fetch failed', error as Error, { 
+      component: 'unified-rpc-fetcher',
+      metadata: { fetchTimeMs: fetchTime }
+    });
     
     // Return error structure
     return {
@@ -116,8 +126,11 @@ export class RealTimeDashboardFetcher {
     // Return cached data if recent and not forcing refresh
     if (!forceRefresh && this.cache && (now - this.lastFetch) < this.CACHE_DURATION) {
       logger.info('Returning cached dashboard data', { 
-        cacheAge: now - this.lastFetch,
-        prompts: this.cache.prompts?.length || 0
+        component: 'unified-rpc-fetcher',
+        metadata: {
+          cacheAge: now - this.lastFetch,
+          prompts: this.cache.prompts?.length || 0
+        }
       });
       return this.cache;
     }
@@ -134,7 +147,9 @@ export class RealTimeDashboardFetcher {
       try {
         callback(data);
       } catch (error) {
-        logger.error('Refresh callback failed', error as Error);
+        logger.error('Refresh callback failed', error as Error, { 
+          component: 'unified-rpc-fetcher' 
+        });
       }
     });
 
