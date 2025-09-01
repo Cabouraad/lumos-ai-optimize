@@ -87,11 +87,6 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
         <CardTitle className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             {config.name}
-            {response.model && (
-              <Badge variant="secondary" className="text-xs">
-                {response.model}
-              </Badge>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <Badge className={`text-xs ${getStatusColor(response.status)}`}>

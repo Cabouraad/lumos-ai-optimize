@@ -6,7 +6,10 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertTriangle, Building2 } from 'lucide-react';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { AlertTriangle, Building2, CheckCircle2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
 
 interface CompetitorChipProps {
@@ -179,6 +182,7 @@ export function CompetitorChip({
   className = ''
 }: CompetitorChipProps) {
   const [imageError, setImageError] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
   
   // Validate competitor name
   if (!isValidCompetitor(name)) {
@@ -196,6 +200,84 @@ export function CompetitorChip({
                    size === 'md' ? 'text-sm px-3 py-1.5' : 
                    'text-base px-4 py-2';
 
+  const { toast } = useToast();
+
+  const handleConvertToBrand = async () => {
+    try {
+      setIsConverting(true);
+      
+      // Get current user's org ID
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to perform this action",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data: userInfo } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.user.id)
+        .single();
+
+      if (!userInfo?.org_id) {
+        toast({
+          title: "Organization Error",
+          description: "Unable to determine your organization",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('convert-competitor-to-brand', {
+        body: {
+          competitorName: name,
+          orgId: userInfo.org_id
+        }
+      });
+
+      if (error) {
+        console.error('Error converting competitor:', error);
+        toast({
+          title: "Conversion Failed",
+          description: "Failed to convert competitor to brand",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data?.warning) {
+        toast({
+          title: "Brand Converted",
+          description: data.warning
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: data.message || 'Successfully converted to organization brand'
+        });
+      }
+
+      // Trigger a page reload to refresh data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (error) {
+      console.error('Error converting competitor:', error);
+      toast({
+        title: "Error",
+        description: "Failed to convert competitor to brand",
+        variant: "destructive"
+      });
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
   const tooltipContent = (
     <div className="space-y-1">
       <p className="font-medium">Detected competitor brand from AI response.</p>
@@ -205,42 +287,62 @@ export function CompetitorChip({
         {confidence && <p>Confidence: {Math.round(confidence * 100)}%</p>}
         {brandInfo.domain && <p>Domain: {brandInfo.domain}</p>}
       </div>
+      <div className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+        <p>Right-click to mark as your brand</p>
+      </div>
     </div>
   );
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge 
-          variant={variant} 
-          className={`${badgeSize} flex items-center gap-1.5 hover:scale-105 transition-transform cursor-help ${className}`}
-        >
-          {showLogo && (
-            <div className={`${sizeClasses[size]} rounded-full ${brandInfo.color} flex items-center justify-center text-white font-semibold`}>
-              {brandInfo.logoUrl && !imageError ? (
-                <img 
-                  src={brandInfo.logoUrl} 
-                  alt={`${name} logo`}
-                  className="w-full h-full object-contain rounded-full"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <span className="text-xs font-bold">
-                  {brandInfo.initials}
-                </span>
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge 
+              variant={variant} 
+              className={`${badgeSize} flex items-center gap-1.5 hover:scale-105 transition-transform cursor-help ${className} ${isConverting ? 'opacity-70' : ''}`}
+            >
+              {showLogo && (
+                <div className={`${sizeClasses[size]} rounded-full ${brandInfo.color} flex items-center justify-center text-white font-semibold`}>
+                  {brandInfo.logoUrl && !imageError ? (
+                    <img 
+                      src={brandInfo.logoUrl} 
+                      alt={`${name} logo`}
+                      className="w-full h-full object-contain rounded-full"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <span className="text-xs font-bold">
+                      {brandInfo.initials}
+                    </span>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-          <span className="truncate max-w-24">{name}</span>
-          {confidence && confidence < 0.7 && (
-            <AlertTriangle className="h-3 w-3 text-amber-500" />
-          )}
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        {tooltipContent}
-      </TooltipContent>
-    </Tooltip>
+              <span className="truncate max-w-24">{name}</span>
+              {confidence && confidence < 0.7 && (
+                <AlertTriangle className="h-3 w-3 text-amber-500" />
+              )}
+              {isConverting && (
+                <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin" />
+              )}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            {tooltipContent}
+          </TooltipContent>
+        </Tooltip>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem 
+          onClick={handleConvertToBrand}
+          disabled={isConverting}
+          className="flex items-center gap-2"
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          {isConverting ? 'Converting...' : 'Mark as My Brand'}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
