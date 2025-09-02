@@ -168,7 +168,14 @@ export default function Onboarding() {
 
     setAutoFillLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('auto-fill-business-context');
+      const session = await supabase.auth.getSession();
+      console.log('Auth session:', session.data.session ? 'Present' : 'Missing');
+      
+      const { data, error } = await supabase.functions.invoke('auto-fill-business-context', {
+        headers: {
+          Authorization: `Bearer ${session.data.session?.access_token}`,
+        },
+      });
 
       if (error) throw error;
 
