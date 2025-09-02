@@ -130,18 +130,31 @@ if (customers.data.length === 0) {
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       paymentCollected = true; // Active subscription means payment was collected
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      // Determine subscription tier from price
-      const priceId = subscription.items.data[0].price.id;
-      const price = await stripe.prices.retrieve(priceId);
-      const amount = price.unit_amount || 0;
-      if (amount >= 19900) {
-        subscriptionTier = "pro";
-      } else if (amount >= 6900) {
-        subscriptionTier = "growth";
-      } else {
-        subscriptionTier = "starter";
+      
+      // First check subscription metadata for tier (most reliable)
+      subscriptionTier = subscription.metadata?.tier || null;
+      logStep("Checked subscription metadata", { tier: subscriptionTier });
+      
+      // If no metadata tier, determine from price
+      if (!subscriptionTier) {
+        const priceId = subscription.items.data[0].price.id;
+        const price = await stripe.prices.retrieve(priceId);
+        const amount = price.unit_amount || 0;
+        
+        // Handle both monthly and yearly prices
+        const monthlyAmount = price.recurring?.interval === 'year' ? Math.round(amount / 12) : amount;
+        
+        if (monthlyAmount >= 19900) {
+          subscriptionTier = "pro";
+        } else if (monthlyAmount >= 6900) {
+          subscriptionTier = "growth";
+        } else if (monthlyAmount >= 2900) {
+          subscriptionTier = "starter";
+        } else {
+          subscriptionTier = "starter"; // Default fallback
+        }
+        logStep("Determined subscription tier from price", { priceId, amount, monthlyAmount, subscriptionTier });
       }
-      logStep("Determined subscription tier", { priceId, amount, subscriptionTier });
     } else {
       logStep("No active subscription found");
       // Check for trial subscription (trialing status)

@@ -27,8 +27,8 @@ interface RequestBody {
 
 const TIER_PRICES = {
   starter: {
-    monthly: 1900, // $19.00
-    yearly: 19000 // $190.00 (save ~17%)
+    monthly: 2900, // $29.00
+    yearly: 29000 // $290.00 (save ~17%)
   },
   growth: {
     monthly: 6900, // $69.00
@@ -115,17 +115,18 @@ serve(async (req) => {
       }
     };
 
+    // Add subscription metadata for all tiers
+    sessionConfig.subscription_data = {
+      metadata: {
+        user_id: user.id,
+        tier: tier,
+        billing_cycle: billingCycle
+      }
+    };
+
     // Add 7-day trial for starter tier only
     if (tier === 'starter') {
-      sessionConfig.subscription_data = {
-        trial_period_days: 7,
-        metadata: {
-          user_id: user.id,
-          tier: tier,
-          billing_cycle: billingCycle,
-          trial_tier: 'starter'
-        }
-      };
+      sessionConfig.subscription_data.trial_period_days = 7;
     }
 
     // Generate idempotency key for Stripe call

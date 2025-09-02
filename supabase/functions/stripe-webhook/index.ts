@@ -148,13 +148,32 @@ async function handleSubscriptionEvent(
     return;
   }
 
-  // Determine subscription tier from price
-  let subscriptionTier = "starter";
-  const price = subscription.items.data[0]?.price;
-  if (price) {
-    const amount = price.unit_amount || 0;
-    if (amount >= 2999) subscriptionTier = "pro";
-    else if (amount >= 1499) subscriptionTier = "growth";
+  // First check subscription metadata for tier (most reliable)
+  let subscriptionTier = subscription.metadata?.tier || null;
+  logger.info("Checked subscription metadata", { metadata: { tier: subscriptionTier } });
+  
+  // If no metadata tier, determine from price
+  if (!subscriptionTier) {
+    const price = subscription.items.data[0]?.price;
+    if (price) {
+      const amount = price.unit_amount || 0;
+      
+      // Handle both monthly and yearly prices
+      const monthlyAmount = price.recurring?.interval === 'year' ? Math.round(amount / 12) : amount;
+      
+      if (monthlyAmount >= 19900) {
+        subscriptionTier = "pro";
+      } else if (monthlyAmount >= 6900) {
+        subscriptionTier = "growth";
+      } else if (monthlyAmount >= 2900) {
+        subscriptionTier = "starter";
+      } else {
+        subscriptionTier = "starter"; // Default fallback
+      }
+      logger.info("Determined tier from price", { metadata: { amount, monthlyAmount, tier: subscriptionTier } });
+    } else {
+      subscriptionTier = "starter"; // Default fallback
+    }
   }
 
   // Update subscription record
