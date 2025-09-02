@@ -762,64 +762,105 @@ serve(async (req) => {
     const BATCH_SIZE = 5; // Process 5 tasks concurrently
     const TIME_BUDGET_MS = 280000; // 4 minutes 40 seconds (leave 20 second buffer)
     const startTime = Date.now();
-    let processedCount = 0;
-    let failedCount = 0;
 
-    while (true) {
-      // Check time budget to avoid edge function timeout
-      const elapsedTime = Date.now() - startTime;
-      if (elapsedTime > TIME_BUDGET_MS) {
-        console.log(`⏰ Time budget exceeded (${elapsedTime}ms), returning with in_progress status`);
-        
-        // Update job status to indicate it's still in progress
+    // Add error handling to prevent jobs from getting permanently stuck
+    const handleJobError = async (error: any, jobId: string) => {
+      console.error('🚨 Critical error in job processing:', error);
+      try {
         await supabase
           .from('batch_jobs')
-          .update({ 
-            status: 'processing',
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
             last_heartbeat: new Date().toISOString(),
             metadata: {
-              ...totalTasks && { total_tasks: totalTasks },
-              time_budget_exceeded: true,
-              time_budget_exceeded_count: 1,
-              elapsed_time_ms: elapsedTime,
-              last_batch_processed: processedCount + failedCount,
-              processed_in_this_run: processedCount,
-              failed_in_this_run: failedCount
+              error: error.message,
+              failed_at: new Date().toISOString(),
+              stack: error.stack
             }
           })
           .eq('id', jobId);
-        
-        return new Response(JSON.stringify({
-          success: true,
-          action: 'in_progress',
-          batchJobId: jobId,
-          totalProcessed: processedCount + failedCount,
-          processedSoFar: processedCount,
-          failedSoFar: failedCount,
-          elapsedTime: elapsedTime,
-          message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      } catch (updateError) {
+        console.error('❌ Failed to update job status to failed:', updateError);
       }
+    };
+    // Main processing loop with error handling
+    let processedCount = 0;
+    let failedCount = 0;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 3;
 
-      // Use atomic task claiming to get and lock tasks
-      const { data: claimedTasks, error: tasksError } = await supabase
-        .rpc('claim_batch_tasks', {
-          p_job_id: jobId,
-          p_limit: BATCH_SIZE,
-          p_max_attempts: 3
-        });
+    try {
+      while (true) {
+        // Check time budget to avoid edge function timeout
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime > TIME_BUDGET_MS) {
+          console.log(`⏰ Time budget exceeded (${elapsedTime}ms), returning with in_progress status`);
+          
+          // Update job status to indicate it's still in progress
+          await supabase
+            .from('batch_jobs')
+            .update({ 
+              status: 'processing',
+              last_heartbeat: new Date().toISOString(),
+              metadata: {
+                ...totalTasks && { total_tasks: totalTasks },
+                time_budget_exceeded: true,
+                elapsed_time_ms: elapsedTime,
+                processed_in_this_run: processedCount,
+                failed_in_this_run: failedCount
+              }
+            })
+            .eq('id', jobId);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            action: 'in_progress',
+            batchJobId: jobId,
+            totalProcessed: processedCount + failedCount,
+            processedSoFar: processedCount,
+            failedSoFar: failedCount,
+            elapsedTime: elapsedTime,
+            message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
 
-      if (tasksError) {
-        console.error('❌ Error claiming tasks:', tasksError);
-        break;
-      }
+        // Use atomic task claiming with error handling
+        let claimedTasks;
+        try {
+          const { data, error: tasksError } = await supabase
+            .rpc('claim_batch_tasks', {
+              p_job_id: jobId,
+              p_limit: BATCH_SIZE,
+              p_max_attempts: 3
+            });
 
-      if (!claimedTasks || claimedTasks.length === 0) {
-        console.log('⏳ No more claimable tasks found');
-        break;
-      }
+          if (tasksError) {
+            consecutiveErrors++;
+            console.error('❌ Error claiming tasks:', tasksError);
+            
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+              throw new Error(`Too many consecutive task claiming errors: ${tasksError.message}`);
+            }
+            
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          consecutiveErrors = 0;
+          claimedTasks = data;
+        } catch (claimError) {
+          await handleJobError(claimError, jobId);
+          throw claimError;
+        }
+
+        if (!claimedTasks || claimedTasks.length === 0) {
+          console.log('⏳ No more claimable tasks found');
+          break;
+        }
 
       console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
 
@@ -911,15 +952,31 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
+    } catch (processingError: any) {
+      console.error('🚨 Processing loop error:', processingError);
+      await handleJobError(processingError, jobId);
+      throw processingError;
+    }
+
   } catch (error: any) {
     console.error('❌ Batch processor error:', error.message);
+    
+    // Ensure job is marked as failed if it's not already completed
+    if (jobId) {
+      try {
+        await handleJobError(error, jobId);
+      } catch (finalError) {
+        console.error('❌ Failed to handle job error:', finalError);
+      }
+    }
     
     return new Response(JSON.stringify({
       success: false,
       error: error.message || 'Unknown error occurred',
       action: 'error',
       details: error.stack || 'No stack trace available',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      jobId: jobId || 'unknown'
     }), {
       status: 200, // Return 200 to avoid edge function errors
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
