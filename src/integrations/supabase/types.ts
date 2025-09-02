@@ -255,6 +255,50 @@ export type Database = {
         }
         Relationships: []
       }
+      domain_invitations: {
+        Row: {
+          created_at: string | null
+          domain_verified_at_invite: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          org_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain_verified_at_invite?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain_verified_at_invite?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flags: {
         Row: {
           created_at: string | null
@@ -819,6 +863,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      email_matches_org_domain: {
+        Args: { email_address: string }
+        Returns: boolean
+      }
       fix_brand_classification_all_providers: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1060,6 +1108,14 @@ export type Database = {
           p_token_out?: number
         }
         Returns: string
+      }
+      user_org_domain_verified: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      validate_domain_invitation: {
+        Args: { p_email: string; p_org_id: string }
+        Returns: Json
       }
     }
     Enums: {

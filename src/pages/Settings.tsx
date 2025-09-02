@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
 import { CompetitorDisplayTest } from '@/components/CompetitorDisplayTest';
+import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Trash2 } from 'lucide-react';
@@ -165,6 +166,12 @@ export default function Settings() {
         <h1 className="text-3xl font-semibold">Settings</h1>
         
         <SubscriptionManager />
+
+        {/* Domain Enforcement Demo */}
+        <section className="rounded-xl border p-4">
+          <h2 className="font-medium mb-3">Domain Security Status</h2>
+          <DomainEnforcementDemo />
+        </section>
 
         {/* Competitor Display Test (Development Only) */}
         <section className="rounded-xl border p-4">
