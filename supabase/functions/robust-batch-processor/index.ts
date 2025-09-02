@@ -4,6 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 import { analyzePromptResponse } from '../_shared/brand-response-analyzer.ts'
 import { createEdgeLogger } from '../_shared/observability/structured-logger.ts'
 import { corsHeaders, isRateLimited, getRateLimitHeaders } from '../_shared/cors.ts'
+import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts'
+import { BatchUsageTracker } from '../_shared/usage-tracker.ts'
 
 // Rate limiting for public endpoint
 const getClientIP = (req: Request): string => {
@@ -463,7 +465,7 @@ serve(async (req) => {
       replace
     });
 
-    // Validate required org_id
+    // Validate org_id and check quotas before processing
     if (!orgId) {
       console.log('⚠️ No orgId provided - nothing to do');
       return new Response(JSON.stringify({ 
@@ -474,6 +476,44 @@ serve(async (req) => {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // Extract user ID for quota checking if authenticated via JWT
+    let userId = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        // Basic JWT parsing to get user ID - for production use proper JWT library
+        const token = authHeader.substring(7);
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        userId = payload.sub;
+      } catch (error) {
+        console.warn('Failed to parse JWT for user ID:', error);
+      }
+    }
+
+    // Check quota limits before starting batch if we have user context
+    if (userId && action === 'create') {
+      console.log('🔍 Checking quota limits before batch creation...');
+      
+      // Estimate provider count based on request or default enabled providers
+      let estimatedProviders = validProviders?.length || activeProviders?.length || 3;
+      
+      // If we don't have these yet, get them
+      if (!estimatedProviders) {
+        const { data: providerData } = await supabase
+          .from('llm_providers')
+          .select('name')
+          .eq('enabled', true);
+        estimatedProviders = providerData?.length || 3;
+      }
+
+      const quotaCheck = await checkPromptQuota(supabase, userId, orgId, estimatedProviders);
+      if (!quotaCheck.allowed) {
+        console.log('❌ Quota exceeded, rejecting batch request');
+        return createQuotaExceededResponse(quotaCheck);
+      }
+      
+      console.log('✅ Quota check passed, proceeding with batch');
     }
 
     // Get configurations and filter by available API keys
@@ -723,6 +763,9 @@ serve(async (req) => {
       console.log(`📋 Resumed batch job ${jobId}: ${JSON.stringify(resumeResult.data)}`);
     }
 
+    // Initialize usage tracker for batch processing
+    const usageTracker = new BatchUsageTracker(supabase, orgId, jobId || 'unknown');
+
     // Start processing tasks with atomic task claiming and time budgets
     const BATCH_SIZE = 5; // Process 5 tasks concurrently
     const TIME_BUDGET_MS = 45000; // 45 seconds to ensure we return before timeout
@@ -795,11 +838,17 @@ serve(async (req) => {
 
       results.forEach((result, index) => {
         const taskId = claimedTasks[index]?.id || 'unknown';
+        const task = claimedTasks[index];
+        
         if (result.status === 'fulfilled' && result.value.success) {
           processedCount++;
+          // Track successful task with provider count (1 provider per task)
+          usageTracker.addCompletedTask(1, true);
           console.log(`✅ Task ${taskId} completed successfully`);
         } else {
           failedCount++;
+          // Track failed task
+          usageTracker.addCompletedTask(1, false);
           const errorMsg = result.status === 'rejected' ? result.reason?.message || String(result.reason) : result.value?.error;
           console.error(`❌ Task ${taskId} failed:`, errorMsg);
         }
@@ -822,6 +871,12 @@ serve(async (req) => {
     const failedTasksCount = taskStats?.filter(t => t.status === 'failed').length || 0;
     const totalCompletedOrFailed = completedTasksCount + failedTasksCount;
     const actualTotalTasks = taskStats?.length || totalTasks;
+
+    // Persist usage for successful tasks
+    if (processedCount > 0) {
+      console.log('📊 Persisting batch usage to database...');
+      await usageTracker.persistBatchUsage();
+    }
 
     // Only mark as completed if all tasks are truly done
     if (totalCompletedOrFailed >= actualTotalTasks) {

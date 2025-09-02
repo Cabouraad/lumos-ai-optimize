@@ -3,6 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { getUserOrgId } from '../_shared/auth.ts';
+import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts';
+import { PromptUsageTracker } from '../_shared/usage-tracker.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -27,34 +29,26 @@ serve(async (req) => {
     // Verify authentication and get user's org ID (ignore orgId from request for security)
     const orgId = await getUserOrgId(supabase);
 
-    // Check subscription and quota limits
-    const { data: subscriber } = await supabase
-      .from('subscribers')
-      .select('subscribed, subscription_tier, trial_expires_at, payment_collected')
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-      .single();
-
-    const isOnTrial = subscriber?.subscription_tier === 'starter' && subscriber?.trial_expires_at;
-    const trialExpired = isOnTrial && new Date() > new Date(subscriber.trial_expires_at);
-    
-    if (trialExpired || (!subscriber?.subscribed && !isOnTrial)) {
-      throw new Error('Subscription required to run prompts');
+    // Enhanced quota enforcement
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) {
+      throw new Error('Authentication required');
     }
 
-    // Check daily quota (simple implementation)
-    const today = new Date().toISOString().split('T')[0];
-    const { count: todayRuns } = await supabase
-      .from('prompt_provider_responses')
-      .select('id', { count: 'exact' })
-      .eq('org_id', orgId)
-      .gte('run_at', `${today}T00:00:00Z`)
-      .lt('run_at', `${today}T23:59:59Z`);
+    // Get enabled providers to determine quota needs
+    const { data: providers } = await supabase
+      .from('llm_providers')
+      .select('id, name')
+      .eq('enabled', true);
 
-    const dailyLimit = subscriber?.subscription_tier === 'pro' ? 200 : 
-                      subscriber?.subscription_tier === 'growth' ? 50 : 10;
+    if (!providers || providers.length === 0) {
+      throw new Error('No enabled providers');
+    }
 
-    if ((todayRuns || 0) >= dailyLimit) {
-      throw new Error(`Daily quota exceeded (${dailyLimit} prompts per day)`);
+    // Check quota limits before execution
+    const quotaCheck = await checkPromptQuota(supabase, userId, orgId, providers.length);
+    if (!quotaCheck.allowed) {
+      return createQuotaExceededResponse(quotaCheck);
     }
 
     const { promptId } = await req.json();
@@ -85,15 +79,8 @@ serve(async (req) => {
     const orgName = org?.name || '';
 
 
-    // Get enabled providers
-    const { data: providers } = await supabase
-      .from('llm_providers')
-      .select('id, name')
-      .eq('enabled', true);
-
-    if (!providers || providers.length === 0) {
-      throw new Error('No enabled providers');
-    }
+    // Initialize usage tracker
+    const usageTracker = new PromptUsageTracker(supabase, orgId, promptId);
 
     let totalRuns = 0;
     let successfulRuns = 0;
@@ -210,6 +197,8 @@ serve(async (req) => {
               raw_evidence: JSON.stringify({ analysis })
             });
 
+          // Track successful provider execution
+          usageTracker.addProvider(provider.name);
           console.log(`Successfully processed prompt ${promptId} on ${provider.name}`);
           successfulRuns++;
         }
@@ -231,6 +220,12 @@ serve(async (req) => {
           });
         totalRuns++;
       }
+    }
+
+    // Mark session as successful and persist usage
+    if (successfulRuns > 0) {
+      usageTracker.markSuccess();
+      await usageTracker.persistUsage();
     }
 
     return new Response(

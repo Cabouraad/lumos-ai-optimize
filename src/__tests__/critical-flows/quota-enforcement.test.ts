@@ -28,7 +28,7 @@ describe('Critical Quota Enforcement', () => {
   });
 
   describe('Daily Prompt Limits', () => {
-    it.skip('should enforce starter plan daily limit (10 prompts)', async () => {
+    it('should enforce starter plan daily limit (10 prompts)', async () => {
       // Mock subscriber data
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
@@ -56,7 +56,7 @@ describe('Critical Quota Enforcement', () => {
       expect(quotaCheck.reason).toContain('Daily quota exceeded');
     });
 
-    it.skip('should enforce growth plan daily limit (50 prompts)', async () => {
+    it('should enforce growth plan daily limit (50 prompts)', async () => {
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
           subscribed: true,
@@ -80,7 +80,7 @@ describe('Critical Quota Enforcement', () => {
       expect(quotaCheck.hasAccess).toBe(false);
     });
 
-    it.skip('should enforce pro plan daily limit (200 prompts)', async () => {
+    it('should enforce pro plan daily limit (200 prompts)', async () => {
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
           subscribed: true,
@@ -106,7 +106,7 @@ describe('Critical Quota Enforcement', () => {
   });
 
   describe('Trial Expiration Enforcement', () => {
-    it.skip('should block expired trial users', async () => {
+    it('should block expired trial users', async () => {
       const expiredDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       
       mockSupabase.from().select().eq().single.mockResolvedValue({
@@ -123,7 +123,7 @@ describe('Critical Quota Enforcement', () => {
       expect(trialExpired).toBe(true);
     });
 
-    it.skip('should allow active trial users', async () => {
+    it('should allow active trial users', async () => {
       const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
       mockSupabase.from().select().eq().single.mockResolvedValue({
@@ -142,7 +142,7 @@ describe('Critical Quota Enforcement', () => {
   });
 
   describe('Subscription Status Validation', () => {
-    it.skip('should block unsubscribed users without trial', async () => {
+    it('should block unsubscribed users without trial', async () => {
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
           subscribed: false,
@@ -157,7 +157,7 @@ describe('Critical Quota Enforcement', () => {
       expect(hasAccess).toBe(false);
     });
 
-    it.skip('should allow subscribed users', async () => {
+    it('should allow subscribed users', async () => {
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
           subscribed: true,
