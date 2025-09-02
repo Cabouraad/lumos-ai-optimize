@@ -1,21 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { withRequestLogging } from "../_shared/observability/structured-logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://llumos.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
   "Access-Control-Allow-Methods": "POST",
-};
-
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details, (key, value) => {
-    if (key.toLowerCase().includes('secret') || key.toLowerCase().includes('key')) {
-      return '[REDACTED]';
-    }
-    return value;
-  })}` : '';
-  console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -27,14 +18,14 @@ serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  try {
-    logStep("Webhook received");
+  return withRequestLogging("stripe-webhook", req, async (logger) => {
+    logger.info("Webhook received");
     
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     
     if (!stripeKey || !webhookSecret) {
-      logStep("ERROR: Missing Stripe configuration");
+      logger.error("Missing Stripe configuration");
       return new Response("Server configuration error", { 
         status: 500, 
         headers: corsHeaders 
@@ -48,7 +39,7 @@ serve(async (req) => {
     const signature = req.headers.get("stripe-signature");
 
     if (!signature) {
-      logStep("ERROR: Missing Stripe signature");
+      logger.error("Missing Stripe signature");
       return new Response("Missing signature", { status: 400, headers: corsHeaders });
     }
 
@@ -56,9 +47,9 @@ serve(async (req) => {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-      logStep("Webhook signature verified", { type: event.type });
+      logger.info("Webhook signature verified", { metadata: { type: event.type } });
     } catch (err) {
-      logStep("ERROR: Invalid signature", { error: err.message });
+      logger.error("Invalid signature", err as Error);
       return new Response("Invalid signature", { status: 400, headers: corsHeaders });
     }
 
@@ -78,7 +69,7 @@ serve(async (req) => {
       .single();
 
     if (existing) {
-      logStep("Duplicate webhook ignored", { eventId: event.id });
+      logger.info("Duplicate webhook ignored", { metadata: { eventId: event.id } });
       return new Response("OK", { status: 200, headers: corsHeaders });
     }
 
@@ -96,19 +87,19 @@ serve(async (req) => {
     switch (event.type) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
-        await handleSubscriptionEvent(supabaseClient, event, stripe);
+        await handleSubscriptionEvent(supabaseClient, event, stripe, logger);
         break;
       case "customer.subscription.deleted":
-        await handleSubscriptionCancellation(supabaseClient, event, stripe);
+        await handleSubscriptionCancellation(supabaseClient, event, stripe, logger);
         break;
       case "invoice.payment_succeeded":
-        await handlePaymentSuccess(supabaseClient, event, stripe);
+        await handlePaymentSuccess(supabaseClient, event, stripe, logger);
         break;
       case "invoice.payment_failed":
-        await handlePaymentFailed(supabaseClient, event, stripe);
+        await handlePaymentFailed(supabaseClient, event, stripe, logger);
         break;
       default:
-        logStep("Unhandled event type", { type: event.type });
+        logger.info("Unhandled event type", { metadata: { type: event.type } });
     }
 
     // Mark as processed
@@ -117,32 +108,24 @@ serve(async (req) => {
       .update({ processed: true })
       .eq("idempotency_key", idempotencyKey);
 
-    logStep("Webhook processed successfully", { type: event.type });
+    logger.info("Webhook processed successfully", { metadata: { type: event.type } });
     return new Response("OK", { status: 200, headers: corsHeaders });
-
-  } catch (error) {
-    logStep("ERROR: Webhook processing failed", { 
-      error: error.message,
-      stack: error.stack?.split('\n')[0] 
-    });
-    
-    return new Response("Internal server error", { 
-      status: 500, 
-      headers: corsHeaders 
-    });
-  }
+  });
 });
 
 async function handleSubscriptionEvent(
   supabaseClient: any, 
   event: Stripe.Event, 
-  stripe: Stripe
+  stripe: Stripe,
+  logger: any
 ) {
   const subscription = event.data.object as Stripe.Subscription;
   
-  logStep("Processing subscription event", { 
-    subscriptionId: subscription.id,
-    status: subscription.status 
+  logger.info("Processing subscription event", { 
+    metadata: {
+      subscriptionId: subscription.id,
+      status: subscription.status 
+    }
   });
 
   // Get customer details
@@ -161,7 +144,7 @@ async function handleSubscriptionEvent(
   const matchedUser = user?.users?.find((u: any) => u.email === email);
   
   if (!matchedUser) {
-    logStep("User not found for subscription", { email });
+    logger.warn("User not found for subscription", { metadata: { email } });
     return;
   }
 
@@ -189,22 +172,25 @@ async function handleSubscriptionEvent(
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
 
-  logStep("Subscription updated", { 
-    userId: matchedUser.id, 
-    tier: subscriptionTier,
-    status: subscription.status 
+  logger.info("Subscription updated", { 
+    metadata: {
+      userId: matchedUser.id, 
+      tier: subscriptionTier,
+      status: subscription.status 
+    }
   });
 }
 
 async function handleSubscriptionCancellation(
   supabaseClient: any, 
   event: Stripe.Event, 
-  stripe: Stripe
+  stripe: Stripe,
+  logger: any
 ) {
   const subscription = event.data.object as Stripe.Subscription;
   
-  logStep("Processing subscription cancellation", { 
-    subscriptionId: subscription.id 
+  logger.info("Processing subscription cancellation", { 
+    metadata: { subscriptionId: subscription.id }
   });
 
   // Update subscription to mark as cancelled
@@ -221,7 +207,8 @@ async function handleSubscriptionCancellation(
 async function handlePaymentSuccess(
   supabaseClient: any, 
   event: Stripe.Event, 
-  stripe: Stripe
+  stripe: Stripe,
+  logger: any
 ) {
   const invoice = event.data.object as Stripe.Invoice;
   
@@ -239,7 +226,8 @@ async function handlePaymentSuccess(
 async function handlePaymentFailed(
   supabaseClient: any, 
   event: Stripe.Event, 
-  stripe: Stripe
+  stripe: Stripe,
+  logger: any
 ) {
   const invoice = event.data.object as Stripe.Invoice;
   

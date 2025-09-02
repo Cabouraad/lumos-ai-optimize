@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { getUserOrgId } from '../_shared/auth.ts';
+import { withRequestLogging } from '../_shared/observability/structured-logger.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -15,7 +16,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
+  return withRequestLogging("verify-domain", req, async (logger) => {
     // Initialize Supabase client with user's JWT
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -27,32 +28,22 @@ serve(async (req) => {
     const orgId = await getUserOrgId(supabase);
 
     const { action, method } = await req.json();
-    console.log('Domain verification request:', { action, method, orgId });
+    logger.info('Domain verification request', { 
+      orgId, 
+      metadata: { action, method } 
+    });
 
     if (action === 'verify') {
-      return await verifyDomain(supabase, orgId, method);
+      return await verifyDomain(supabase, orgId, method, logger);
     } else if (action === 'regenerate') {
-      return await regenerateToken(supabase, orgId);
+      return await regenerateToken(supabase, orgId, logger);
     } else {
       throw new Error('Invalid action. Use "verify" or "regenerate"');
     }
-
-  } catch (error: any) {
-    console.error('Domain verification error:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
-  }
+  });
 });
 
-async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'): Promise<Response> {
+async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file', logger: any): Promise<Response> {
   try {
     // Get organization data
     const { data: org, error: orgError } = await supabase
@@ -73,7 +64,10 @@ async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'
       throw new Error('No verification token found. Please regenerate token.');
     }
 
-    console.log(`Verifying domain ${org.domain} using ${method} method`);
+    logger.info('Verifying domain', {
+      orgId,
+      metadata: { domain: org.domain, method }
+    });
 
     let verified = false;
     let verificationDetails = '';
@@ -100,7 +94,10 @@ async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'
         throw new Error(`Failed to mark domain as verified: ${updateError.message}`);
       }
 
-      console.log(`✅ Domain ${org.domain} verified successfully via ${method}`);
+      logger.info('Domain verified successfully', {
+        orgId,
+        metadata: { domain: org.domain, method }
+      });
       
       return new Response(
         JSON.stringify({
@@ -113,7 +110,10 @@ async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      console.log(`❌ Domain ${org.domain} verification failed via ${method}`);
+      logger.warn('Domain verification failed', {
+        orgId,
+        metadata: { domain: org.domain, method, verificationDetails }
+      });
       
       return new Response(
         JSON.stringify({
@@ -130,7 +130,7 @@ async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'
     }
 
   } catch (error: any) {
-    console.error('Domain verification error:', error);
+    logger.error('Domain verification error', error);
     return new Response(
       JSON.stringify({
         success: false,
@@ -144,7 +144,7 @@ async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'
   }
 }
 
-async function regenerateToken(supabase: any, orgId: string): Promise<Response> {
+async function regenerateToken(supabase: any, orgId: string, logger: any): Promise<Response> {
   try {
     // Generate new verification token
     const { data: newToken, error } = await supabase.rpc('generate_verification_token', {
@@ -155,7 +155,7 @@ async function regenerateToken(supabase: any, orgId: string): Promise<Response> 
       throw new Error(`Failed to generate token: ${error.message}`);
     }
 
-    console.log(`Generated new verification token for org ${orgId}`);
+    logger.info('Generated new verification token', { orgId });
 
     return new Response(
       JSON.stringify({
@@ -167,7 +167,7 @@ async function regenerateToken(supabase: any, orgId: string): Promise<Response> 
     );
 
   } catch (error: any) {
-    console.error('Token regeneration error:', error);
+    logger.error('Token regeneration error', error);
     return new Response(
       JSON.stringify({
         success: false,
@@ -183,8 +183,6 @@ async function regenerateToken(supabase: any, orgId: string): Promise<Response> 
 
 async function verifyDNSRecord(recordName: string, expectedToken: string): Promise<boolean> {
   try {
-    console.log(`Checking DNS TXT record: ${recordName}`);
-    
     // Use DNS over HTTPS (DoH) with Cloudflare
     const dohUrl = `https://cloudflare-dns.com/dns-query?name=${recordName}&type=TXT`;
     
@@ -196,15 +194,12 @@ async function verifyDNSRecord(recordName: string, expectedToken: string): Promi
     });
 
     if (!response.ok) {
-      console.error(`DNS query failed: ${response.status} ${response.statusText}`);
       return false;
     }
 
     const dnsData = await response.json();
-    console.log('DNS response:', dnsData);
 
     if (dnsData.Status !== 0 || !dnsData.Answer) {
-      console.log('No DNS records found or DNS error');
       return false;
     }
 
@@ -212,28 +207,22 @@ async function verifyDNSRecord(recordName: string, expectedToken: string): Promi
     for (const record of dnsData.Answer) {
       if (record.type === 16) { // TXT record type
         const txtValue = record.data.replace(/"/g, ''); // Remove quotes
-        console.log(`Found TXT record: ${txtValue}`);
         
         if (txtValue === expectedToken) {
-          console.log('✅ DNS verification successful');
           return true;
         }
       }
     }
 
-    console.log('❌ Token not found in DNS records');
     return false;
 
   } catch (error) {
-    console.error('DNS verification error:', error);
     return false;
   }
 }
 
 async function verifyHTTPFile(fileUrl: string, expectedToken: string): Promise<boolean> {
   try {
-    console.log(`Checking HTTP file: ${fileUrl}`);
-
     const response = await fetch(fileUrl, {
       method: 'GET',
       headers: {
@@ -242,26 +231,19 @@ async function verifyHTTPFile(fileUrl: string, expectedToken: string): Promise<b
     });
 
     if (!response.ok) {
-      console.error(`HTTP file check failed: ${response.status} ${response.statusText}`);
       return false;
     }
 
     const content = await response.text();
     const trimmedContent = content.trim();
-    
-    console.log(`File content: "${trimmedContent}"`);
-    console.log(`Expected token: "${expectedToken}"`);
 
     if (trimmedContent === expectedToken) {
-      console.log('✅ HTTP file verification successful');
       return true;
     } else {
-      console.log('❌ File content does not match token');
       return false;
     }
 
   } catch (error) {
-    console.error('HTTP file verification error:', error);
     return false;
   }
 }

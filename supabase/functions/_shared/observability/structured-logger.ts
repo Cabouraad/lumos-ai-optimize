@@ -1,10 +1,11 @@
 /**
- * Structured logging for Supabase Edge Functions
+ * Structured logging for Supabase Edge Functions with correlation ID and key redaction
  * Provides consistent, searchable logs for observability
  */
 
 export interface EdgeFunctionLogContext {
   functionName: string;
+  correlationId?: string;
   requestId?: string;
   userId?: string;
   orgId?: string;
@@ -27,16 +28,54 @@ export interface StructuredEdgeLog {
 }
 
 class EdgeFunctionLogger {
-  private requestId: string;
+  private correlationId: string;
+  private functionName: string;
   
-  constructor(functionName: string, requestId?: string) {
-    this.requestId = requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  constructor(functionName: string, correlationId?: string) {
+    this.functionName = functionName;
+    this.correlationId = correlationId || crypto.randomUUID();
     
     // Log function start
     this.info('Edge function started', {
       functionName,
-      requestId: this.requestId,
+      correlationId: this.correlationId,
     });
+  }
+
+  private redactSensitiveData(data: any): any {
+    if (typeof data !== 'object' || data === null) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map(item => this.redactSensitiveData(item));
+    }
+
+    const redacted = { ...data };
+    const sensitiveKeys = [
+      'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 
+      'SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+      'OPENAI_API_KEY', 'PERPLEXITY_API_KEY', 'CRON_SECRET',
+      'password', 'token', 'secret', 'key', 'auth'
+    ];
+
+    for (const [key, value] of Object.entries(redacted)) {
+      const keyLower = key.toLowerCase();
+      const shouldRedact = sensitiveKeys.some(sensitiveKey => 
+        keyLower.includes(sensitiveKey.toLowerCase()) || 
+        keyLower.includes('secret') || 
+        keyLower.includes('password') ||
+        keyLower.includes('token')
+      );
+
+      if (shouldRedact) {
+        redacted[key] = '[REDACTED]';
+      } else if (typeof value === 'object' && value !== null) {
+        redacted[key] = this.redactSensitiveData(value);
+      }
+    }
+
+    return redacted;
   }
 
   private formatLog(
@@ -44,14 +83,17 @@ class EdgeFunctionLogger {
     message: string, 
     context: Partial<EdgeFunctionLogContext> = {}
   ): StructuredEdgeLog {
+    const redactedContext = this.redactSensitiveData({
+      ...context,
+      functionName: this.functionName,
+      correlationId: this.correlationId,
+    });
+
     return {
       timestamp: new Date().toISOString(),
       level,
       message,
-      context: {
-        ...context,
-        requestId: this.requestId,
-      },
+      context: redactedContext,
     };
   }
 
@@ -151,8 +193,8 @@ class EdgeFunctionLogger {
 }
 
 // Factory function for creating loggers
-export const createEdgeLogger = (functionName: string, requestId?: string): EdgeFunctionLogger => {
-  return new EdgeFunctionLogger(functionName, requestId);
+export const createEdgeLogger = (functionName: string, correlationId?: string): EdgeFunctionLogger => {
+  return new EdgeFunctionLogger(functionName, correlationId);
 };
 
 // Middleware helper for request logging
@@ -161,10 +203,11 @@ export const withRequestLogging = async <T>(
   request: Request,
   handler: (logger: EdgeFunctionLogger) => Promise<T>
 ): Promise<T> => {
-  const requestId = request.headers.get('x-request-id') || 
-                   `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const correlationId = request.headers.get('x-correlation-id') || 
+                       request.headers.get('x-request-id') || 
+                       crypto.randomUUID();
   
-  const logger = createEdgeLogger(functionName, requestId);
+  const logger = createEdgeLogger(functionName, correlationId);
   
   logger.info('Request received', {
     functionName,

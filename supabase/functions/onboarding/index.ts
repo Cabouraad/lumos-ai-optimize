@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withRequestLogging } from "../_shared/observability/structured-logger.ts";
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -43,6 +44,8 @@ serve(async (req) => {
     });
   }
 
+  return withRequestLogging("onboarding", req, async (logger) => {
+
   const { userId, email } = getJwtSubAndEmail(req);
   if (!userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { 
@@ -66,7 +69,10 @@ serve(async (req) => {
   const normDomain = domain.trim().toLowerCase();
 
   try {
-    console.log(`Creating organization for user ${userId}: ${name} (${normDomain})`);
+    logger.info("Creating organization", { 
+      userId, 
+      metadata: { name, domain: normDomain } 
+    });
 
     // 1) Create organization (insert requires service role by trigger)
     const { data: org, error: orgErr } = await supa
@@ -85,14 +91,14 @@ serve(async (req) => {
       .single();
 
     if (orgErr) {
-      console.error("Error creating organization:", orgErr);
+      logger.error("Error creating organization", orgErr);
       return new Response(JSON.stringify({ error: orgErr.message }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log(`Organization created with id: ${org.id}`);
+    logger.info("Organization created", { metadata: { orgId: org.id } });
 
     // 2) Insert user row as owner (users table is write-locked to service role)
     const { error: userErr } = await supa
@@ -113,7 +119,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("User record created/updated");
+    logger.info("User record created/updated");
 
     // 3) Create organization's brand in catalog
     const { error: brandErr } = await supa
@@ -133,7 +139,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("Brand catalog created");
+    logger.info("Brand catalog created");
 
     // 4) Ensure default providers exist (idempotent)
     const { error: providersErr } = await supa
@@ -153,17 +159,18 @@ serve(async (req) => {
       });
     }
 
-    console.log("Default providers ensured");
+    logger.info("Default providers ensured");
 
     return new Response(JSON.stringify({ ok: true, orgId: org.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Unexpected error in onboarding:", error);
+    logger.error("Unexpected error in onboarding", error as Error);
     return new Response(JSON.stringify({ error: "Internal server error" }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
+  });
 });
