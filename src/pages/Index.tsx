@@ -56,6 +56,8 @@ const Index = () => {
             Help Local Businesses Get Found on
             <span className="text-primary block">AI Search Results</span>
           </h1>
+          {/* Debug: Confirm deployment version */}
+          <div className="text-xs text-muted-foreground/50 mb-2">v2.1.0 - GitHub Sync Active</div>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Optimize your local business for AI-powered search engines like ChatGPT, Claude, and Perplexity. Monitor, analyze, and improve your visibility in localized AI search results that drive real customers to your door.
           </p>
