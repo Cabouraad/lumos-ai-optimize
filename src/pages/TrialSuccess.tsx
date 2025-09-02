@@ -38,11 +38,12 @@ export default function TrialSuccess() {
 
         if (data.success) {
           setSuccess(true);
-          // Refresh subscription status
+          // Refresh subscription status after successful checkout
           await checkSubscription();
           toast({
             title: "Trial Activated!",
-            description: "Your 7-day trial has been activated. Enjoy full access to all features!"
+            description: "Your 7-day trial has been activated. Enjoy full access to all features!",
+            variant: "success"
           });
         }
       } catch (error) {

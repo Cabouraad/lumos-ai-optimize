@@ -38,6 +38,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } | null>(null);
 
   useEffect(() => {
+    let subscriptionCheckTimeout: NodeJS.Timeout;
+
+    // Debounced subscription check for app load
+    const debouncedSubscriptionCheck = () => {
+      if (subscriptionCheckTimeout) {
+        clearTimeout(subscriptionCheckTimeout);
+      }
+      subscriptionCheckTimeout = setTimeout(() => {
+        checkSubscriptionStatus();
+      }, 1000); // 1 second debounce
+    };
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -63,8 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               setOrgData(data);
               
-               // Check subscription status
-               await checkSubscriptionStatus();
+               // Check subscription status on auth state changes
+               if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                 await checkSubscriptionStatus();
+               }
                
                setLoading(false);
              } catch (err) {
@@ -81,16 +95,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Check for existing session
+    // Check for existing session and trigger debounced check
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (!session) {
         setLoading(false);
+      } else {
+        // Debounced check for app load with existing session
+        debouncedSubscriptionCheck();
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (subscriptionCheckTimeout) {
+        clearTimeout(subscriptionCheckTimeout);
+      }
+    };
   }, []);
 
   const checkSubscriptionStatus = async () => {
