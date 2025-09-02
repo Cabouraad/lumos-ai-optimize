@@ -225,6 +225,63 @@ export type Database = {
           },
         ]
       }
+      daily_usage: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          org_id: string
+          prompts_used: number
+          providers_used: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          org_id: string
+          prompts_used?: number
+          providers_used?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          org_id?: string
+          prompts_used?: number
+          providers_used?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feature_flags: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          enabled: boolean
+          flag_name: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean
+          flag_name: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean
+          flag_name?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       llm_providers: {
         Row: {
           enabled: boolean
@@ -302,6 +359,8 @@ export type Database = {
           products_services: string | null
           subscription_tier: string | null
           target_audience: string | null
+          verification_token: string | null
+          verified_at: string | null
         }
         Insert: {
           business_city?: string | null
@@ -325,6 +384,8 @@ export type Database = {
           products_services?: string | null
           subscription_tier?: string | null
           target_audience?: string | null
+          verification_token?: string | null
+          verified_at?: string | null
         }
         Update: {
           business_city?: string | null
@@ -348,6 +409,8 @@ export type Database = {
           products_services?: string | null
           subscription_tier?: string | null
           target_audience?: string | null
+          verification_token?: string | null
+          verified_at?: string | null
         }
         Relationships: []
       }
@@ -772,6 +835,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      generate_verification_token: {
+        Args: { org_id: string }
+        Returns: string
+      }
       get_brand_candidates_for_org: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -790,6 +857,17 @@ export type Database = {
       get_current_user_org_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_daily_usage: {
+        Args: { p_date?: string; p_org_id: string }
+        Returns: {
+          prompts_used: number
+          providers_used: number
+        }[]
+      }
+      get_feature_flag: {
+        Args: { flag_name: string }
+        Returns: boolean
       }
       get_latest_prompt_provider_responses: {
         Args: { p_org_id?: string; p_prompt_id?: string }
@@ -886,9 +964,22 @@ export type Database = {
         Args: { job_id: string }
         Returns: undefined
       }
+      increment_daily_usage: {
+        Args: {
+          p_date?: string
+          p_org_id: string
+          p_prompts_increment?: number
+          p_providers_increment?: number
+        }
+        Returns: Json
+      }
       increment_failed_tasks: {
         Args: { job_id: string }
         Returns: undefined
+      }
+      mark_domain_verified: {
+        Args: { org_id: string }
+        Returns: boolean
       }
       rebuild_competitors_catalog_only: {
         Args: Record<PropertyKey, never>

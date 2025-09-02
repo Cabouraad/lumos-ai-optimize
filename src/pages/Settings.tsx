@@ -39,7 +39,7 @@ export default function Settings() {
       // Load org data
       const { data: org, error: orgErr } = await supabase
         .from("organizations")
-        .select("id,name,domain,plan_tier,domain_locked_at")
+        .select("id,name,domain,plan_tier,verified_at")
         .eq("id", membership.org_id)
         .single();
 
@@ -188,29 +188,34 @@ export default function Settings() {
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">
             Domain Verification 
-            {orgData.domain_locked_at ? (
-              <span className="text-green-600 ml-2">Verified</span>
+            {orgData.verified_at ? (
+              <span className="text-green-600 ml-2">✓ Verified</span>
             ) : (
               <span className="text-muted-foreground ml-2">Unverified</span>
             )}
           </h2>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Domain</div>
-            <input className="w-full border rounded-lg p-2 bg-muted" value={orgData.domain} readOnly />
-          </div>
-          {!orgData.domain_locked_at && (
-            <div className="mt-3">
-              <button 
-                className="rounded-lg border px-3 py-2 hover:bg-muted transition-colors"
-                onClick={() => {
-                  // Could implement verification logic here
-                  alert('Domain verification not yet implemented');
-                }}
-              >
-                Verify domain
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Domain</div>
+              <input className="w-full border rounded-lg p-2 bg-muted" value={orgData.domain} readOnly />
             </div>
-          )}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Status</div>
+              <input 
+                className="w-full border rounded-lg p-2 bg-muted" 
+                value={orgData.verified_at ? `Verified on ${new Date(orgData.verified_at).toLocaleDateString()}` : 'Not verified'} 
+                readOnly 
+              />
+            </div>
+          </div>
+          <div className="mt-3">
+            <Link 
+              to="/domain-verification"
+              className="inline-block rounded-lg border px-3 py-2 hover:bg-muted transition-colors"
+            >
+              {orgData.verified_at ? 'Manage Verification' : 'Verify Domain'}
+            </Link>
+          </div>
         </section>
 
         <section className="rounded-xl border p-4">

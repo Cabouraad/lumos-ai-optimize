@@ -16,6 +16,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Features = lazy(() => import("./pages/Features"));
 const TrialSuccess = lazy(() => import("./pages/TrialSuccess"));
+const DomainVerification = lazy(() => import("./pages/DomainVerification"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const App = () => (
@@ -56,6 +57,11 @@ const App = () => (
             <Route path="/settings" element={
               <SubscriptionGate>
                 <Settings />
+              </SubscriptionGate>
+            } />
+            <Route path="/domain-verification" element={
+              <SubscriptionGate>
+                <DomainVerification />
               </SubscriptionGate>
             } />
             <Route path="*" element={<NotFound />} />
