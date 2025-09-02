@@ -491,6 +491,11 @@ serve(async (req) => {
       }
     }
 
+    // Get provider configs early to avoid TDZ issues
+    const providerConfigs = getProviderConfigs();
+    const validProviders = Object.keys(providerConfigs).filter(p => providerConfigs[p].apiKey);
+    const activeProviders = providers ? providers.split(',') : validProviders;
+
     // Check quota limits before starting batch if we have user context
     if (userId && action === 'create') {
       console.log('🔍 Checking quota limits before batch creation...');
@@ -533,33 +538,20 @@ serve(async (req) => {
       });
     }
 
-    // If providers not specified, fetch from database
-    let activeProviders = providers;
-    if (!activeProviders || activeProviders.length === 0) {
-      console.log('🔍 Fetching enabled providers from database...');
-      const { data: providerData, error: providerError } = await supabase
-        .from('llm_providers')
-        .select('name')
-        .eq('enabled', true);
-
-      if (providerError) {
-        console.error('❌ Failed to fetch providers:', providerError);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Failed to fetch enabled providers',
-          details: providerError.message,
-          action: 'provider_fetch_failed'
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      activeProviders = (providerData || []).map(p => p.name);
+    // Validate provider configurations (already done above to avoid TDZ)
+    if (validProviders.length === 0) {
+      console.error('❌ No valid provider configurations found');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'No valid provider configurations available',
+        validProviders: []
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Filter providers to only those with API keys
-    const validProviders = activeProviders.filter(p => availableProviders.includes(p));
+    // Determine which providers to use (already done above)
     
     if (validProviders.length === 0) {
       console.log('⚠️ No valid providers with API keys found');
@@ -768,7 +760,7 @@ serve(async (req) => {
 
     // Start processing tasks with atomic task claiming and time budgets
     const BATCH_SIZE = 5; // Process 5 tasks concurrently
-    const TIME_BUDGET_MS = 45000; // 45 seconds to ensure we return before timeout
+    const TIME_BUDGET_MS = 280000; // 4 minutes 40 seconds (leave 20 second buffer)
     const startTime = Date.now();
     let processedCount = 0;
     let failedCount = 0;
@@ -831,10 +823,13 @@ serve(async (req) => {
 
       console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
 
+        // Concurrent task processing using provider configs
+        const taskPromises = claimedTasks.map(task => 
+          processTask(supabase, task, providerConfigs)
+        );
+
       // Process batch of tasks concurrently with individual error handling
-      const results = await Promise.allSettled(
-        claimedTasks.map(task => processTask(supabase, task, configs))
-      );
+      const results = await Promise.allSettled(taskPromises);
 
       results.forEach((result, index) => {
         const taskId = claimedTasks[index]?.id || 'unknown';

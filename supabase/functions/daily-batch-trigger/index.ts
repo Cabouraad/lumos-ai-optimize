@@ -251,27 +251,59 @@ serve(async (req) => {
       try {
         console.log(`Triggering batch processor for org ${org.id} (${org.name})`);
         
-const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
-          body: { orgId: org.id, source: 'daily-batch-trigger' },
-          headers: { 'x-cron-secret': cronSecret! }
-        });
+        let batchSuccess = false;
+        let attempts = 0;
+        const maxAttempts = 2;
+        
+        while (!batchSuccess && attempts < maxAttempts) {
+          attempts++;
+          
+          try {
+            const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
+              body: { 
+                orgId: org.id, 
+                source: 'daily-batch-trigger',
+                attempt: attempts
+              },
+              headers: { 'x-cron-secret': cronSecret! }
+            });
 
-        if (error) {
-          console.error(`Failed to trigger batch for org ${org.id}:`, error);
-          orgResults.push({
-            orgId: org.id,
-            orgName: org.name,
-            success: false,
-            error: error.message
-          });
-        } else {
-          console.log(`Successfully triggered batch for org ${org.id}`);
+            if (error) {
+              console.error(`Attempt ${attempts} failed for org ${org.id}:`, error);
+              if (attempts < maxAttempts) {
+                console.log(`Retrying in 30 seconds...`);
+                await new Promise(resolve => setTimeout(resolve, 30000));
+                continue;
+              }
+              throw error;
+            }
+            
+            batchSuccess = true;
+            console.log(`✅ Batch processor started successfully for org ${org.id}`);
+          } catch (err) {
+            console.error(`Attempt ${attempts} exception for org ${org.id}:`, err);
+            if (attempts >= maxAttempts) {
+              console.error(`❌ All attempts failed for org ${org.id}`);
+            }
+          }
+        }
+        
+        // Update results based on success
+        if (batchSuccess) {
           successfulJobs++;
           orgResults.push({
             orgId: org.id,
             orgName: org.name,
             success: true,
-            data
+            attempts: attempts
+          });
+        } else {
+          orgResults.push({
+            orgId: org.id,
+            orgName: org.name,
+            success: false,
+            attempts: attempts,
+            error: 'All retry attempts failed'
           });
         }
         
@@ -283,7 +315,7 @@ const { data, error } = await supabase.functions.invoke('robust-batch-processor'
       } catch (orgError) {
         console.error(`Error processing org ${org.id}:`, orgError);
         totalBatchJobs++;
-        orgResults.push({
+          orgResults.push({
           orgId: org.id,
           orgName: org.name,
           success: false,

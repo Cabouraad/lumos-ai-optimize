@@ -102,6 +102,9 @@ export function ProviderDebugPanel() {
             provider,
             orgId,
             promptId: selectedPrompt.id
+          },
+          headers: {
+            'Content-Type': 'application/json'
           }
         });
 
@@ -112,7 +115,19 @@ export function ProviderDebugPanel() {
           return { 
             provider, 
             status: 'error' as const, 
-            error: error.message, 
+            error: error.message || 'Unknown error', 
+            startTime, 
+            endTime 
+          };
+        }
+        
+        // Check if response indicates failure
+        if (data && !data.success) {
+          console.error(`${provider} API failure:`, data.error);
+          return { 
+            provider, 
+            status: 'error' as const, 
+            error: data.error || 'API call failed', 
             startTime, 
             endTime 
           };

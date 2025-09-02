@@ -2,12 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { computeVisibilityScore } from "../_shared/scoring.ts";
 
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 // Simple provider execution functions
 async function executeOpenAI(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number }> {
@@ -299,13 +294,13 @@ serve(async (req) => {
         throw new Error(`Unknown provider: ${provider}`);
     }
 
-    // Analyze the response
-    const analysis = analyzeResponse(response.responseText, orgName);
+    // Analyze the response - add await
+    const analysis = await analyzeResponse(response.responseText, orgName);
     
     console.log(`✅ ${provider} success:`, {
       score: analysis.score,
       brandPresent: analysis.brandPresent,
-      competitors: analysis.competitorCount
+      competitors: analysis.competitors?.length || 0
     });
 
     return new Response(
