@@ -17,7 +17,7 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
 
   // Pages that should show the FAQ button
-  const pagesWithFAQ = ['/prompts', '/competitors', '/llms-txt', '/recommendations'];
+  const pagesWithFAQ = ['/prompts', '/competitors', '/llms-txt', '/optimizations'];
   const showFAQ = pagesWithFAQ.includes(location.pathname);
 
   return (

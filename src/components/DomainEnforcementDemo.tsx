@@ -279,10 +279,10 @@ export function DomainEnforcementDemo() {
                 <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
               )}
               <div>
-                <p className="font-medium">Prompts & Recommendations</p>
+                <p className="font-medium">Prompts & Optimizations</p>
                 <p className="text-muted-foreground">
                   {domainStatus.hasFeatureFlag || domainStatus.isDomainVerified
-                    ? "Full access to create and manage prompts and recommendations"
+                    ? "Full access to create and manage prompts and optimizations"
                     : "Limited access - domain verification required for full functionality"
                   }
                 </p>

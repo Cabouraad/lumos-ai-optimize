@@ -6,7 +6,7 @@ import { Crown, Lock } from 'lucide-react';
 
 interface RestrictedNavigationProps {
   children: ReactNode;
-  feature: 'competitors' | 'recommendations';
+  feature: 'competitors' | 'optimizations';
   className?: string;
 }
 

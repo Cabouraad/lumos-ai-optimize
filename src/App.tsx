@@ -9,7 +9,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Prompts = lazy(() => import("./pages/Prompts"));
-const Recommendations = lazy(() => import("./pages/Recommendations"));
+const Optimizations = lazy(() => import("./pages/Optimizations"));
 const Competitors = lazy(() => import("./pages/Competitors"));
 const LLMsText = lazy(() => import("./pages/LLMsText"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -49,9 +49,9 @@ const App = () => (
                 <LLMsText />
               </SubscriptionGate>
             } />
-            <Route path="/recommendations" element={
+            <Route path="/optimizations" element={
               <SubscriptionGate>
-                <Recommendations />
+                <Optimizations />
               </SubscriptionGate>
             } />
             <Route path="/settings" element={

@@ -15,10 +15,10 @@ export default function Pricing() {
       tier: 'starter' as const,
       title: 'Starter',
       description: 'Perfect for getting started with AI search visibility tracking',
-      monthlyPrice: 19,
-      yearlyPrice: 190,
+      monthlyPrice: 29,
+      yearlyPrice: 290,
       features: [
-        'Up to 10 prompts to track daily',
+        'Up to 25 prompts to track daily',
         '2 AI providers (OpenAI + Perplexity)',
         'Basic visibility scoring',
         'Email support',
@@ -27,7 +27,7 @@ export default function Pricing() {
       ],
       limitations: [
         'No competitor analysis',
-        'No optimization recommendations',
+        'No visibility optimizations',
         'Limited to basic reporting'
       ]
     },
@@ -38,11 +38,11 @@ export default function Pricing() {
       monthlyPrice: 69,
       yearlyPrice: 690,
       features: [
-        'Up to 50 prompts to track daily',
+        'Up to 100 prompts to track daily',
         '3 AI providers (OpenAI, Perplexity, Gemini)',
         'Advanced visibility scoring',
         'Competitor analysis & tracking',
-        'AI-powered optimization recommendations',
+        'AI-powered visibility optimizations',
         'Priority email support',
         'Advanced reporting & insights',
         'Brand catalog tracking',
@@ -58,15 +58,13 @@ export default function Pricing() {
       monthlyPrice: 199,
       yearlyPrice: 1990,
       features: [
-        'Up to 200 prompts to track daily',
+        'Up to 300 prompts to track daily',
         '3 AI providers (OpenAI, Perplexity, Gemini)',
         'Advanced visibility scoring',
         'Comprehensive competitor analysis',
-        'AI-powered optimization recommendations',
+        'AI-powered visibility optimizations',
         'Priority support + dedicated account manager',
         'Advanced reporting & insights',
-        'API access for integrations',
-        'White-label reporting',
         'Brand catalog tracking',
         'Domain verification & locking'
       ],

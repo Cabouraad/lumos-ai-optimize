@@ -485,7 +485,7 @@ export default function Prompts() {
             <Tabs defaultValue="prompts" className="w-full">
               <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-card/80 backdrop-blur-sm shadow-soft p-1 border border-border/50">
                 <TabsTrigger value="prompts" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Prompts</TabsTrigger>
-                <TabsTrigger value="suggestions" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">AI Suggestions</TabsTrigger>
+                <TabsTrigger value="suggestions" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Prompt Suggestions</TabsTrigger>
                 <TabsTrigger value="keywords" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Business Context</TabsTrigger>
                 <TabsTrigger value="debug" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Debug Tools</TabsTrigger>
               </TabsList>

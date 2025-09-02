@@ -39,7 +39,7 @@ export function AppSidebar() {
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
     { name: 'Competitors', href: '/competitors', icon: Users },
     { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
-    { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
+    { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
@@ -65,7 +65,7 @@ export function AppSidebar() {
                 // Check if this feature is restricted
                 const isRestricted = 
                   (item.href === '/competitors' && !canAccessCompetitorAnalysis().hasAccess) ||
-                  (item.href === '/recommendations' && !canAccessRecommendations().hasAccess);
+                  (item.href === '/optimizations' && !canAccessRecommendations().hasAccess);
                 
                 if (isRestricted) {
                   return (

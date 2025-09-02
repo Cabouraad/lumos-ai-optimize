@@ -118,7 +118,7 @@ export function SubscriptionManager() {
                 <Badge variant="secondary">{limits.providersPerPrompt}</Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-muted rounded">
-                <span className="text-sm">Recommendations</span>
+                <span className="text-sm">Optimizations</span>
                 <Badge variant={limits.hasRecommendations ? "default" : "outline"}>
                   {limits.hasRecommendations ? 'Included' : 'Not Available'}
                 </Badge>

@@ -55,7 +55,7 @@ export function FilterBar({ filters, onFiltersChange, totalCount = 0, filteredCo
                 value={filters.search}
                 onChange={(e) => updateFilter('search', e.target.value)}
                 className="pl-10 bg-background border-input"
-                aria-label="Search recommendations by title or rationale"
+                aria-label="Search optimizations by title or rationale"
               />
             </div>
           </div>

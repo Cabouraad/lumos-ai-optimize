@@ -52,8 +52,8 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay,
           providersPerPrompt: quotas.providersPerPrompt,
-          hasRecommendations: true,
-          hasCompetitorAnalysis: true,
+          hasRecommendations: false,
+          hasCompetitorAnalysis: false,
           hasAdvancedScoring: false,
           hasApiAccess: false,
           hasPrioritySupport: false,
@@ -77,9 +77,9 @@ export function useSubscriptionGate() {
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
-          hasApiAccess: true,
-          hasPrioritySupport: true,
-          hasWhiteLabeling: true,
+          hasApiAccess: false,
+          hasPrioritySupport: false,
+          hasWhiteLabeling: false,
         };
       default:
         return {
@@ -117,7 +117,7 @@ export function useSubscriptionGate() {
     }
     return {
       hasAccess: false,
-      reason: 'Recommendations require Growth plan or higher',
+      reason: 'Optimizations require Growth plan or higher',
       upgradeRequired: true,
     };
   };

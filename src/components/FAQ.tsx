@@ -125,8 +125,8 @@ const faqContent: Record<string, { title: string; sections: Array<{ question: st
       }
     ]
   },
-  '/recommendations': {
-    title: 'Recommendations - AI-Driven Insights',
+  '/optimizations': {
+    title: 'Optimizations - AI-Driven Insights',
     sections: [
       {
         question: 'How are recommendations generated?',

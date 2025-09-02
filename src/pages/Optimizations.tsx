@@ -59,7 +59,7 @@ export default function Recommendations() {
           )}
           
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">AI Recommendations</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Visibility Optimizations</h1>
             <p className="text-muted-foreground">
               Get actionable content recommendations to improve your AI visibility
             </p>
@@ -328,7 +328,7 @@ export default function Recommendations() {
         
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">AI Recommendations</h1>
+            <h1 className="text-3xl font-bold text-foreground">Visibility Optimizations</h1>
             <p className="text-muted-foreground">
               Actionable content recommendations based on your prompt performance
             </p>
