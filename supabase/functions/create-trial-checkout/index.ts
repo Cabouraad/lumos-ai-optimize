@@ -7,6 +7,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const generateIdempotencyKey = (userId: string, intent: string): string => {
+  return `${userId}:${intent}:${Date.now() >> 13}`;
+};
+
+const validateProductionSafety = (stripeKey: string) => {
+  const nodeEnv = Deno.env.get("NODE_ENV");
+  if (nodeEnv === "production" && stripeKey.startsWith("sk_test_")) {
+    throw new Error("Cannot use test Stripe keys in production environment");
+  }
+};
+
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-TRIAL-CHECKOUT] ${step}${detailsStr}`);
@@ -28,6 +39,10 @@ serve(async (req) => {
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    
+    // Validate production safety
+    validateProductionSafety(stripeKey);
+    
     logStep("Stripe key verified");
 
     const authHeader = req.headers.get("Authorization");
@@ -63,6 +78,9 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://llumos.app";
     const baseUrl = origin;
 
+    // Generate idempotency key for Stripe call
+    const idempotencyKey = generateIdempotencyKey(user.id, "trial-checkout");
+    
     // Create checkout session for trial with payment method collection
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -74,6 +92,8 @@ serve(async (req) => {
         user_id: user.id,
         trial_setup: 'true'
       }
+    }, {
+      idempotencyKey
     });
 
     logStep("Trial checkout session created", { sessionId: session.id, url: session.url });

@@ -7,6 +7,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const generateIdempotencyKey = (userId: string, intent: string): string => {
+  return `${userId}:${intent}:${Date.now() >> 13}`;
+};
+
+const validateProductionSafety = (stripeKey: string) => {
+  const nodeEnv = Deno.env.get("NODE_ENV");
+  if (nodeEnv === "production" && stripeKey.startsWith("sk_test_")) {
+    throw new Error("Cannot use test Stripe keys in production environment");
+  }
+};
+
 interface RequestBody {
   tier: 'starter' | 'growth' | 'pro';
   billingCycle: 'monthly' | 'yearly';
@@ -51,7 +62,13 @@ serve(async (req) => {
       throw new Error("Invalid tier or billing cycle");
     }
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") || "";
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    
+    // Validate production safety
+    validateProductionSafety(stripeKey);
+    
+    const stripe = new Stripe(stripeKey, { 
       apiVersion: "2023-10-16" 
     });
 
@@ -109,7 +126,12 @@ serve(async (req) => {
       };
     }
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Generate idempotency key for Stripe call
+    const idempotencyKey = generateIdempotencyKey(user.id, `checkout:${tier}:${billingCycle}`);
+    
+    const session = await stripe.checkout.sessions.create(sessionConfig, {
+      idempotencyKey
+    });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
