@@ -117,11 +117,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkSubscriptionStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('check-subscription');
+      // Always pass an explicit Authorization header to avoid limbo tokens
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+
       if (error) {
-        console.error('Error checking subscription:', error);
-        return;
+        console.error('Error checking subscription (edge function):', error);
+        throw error;
       }
+
       setSubscriptionData({
         subscribed: data.subscribed,
         subscription_tier: data.subscription_tier,
@@ -132,7 +140,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requires_subscription: data.requires_subscription,
       });
     } catch (err) {
-      console.error('Exception checking subscription:', err);
+      console.error('Exception checking subscription via edge function, falling back to DB RPC:', err);
+      // Fallback to DB (does not require Stripe; uses current subscribers record)
+      try {
+        const { data: rows, error: rpcError } = await supabase.rpc('get_user_subscription_status');
+        if (rpcError) {
+          console.error('RPC get_user_subscription_status error:', rpcError);
+          return;
+        }
+        const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+        if (!row) return;
+
+        const trialValid = !!row.trial_expires_at && new Date(row.trial_expires_at) > new Date();
+        const requires_subscription = !(row.subscribed || trialValid);
+
+        setSubscriptionData({
+          subscribed: !!row.subscribed,
+          subscription_tier: row.subscription_tier ?? null,
+          subscription_end: row.subscription_end ?? null,
+          trial_expires_at: row.trial_expires_at ?? undefined,
+          trial_started_at: undefined,
+          payment_collected: row.payment_collected ?? undefined,
+          requires_subscription,
+        });
+      } catch (fallbackErr) {
+        console.error('Fallback RPC subscription check failed:', fallbackErr);
+      }
     }
   };
 
