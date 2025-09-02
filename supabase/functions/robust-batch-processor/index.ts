@@ -3,11 +3,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 import { analyzePromptResponse } from '../_shared/brand-response-analyzer.ts'
 import { createEdgeLogger } from '../_shared/observability/structured-logger.ts'
+import { corsHeaders, isRateLimited, getRateLimitHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+// Rate limiting for public endpoint
+const getClientIP = (req: Request): string => {
+  return req.headers.get('x-forwarded-for')?.split(',')[0] || 
+         req.headers.get('x-real-ip') || 
+         'unknown';
+};
 
 interface TaskResult {
   success: boolean;
@@ -362,6 +365,24 @@ async function processTask(
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting for public endpoint
+  const clientIP = getClientIP(req);
+  if (isRateLimited(clientIP, 30, 60000)) { // 30 requests per minute
+    console.log(`🚫 Rate limit exceeded for IP: ${clientIP}`);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Rate limit exceeded',
+      retryAfter: 60
+    }), {
+      status: 429,
+      headers: { 
+        ...corsHeaders, 
+        ...getRateLimitHeaders(clientIP, 30, 60000),
+        'Content-Type': 'application/json' 
+      }
+    });
   }
 
   try {
