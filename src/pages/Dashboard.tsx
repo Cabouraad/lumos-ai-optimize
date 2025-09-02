@@ -183,15 +183,22 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center space-x-2">
-                  <div className="text-2xl font-bold text-primary">{formatScore(dashboardData?.metrics?.avgScore || 0)}/10</div>
-                  {getTrendIcon(dashboardData?.metrics?.trend || 0)}
-                  {(dashboardData?.metrics?.trend || 0) !== 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {Math.abs(dashboardData.metrics.trend).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
+                {dashboardData?.metrics?.avgScore ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="text-2xl font-bold text-primary">{formatScore(dashboardData.metrics.avgScore)}/10</div>
+                    {getTrendIcon(dashboardData?.metrics?.trend || 0)}
+                    {(dashboardData?.metrics?.trend || 0) !== 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {Math.abs(dashboardData.metrics.trend).toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="text-2xl font-bold text-muted-foreground">-/10</div>
+                    <p className="text-xs text-muted-foreground">No data yet</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -203,8 +210,17 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-secondary">{formatScore(dashboardData?.metrics?.overallScore || 0)}/10</div>
-                <p className="text-xs text-muted-foreground">Last 7 days average</p>
+                {dashboardData?.metrics?.overallScore ? (
+                  <div>
+                    <div className="text-2xl font-bold text-secondary">{formatScore(dashboardData.metrics.overallScore)}/10</div>
+                    <p className="text-xs text-muted-foreground">Last 7 days average</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="text-2xl font-bold text-muted-foreground">-/10</div>
+                    <p className="text-xs text-muted-foreground">No data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -216,8 +232,17 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-accent">{dashboardData?.metrics?.promptCount || 0}</div>
-                <p className="text-xs text-muted-foreground">Being monitored</p>
+                {dashboardData?.metrics?.promptCount ? (
+                  <div>
+                    <div className="text-2xl font-bold text-accent">{dashboardData.metrics.promptCount}</div>
+                    <p className="text-xs text-muted-foreground">Being monitored</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="text-2xl font-bold text-muted-foreground">0</div>
+                    <p className="text-xs text-muted-foreground">Add prompts to start</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -229,8 +254,17 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-warning">{dashboardData?.metrics?.totalRuns || 0}</div>
-                <p className="text-xs text-muted-foreground">Last 30 days</p>
+                {dashboardData?.metrics?.totalRuns ? (
+                  <div>
+                    <div className="text-2xl font-bold text-warning">{dashboardData.metrics.totalRuns}</div>
+                    <p className="text-xs text-muted-foreground">Last 30 days</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="text-2xl font-bold text-muted-foreground">0</div>
+                    <p className="text-xs text-muted-foreground">No responses yet</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

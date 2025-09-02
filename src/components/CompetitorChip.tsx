@@ -288,7 +288,7 @@ export function CompetitorChip({
         {brandInfo.domain && <p>Domain: {brandInfo.domain}</p>}
       </div>
       <div className="text-xs text-muted-foreground pt-1 border-t border-border/50">
-        <p>Right-click to mark as your brand</p>
+        <p>Right-click or ⋮ to mark as My Brand</p>
       </div>
     </div>
   );
