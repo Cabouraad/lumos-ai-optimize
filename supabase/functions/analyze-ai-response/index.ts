@@ -12,8 +12,10 @@ import {
   type LogContext
 } from '../_shared/detection-diagnostics.ts';
 
+const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
