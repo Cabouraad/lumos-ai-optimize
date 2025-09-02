@@ -1,7 +1,7 @@
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
+const ORIGIN = '*';
 
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
