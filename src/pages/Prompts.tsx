@@ -14,7 +14,7 @@ import { getUnifiedPromptData, invalidateCache } from '@/lib/data/unified-fetche
 import { getSuggestedPrompts, acceptSuggestion, dismissSuggestion, generateSuggestionsNow } from '@/lib/suggestions/data';
 import { PromptList } from '@/components/PromptList';
 import { KeywordManagement } from '@/components/KeywordManagement';
-import { AIPromptSuggestions } from '@/components/AIPromptSuggestions';
+import { PromptSuggestions } from '@/components/PromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 import { AlertCircle } from 'lucide-react';
@@ -82,7 +82,7 @@ export default function Prompts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPromptText, setNewPromptText] = useState('');
   
-  // AI Suggestions state
+  // Suggestions state
   const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
@@ -456,7 +456,7 @@ export default function Prompts() {
                 <div className="space-y-2">
                   <h1 className="text-4xl font-display font-bold gradient-primary bg-clip-text text-transparent">Prompts</h1>
                   <p className="text-lg text-muted-foreground">
-                    Manage search prompts and discover AI-suggested improvements
+                    Manage search prompts and discover smart improvements
                   </p>
                 </div>
                 <Button 
@@ -505,7 +505,7 @@ export default function Prompts() {
               </TabsContent>
 
               <TabsContent value="suggestions" className="mt-6">
-                <AIPromptSuggestions
+                <PromptSuggestions
                   suggestions={suggestedPrompts}
                   loading={suggestionsLoading}
                   generating={generatingSuggestions}

@@ -106,7 +106,7 @@ Low Performing Prompts (need attention):
 ${lowPerformingPrompts.map((p, i) => `${i+1}. ${p.text} (Score: ${p.avg_score_7d})`).join('\n')}
 `;
 
-    const systemPrompt = org.enable_localized_prompts ? `You are an AI visibility expert helping local businesses improve their presence in location-based AI search results. Based on the business data provided, generate strategic localized prompt suggestions.
+    const systemPrompt = org.enable_localized_prompts ? `You are a visibility expert helping local businesses improve their presence in location-based search results. Based on the business data provided, generate strategic localized prompt suggestions.
 
 IMPORTANT RULES FOR LOCALIZED PROMPTS:
 - DO NOT mention any specific business names or brands
@@ -133,7 +133,7 @@ Format as JSON array with this structure:
     "priority": "high|medium|low",
     "expectedMentions": 1-3
   }
-]` : `You are an AI visibility expert helping organizations improve their presence in AI-generated responses. Based on the organization data provided, generate strategic prompt suggestions.
+]` : `You are a visibility expert helping organizations improve their presence in search responses. Based on the organization data provided, generate strategic prompt suggestions.
 
 Focus on these categories:
 1. **Gap Analysis**: Identify missing coverage areas based on business description and keywords

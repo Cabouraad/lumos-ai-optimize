@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 
 /**
- * Critical Flow Test: AI Prompt Suggestion
- * Tests the AI-powered prompt generation and suggestion system
+ * Critical Flow Test: Prompt Suggestion
+ * Tests the prompt generation and suggestion system
  */
 
 const mockSupabase = {
@@ -37,7 +37,7 @@ describe('Critical Flow: Prompt Suggestion', () => {
     vi.clearAllMocks();
   });
 
-  describe('AI Prompt Generation', () => {
+  describe('Prompt Generation', () => {
     it.skip('should generate relevant prompts based on business context', async () => {
       // TODO: Test prompt generation quality
       // 1. Use business description, products, target audience
@@ -117,17 +117,17 @@ describe('Critical Flow: Prompt Suggestion', () => {
   });
 
   describe('Error Handling', () => {
-    it.skip('should handle AI service failures gracefully', async () => {
-      // TODO: Test AI service error handling
+    it.skip('should handle service failures gracefully', async () => {
+      // TODO: Test service error handling
       expect(true).toBe(true);
     });
 
-    it.skip('should provide fallback suggestions when AI fails', async () => {
+    it.skip('should provide fallback suggestions when service fails', async () => {
       // TODO: Test fallback mechanisms
       expect(true).toBe(true);
     });
 
-    it.skip('should handle rate limiting from AI services', async () => {
+    it.skip('should handle rate limiting from services', async () => {
       // TODO: Test rate limit handling
       expect(true).toBe(true);
     });

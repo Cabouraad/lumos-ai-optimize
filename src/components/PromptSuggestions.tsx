@@ -26,7 +26,7 @@ interface Suggestion {
   created_at: string;
 }
 
-interface AIPromptSuggestionsProps {
+interface PromptSuggestionsProps {
   suggestions: Suggestion[];
   loading: boolean;
   generating: boolean;
@@ -35,14 +35,14 @@ interface AIPromptSuggestionsProps {
   onGenerate: () => void;
 }
 
-export function AIPromptSuggestions({
+export function PromptSuggestions({
   suggestions,
   loading,
   generating,
   onAccept,
   onDismiss,
   onGenerate
-}: AIPromptSuggestionsProps) {
+}: PromptSuggestionsProps) {
   const { toast } = useToast();
   const [orgSettings, setOrgSettings] = useState<OrganizationKeywords>({
     keywords: [],
@@ -204,10 +204,10 @@ export function AIPromptSuggestions({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            AI Prompt Generation Settings
+            Prompt Generation Settings
           </CardTitle>
           <CardDescription>
-            Configure how AI-generated prompts are created for your business
+            Configure how prompts are created for your business
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -216,9 +216,9 @@ export function AIPromptSuggestions({
               <Label htmlFor="enable-localized-prompts" className="text-sm font-medium">
                 Enable Localized Prompts
               </Label>
-              <p className="text-xs text-muted-foreground">
-                Generate location-specific prompts (e.g., "best AI shops in {orgSettings.business_state || 'your state'}" vs "best AI shops")
-              </p>
+               <p className="text-xs text-muted-foreground">
+                 Generate location-specific prompts (e.g., "best shops in {orgSettings.business_state || 'your state'}" vs "best shops")
+               </p>
               {!orgSettings.business_city && !orgSettings.business_state && (
                 <p className="text-xs text-warning">
                   Add your business location in Business Context to enable this feature
@@ -242,11 +242,11 @@ export function AIPromptSuggestions({
             <div>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <Sparkles className="h-6 w-6 text-accent" />
-                AI Prompt Suggestions
+                Prompt Suggestions
               </CardTitle>
               <CardDescription className="mt-2">
                 {suggestions.length > 0 
-                  ? "AI-powered recommendations to improve your search visibility"
+                  ? "Smart recommendations to improve your search visibility"
                   : "Get intelligent prompt suggestions tailored to your brand and industry"}
               </CardDescription>
             </div>
@@ -350,7 +350,7 @@ export function AIPromptSuggestions({
                 No suggestions yet
               </h3>
               <p className="text-muted-foreground mb-6 leading-relaxed">
-                Click "Generate Suggestions" to get AI-powered prompt recommendations 
+                Click "Generate Suggestions" to get smart prompt recommendations 
                 tailored to your {orgSettings.enable_localized_prompts ? 'local business area' : 'brand, industry,'} and existing prompt performance.
               </p>
               <div className="grid grid-cols-3 gap-4 text-center">
