@@ -11,6 +11,7 @@ export interface FeatureFlags {
   FEATURE_BATCH_OPTIMIZATION: boolean;
   FEATURE_CONDENSED_UI: boolean;
   FEATURE_SCHEDULING_NOTICES: boolean;
+  FEATURE_WEEKLY_REPORT: boolean;
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
@@ -21,6 +22,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   FEATURE_BATCH_OPTIMIZATION: false,
   FEATURE_CONDENSED_UI: false,
   FEATURE_SCHEDULING_NOTICES: false,
+  FEATURE_WEEKLY_REPORT: false,
 };
 
 // Override flags from environment in development
@@ -34,6 +36,7 @@ const getFeatureFlags = (): FeatureFlags => {
       FEATURE_STRICT_COMPETITORS: import.meta.env.VITE_FEATURE_STRICT_COMPETITORS === 'true',
       FEATURE_CONDENSED_UI: import.meta.env.VITE_FEATURE_CONDENSED_UI === 'true',
       FEATURE_SCHEDULING_NOTICES: import.meta.env.VITE_FEATURE_SCHEDULING_NOTICES === 'true',
+      FEATURE_WEEKLY_REPORT: import.meta.env.VITE_FEATURE_WEEKLY_REPORT === 'true',
     };
   }
   
