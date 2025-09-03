@@ -18,6 +18,9 @@ const Features = lazy(() => import("./pages/Features"));
 const TrialSuccess = lazy(() => import("./pages/TrialSuccess"));
 const DomainVerification = lazy(() => import("./pages/DomainVerification"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Reports = lazy(() => import("./pages/Reports"));
+
+import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 const App = () => (
   <TooltipProvider>
@@ -54,6 +57,13 @@ const App = () => (
                 <Optimizations />
               </SubscriptionGate>
             } />
+            {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
+              <Route path="/reports" element={
+                <SubscriptionGate>
+                  <Reports />
+                </SubscriptionGate>
+              } />
+            )}
             <Route path="/settings" element={
               <SubscriptionGate>
                 <Settings />

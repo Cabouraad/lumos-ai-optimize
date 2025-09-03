@@ -24,8 +24,10 @@ import {
   Lightbulb, 
   Settings,
   LogOut,
-  Crown
+  Crown,
+  Calendar
 } from 'lucide-react';
+import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 export function AppSidebar() {
   const { signOut, orgData } = useAuth();
@@ -40,6 +42,7 @@ export function AppSidebar() {
     { name: 'Competitors', href: '/competitors', icon: Users },
     { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
+    ...(isFeatureEnabled('FEATURE_WEEKLY_REPORT') ? [{ name: 'Reports', href: '/reports', icon: Calendar }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
