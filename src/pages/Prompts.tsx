@@ -72,7 +72,7 @@ const getPromptCategory = (text: string) => {
 };
 
 export default function Prompts() {
-  const { orgData } = useAuth();
+  const { orgData, user } = useAuth();
   const { toast } = useToast();
   const { canCreatePrompts, hasAccessToApp } = useSubscriptionGate();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
@@ -410,6 +410,9 @@ export default function Prompts() {
   // Transform data for the PromptList component
   const transformedPrompts = transformPromptData(rawPrompts, providerData);
 
+  // Check if user is test user for debug tools access
+  const isTestUser = user?.email === 'abouraa.chri@gmail.com';
+
   // Check app access first
   const appAccess = hasAccessToApp();
   if (!appAccess.hasAccess) {
@@ -483,11 +486,13 @@ export default function Prompts() {
             </div>
 
             <Tabs defaultValue="prompts" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-card/80 backdrop-blur-sm shadow-soft p-1 border border-border/50">
+              <TabsList className={`grid w-full ${isTestUser ? 'grid-cols-4' : 'grid-cols-3'} rounded-2xl bg-card/80 backdrop-blur-sm shadow-soft p-1 border border-border/50`}>
                 <TabsTrigger value="prompts" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Prompts</TabsTrigger>
                 <TabsTrigger value="suggestions" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Prompt Suggestions</TabsTrigger>
                 <TabsTrigger value="keywords" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Business Context</TabsTrigger>
-                <TabsTrigger value="debug" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Debug Tools</TabsTrigger>
+                {isTestUser && (
+                  <TabsTrigger value="debug" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Debug Tools</TabsTrigger>
+                )}
               </TabsList>
               
               <TabsContent value="prompts" className="mt-6">
@@ -519,22 +524,24 @@ export default function Prompts() {
                 <KeywordManagement />
               </TabsContent>
 
-              <TabsContent value="debug" className="mt-6">
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2 gradient-primary bg-clip-text text-transparent">Debug Tools</h3>
-                    <p className="text-muted-foreground">
-                      Test and analyze prompt responses across all providers
-                    </p>
-                  </div>
-                  
-                  {/* Batch Prompt Runner */}
-                  <BatchPromptRunner />
+              {isTestUser && (
+                <TabsContent value="debug" className="mt-6">
+                  <div className="space-y-8">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold mb-2 gradient-primary bg-clip-text text-transparent">Debug Tools</h3>
+                      <p className="text-muted-foreground">
+                        Test and analyze prompt responses across all providers
+                      </p>
+                    </div>
+                    
+                    {/* Batch Prompt Runner */}
+                    <BatchPromptRunner />
 
-                  {/* Provider Debug Panel */}
-                  <ProviderDebugPanel />
-                </div>
-              </TabsContent>
+                    {/* Provider Debug Panel */}
+                    <ProviderDebugPanel />
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
 
             {/* Add Prompt Dialog */}
