@@ -42,7 +42,7 @@ export function AppSidebar() {
     { name: 'Competitors', href: '/competitors', icon: Users },
     { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
-    ...(isFeatureEnabled('FEATURE_WEEKLY_REPORT') ? [{ name: 'Reports', href: '/reports', icon: Calendar }] : []),
+    ...(isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (canAccessRecommendations().hasAccess || canAccessCompetitorAnalysis().hasAccess) ? [{ name: 'Reports', href: '/reports', icon: Calendar }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

@@ -1,0 +1,183 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { getStrictCorsHeaders } from "../_shared/cors.ts";
+
+const corsHeaders = getStrictCorsHeaders();
+
+// Helper logging function
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[REPORTS-SIGN] ${step}${detailsStr}`);
+};
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    logStep("Function started");
+
+    // Only accept POST requests
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Initialize Supabase client with service role for admin operations
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    // Initialize regular client for user authentication
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    // 1) Verify JWT authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      logStep("No authorization header");
+      return new Response(JSON.stringify({ error: 'Authorization required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError || !userData.user) {
+      logStep("Invalid token", { error: userError?.message });
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const userId = userData.user.id;
+    logStep("User authenticated", { userId });
+
+    // 2) Get user's org_id from users table
+    const { data: userRecord, error: userRecordError } = await supabaseAdmin
+      .from("users")
+      .select("org_id")
+      .eq("id", userId)
+      .single();
+
+    if (userRecordError || !userRecord?.org_id) {
+      logStep("User not properly onboarded", { error: userRecordError?.message });
+      return new Response(JSON.stringify({ error: 'User not properly onboarded' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const orgId = userRecord.org_id;
+    logStep("User org resolved", { orgId });
+
+    // Parse request body to get reportId
+    const { reportId } = await req.json();
+    if (!reportId) {
+      return new Response(JSON.stringify({ error: 'reportId is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    logStep("Report ID received", { reportId });
+
+    // 3) Verify report exists and belongs to user's org
+    const { data: report, error: reportError } = await supabaseAdmin
+      .from("reports")
+      .select("id, storage_path, org_id")
+      .eq("id", reportId)
+      .eq("org_id", orgId)
+      .single();
+
+    if (reportError || !report) {
+      logStep("Report not found", { reportId, orgId, error: reportError?.message });
+      return new Response(JSON.stringify({ error: 'Report not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    logStep("Report found", { reportId, storagePath: report.storage_path });
+
+    // 4) Plan gate - check subscription tier
+    const { data: subscription, error: subError } = await supabaseAdmin
+      .from("subscribers")
+      .select("subscription_tier, subscribed")
+      .eq("user_id", userId)
+      .single();
+
+    if (subError || !subscription) {
+      logStep("No subscription found", { userId, error: subError?.message });
+      return new Response(JSON.stringify({ 
+        error: 'Access denied', 
+        code: 'plan_denied',
+        message: 'Upgrade to Growth or Pro plan to access reports'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const tier = subscription.subscription_tier?.toLowerCase();
+    const allowedTiers = ['growth', 'pro'];
+    
+    if (!allowedTiers.includes(tier)) {
+      logStep("Plan not allowed", { tier, allowedTiers });
+      return new Response(JSON.stringify({ 
+        error: 'Access denied', 
+        code: 'plan_denied',
+        message: 'Upgrade to Growth or Pro plan to access reports'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    logStep("Plan gate passed", { tier });
+
+    // 5) Generate signed download URL
+    const expiresIn = 300; // 5 minutes TTL
+    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+      .from('reports')
+      .createSignedUrl(report.storage_path, expiresIn);
+
+    if (signedUrlError || !signedUrlData) {
+      logStep("Failed to generate signed URL", { error: signedUrlError?.message });
+      return new Response(JSON.stringify({ error: 'Failed to generate download URL' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+    logStep("Signed URL generated", { expiresAt });
+
+    // 6) Return success response
+    return new Response(JSON.stringify({
+      url: signedUrlData.signedUrl,
+      expiresAt
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: errorMessage });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

@@ -1,106 +1,125 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '@/components/Layout';
-import { TrialBanner } from '@/components/TrialBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Download, File, AlertCircle, Loader2 } from 'lucide-react';
+import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { TrialBanner } from '@/components/TrialBanner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Download, FileText, Crown, Calendar, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
 interface Report {
   id: string;
-  week_key: string;
+  week_key: string;  
   period_start: string;
   period_end: string;
+  storage_path: string;
   byte_size: number | null;
   created_at: string;
-  storage_path: string;
-  sha256: string | null;
 }
 
 export default function Reports() {
-  const { user, orgData } = useAuth();
-  const { hasAccessToApp } = useSubscriptionGate();
-  const appAccess = hasAccessToApp();
+  const { orgData } = useAuth();
+  const { hasAccessToApp, canAccessRecommendations, daysRemainingInTrial } = useSubscriptionGate();
   const { toast } = useToast();
-  
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  const accessGate = hasAccessToApp();
+  const reportsAccess = canAccessRecommendations(); // Using recommendations as proxy for Growth/Pro access
+
   useEffect(() => {
-    if (orgData?.organizations?.id) {
+    if (orgData?.organizations?.id && reportsAccess.hasAccess) {
       loadReports();
+    } else {
+      setLoading(false);
     }
-  }, [orgData?.organizations?.id]);
+  }, [orgData?.organizations?.id, reportsAccess.hasAccess]);
 
   const loadReports = async () => {
     try {
       setLoading(true);
-      const orgId = orgData?.organizations?.id;
-      if (!orgId) return;
-
       const { data, error } = await supabase
         .from('reports')
-        .select('*')
-        .eq('org_id', orgId)
-        .order('period_start', { ascending: false });
+        .select('id, week_key, period_start, period_end, storage_path, byte_size, created_at')
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading reports:', error);
+        toast({
+          title: "Error loading reports",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
       setReports(data || []);
     } catch (error) {
       console.error('Error loading reports:', error);
       toast({
-        title: 'Error Loading Reports',
-        description: 'Failed to load weekly reports. Please try again.',
-        variant: 'destructive'
+        title: "Error loading reports", 
+        description: "Failed to load reports. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const downloadReport = async (report: Report) => {
+  const downloadReport = async (reportId: string) => {
     try {
-      setDownloadingId(report.id);
+      setDownloadingId(reportId);
       
-      // Call the weekly-report GET endpoint to get signed URL (5 minute TTL)
-      const response = await supabase.functions.invoke('weekly-report', {
-        method: 'GET',
-        body: { week: report.week_key }
+      const { data, error } = await supabase.functions.invoke('reports-sign', {
+        body: { reportId }
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to generate download URL');
+      if (error) {
+        if (error.message?.includes('plan_denied')) {
+          toast({
+            title: "Access Denied",
+            description: "Upgrade to Growth or Pro plan to download reports.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        console.error('Error generating download URL:', error);
+        toast({
+          title: "Download failed",
+          description: error.message || "Failed to generate download link",
+          variant: "destructive",
+        });
+        return;
       }
 
-      const { download_url } = response.data;
-      if (!download_url) {
-        throw new Error('No download URL received');
+      if (data?.url) {
+        // Open download in new tab
+        window.open(data.url, '_blank');
+        toast({
+          title: "Download started",
+          description: "Your report is being downloaded.",
+        });
+      } else {
+        toast({
+          title: "Download failed",
+          description: "Failed to generate download link",
+          variant: "destructive",
+        });
       }
-
-      // Immediately trigger download since signed URL has short TTL (5 minutes)
-      const link = document.createElement('a');
-      link.href = download_url;
-      link.download = `weekly-report-${report.week_key}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: 'Download Started',
-        description: `Weekly report for ${report.week_key} is downloading.`,
-      });
     } catch (error) {
       console.error('Error downloading report:', error);
       toast({
-        title: 'Download Failed',
-        description: error instanceof Error ? error.message : 'Failed to download report. Please try again.',
-        variant: 'destructive'
+        title: "Download failed",
+        description: "Failed to download report. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setDownloadingId(null);
@@ -108,186 +127,183 @@ export default function Reports() {
   };
 
   const formatFileSize = (bytes: number | null): string => {
-    if (!bytes) return 'Unknown size';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
+    if (!bytes) return 'Unknown';
+    const kb = bytes / 1024;
+    const mb = kb / 1024;
+    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${kb.toFixed(0)} KB`;
   };
 
   const formatPeriod = (start: string, end: string): string => {
     const startDate = new Date(start);
     const endDate = new Date(end);
-    const options: Intl.DateTimeFormatOptions = { 
-      month: 'short', 
-      day: 'numeric', 
-      year: startDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined 
-    };
-    
-    return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
+    return `${startDate.toLocaleDateString()} → ${endDate.toLocaleDateString()}`;
   };
 
-  const formatGeneratedAt = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
+  const formatGeneratedAt = (createdAt: string): string => {
+    return formatDistanceToNow(new Date(createdAt), { addSuffix: true });
   };
 
-  if (!appAccess.hasAccess) {
+  if (!accessGate.hasAccess) {
     return (
       <Layout>
-        <div className="container mx-auto p-6">
-          {appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0 && (
-            <TrialBanner daysRemaining={appAccess.daysRemainingInTrial} />
-          )}
-          
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Weekly Reports</h1>
-            <p className="text-muted-foreground">Comprehensive visibility insights delivered weekly</p>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-4">Access Required</h2>
+            <p className="text-muted-foreground mb-6">{accessGate.reason}</p>
+            <Button onClick={() => window.location.href = '/pricing'}>
+              View Pricing Plans
+            </Button>
           </div>
-
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Weekly reports are available with a paid subscription. {appAccess.reason}
-            </AlertDescription>
-          </Alert>
         </div>
       </Layout>
     );
   }
 
-  const showTrialBanner = appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0;
-
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-        <div className="container mx-auto p-6 space-y-8">
-          {showTrialBanner && (
-            <TrialBanner daysRemaining={appAccess.daysRemainingInTrial!} />
-          )}
-          
-          {/* Header */}
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-foreground">Weekly Reports</h1>
-            <p className="text-muted-foreground">Comprehensive visibility insights delivered weekly</p>
+      <div className="space-y-6">
+        <TrialBanner daysRemaining={daysRemainingInTrial || 0} />
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+            <p className="text-muted-foreground mt-2">
+              Weekly visibility reports for your brand
+            </p>
           </div>
+        </div>
 
-          {/* Reports List */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <File className="h-5 w-5 text-primary" />
+        {!reportsAccess.hasAccess ? (
+          // Upsell panel for Starter tier
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Crown className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-xl">Upgrade to Access Reports</CardTitle>
+              <CardDescription className="text-base">
+                Get comprehensive weekly visibility insights with Growth or Pro plans
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-2 justify-center">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span>Weekly PDF visibility summaries</span>
                 </div>
-                <span>Generated Reports</span>
-              </CardTitle>
+                <div className="flex items-center gap-2 justify-center">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span>Top prompts & competitor share</span>
+                </div>
+                <div className="flex items-center gap-2 justify-center">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span>Recommendations snapshot</span>
+                </div>
+              </div>
+              <Button size="lg" onClick={() => window.location.href = '/pricing'}>
+                Upgrade to Growth
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          // Reports table for Growth/Pro users
+          <Card>
+            <CardHeader>
+              <CardTitle>Generated Reports</CardTitle>
+              <CardDescription>
+                Download your weekly brand visibility reports
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <span className="ml-2 text-muted-foreground">Loading reports...</span>
-                </div>
-              ) : reports.length === 0 ? (
-                <div className="text-center py-12">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-lg font-medium text-foreground mb-2">No Reports Available</p>
-                  <p className="text-muted-foreground mb-4">
-                    Reports are generated weekly automatically on Monday mornings for the previous week.
-                  </p>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>• Reports include visibility scores, prompt performance, and competitor analysis</p>
-                    <p>• First report will be available after your first complete week of usage</p>
-                    <p>• Check back on Monday for your latest weekly insights</p>
-                  </div>
-                </div>
-              ) : (
+                // Loading skeleton
                 <div className="space-y-4">
-                  {reports.map((report) => (
-                    <div key={report.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300 hover-lift group">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                          <File className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono text-xs">
-                              {report.week_key}
-                            </Badge>
-                            <span className="text-sm font-medium text-foreground">
-                              {formatPeriod(report.period_start, report.period_end)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>Generated: {formatGeneratedAt(report.created_at)}</span>
-                            <span>Size: {formatFileSize(report.byte_size)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={() => downloadReport(report)}
-                        disabled={downloadingId === report.id}
-                        className="hover-lift"
-                        size="sm"
-                      >
-                        {downloadingId === report.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Downloading...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4 mr-2" />
-                            Download PDF
-                          </>
-                        )}
-                      </Button>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center space-x-4">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-8 w-20" />
                     </div>
                   ))}
                 </div>
+              ) : reports.length === 0 ? (
+                // Empty state
+                <div className="text-center py-12">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No reports yet</h3>
+                  <p className="text-muted-foreground">
+                    Reports generate weekly after your scans. Check back Monday mornings.
+                  </p>
+                </div>
+              ) : (
+                // Reports table
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Week</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Generated</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reports.map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell>
+                          <Badge variant="outline">{report.week_key}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {formatPeriod(report.period_start, report.period_end)}
+                        </TableCell>
+                        <TableCell>
+                          {formatFileSize(report.byte_size)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatGeneratedAt(report.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadReport(report.id)}
+                            disabled={downloadingId === report.id}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            {downloadingId === report.id ? 'Downloading...' : 'Download'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
+        )}
 
-          {/* Information Card */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-accent" />
-                </div>
-                <span>About Weekly Reports</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-foreground">Content Included</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Key visibility metrics and trends</li>
-                    <li>• Top and poor performing prompts</li>
-                    <li>• Competitor analysis and market share</li>
-                    <li>• Recommendations summary</li>
-                    <li>• Volume and usage statistics</li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-foreground">Generation Schedule</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Reports generated every Monday at 8:00 AM UTC</li>
-                    <li>• Covers the previous week (Monday-Sunday)</li>
-                    <li>• Automatically saved and available for download</li>
-                    <li>• Historical reports remain accessible</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Information card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">About Weekly Reports</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-2">
+            <p>
+              • Reports are automatically generated every Monday at 08:00 UTC for the previous week
+            </p>
+            <p>
+              • Each report contains brand visibility metrics, competitor analysis, and recommendations
+            </p>
+            <p>
+              • Download links expire after 5 minutes for security
+            </p>
+            <p>
+              • Available to Growth and Pro subscribers
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );
