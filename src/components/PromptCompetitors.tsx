@@ -25,19 +25,33 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   const isMountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
+  // Separate useEffect for component unmount cleanup
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     const fetchCompetitors = async () => {
+      console.log('[PromptCompetitors] fetchCompetitors called for promptId:', promptId);
+      
       // Prevent duplicate requests
-      if (inFlightRef.current) return;
+      if (inFlightRef.current) {
+        console.log('[PromptCompetitors] Request already in flight, skipping');
+        return;
+      }
       inFlightRef.current = true;
 
       try {
         // Only show loading on initial load or when no competitors exist
         if (competitors.length === 0) {
+          console.log('[PromptCompetitors] Setting loading to true');
           setLoading(true);
         }
         setError(null);
 
+        console.log('[PromptCompetitors] Calling get_prompt_competitors RPC');
         const { data, error: rpcError } = await supabase
           .rpc('get_prompt_competitors', { 
             p_prompt_id: promptId,
@@ -46,18 +60,27 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
 
         if (rpcError) {
           console.error('Error fetching prompt competitors:', rpcError);
-          setError('Failed to load competitors');
+          if (isMountedRef.current) {
+            setError('Failed to load competitors');
+          }
           return;
         }
+
+        console.log('[PromptCompetitors] RPC returned data:', data);
 
         // Show all valid competitors, not just catalog ones
         const validCompetitors = (data || []).filter((competitor: CompetitorData) => {
           return isValidCompetitor(competitor.competitor_name);
         });
 
+        console.log('[PromptCompetitors] Valid competitors after filtering:', validCompetitors);
+
         // Only update if component is still mounted
         if (isMountedRef.current) {
+          console.log('[PromptCompetitors] Component mounted, updating state');
           setCompetitors(validCompetitors);
+        } else {
+          console.log('[PromptCompetitors] Component unmounted, skipping state update');
         }
       } catch (err) {
         console.error('Error in fetchCompetitors:', err);
@@ -66,6 +89,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
         }
       } finally {
         if (isMountedRef.current) {
+          console.log('[PromptCompetitors] Setting loading to false');
           setLoading(false);
         }
         inFlightRef.current = false;
@@ -75,11 +99,6 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
     if (promptId) {
       fetchCompetitors();
     }
-
-    // Cleanup function
-    return () => {
-      isMountedRef.current = false;
-    };
   }, [promptId]); // Removed isCompetitorInCatalog from dependencies
 
   if (loading) {
