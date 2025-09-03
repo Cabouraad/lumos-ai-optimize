@@ -40,6 +40,73 @@
       })();
     </script>
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
+    
+    <!-- Defer CSS loading to prevent render blocking -->
+    <script>
+      (function() {
+        // Function to defer CSS loading
+        function loadCSS(href, before, media) {
+          var doc = window.document;
+          var ss = doc.createElement("link");
+          var ref;
+          if (before) {
+            ref = before;
+          } else {
+            var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+            ref = refs[refs.length - 1];
+          }
+          var sheets = doc.styleSheets;
+          ss.rel = "stylesheet";
+          ss.href = href;
+          ss.media = "only x";
+          function ready(cb) {
+            if (doc.body) return cb();
+            setTimeout(function() { ready(cb); });
+          }
+          ready(function() {
+            ref.parentNode.insertBefore(ss, (before ? ref : ref.nextSibling));
+          });
+          var onloadcssdefined = function(cb) {
+            var resolvedHref = ss.href;
+            var i = sheets.length;
+            while (i--) {
+              if (sheets[i].href === resolvedHref) {
+                return cb();
+              }
+            }
+            setTimeout(function() { onloadcssdefined(cb); });
+          };
+          function loadCB() {
+            if (ss.addEventListener) {
+              ss.removeEventListener("load", loadCB);
+            }
+            ss.media = media || "all";
+          }
+          if (ss.addEventListener) {
+            ss.addEventListener("load", loadCB);
+          }
+          ss.onloadcssdefined = onloadcssdefined;
+          onloadcssdefined(loadCB);
+          return ss;
+        }
+        
+        // Defer main CSS bundle loading
+        window.addEventListener('DOMContentLoaded', function() {
+          var cssLinks = document.querySelectorAll('link[rel="stylesheet"]:not([data-defer-processed])');
+          cssLinks.forEach(function(link) {
+            if (link.href && link.href.includes('/assets/') && link.href.includes('.css')) {
+              var href = link.href;
+              link.setAttribute('data-defer-processed', 'true');
+              link.media = 'print';
+              link.onload = function() { 
+                this.media = 'all';
+                this.onload = null;
+              };
+            }
+          });
+        });
+      })();
+    </script>
   </head>
 
   <body>
