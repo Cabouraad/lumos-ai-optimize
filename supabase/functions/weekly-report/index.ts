@@ -116,57 +116,93 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Initialize client for auth verification
-    const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
-
-    // Extract JWT token from Authorization header
+    // Check if this is a scheduled run using CRON_SECRET
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const isScheduledRun = authHeader === `Bearer ${cronSecret}` && cronSecret;
+
+    let targetOrgIds: string[] = [];
+
+    if (isScheduledRun) {
+      // Scheduled run: process all organizations
+      console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
+      
+      const { data: orgs, error: orgsError } = await supabase
+        .from('organizations')
+        .select('id')
+        .order('created_at');
+
+      if (orgsError) {
+        console.error('[WEEKLY-REPORT] Error fetching organizations:', orgsError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch organizations' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      targetOrgIds = orgs?.map(org => org.id) || [];
+      console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
+    } else {
+      // User-initiated run: process single organization
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'Missing or invalid authorization header' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Initialize client for auth verification
+      const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
+
+      // Verify JWT and get user
+      const jwt = authHeader.replace('Bearer ', '');
+      authClient.auth.session = {
+        access_token: jwt,
+        token_type: 'bearer',
+        user: null as any,
+        refresh_token: '',
+        expires_in: 0,
+        expires_at: 0
+      };
+
+      const { data: { user }, error: authError } = await authClient.auth.getUser();
+      if (authError || !user) {
+        console.error('[WEEKLY-REPORT] Auth error:', authError);
+        return new Response(
+          JSON.stringify({ error: 'Invalid authentication token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get user's organization ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData?.org_id) {
+        console.error('[WEEKLY-REPORT] User lookup error:', userError);
+        return new Response(
+          JSON.stringify({ error: 'User organization not found' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      targetOrgIds = [userData.org_id];
     }
-
-    // Verify JWT and get user
-    const jwt = authHeader.replace('Bearer ', '');
-    authClient.auth.session = {
-      access_token: jwt,
-      token_type: 'bearer',
-      user: null as any,
-      refresh_token: '',
-      expires_in: 0,
-      expires_at: 0
-    };
-
-    const { data: { user }, error: authError } = await authClient.auth.getUser();
-    if (authError || !user) {
-      console.error('[WEEKLY-REPORT] Auth error:', authError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get user's organization ID
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('org_id')
-      .eq('id', user.id)
-      .single();
-
-    if (userError || !userData?.org_id) {
-      console.error('[WEEKLY-REPORT] User lookup error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'User organization not found' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const orgId = userData.org_id;
 
     if (req.method === 'GET') {
       // Handle GET request - fetch signed URL for existing report
+      // Note: GET requests are only supported for user-initiated requests, not scheduled runs
+      if (isScheduledRun || targetOrgIds.length !== 1) {
+        return new Response(
+          JSON.stringify({ error: 'GET method only supported for user-initiated requests' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const orgId = targetOrgIds[0];
       const url = new URL(req.url);
       const weekParam = url.searchParams.get('week');
       
@@ -226,111 +262,172 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'POST') {
-      // Handle POST request - generate new report
-      console.log(`[WEEKLY-REPORT] Starting report generation for org ${orgId}`);
+      // Handle POST request - generate new report(s)
+      const results: any[] = [];
+      const errors: any[] = [];
 
       // Calculate last complete week boundaries
       const { weekKey, periodStart, periodEnd } = getLastCompleteWeek();
       
-      console.log(`[WEEKLY-REPORT] Generating report for week ${weekKey} (${periodStart} to ${periodEnd})`);
+      console.log(`[WEEKLY-REPORT] Generating reports for week ${weekKey} (${periodStart} to ${periodEnd})`);
+      console.log(`[WEEKLY-REPORT] Processing ${targetOrgIds.length} organization(s)`);
 
-      // Check if report already exists
-      const { data: existingReport, error: checkError } = await supabase
-        .from('reports')
-        .select('storage_path, week_key')
-        .eq('org_id', orgId)
-        .eq('week_key', weekKey)
-        .maybeSingle();
+      // Process each organization
+      for (const orgId of targetOrgIds) {
+        try {
+          console.log(`[WEEKLY-REPORT] Processing org ${orgId}`);
 
-      if (checkError) {
-        console.error('[WEEKLY-REPORT] Database check error:', checkError);
-        return new Response(
-          JSON.stringify({ error: 'Database error checking existing reports' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+          // Check if report already exists
+          const { data: existingReport, error: checkError } = await supabase
+            .from('reports')
+            .select('storage_path, week_key')
+            .eq('org_id', orgId)
+            .eq('week_key', weekKey)
+            .maybeSingle();
+
+          if (checkError) {
+            console.error(`[WEEKLY-REPORT] Database check error for org ${orgId}:`, checkError);
+            errors.push({ orgId, error: 'Database check failed', details: checkError.message });
+            continue;
+          }
+
+          if (existingReport) {
+            console.log(`[WEEKLY-REPORT] Report already exists for org ${orgId}, week ${weekKey}`);
+            results.push({
+              orgId,
+              week_key: weekKey,
+              storage_path: existingReport.storage_path,
+              status: 'exists',
+            });
+            continue;
+          }
+
+          // Collect weekly data
+          console.log(`[WEEKLY-REPORT] Collecting weekly data for org ${orgId}...`);
+          const reportData = await collectWeeklyData(supabase, orgId, periodStart + 'T00:00:00Z', periodEnd + 'T23:59:59Z');
+
+          // Generate PDF
+          console.log(`[WEEKLY-REPORT] Rendering PDF for org ${orgId}...`);
+          const pdfBytes = await renderReportPDF(reportData);
+
+          // Calculate storage path and metadata
+          const storagePath = `reports/${orgId}/${weekKey}.pdf`;
+          const fileSize = pdfBytes.length;
+          const sha256Hash = await generateSHA256(pdfBytes);
+
+          // Upload to storage
+          console.log(`[WEEKLY-REPORT] Uploading to storage: ${storagePath}`);
+          const { error: uploadError } = await supabase.storage
+            .from('reports')
+            .upload(storagePath.replace('reports/', ''), pdfBytes, {
+              contentType: 'application/pdf',
+              upsert: true,
+            });
+
+          if (uploadError) {
+            console.error(`[WEEKLY-REPORT] Storage upload error for org ${orgId}:`, uploadError);
+            errors.push({ orgId, error: 'Storage upload failed', details: uploadError.message });
+            continue;
+          }
+
+          // Insert record into reports table
+          const { error: insertError } = await supabase
+            .from('reports')
+            .insert({
+              org_id: orgId,
+              week_key: weekKey,
+              period_start: periodStart,
+              period_end: periodEnd,
+              storage_path: storagePath,
+              byte_size: fileSize,
+              sha256: sha256Hash,
+            });
+
+          if (insertError) {
+            console.error(`[WEEKLY-REPORT] Database insert error for org ${orgId}:`, insertError);
+            // Try to clean up uploaded file
+            await supabase.storage.from('reports').remove([storagePath.replace('reports/', '')]);
+            errors.push({ orgId, error: 'Database insert failed', details: insertError.message });
+            continue;
+          }
+
+          console.log(`[WEEKLY-REPORT] Report generation completed for org ${orgId}, week ${weekKey}`);
+          
+          results.push({
+            orgId,
+            week_key: weekKey,
+            storage_path: storagePath,
+            period_start: periodStart,
+            period_end: periodEnd,
+            file_size: fileSize,
+            sha256: sha256Hash,
+            status: 'created',
+          });
+
+        } catch (orgError) {
+          console.error(`[WEEKLY-REPORT] Unexpected error for org ${orgId}:`, orgError);
+          errors.push({ orgId, error: 'Unexpected error', details: orgError.message });
+        }
       }
 
-      if (existingReport) {
-        console.log(`[WEEKLY-REPORT] Report already exists for week ${weekKey}`);
+      // Return appropriate response based on whether this was a scheduled or user-initiated run
+      if (isScheduledRun) {
+        // For scheduled runs, return summary of all operations
+        const successCount = results.length;
+        const errorCount = errors.length;
+        
+        console.log(`[WEEKLY-REPORT] Scheduled run completed: ${successCount} successful, ${errorCount} errors`);
+        
         return new Response(
           JSON.stringify({
-            exists: true,
+            ok: true,
+            scheduled_run: true,
             week_key: weekKey,
-            storage_path: existingReport.storage_path,
-            message: 'Report already generated for this week'
+            total_orgs: targetOrgIds.length,
+            successful: successCount,
+            errors: errorCount,
+            results: results.length > 0 ? results : undefined,
+            error_details: errors.length > 0 ? errors : undefined,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      } else {
+        // For user-initiated runs, return single org result
+        if (results.length > 0) {
+          const result = results[0];
+          if (result.status === 'exists') {
+            return new Response(
+              JSON.stringify({
+                exists: true,
+                week_key: result.week_key,
+                storage_path: result.storage_path,
+                message: 'Report already generated for this week'
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          } else {
+            return new Response(
+              JSON.stringify({
+                ok: true,
+                week_key: result.week_key,
+                storage_path: result.storage_path,
+                period_start: result.period_start,
+                period_end: result.period_end,
+                file_size: result.file_size,
+                sha256: result.sha256,
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          // Return first error if no successful results
+          const error = errors[0];
+          return new Response(
+            JSON.stringify({ error: error?.error || 'Report generation failed', details: error?.details }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
-
-      // Collect weekly data
-      console.log('[WEEKLY-REPORT] Collecting weekly data...');
-      const reportData = await collectWeeklyData(supabase, orgId, periodStart + 'T00:00:00Z', periodEnd + 'T23:59:59Z');
-
-      // Generate PDF
-      console.log('[WEEKLY-REPORT] Rendering PDF...');
-      const pdfBytes = await renderReportPDF(reportData);
-
-      // Calculate storage path and metadata
-      const storagePath = `reports/${orgId}/${weekKey}.pdf`;
-      const fileSize = pdfBytes.length;
-      const sha256Hash = await generateSHA256(pdfBytes);
-
-      // Upload to storage
-      console.log(`[WEEKLY-REPORT] Uploading to storage: ${storagePath}`);
-      const { error: uploadError } = await supabase.storage
-        .from('reports')
-        .upload(storagePath.replace('reports/', ''), pdfBytes, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        console.error('[WEEKLY-REPORT] Storage upload error:', uploadError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to store report file' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Insert record into reports table
-      const { error: insertError } = await supabase
-        .from('reports')
-        .insert({
-          org_id: orgId,
-          week_key: weekKey,
-          period_start: periodStart,
-          period_end: periodEnd,
-          storage_path: storagePath,
-          byte_size: fileSize,
-          sha256: sha256Hash,
-        });
-
-      if (insertError) {
-        console.error('[WEEKLY-REPORT] Database insert error:', insertError);
-        // Try to clean up uploaded file
-        await supabase.storage.from('reports').remove([storagePath.replace('reports/', '')]);
-        
-        return new Response(
-          JSON.stringify({ error: 'Failed to save report metadata' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(`[WEEKLY-REPORT] Report generation completed for week ${weekKey}`);
-      
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          week_key: weekKey,
-          storage_path: storagePath,
-          period_start: periodStart,
-          period_end: periodEnd,
-          file_size: fileSize,
-          sha256: sha256Hash,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // Method not allowed

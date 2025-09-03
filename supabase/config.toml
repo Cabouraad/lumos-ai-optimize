@@ -100,3 +100,7 @@ verify_jwt = false
 
 [functions.weekly-report]
 verify_jwt = true
+
+# Scheduled runs every Monday 08:00 UTC (end of previous week); adjust if you prefer Sunday.
+[functions.schedules]
+weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
