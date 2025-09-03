@@ -207,7 +207,7 @@ describe('Subscription Gating Matrix', () => {
         const gateAccess = hasValidAccess(state); // SubscriptionGate logic
         const hookAccess = hasValidAccess(state); // useSubscriptionGate logic
         
-        expect(gateAccess).toBe(hookAccess, `Test case ${index} should have consistent access`);
+        expect(gateAccess).toBe(hookAccess);
       });
     });
   });

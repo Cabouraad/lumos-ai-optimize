@@ -60,7 +60,6 @@ describe('Server-side Quota Enforcement', () => {
       expect(response.headers['X-RateLimit-Limit']).toBe('10');
     });
   });
-});
 
   describe('Trial Access Control', () => {
     it('should allow valid trial with payment method', async () => {
