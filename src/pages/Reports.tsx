@@ -68,7 +68,7 @@ export default function Reports() {
     try {
       setDownloadingId(report.id);
       
-      // Call the weekly-report GET endpoint to get signed URL
+      // Call the weekly-report GET endpoint to get signed URL (5 minute TTL)
       const response = await supabase.functions.invoke('weekly-report', {
         method: 'GET',
         body: { week: report.week_key }
@@ -83,8 +83,13 @@ export default function Reports() {
         throw new Error('No download URL received');
       }
 
-      // Open the signed URL in a new tab for download
-      window.open(download_url, '_blank');
+      // Immediately trigger download since signed URL has short TTL (5 minutes)
+      const link = document.createElement('a');
+      link.href = download_url;
+      link.download = `weekly-report-${report.week_key}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       toast({
         title: 'Download Started',

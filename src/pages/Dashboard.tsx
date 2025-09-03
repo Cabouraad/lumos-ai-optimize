@@ -147,7 +147,13 @@ export default function Dashboard() {
         throw new Error('No download URL received');
       }
 
-      window.open(download_url, '_blank');
+      // Immediately trigger download since signed URL has short TTL (5 minutes)
+      const link = document.createElement('a');
+      link.href = download_url;
+      link.download = `weekly-report-${latestReport.week_key}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       toast({
         title: 'Download Started',

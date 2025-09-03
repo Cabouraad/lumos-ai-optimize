@@ -6,6 +6,7 @@ project_id = "cgocsffxqyhojtyzniyz"
 # - batch-reconciler: Validates cron secret + supports manual calls
 # - robust-batch-processor: Requires Bearer token OR valid cron secret
 # - stripe-webhook: Uses Stripe signature validation (industry standard)
+# - weekly-report: Validates CRON_SECRET for scheduled runs OR valid JWT for user requests
 
 [functions.daily-batch-trigger]
 verify_jwt = false
@@ -99,7 +100,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.weekly-report]
-verify_jwt = true
+verify_jwt = false
 
 # Scheduled runs every Monday 08:00 UTC (end of previous week); adjust if you prefer Sunday.
 [functions.schedules]
