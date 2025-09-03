@@ -1167,6 +1167,10 @@ export type Database = {
         Args: { p_org_id: string; p_test_title?: string }
         Returns: string
       }
+      test_rls_isolation: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       try_mark_daily_run: {
         Args: { p_today_key: string }
         Returns: Json
@@ -1223,6 +1227,10 @@ export type Database = {
       validate_domain_invitation: {
         Args: { p_email: string; p_org_id: string }
         Returns: Json
+      }
+      validate_org_membership: {
+        Args: { target_org_id: string }
+        Returns: boolean
       }
     }
     Enums: {
