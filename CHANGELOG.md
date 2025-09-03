@@ -3,6 +3,14 @@
 ## Overview
 This release implements comprehensive production hardening, security enhancements, and operational readiness without breaking existing functionality. All changes are additive and backward-compatible.
 
+### 🔄 Batch Processing Auto-Recovery
+
+- **Background Job Resumption**: Robust batch processor now automatically schedules background resume when time budget is exceeded during CRON runs
+- **Reconciler Auto-Resume**: Batch reconciler immediately triggers job resumption when stuck jobs are identified  
+- **Correlation ID Tracking**: All batch operations now include correlation IDs for end-to-end traceability
+- **Safety Limits**: Resume chains respect max attempts (3) and delays (5s) to prevent infinite loops
+- **Enhanced Observability**: Comprehensive logging with resume sources (`batch-reconciler`, `background-scheduler`)
+
 ## 🔒 Security Hardening
 
 ### CORS & Authentication

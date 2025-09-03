@@ -191,14 +191,37 @@ serve(async (req) => {
           
         } else if (resumeResult?.action === 'resumed') {
           resumedJobs++;
-          console.log(`🔄 Prepared job ${job.id} for resumption: ${resumeResult.pending_tasks} tasks pending`);
+          const correlationId = crypto.randomUUID();
+          console.log(`🔄 Job ${job.id} ready for resume, triggering processor, correlation_id: ${correlationId}`);
+          
+          // Immediately trigger resume processing
+          try {
+            const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
+              body: { 
+                action: 'resume', 
+                resumeJobId: job.id, 
+                orgId: job.org_id,
+                correlationId,
+                resumedBy: 'batch-reconciler'
+              }
+            });
+
+            if (resumeResponse.error) {
+              console.error(`❌ Failed to trigger resume for job ${job.id}:`, resumeResponse.error);
+            } else {
+              console.log(`✅ Resume triggered for job ${job.id}, result: ${resumeResponse.data?.action}, correlation_id: ${correlationId}`);
+            }
+          } catch (invokeError) {
+            console.error(`💥 Error invoking resume for job ${job.id}:`, invokeError);
+          }
           
           results.push({
             jobId: job.id,
             action: 'resumed',
             pendingTasks: resumeResult.pending_tasks,
             completedTasks: resumeResult.completed_tasks,
-            failedTasks: resumeResult.failed_tasks
+            failedTasks: resumeResult.failed_tasks,
+            correlationId
           });
         }
 

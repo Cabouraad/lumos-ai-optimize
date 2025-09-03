@@ -7,6 +7,68 @@ import { corsHeaders, isRateLimited, getRateLimitHeaders } from '../_shared/cors
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts'
 import { BatchUsageTracker } from '../_shared/usage-tracker.ts'
 
+// Background resume function with safety limits
+async function scheduleBackgroundResume(
+  supabase: any, 
+  jobId: string, 
+  orgId: string, 
+  correlationId: string,
+  attempt: number = 1
+): Promise<void> {
+  const MAX_RESUME_ATTEMPTS = 3;
+  const RESUME_DELAY_MS = 5000; // 5 second delay between resumes
+  
+  if (attempt > MAX_RESUME_ATTEMPTS) {
+    console.log(`⚠️  Max resume attempts reached for job ${jobId}, correlation_id: ${correlationId}`);
+    return;
+  }
+
+  try {
+    // Wait before attempting resume
+    await new Promise(resolve => setTimeout(resolve, RESUME_DELAY_MS));
+    
+    console.log(`🔄 Attempting background resume ${attempt}/${MAX_RESUME_ATTEMPTS} for job ${jobId}, correlation_id: ${correlationId}`);
+    
+    // Call ourselves recursively to resume processing
+    const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
+      body: { 
+        action: 'resume', 
+        resumeJobId: jobId, 
+        orgId,
+        correlationId,
+        resumedBy: 'background-scheduler',
+        attemptNumber: attempt
+      }
+    });
+
+    if (resumeResponse.error) {
+      throw new Error(resumeResponse.error.message);
+    }
+
+    const result = resumeResponse.data;
+    console.log(`📋 Background resume result for job ${jobId}: ${result.action}, correlation_id: ${correlationId}`);
+    
+    // If still in progress, schedule another resume
+    if (result.action === 'in_progress') {
+      EdgeRuntime.waitUntil(
+        scheduleBackgroundResume(supabase, jobId, orgId, correlationId, attempt + 1)
+      );
+    } else {
+      console.log(`✅ Background processing completed for job ${jobId}, correlation_id: ${correlationId}`);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Background resume failed for job ${jobId}, attempt ${attempt}, correlation_id: ${correlationId}:`, error);
+    
+    // Retry on failure if we haven't exhausted attempts
+    if (attempt < MAX_RESUME_ATTEMPTS) {
+      EdgeRuntime.waitUntil(
+        scheduleBackgroundResume(supabase, jobId, orgId, correlationId, attempt + 1)
+      );
+    }
+  }
+}
+
 // Rate limiting for public endpoint
 const getClientIP = (req: Request): string => {
   return req.headers.get('x-forwarded-for')?.split(',')[0] || 
@@ -795,7 +857,8 @@ serve(async (req) => {
         // Check time budget to avoid edge function timeout
         const elapsedTime = Date.now() - startTime;
         if (elapsedTime > TIME_BUDGET_MS) {
-          console.log(`⏰ Time budget exceeded (${elapsedTime}ms), returning with in_progress status`);
+          const correlationId = crypto.randomUUID();
+          console.log(`⏰ Time budget exceeded (${elapsedTime}ms), correlation_id: ${correlationId}`);
           
           // Update job status to indicate it's still in progress
           await supabase
@@ -808,10 +871,21 @@ serve(async (req) => {
                 time_budget_exceeded: true,
                 elapsed_time_ms: elapsedTime,
                 processed_in_this_run: processedCount,
-                failed_in_this_run: failedCount
+                failed_in_this_run: failedCount,
+                correlation_id: correlationId
               }
             })
             .eq('id', jobId);
+
+          // If called via CRON, schedule background resumption
+          const isCronCall = req.headers.get('x-cron-secret');
+          if (isCronCall) {
+            console.log(`🔄 Scheduling background resume for job ${jobId}, correlation_id: ${correlationId}`);
+            
+            EdgeRuntime.waitUntil(
+              scheduleBackgroundResume(supabase, jobId, orgId, correlationId)
+            );
+          }
           
           return new Response(JSON.stringify({
             success: true,
@@ -821,6 +895,7 @@ serve(async (req) => {
             processedSoFar: processedCount,
             failedSoFar: failedCount,
             elapsedTime: elapsedTime,
+            correlationId,
             message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

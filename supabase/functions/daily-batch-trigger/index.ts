@@ -264,9 +264,11 @@ serve(async (req) => {
           try {
             const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
               body: { 
+                action: 'create',
                 orgId: org.id, 
                 source: 'daily-batch-trigger',
-                attempt: attempts
+                attempt: attempts,
+                replace: false
               },
               headers: { 'x-cron-secret': cronSecret! }
             });
@@ -281,8 +283,15 @@ serve(async (req) => {
               throw error;
             }
             
+            // Handle in_progress responses - background resumption is automatic
+            if (data?.action === 'in_progress') {
+              console.log(`⏳ Job ${data.batchJobId} for org ${org.name} is in progress, background resumption scheduled`);
+            } else if (data?.action === 'completed') {
+              console.log(`✅ Job ${data.batchJobId} for org ${org.name} completed immediately`);
+            }
+            
             batchSuccess = true;
-            console.log(`✅ Batch processor started successfully for org ${org.id}`);
+            console.log(`✅ Batch processor invoked successfully for org ${org.id}, result: ${data?.action}`);
           } catch (err) {
             console.error(`Attempt ${attempts} exception for org ${org.id}:`, err);
             if (attempts >= maxAttempts) {
@@ -298,7 +307,8 @@ serve(async (req) => {
             orgId: org.id,
             orgName: org.name,
             success: true,
-            attempts: attempts
+            attempts: attempts,
+            result: data // Include the batch result for observability
           });
         } else {
           orgResults.push({
