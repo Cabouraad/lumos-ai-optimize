@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,11 +22,20 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { competitors: catalogCompetitors, isCompetitorInCatalog } = useCatalogCompetitors();
+  const isMountedRef = useRef(true);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     const fetchCompetitors = async () => {
+      // Prevent duplicate requests
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+
       try {
-        setLoading(true);
+        // Only show loading on initial load or when no competitors exist
+        if (competitors.length === 0) {
+          setLoading(true);
+        }
         setError(null);
 
         const { data, error: rpcError } = await supabase
@@ -46,19 +55,32 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
           return isValidCompetitor(competitor.competitor_name);
         });
 
-        setCompetitors(validCompetitors);
+        // Only update if component is still mounted
+        if (isMountedRef.current) {
+          setCompetitors(validCompetitors);
+        }
       } catch (err) {
         console.error('Error in fetchCompetitors:', err);
-        setError('Failed to load competitors');
+        if (isMountedRef.current) {
+          setError('Failed to load competitors');
+        }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+        inFlightRef.current = false;
       }
     };
 
     if (promptId) {
       fetchCompetitors();
     }
-  }, [promptId, isCompetitorInCatalog]);
+
+    // Cleanup function
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [promptId]); // Removed isCompetitorInCatalog from dependencies
 
   if (loading) {
     return (

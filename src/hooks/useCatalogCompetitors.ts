@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
 
@@ -43,15 +43,15 @@ export function useCatalogCompetitors() {
     }
   };
 
-  const isCompetitorInCatalog = (competitorName: string): boolean => {
+  const isCompetitorInCatalog = useCallback((competitorName: string): boolean => {
     return competitors.some(c => 
       c.name.toLowerCase().trim() === competitorName.toLowerCase().trim()
     );
-  };
+  }, [competitors]);
 
-  const filterCompetitorsByCatalog = (competitorList: string[]): string[] => {
+  const filterCompetitorsByCatalog = useCallback((competitorList: string[]): string[] => {
     return competitorList.filter(competitor => isCompetitorInCatalog(competitor));
-  };
+  }, [isCompetitorInCatalog]);
 
   return {
     competitors,
