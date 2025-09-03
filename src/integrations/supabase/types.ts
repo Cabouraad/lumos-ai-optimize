@@ -597,6 +597,53 @@ export type Database = {
           },
         ]
       }
+      reports: {
+        Row: {
+          byte_size: number | null
+          created_at: string | null
+          id: string
+          org_id: string
+          period_end: string
+          period_start: string
+          sha256: string | null
+          storage_path: string
+          updated_at: string | null
+          week_key: string
+        }
+        Insert: {
+          byte_size?: number | null
+          created_at?: string | null
+          id?: string
+          org_id: string
+          period_end: string
+          period_start: string
+          sha256?: string | null
+          storage_path: string
+          updated_at?: string | null
+          week_key: string
+        }
+        Update: {
+          byte_size?: number | null
+          created_at?: string | null
+          id?: string
+          org_id?: string
+          period_end?: string
+          period_start?: string
+          sha256?: string | null
+          storage_path?: string
+          updated_at?: string | null
+          week_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduler_runs: {
         Row: {
           completed_at: string | null
@@ -932,6 +979,10 @@ export type Database = {
         Args: { org_id: string }
         Returns: string
       }
+      generate_week_key: {
+        Args: { input_date: string }
+        Returns: string
+      }
       get_brand_candidates_for_org: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1053,6 +1104,13 @@ export type Database = {
           trial_expires_at: string
         }[]
       }
+      get_week_boundaries: {
+        Args: { input_date: string }
+        Returns: {
+          week_end: string
+          week_start: string
+        }[]
+      }
       increment_completed_tasks: {
         Args: { job_id: string }
         Returns: undefined
@@ -1153,6 +1211,10 @@ export type Database = {
           p_token_out?: number
         }
         Returns: string
+      }
+      user_can_access_org: {
+        Args: { target_org_id: string }
+        Returns: boolean
       }
       user_org_domain_verified: {
         Args: Record<PropertyKey, never>
