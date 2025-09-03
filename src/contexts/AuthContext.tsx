@@ -106,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkSubscriptionStatus = async () => {
     if (!session?.user) return;
     
+    console.log('AuthContext: Starting subscription check for user:', session.user.email);
     setSubscriptionLoading(true);
     try {
       // Always pass an explicit Authorization header to avoid limbo tokens
@@ -128,6 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         trial_expires_at: data.trial_expires_at,
         trial_started_at: data.trial_started_at,
         payment_collected: data.payment_collected,
+        requires_subscription: data.requires_subscription,
+      });
+      console.log('AuthContext: Subscription data updated via edge function:', {
+        subscribed: data.subscribed,
+        subscription_tier: data.subscription_tier,
         requires_subscription: data.requires_subscription,
       });
     } catch (err) {
@@ -156,6 +162,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           trial_expires_at: row.trial_expires_at ?? undefined,
           trial_started_at: undefined,
           payment_collected: row.payment_collected ?? undefined,
+          requires_subscription,
+        });
+        console.log('AuthContext: Subscription data updated via fallback RPC:', {
+          subscribed: !!row.subscribed,
+          subscription_tier: row.subscription_tier,
           requires_subscription,
         });
       } catch (fallbackErr) {

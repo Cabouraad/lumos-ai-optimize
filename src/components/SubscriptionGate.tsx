@@ -9,12 +9,20 @@ interface SubscriptionGateProps {
 }
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
-  const { user, orgData, subscriptionData, loading, subscriptionLoading } = useAuth();
+  const { user, orgData, subscriptionData, loading, subscriptionLoading, checkSubscription } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Show loading state for auth or subscription loading
-  if (loading || subscriptionLoading) {
+  // Trigger subscription check if user exists but subscriptionData is null
+  useEffect(() => {
+    if (user && !loading && !subscriptionLoading && subscriptionData === null) {
+      console.log('SubscriptionGate: Triggering subscription check for null subscriptionData');
+      checkSubscription();
+    }
+  }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription]);
+
+  // Show loading state for auth or subscription loading OR when subscriptionData is null
+  if (loading || subscriptionLoading || (user && subscriptionData === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
