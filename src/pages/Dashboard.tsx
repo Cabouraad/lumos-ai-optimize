@@ -11,10 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshButton } from '@/components/RefreshButton';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb, FileText, Download } from 'lucide-react';
 import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 export default function Dashboard() {
   const { user, orgData } = useAuth();
@@ -22,6 +23,8 @@ export default function Dashboard() {
   const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [latestReport, setLatestReport] = useState<any>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
   const { toast } = useToast();
   
   // Use real-time dashboard hook
@@ -33,6 +36,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (orgData?.organizations?.id) {
       loadRecommendations();
+      if (isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
+        loadLatestReport();
+      }
     }
   }, [orgData?.organizations?.id]);
 
@@ -92,6 +98,82 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
+  };
+
+  const loadLatestReport = async () => {
+    try {
+      setLoadingReport(true);
+      const orgId = orgData?.organizations?.id;
+      if (!orgId) return;
+
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('org_id', orgId)
+        .order('period_start', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error;
+      }
+
+      setLatestReport(data);
+    } catch (error) {
+      console.error('Error loading latest report:', error);
+      // Don't show toast error for report loading as it's secondary content
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const downloadLatestReport = async () => {
+    if (!latestReport) return;
+    
+    try {
+      setLoadingReport(true);
+      
+      const response = await supabase.functions.invoke('weekly-report', {
+        method: 'GET',
+        body: { week: latestReport.week_key }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to generate download URL');
+      }
+
+      const { download_url } = response.data;
+      if (!download_url) {
+        throw new Error('No download URL received');
+      }
+
+      window.open(download_url, '_blank');
+      
+      toast({
+        title: 'Download Started',
+        description: `Weekly report for ${latestReport.week_key} is downloading.`,
+      });
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      toast({
+        title: 'Download Failed',
+        description: error instanceof Error ? error.message : 'Failed to download report. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const formatWeekPeriod = (start: string, end: string): string => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const options: Intl.DateTimeFormatOptions = { 
+      month: 'short', 
+      day: 'numeric'
+    };
+    
+    return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
   };
 
   if (!appAccess.hasAccess) {
@@ -328,6 +410,74 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* Latest Weekly Report */}
+          {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <span>Latest Weekly Report</span>
+                </CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/reports')}
+                  className="hover-lift"
+                >
+                  View All Reports
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {loadingReport ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Loading report...</span>
+                  </div>
+                ) : latestReport ? (
+                  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {latestReport.week_key}
+                        </Badge>
+                        <span className="text-sm font-medium text-foreground">
+                          {formatWeekPeriod(latestReport.period_start, latestReport.period_end)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Generated: {new Date(latestReport.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={downloadLatestReport}
+                      disabled={loadingReport}
+                      size="sm"
+                      className="hover-lift"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-2">No weekly reports available yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Reports are generated automatically every Monday morning after your first complete week of usage.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Top Recommendations */}
           <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
