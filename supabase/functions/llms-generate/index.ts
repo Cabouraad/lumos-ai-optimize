@@ -2,11 +2,31 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// Dynamic CORS origin handling for multiple domains similar to check-subscription
+function getCorsHeaders(requestOrigin: string | null) {
+  const allowedOrigins = [
+    "https://llumos.app",
+    "https://www.llumos.app",
+    /^https:\/\/.*\.lovable\.app$/,
+    /^https:\/\/.*\.lovable\.dev$/,
+    /^http:\/\/localhost:\\d+$/,
+  ];
+
+  let allowedOrigin = "https://llumos.app"; // default fallback
+
+  if (requestOrigin) {
+    const isAllowed = allowedOrigins.some((origin) =>
+      typeof origin === "string" ? origin === requestOrigin : origin.test(requestOrigin)
+    );
+    if (isAllowed) allowedOrigin = requestOrigin;
+  }
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  } as Record<string, string>;
+}
 
 interface CrawlResult {
   success: boolean;
@@ -17,6 +37,7 @@ interface CrawlResult {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
