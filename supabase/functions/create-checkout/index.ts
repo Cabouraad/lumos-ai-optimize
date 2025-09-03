@@ -1,46 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const generateIdempotencyKey = (userId: string, intent: string): string => {
-  return `${userId}:${intent}:${Date.now() >> 13}`;
-};
-
-const validateProductionSafety = (stripeKey: string) => {
-  const nodeEnv = Deno.env.get("NODE_ENV");
-  if (nodeEnv === "production" && stripeKey.startsWith("sk_test_")) {
-    throw new Error("Cannot use test Stripe keys in production environment");
-  }
-};
-
-interface RequestBody {
-  tier: 'starter' | 'growth' | 'pro';
-  billingCycle: 'monthly' | 'yearly';
-}
-
-const TIER_PRICES = {
-  starter: {
-    monthly: 2900, // $29.00
-    yearly: 29000 // $290.00 (save ~17%)
-  },
-  growth: {
-    monthly: 6900, // $69.00
-    yearly: 69000 // $690.00 (save ~17%)
-  },
-  pro: {
-    monthly: 19900, // $199.00
-    yearly: 199000 // $1,990.00 (save ~17%)
-  }
-};
+import { getStrictCorsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const requestOrigin = req.headers.get('Origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

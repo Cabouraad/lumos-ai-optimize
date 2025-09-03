@@ -102,10 +102,13 @@ verify_jwt = false
 [functions.weekly-report]
 verify_jwt = false
 
-# Scheduled runs every Monday 08:00 UTC (end of previous week); adjust if you prefer Sunday.
 [functions.reports-sign]
 verify_jwt = true
+
+[functions.check-subscription-scheduled]
+verify_jwt = false
 
 # Scheduled runs every Monday 08:00 UTC (end of previous week); adjust if you prefer Sunday.
 [functions.schedules]
 weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
+daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }

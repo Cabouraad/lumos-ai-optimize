@@ -1,12 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getStrictCorsHeaders } from "../_shared/cors.ts";
 
-const ORIGIN = '*';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Helper logging function  
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[DAILY-BATCH] ${step}${detailsStr}`);
 };
 
 // Timezone-aware date utility functions
@@ -46,6 +46,9 @@ function isInExecutionWindow(d = new Date()): boolean {
 }
 
 serve(async (req) => {
+  const requestOrigin = req.headers.get('Origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
+  
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

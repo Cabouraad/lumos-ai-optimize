@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getStrictCorsHeaders, isRateLimited, getRateLimitHeaders } from "../_shared/cors.ts";
 
 // Levenshtein distance implementation for similarity checking
 function levenshteinDistance(str1: string, str2: string): number {
@@ -28,14 +29,11 @@ function similarity(str1: string, str2: string): number {
   return 1.0 - levenshteinDistance(str1, str2) / maxLen;
 }
 
-// Secure CORS headers with configurable origin
-const getSecureCorsHeaders = () => {
-  const appOrigin = Deno.env.get('APP_ORIGIN') || 'https://llumos.app';
-  return {
-    'Access-Control-Allow-Origin': appOrigin,
-    'Access-Control-Allow-Headers': 'authorization, content-type',
-    'Access-Control-Allow-Credentials': 'true',
-  };
+// Helper logging function
+const logStep = (step: string, details?: any) => {
+  const correlationId = crypto.randomUUID().slice(0, 8);
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CONVERT-COMPETITOR] [${correlationId}] ${step}${detailsStr}`);
 };
 
 // Error response helper with stable error codes
@@ -45,11 +43,11 @@ interface ApiError {
   details?: string;
 }
 
-function createErrorResponse(status: number, code: string, message: string, details?: string): Response {
+function createErrorResponse(status: number, code: string, message: string, details?: string, requestOrigin?: string): Response {
   const error: ApiError = { error: message, code, details };
   return new Response(JSON.stringify(error), {
     status,
-    headers: { ...getSecureCorsHeaders(), 'Content-Type': 'application/json' }
+    headers: { ...getStrictCorsHeaders(requestOrigin), 'Content-Type': 'application/json' }
   });
 }
 
@@ -86,16 +84,33 @@ function sanitizeCompetitorName(name: string): string {
 }
 
 serve(async (req) => {
-  const corsHeaders = getSecureCorsHeaders();
+  const requestOrigin = req.headers.get('Origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Rate limiting
+  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  if (isRateLimited(clientIP, 30, 60000)) { // 30 requests per minute
+    const rateLimitHeaders = getRateLimitHeaders(clientIP, 30, 60000);
+    return new Response(JSON.stringify({ 
+      error: 'Too many requests', 
+      code: 'RATE_LIMITED',
+      retryAfter: 60 
+    }), {
+      status: 429,
+      headers: { ...corsHeaders, ...rateLimitHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  logStep("Function started");
+
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return createErrorResponse(405, 'METHOD_NOT_ALLOWED', 'Only POST requests allowed');
+    return createErrorResponse(405, 'METHOD_NOT_ALLOWED', 'Only POST requests allowed', undefined, requestOrigin);
   }
 
   try {
