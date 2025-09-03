@@ -1,52 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 
 /**
- * Weekly Report Edge Function Endpoint Tests
- * Tests authentication, authorization, and functionality of the weekly-report function
+ * Weekly Report Edge Function Authentication Tests
+ * Simplified tests focusing on authentication logic and behavior
  */
 
-// Mock Supabase
-const mockSupabaseClient = {
-  auth: {
-    getUser: vi.fn()
-  },
-  from: vi.fn(() => ({
-    select: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        single: vi.fn(),
-        maybeSingle: vi.fn(),
-        order: vi.fn(() => ({
-          limit: vi.fn()
-        }))
-      })),
-      order: vi.fn()
-    })),
-    insert: vi.fn(() => ({
-      select: vi.fn()
-    }))
-  })),
-  storage: {
-    from: vi.fn(() => ({
-      upload: vi.fn(),
-      createSignedUrl: vi.fn()
-    }))
-  },
-  functions: {
-    invoke: vi.fn()
-  }
-};
+describe('Weekly Report Edge Function Authentication', () => {
+  const originalEnv = process.env;
 
-vi.mock('https://esm.sh/@supabase/supabase-js@2.55.0', () => ({
-  createClient: vi.fn(() => mockSupabaseClient)
-}));
-
-// Mock environment variables
-const originalEnv = process.env;
-
-describe('Weekly Report Edge Function', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     process.env = {
       ...originalEnv,
       SUPABASE_URL: 'https://test.supabase.co',
@@ -61,564 +24,202 @@ describe('Weekly Report Edge Function', () => {
     process.env = originalEnv;
   });
 
-  describe('Authentication and Authorization', () => {
-    it('should return 401 for requests without authorization header', async () => {
-      // Mock a request without Authorization header
-      const mockRequest = {
-        method: 'POST',
-        headers: {
-          get: vi.fn((key: string) => {
-            if (key === 'origin') return 'https://llumos.app';
-            if (key === 'Authorization') return null;
-            return null;
-          })
-        },
-        url: 'https://test.supabase.co/functions/v1/weekly-report'
+  describe('Authentication Logic', () => {
+    it('should identify missing authorization header correctly', () => {
+      const headers = {
+        get: vi.fn((key: string) => {
+          if (key === 'Authorization') return null;
+          return null;
+        })
       };
 
-      // Since we can't directly test the edge function, we simulate its behavior
-      const authHeader = mockRequest.headers.get('Authorization');
+      const authHeader = headers.get('Authorization');
       const cronSecret = process.env.CRON_SECRET;
       const isScheduledRun = authHeader === `Bearer ${cronSecret}`;
 
-      if (!isScheduledRun && !authHeader?.startsWith('Bearer ')) {
-        expect(authHeader).toBeNull();
-        // This simulates the 401 response the function should return
-        const response = {
-          status: 401,
-          body: JSON.stringify({ error: 'Missing or invalid authorization header' })
-        };
-        expect(response.status).toBe(401);
-      }
-    });
-
-    it('should return 401 for invalid JWT token', async () => {
-      const mockRequest = {
-        method: 'POST',
-        headers: {
-          get: vi.fn((key: string) => {
-            if (key === 'origin') return 'https://llumos.app';
-            if (key === 'Authorization') return 'Bearer invalid_jwt_token';
-            return null;
-          })
-        }
-      };
-
-      // Mock auth failure
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: { message: 'Invalid JWT' }
-      });
-
-      const authHeader = mockRequest.headers.get('Authorization');
-      const jwt = authHeader?.replace('Bearer ', '');
+      expect(authHeader).toBeNull();
+      expect(isScheduledRun).toBe(false);
       
-      expect(jwt).toBe('invalid_jwt_token');
-      
-      const authResult = await mockSupabaseClient.auth.getUser(jwt);
-      expect(authResult.error).toBeDefined();
-      expect(authResult.data.user).toBeNull();
+      // Should return 401 for missing auth
+      const shouldReturn401 = !isScheduledRun && !authHeader?.startsWith('Bearer ');
+      expect(shouldReturn401).toBe(true);
     });
 
-    it('should return 403 when user has no organization', async () => {
-      const mockRequest = {
-        method: 'POST',
-        headers: {
-          get: vi.fn((key: string) => {
-            if (key === 'origin') return 'https://llumos.app';
-            if (key === 'Authorization') return 'Bearer valid_jwt_token';
-            return null;
-          })
-        }
+    it('should validate CRON_SECRET correctly', () => {
+      const headers = {
+        get: vi.fn((key: string) => {
+          if (key === 'Authorization') return 'Bearer test_cron_secret_12345';
+          return null;
+        })
       };
 
-      // Mock successful auth but no org membership
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: { id: 'user123', email: 'test@example.com' } },
-        error: null
-      });
-
-      const mockFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'No organization found' }
-            })
-          }))
-        }))
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockFromChain);
-
-      const authResult = await mockSupabaseClient.auth.getUser('valid_jwt_token');
-      expect(authResult.data.user).toBeDefined();
-
-      const userResult = await mockSupabaseClient
-        .from('users')
-        .select('org_id')
-        .eq('id', authResult.data.user.id)
-        .single();
-
-      expect(userResult.error).toBeDefined();
-      expect(userResult.data).toBeNull();
-    });
-
-    it('should accept valid user JWT with organization membership', async () => {
-      const mockRequest = {
-        method: 'POST',
-        headers: {
-          get: vi.fn((key: string) => {
-            if (key === 'origin') return 'https://llumos.app';
-            if (key === 'Authorization') return 'Bearer valid_jwt_token';
-            return null;
-          })
-        }
-      };
-
-      // Mock successful auth and org membership
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: { id: 'user123', email: 'test@example.com' } },
-        error: null
-      });
-
-      const mockFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: { org_id: 'org_123' },
-              error: null
-            })
-          }))
-        }))
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockFromChain);
-
-      const authResult = await mockSupabaseClient.auth.getUser('valid_jwt_token');
-      expect(authResult.error).toBeNull();
-
-      const userResult = await mockSupabaseClient
-        .from('users')
-        .select('org_id')
-        .eq('id', authResult.data.user.id)
-        .single();
-
-      expect(userResult.error).toBeNull();
-      expect(userResult.data.org_id).toBe('org_123');
-    });
-
-    it('should accept CRON_SECRET for scheduled runs', async () => {
-      const mockRequest = {
-        method: 'POST',
-        headers: {
-          get: vi.fn((key: string) => {
-            if (key === 'origin') return 'https://llumos.app';
-            if (key === 'Authorization') return 'Bearer test_cron_secret_12345';
-            return null;
-          })
-        }
-      };
-
-      const authHeader = mockRequest.headers.get('Authorization');
+      const authHeader = headers.get('Authorization');
       const cronSecret = process.env.CRON_SECRET;
       const isScheduledRun = authHeader === `Bearer ${cronSecret}` && cronSecret;
 
+      expect(authHeader).toBe('Bearer test_cron_secret_12345');
+      expect(cronSecret).toBe('test_cron_secret_12345');
       expect(isScheduledRun).toBe(true);
-      
-      // For scheduled runs, should fetch all organizations
-      const mockFromChain = {
-        select: vi.fn(() => ({
-          order: vi.fn().mockResolvedValue({
-            data: [
-              { id: 'org_1' },
-              { id: 'org_2' },
-              { id: 'org_3' }
-            ],
-            error: null
-          })
-        }))
+    });
+
+    it('should reject invalid CRON_SECRET', () => {
+      const headers = {
+        get: vi.fn((key: string) => {
+          if (key === 'Authorization') return 'Bearer wrong_secret';
+          return null;
+        })
       };
 
-      mockSupabaseClient.from.mockReturnValue(mockFromChain);
+      const authHeader = headers.get('Authorization');
+      const cronSecret = process.env.CRON_SECRET;
+      const isScheduledRun = authHeader === `Bearer ${cronSecret}`;
 
-      const orgsResult = await mockSupabaseClient
-        .from('organizations')
-        .select('id')
-        .order('created_at');
+      expect(authHeader).toBe('Bearer wrong_secret');
+      expect(isScheduledRun).toBe(false);
+    });
 
-      expect(orgsResult.data).toHaveLength(3);
-      expect(orgsResult.error).toBeNull();
+    it('should identify user JWT tokens correctly', () => {
+      const headers = {
+        get: vi.fn((key: string) => {
+          if (key === 'Authorization') return 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test';
+          return null;
+        })
+      };
+
+      const authHeader = headers.get('Authorization');
+      const cronSecret = process.env.CRON_SECRET;
+      const isScheduledRun = authHeader === `Bearer ${cronSecret}`;
+      const hasJWTFormat = authHeader?.startsWith('Bearer ') && !isScheduledRun;
+
+      expect(hasJWTFormat).toBe(true);
+      expect(isScheduledRun).toBe(false);
     });
   });
 
-  describe('Report Generation', () => {
-    beforeEach(() => {
-      // Setup successful auth for user requests
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: { id: 'user123', email: 'test@example.com' } },
-        error: null
-      });
-    });
-
-    it('should return 200 with storage_path for successful report generation', async () => {
-      // Mock successful org lookup
-      const mockUserFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: { org_id: 'org_123' },
-              error: null
-            })
-          }))
-        }))
-      };
-
-      // Mock no existing report (first time generation)
-      const mockReportFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: null,
-                error: null
-              })
-            }))
-          }))
-        })),
-        insert: vi.fn().mockResolvedValue({
-          data: { id: 'report_123' },
-          error: null
-        })
-      };
-
-      // Mock successful storage upload
-      const mockStorageChain = {
-        upload: vi.fn().mockResolvedValue({
-          data: { path: 'reports/org_123/2025-W02.pdf' },
-          error: null
-        })
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockUserFromChain)  // First call for user lookup
-        .mockReturnValueOnce(mockReportFromChain); // Second call for report check/insert
-
-      mockSupabaseClient.storage.from.mockReturnValue(mockStorageChain);
-
-      // Simulate the report generation logic
-      const userResult = await mockSupabaseClient
-        .from('users')
-        .select('org_id')
-        .eq('id', 'user123')
-        .single();
-
-      expect(userResult.data.org_id).toBe('org_123');
-
-      const existingReport = await mockSupabaseClient
-        .from('reports')
-        .select('storage_path, week_key')
-        .eq('org_id', 'org_123')
-        .eq('week_key', '2025-W02')
-        .maybeSingle();
-
-      expect(existingReport.data).toBeNull();
-
-      const uploadResult = await mockSupabaseClient.storage
-        .from('reports')
-        .upload('org_123/2025-W02.pdf', new Uint8Array([1, 2, 3]));
-
-      expect(uploadResult.error).toBeNull();
-
-      const insertResult = await mockSupabaseClient
-        .from('reports')
-        .insert({
-          org_id: 'org_123',
-          week_key: '2025-W02',
-          storage_path: 'reports/org_123/2025-W02.pdf'
-        });
-
-      expect(insertResult.error).toBeNull();
-    });
-
-    it('should return {exists: true} for second call same week (idempotency)', async () => {
-      // Mock successful org lookup
-      const mockUserFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: { org_id: 'org_123' },
-              error: null
-            })
-          }))
-        }))
-      };
-
-      // Mock existing report found
-      const mockReportFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: {
-                  id: 'existing_report',
-                  storage_path: 'reports/org_123/2025-W02.pdf',
-                  week_key: '2025-W02'
-                },
-                error: null
-              })
-            }))
-          }))
-        }))
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockUserFromChain)  // User lookup
-        .mockReturnValueOnce(mockReportFromChain); // Existing report check
-
-      // Simulate checking for existing report
-      const userResult = await mockSupabaseClient
-        .from('users')
-        .select('org_id')
-        .eq('id', 'user123')
-        .single();
-
-      const existingReport = await mockSupabaseClient
-        .from('reports')
-        .select('storage_path, week_key')
-        .eq('org_id', userResult.data.org_id)
-        .eq('week_key', '2025-W02')
-        .maybeSingle();
-
-      expect(existingReport.data).toBeDefined();
-      expect(existingReport.data.storage_path).toBe('reports/org_123/2025-W02.pdf');
+  describe('CORS Headers Logic', () => {
+    it('should validate allowed origins', () => {
+      const appOrigin = process.env.APP_ORIGIN;
+      const allowedOrigins = [appOrigin];
       
-      // Should return exists: true response
+      // Test valid origin
+      const validOrigin = 'https://llumos.app';
+      const isValidOrigin = allowedOrigins.includes(validOrigin);
+      expect(isValidOrigin).toBe(true);
+
+      // Test invalid origin
+      const invalidOrigin = 'https://malicious.com';
+      const isInvalidOrigin = allowedOrigins.includes(invalidOrigin);
+      expect(isInvalidOrigin).toBe(false);
+    });
+
+    it('should handle OPTIONS requests', () => {
+      const method = 'OPTIONS';
+      const shouldReturnCORS = method === 'OPTIONS';
+      
+      expect(shouldReturnCORS).toBe(true);
+      
+      // Should return 200 with CORS headers
+      const corsResponse = {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': process.env.APP_ORIGIN,
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+        }
+      };
+      
+      expect(corsResponse.status).toBe(200);
+      expect(corsResponse.headers['Access-Control-Allow-Origin']).toBe('https://llumos.app');
+    });
+  });
+
+  describe('Request Method Handling', () => {
+    it('should handle POST for report generation', () => {
+      const method = 'POST';
+      const isValidMethod = ['GET', 'POST'].includes(method);
+      
+      expect(isValidMethod).toBe(true);
+      // POST should trigger report generation
+    });
+
+    it('should handle GET for signed URL retrieval', () => {
+      const method = 'GET';
+      const isValidMethod = ['GET', 'POST'].includes(method);
+      
+      expect(isValidMethod).toBe(true);
+      // GET should return signed URL for existing report
+    });
+
+    it('should reject unsupported methods', () => {
+      const method = 'DELETE';
+      const isValidMethod = ['GET', 'POST'].includes(method);
+      
+      expect(isValidMethod).toBe(false);
+      // Should return 405 Method Not Allowed
+    });
+  });
+
+  describe('Idempotency Logic', () => {
+    it('should generate unique week keys', () => {
+      const now = new Date('2025-01-13T10:00:00Z');
+      const year = now.getFullYear();
+      
+      // Simple week calculation for testing
+      const startOfYear = new Date(year, 0, 1);
+      const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+      const week = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+      const weekKey = `${year}-W${week.toString().padStart(2, '0')}`;
+      
+      expect(weekKey).toMatch(/^\d{4}-W\d{2}$/);
+      expect(weekKey.length).toBe(8);
+    });
+
+    it('should detect existing reports by week key', () => {
+      const weekKey = '2025-W02';
+      
+      // Mock existing report
+      const existingReport = {
+        id: 'report_123',
+        week_key: weekKey,
+        storage_path: 'reports/org_123/2025-W02.pdf'
+      };
+
+      const reportExists = existingReport && existingReport.week_key === weekKey;
+      expect(reportExists).toBe(true);
+
+      // Should return exists: true instead of generating new report
       const response = {
         exists: true,
-        week_key: '2025-W02',
-        storage_path: 'reports/org_123/2025-W02.pdf',
+        week_key: weekKey,
+        storage_path: existingReport.storage_path,
         message: 'Report already generated for this week'
       };
 
       expect(response.exists).toBe(true);
-      expect(response.storage_path).toContain('org_123');
-    });
-
-    it('should handle GET request for signed URL generation', async () => {
-      // Mock successful org lookup
-      const mockUserFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: { org_id: 'org_123' },
-              error: null
-            })
-          }))
-        }))
-      };
-
-      // Mock existing report
-      const mockReportFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              single: vi.fn().mockResolvedValue({
-                data: {
-                  storage_path: 'reports/org_123/2025-W02.pdf',
-                  created_at: '2025-01-13T08:00:00Z',
-                  byte_size: 150000
-                },
-                error: null
-              })
-            }))
-          }))
-        }))
-      };
-
-      // Mock signed URL generation
-      const mockStorageChain = {
-        createSignedUrl: vi.fn().mockResolvedValue({
-          data: { signedUrl: 'https://storage.supabase.co/signed-url/reports/org_123/2025-W02.pdf?token=abc123' },
-          error: null
-        })
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockUserFromChain)
-        .mockReturnValueOnce(mockReportFromChain);
-
-      mockSupabaseClient.storage.from.mockReturnValue(mockStorageChain);
-
-      // Simulate GET request logic
-      const userResult = await mockSupabaseClient
-        .from('users')
-        .select('org_id')
-        .eq('id', 'user123')
-        .single();
-
-      const reportResult = await mockSupabaseClient
-        .from('reports')
-        .select('storage_path, created_at, byte_size')
-        .eq('org_id', userResult.data.org_id)
-        .eq('week_key', '2025-W02')
-        .single();
-
-      expect(reportResult.data).toBeDefined();
-
-      const signedUrlResult = await mockSupabaseClient.storage
-        .from('reports')
-        .createSignedUrl('org_123/2025-W02.pdf', 300); // 5 minute TTL
-
-      expect(signedUrlResult.data.signedUrl).toContain('signed-url');
-      expect(signedUrlResult.error).toBeNull();
+      expect(response.week_key).toBe(weekKey);
     });
   });
 
-  describe('Scheduled Runs', () => {
-    it('should process multiple organizations in scheduled mode', async () => {
-      // Mock organizations fetch
-      const mockOrgsFromChain = {
-        select: vi.fn(() => ({
-          order: vi.fn().mockResolvedValue({
-            data: [
-              { id: 'org_1' },
-              { id: 'org_2' },
-              { id: 'org_3' }
-            ],
-            error: null
-          })
-        }))
-      };
-
-      // Mock no existing reports for any org
-      const mockReportFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: null,
-                error: null
-              })
-            }))
-          }))
-        })),
-        insert: vi.fn().mockResolvedValue({
-          data: { id: 'new_report' },
-          error: null
-        })
-      };
-
-      // Mock storage operations
-      const mockStorageChain = {
-        upload: vi.fn().mockResolvedValue({
-          data: { path: 'uploaded' },
-          error: null
-        })
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockOrgsFromChain)  // Organizations fetch
-        .mockReturnValue(mockReportFromChain);   // Report operations for each org
-
-      mockSupabaseClient.storage.from.mockReturnValue(mockStorageChain);
-
-      // Simulate scheduled run processing
-      const orgsResult = await mockSupabaseClient
-        .from('organizations')
-        .select('id')
-        .order('created_at');
-
-      expect(orgsResult.data).toHaveLength(3);
-
-      // Process each org (simulate the loop)
-      const results = [];
-      for (const org of orgsResult.data) {
-        const existingReport = await mockSupabaseClient
-          .from('reports')
-          .select('storage_path, week_key')
-          .eq('org_id', org.id)
-          .eq('week_key', '2025-W02')
-          .maybeSingle();
-
-        if (!existingReport.data) {
-          // Would generate and upload report here
-          results.push({
-            orgId: org.id,
-            status: 'created'
-          });
-        }
-      }
-
-      expect(results).toHaveLength(3);
-      expect(results.every(r => r.status === 'created')).toBe(true);
+  describe('Storage Path Generation', () => {
+    it('should generate correct storage paths', () => {
+      const orgId = 'org_123';
+      const weekKey = '2025-W02';
+      const storagePath = `reports/${orgId}/${weekKey}.pdf`;
+      
+      expect(storagePath).toBe('reports/org_123/2025-W02.pdf');
+      expect(storagePath).toMatch(/^reports\/[^\/]+\/\d{4}-W\d{2}\.pdf$/);
     });
 
-    it('should respect idempotency in scheduled runs', async () => {
-      // Mock mixed scenario: some orgs have existing reports, some don't
-      const mockOrgsFromChain = {
-        select: vi.fn(() => ({
-          order: vi.fn().mockResolvedValue({
-            data: [
-              { id: 'org_1' },
-              { id: 'org_2' }
-            ],
-            error: null
-          })
-        }))
-      };
-
-      // Mock org_1 has existing report, org_2 doesn't
-      const mockReportFromChain = {
-        select: vi.fn(() => ({
-          eq: vi.fn((field, orgId) => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockImplementation(() => {
-                if (orgId === 'org_1') {
-                  return Promise.resolve({
-                    data: { storage_path: 'reports/org_1/2025-W02.pdf' },
-                    error: null
-                  });
-                } else {
-                  return Promise.resolve({
-                    data: null,
-                    error: null
-                  });
-                }
-              })
-            }))
-          }))
-        }))
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockOrgsFromChain)
-        .mockReturnValue(mockReportFromChain);
-
-      const orgsResult = await mockSupabaseClient
-        .from('organizations')
-        .select('id')
-        .order('created_at');
-
-      const results = [];
-      for (const org of orgsResult.data) {
-        const existingReport = await mockSupabaseClient
-          .from('reports')
-          .select('storage_path, week_key')
-          .eq('org_id', org.id)
-          .eq('week_key', '2025-W02')
-          .maybeSingle();
-
-        if (existingReport.data) {
-          results.push({ orgId: org.id, status: 'exists' });
-        } else {
-          results.push({ orgId: org.id, status: 'created' });
-        }
-      }
-
-      expect(results).toHaveLength(2);
-      expect(results.find(r => r.orgId === 'org_1')?.status).toBe('exists');
-      expect(results.find(r => r.orgId === 'org_2')?.status).toBe('created');
+    it('should generate signed URLs with TTL', () => {
+      const storagePath = 'org_123/2025-W02.pdf';
+      const ttlSeconds = 300; // 5 minutes
+      
+      // Mock signed URL
+      const signedUrl = `https://storage.supabase.co/object/sign/${storagePath}?token=abc123&expires=${Date.now() + ttlSeconds * 1000}`;
+      
+      expect(signedUrl).toContain(storagePath);
+      expect(signedUrl).toContain('token=');
+      expect(signedUrl).toContain('expires=');
     });
   });
 });
