@@ -1,16 +1,13 @@
 /**
  * Weekly Report Generation Edge Function
  * Handles on-demand report generation and retrieval for authenticated users
+ * Also supports scheduled runs via CRON_SECRET
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { collectWeeklyData } from '../_shared/report/collect.ts';
 import { renderReportPDF } from '../_shared/report/pdf.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getStrictCorsHeaders } from '../_shared/cors.ts';
 
 interface WeekBoundaries {
   weekKey: string;
@@ -105,6 +102,9 @@ function parseWeekKey(weekKey: string): WeekBoundaries | null {
 }
 
 Deno.serve(async (req) => {
+  const requestOrigin = req.headers.get('origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if this is a scheduled run using CRON_SECRET
+    // Authentication handling: either CRON_SECRET or valid JWT
     const authHeader = req.headers.get('Authorization');
     const cronSecret = Deno.env.get('CRON_SECRET');
     const isScheduledRun = authHeader === `Bearer ${cronSecret}` && cronSecret;
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       targetOrgIds = orgs?.map(org => org.id) || [];
       console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
     } else {
-      // User-initiated run: process single organization
+      // User-initiated run: require valid JWT and verify org membership
       if (!authHeader?.startsWith('Bearer ')) {
         return new Response(
           JSON.stringify({ error: 'Missing or invalid authorization header' }),
@@ -151,21 +151,13 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Initialize client for auth verification
+      // Initialize client for JWT verification
       const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
 
-      // Verify JWT and get user
+      // Set the session for auth verification
       const jwt = authHeader.replace('Bearer ', '');
-      authClient.auth.session = {
-        access_token: jwt,
-        token_type: 'bearer',
-        user: null as any,
-        refresh_token: '',
-        expires_in: 0,
-        expires_at: 0
-      };
-
-      const { data: { user }, error: authError } = await authClient.auth.getUser();
+      const { data: { user }, error: authError } = await authClient.auth.getUser(jwt);
+      
       if (authError || !user) {
         console.error('[WEEKLY-REPORT] Auth error:', authError);
         return new Response(
@@ -174,7 +166,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Get user's organization ID
+      // Get user's organization ID and verify membership
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('org_id')
@@ -236,10 +228,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Generate signed URL for the report
+      // Generate signed URL for the report (short TTL for security)
       const { data: signedUrlData, error: urlError } = await supabase.storage
         .from('reports')
-        .createSignedUrl(existingReport.storage_path.replace('reports/', ''), 3600); // 1 hour expiry
+        .createSignedUrl(existingReport.storage_path.replace('reports/', ''), 300); // 5 minutes TTL
 
       if (urlError || !signedUrlData?.signedUrl) {
         console.error('[WEEKLY-REPORT] Signed URL error:', urlError);

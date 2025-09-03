@@ -1,5 +1,41 @@
-const ORIGIN = '*';
+/**
+ * Strict CORS configuration for production security
+ */
 
+// Get allowed origins from environment
+const getAllowedOrigins = (): string[] => {
+  const appOrigin = Deno.env.get('APP_ORIGIN') || 'https://llumos.app';
+  const appOrigins = Deno.env.get('APP_ORIGINS');
+  
+  if (appOrigins) {
+    return appOrigins.split(',').map(origin => origin.trim());
+  }
+  
+  return [appOrigin];
+};
+
+const ALLOWED_ORIGINS = getAllowedOrigins();
+
+/**
+ * Get CORS headers for a specific origin (strict mode)
+ */
+export function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, string> {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin) 
+    ? requestOrigin 
+    : ALLOWED_ORIGINS[0]; // Default to first allowed origin
+
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
+
+/**
+ * Legacy CORS headers (permissive - only for backward compatibility)
+ * @deprecated Use getStrictCorsHeaders instead
+ */
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
