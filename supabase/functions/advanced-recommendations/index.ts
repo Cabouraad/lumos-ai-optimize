@@ -4,11 +4,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Removed requireOwnerRole import as we'll validate differently
 import { getScoreThresholds } from '../_shared/scoring.ts';
 
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
 const corsHeaders = {
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
