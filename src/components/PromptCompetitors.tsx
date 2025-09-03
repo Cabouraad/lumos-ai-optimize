@@ -22,17 +22,12 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { competitors: catalogCompetitors, isCompetitorInCatalog } = useCatalogCompetitors();
-  const isMountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
-  // Separate useEffect for component unmount cleanup
   useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+    // Effect-local cancellation flag (StrictMode safe)
+    let cancelled = false;
 
-  useEffect(() => {
     const fetchCompetitors = async () => {
       console.log('[PromptCompetitors] fetchCompetitors called for promptId:', promptId);
       
@@ -47,9 +42,9 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
         // Only show loading on initial load or when no competitors exist
         if (competitors.length === 0) {
           console.log('[PromptCompetitors] Setting loading to true');
-          setLoading(true);
+          if (!cancelled) setLoading(true);
         }
-        setError(null);
+        if (!cancelled) setError(null);
 
         console.log('[PromptCompetitors] Calling get_prompt_competitors RPC');
         const { data, error: rpcError } = await supabase
@@ -60,7 +55,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
 
         if (rpcError) {
           console.error('Error fetching prompt competitors:', rpcError);
-          if (isMountedRef.current) {
+          if (!cancelled) {
             setError('Failed to load competitors');
           }
           return;
@@ -75,20 +70,20 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
 
         console.log('[PromptCompetitors] Valid competitors after filtering:', validCompetitors);
 
-        // Only update if component is still mounted
-        if (isMountedRef.current) {
-          console.log('[PromptCompetitors] Component mounted, updating state');
+        // Only update if effect hasn't been cancelled
+        if (!cancelled) {
+          console.log('[PromptCompetitors] Effect not cancelled, updating state');
           setCompetitors(validCompetitors);
         } else {
-          console.log('[PromptCompetitors] Component unmounted, skipping state update');
+          console.log('[PromptCompetitors] Effect cancelled, skipping state update');
         }
       } catch (err) {
         console.error('Error in fetchCompetitors:', err);
-        if (isMountedRef.current) {
+        if (!cancelled) {
           setError('Failed to load competitors');
         }
       } finally {
-        if (isMountedRef.current) {
+        if (!cancelled) {
           console.log('[PromptCompetitors] Setting loading to false');
           setLoading(false);
         }
@@ -99,6 +94,11 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
     if (promptId) {
       fetchCompetitors();
     }
+
+    // Cleanup function for effect-local cancellation
+    return () => {
+      cancelled = true;
+    };
   }, [promptId]); // Removed isCompetitorInCatalog from dependencies
 
   if (loading) {
