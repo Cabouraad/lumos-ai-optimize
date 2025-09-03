@@ -2,12 +2,38 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Dynamic CORS origin handling for multiple domains
+function getCorsHeaders(requestOrigin: string | null) {
+  const allowedOrigins = [
+    "https://llumos.app",
+    "https://www.llumos.app", 
+    /^https:\/\/.*\.lovable\.app$/,
+    /^https:\/\/.*\.lovable\.dev$/,
+    /^http:\/\/localhost:\d+$/
+  ];
+  
+  let allowedOrigin = "https://llumos.app"; // default fallback
+  
+  if (requestOrigin) {
+    const isAllowed = allowedOrigins.some(origin => {
+      if (typeof origin === 'string') {
+        return origin === requestOrigin;
+      } else {
+        return origin.test(requestOrigin);
+      }
+    });
+    
+    if (isAllowed) {
+      allowedOrigin = requestOrigin;
+    }
+  }
+  
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -15,6 +41,8 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

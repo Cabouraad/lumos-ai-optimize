@@ -9,12 +9,12 @@ interface SubscriptionGateProps {
 }
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
-  const { user, orgData, subscriptionData, loading } = useAuth();
+  const { user, orgData, subscriptionData, loading, subscriptionLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Show loading state
-  if (loading) {
+  // Show loading state for auth or subscription loading
+  if (loading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">

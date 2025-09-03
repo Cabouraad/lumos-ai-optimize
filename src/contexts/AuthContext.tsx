@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  subscriptionLoading: boolean;
   orgData: any | null;
   subscriptionData: {
     subscribed: boolean;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [orgData, setOrgData] = useState<any | null>(null);
   const [subscriptionData, setSubscriptionData] = useState<{
     subscribed: boolean;
@@ -38,18 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } | null>(null);
 
   useEffect(() => {
-    let subscriptionCheckTimeout: NodeJS.Timeout;
-
-    // Debounced subscription check for app load
-    const debouncedSubscriptionCheck = () => {
-      if (subscriptionCheckTimeout) {
-        clearTimeout(subscriptionCheckTimeout);
-      }
-      subscriptionCheckTimeout = setTimeout(() => {
-        checkSubscriptionStatus();
-      }, 1000); // 1 second debounce
-    };
-
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -75,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               setOrgData(data);
               
-               // Check subscription status on auth state changes
+               // Check subscription status immediately on auth state changes
                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                  await checkSubscriptionStatus();
                }
@@ -90,32 +80,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          } else {
            setOrgData(null);
            setSubscriptionData(null);
+           setSubscriptionLoading(false);
            setLoading(false);
          }
-      }
-    );
+       }
+     );
 
-    // Check for existing session and trigger debounced check
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (!session) {
-        setLoading(false);
-      } else {
-        // Debounced check for app load with existing session
-        debouncedSubscriptionCheck();
-      }
-    });
+     // Check for existing session and trigger immediate subscription check
+     supabase.auth.getSession().then(({ data: { session }, error }) => {
+       setSession(session);
+       setUser(session?.user ?? null);
+       if (!session) {
+         setLoading(false);
+       } else {
+         // Trigger immediate subscription check for existing session
+         checkSubscriptionStatus();
+       }
+     });
 
-    return () => {
-      subscription.unsubscribe();
-      if (subscriptionCheckTimeout) {
-        clearTimeout(subscriptionCheckTimeout);
-      }
-    };
-  }, []);
+     return () => {
+       subscription.unsubscribe();
+     };
+   }, []);
 
   const checkSubscriptionStatus = async () => {
+    if (!session?.user) return;
+    
+    setSubscriptionLoading(true);
     try {
       // Always pass an explicit Authorization header to avoid limbo tokens
       const { data: sessionData } = await supabase.auth.getSession();
@@ -146,10 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: rows, error: rpcError } = await supabase.rpc('get_user_subscription_status');
         if (rpcError) {
           console.error('RPC get_user_subscription_status error:', rpcError);
+          // Don't nullify subscription data on error - keep previous state
           return;
         }
         const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-        if (!row) return;
+        if (!row) {
+          // Don't nullify subscription data if no row found - keep previous state
+          return;
+        }
 
         const trialValid = !!row.trial_expires_at && new Date(row.trial_expires_at) > new Date();
         const requires_subscription = !(row.subscribed || trialValid);
@@ -165,7 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } catch (fallbackErr) {
         console.error('Fallback RPC subscription check failed:', fallbackErr);
+        // Don't nullify subscription data on fallback error - keep previous state
       }
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
@@ -178,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, orgData, subscriptionData, checkSubscription, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, subscriptionLoading, orgData, subscriptionData, checkSubscription, signOut }}>
       {children}
     </AuthContext.Provider>
   );

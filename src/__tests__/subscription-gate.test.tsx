@@ -60,6 +60,7 @@ describe('SubscriptionGate', () => {
           requires_subscription: true
         },
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -92,6 +93,7 @@ describe('SubscriptionGate', () => {
           requires_subscription: true
         },
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -126,6 +128,7 @@ describe('SubscriptionGate', () => {
           requires_subscription: true
         },
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -158,6 +161,7 @@ describe('SubscriptionGate', () => {
           requires_subscription: true
         },
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -188,6 +192,7 @@ describe('SubscriptionGate', () => {
           requires_subscription: true
         },
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -213,6 +218,7 @@ describe('SubscriptionGate', () => {
         orgData: null,
         subscriptionData: null,
         loading: true,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -235,6 +241,7 @@ describe('SubscriptionGate', () => {
         orgData: null,
         subscriptionData: null,
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -258,6 +265,7 @@ describe('SubscriptionGate', () => {
         orgData: null,
         subscriptionData: null,
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -292,6 +300,7 @@ describe('SubscriptionGate', () => {
           requires_subscription: true
         },
         loading: false,
+        subscriptionLoading: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
