@@ -5,6 +5,7 @@
 
 export interface EdgeFeatureFlags {
   FEATURE_DETECTOR_SHADOW: boolean;
+  FEATURE_PROMINENCE_FIX: boolean;
 }
 
 // Simple inline feature flag check for edge functions

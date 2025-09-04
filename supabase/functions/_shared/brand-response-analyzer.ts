@@ -424,26 +424,54 @@ Respond with only a JSON array of organization names that are clearly businesses
 function calculateProminence(text: string, brands: string[]): number {
   if (brands.length === 0) return 0;
   
-  let bestPosition = 1.0;
+  // Check if new prominence calculation is enabled
+  const useFixedCalculation = Deno.env.get('FEATURE_PROMINENCE_FIX') === 'true';
   
-  for (const brand of brands) {
-    const index = text.toLowerCase().indexOf(brand.toLowerCase());
-    if (index >= 0) {
-      const position = index / text.length;
-      
-      // Convert position to prominence (1-10, where 1 is early/good)
-      let prominence;
-      if (position <= 0.1) prominence = 9; // Very early
-      else if (position <= 0.25) prominence = 8; // Early  
-      else if (position <= 0.5) prominence = 6; // Middle
-      else if (position <= 0.75) prominence = 4; // Late
-      else prominence = 2; // Very late
-      
-      bestPosition = Math.min(bestPosition, prominence);
+  if (useFixedCalculation) {
+    // FIXED VERSION: Initialize to worst score and use correct mapping
+    let bestScore = 10; // Start with worst possible score
+    
+    for (const brand of brands) {
+      const index = text.toLowerCase().indexOf(brand.toLowerCase());
+      if (index >= 0) {
+        const position = index / text.length;
+        
+        // Map position ratios to prominence scores (1=best, 10=worst)
+        let prominence;
+        if (position <= 0.1) prominence = 1; // Very early (best)
+        else if (position <= 0.25) prominence = 2; // Early
+        else if (position <= 0.5) prominence = 4; // Middle
+        else if (position <= 0.75) prominence = 7; // Late
+        else prominence = 9; // Very late (worst)
+        
+        bestScore = Math.min(bestScore, prominence); // Keep the best (lowest) score
+      }
     }
+    
+    return bestScore === 10 ? 0 : Math.round(bestScore);
+  } else {
+    // LEGACY VERSION: Preserve existing buggy behavior for backward compatibility
+    let bestPosition = 1.0;
+    
+    for (const brand of brands) {
+      const index = text.toLowerCase().indexOf(brand.toLowerCase());
+      if (index >= 0) {
+        const position = index / text.length;
+        
+        // Convert position to prominence (1-10, where 1 is early/good)
+        let prominence;
+        if (position <= 0.1) prominence = 9; // Very early
+        else if (position <= 0.25) prominence = 8; // Early  
+        else if (position <= 0.5) prominence = 6; // Middle
+        else if (position <= 0.75) prominence = 4; // Late
+        else prominence = 2; // Very late
+        
+        bestPosition = Math.min(bestPosition, prominence);
+      }
+    }
+    
+    return Math.round(bestPosition);
   }
-  
-  return Math.round(bestPosition);
 }
 
 /**

@@ -101,12 +101,51 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     }
   };
 
-  const getProminenceText = (prominence: number | null) => {
-    if (prominence === null) return 'Not found';
-    if (prominence === 1) return '1st position';
-    if (prominence === 2) return '2nd position';
-    if (prominence === 3) return '3rd position';
-    return `${prominence}th position`;
+  // Helper function to calculate local prominence from raw response
+  const calculateLocalProminence = (rawResponse: string, orgBrands: string[]): string => {
+    if (!rawResponse || orgBrands.length === 0) return 'Not found';
+    
+    let bestPosition = 1.0;
+    const text = rawResponse.toLowerCase();
+    
+    for (const brand of orgBrands) {
+      const index = text.indexOf(brand.toLowerCase());
+      if (index >= 0) {
+        const position = index / rawResponse.length;
+        bestPosition = Math.min(bestPosition, position);
+      }
+    }
+    
+    if (bestPosition === 1.0) return 'Not found';
+    
+    // Convert to descriptive buckets
+    if (bestPosition <= 0.1) return 'Very early';
+    if (bestPosition <= 0.25) return 'Early';
+    if (bestPosition <= 0.5) return 'Middle';
+    if (bestPosition <= 0.75) return 'Late';
+    return 'Very late';
+  };
+
+  const getProminenceText = (prominence: number | null, rawResponse?: string) => {
+    if (prominence === null || prominence === 0) return 'Not found';
+    
+    // For legacy data with potentially incorrect prominence values,
+    // try to compute from raw response if available
+    if (rawResponse && prominence === 1) {
+      // Likely legacy bug - compute from raw response
+      const brandNames = ['hubspot', 'marketing hub', 'hub spot']; // Common org brand variants
+      const localProminence = calculateLocalProminence(rawResponse, brandNames);
+      if (localProminence !== 'Not found') {
+        return localProminence;
+      }
+    }
+    
+    // Map numeric prominence to descriptive buckets (1=best, 10=worst)
+    if (prominence <= 2) return 'Very early';
+    if (prominence <= 4) return 'Early';
+    if (prominence <= 6) return 'Middle';
+    if (prominence <= 8) return 'Late';
+    return 'Very late';
   };
 
   const handleFixClassification = async () => {
@@ -314,9 +353,9 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                     <Trophy className="h-4 w-4 text-yellow-500" />
                     <div>
                       <p className="text-sm font-medium">Position</p>
-                      <p className="text-sm text-muted-foreground">
-                        {getProminenceText(result.org_brand_prominence)}
-                      </p>
+                       <p className="text-sm text-muted-foreground">
+                         {getProminenceText(result.org_brand_prominence, result.raw_ai_response)}
+                       </p>
                     </div>
                   </div>
 
