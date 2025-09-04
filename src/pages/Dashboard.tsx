@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshButton } from '@/components/RefreshButton';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { MiniSparkline } from '@/components/MiniSparkline';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb, FileText, Download } from 'lucide-react';
 import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +40,51 @@ export default function Dashboard() {
     console.log('[Dashboard] Chart data memoized:', dashboardData?.chartData?.length || 0, 'points');
     return dashboardData?.chartData || [];
   }, [dashboardData?.chartData]);
+
+  // Compute brand presence stats from existing data
+  const presenceStats = useMemo(() => {
+    if (!dashboardData?.responses || dashboardData.responses.length === 0) {
+      return { rate: 0, sparklineData: [], totalCount: 0, presenceCount: 0 };
+    }
+
+    // Get last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Filter successful responses in last 7 days
+    const recentResponses = dashboardData.responses.filter((response: any) => {
+      const responseDate = new Date(response.created_at);
+      return responseDate >= sevenDaysAgo && response.score !== null && response.error === null;
+    });
+
+    const totalCount = recentResponses.length;
+    const presenceCount = recentResponses.filter((response: any) => response.org_brand_present === true).length;
+    const rate = totalCount > 0 ? (presenceCount / totalCount) * 100 : 0;
+
+    // Create 7-day sparkline data
+    const sparklineData: Array<{ value: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = new Date();
+      dayDate.setDate(dayDate.getDate() - i);
+      dayDate.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(dayDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      const dayResponses = recentResponses.filter((response: any) => {
+        const responseDate = new Date(response.created_at);
+        return responseDate >= dayDate && responseDate < nextDay;
+      });
+      
+      const dayTotal = dayResponses.length;
+      const dayPresence = dayResponses.filter((response: any) => response.org_brand_present === true).length;
+      const dayRate = dayTotal > 0 ? (dayPresence / dayTotal) * 100 : 0;
+      
+      sparklineData.push({ value: dayRate });
+    }
+
+    return { rate, sparklineData, totalCount, presenceCount };
+  }, [dashboardData?.responses]);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -298,21 +345,40 @@ export default function Dashboard() {
 
             <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Overall Score</CardTitle>
+                <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
                 <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
-                  <TrendingUp className="h-4 w-4 text-secondary" />
+                  <Lightbulb className="h-4 w-4 text-secondary" />
                 </div>
               </CardHeader>
               <CardContent>
-                {dashboardData?.metrics?.overallScore ? (
-                  <div>
-                    <div className="text-2xl font-bold text-secondary">{formatScore(dashboardData.metrics.overallScore)}/10</div>
-                    <p className="text-xs text-muted-foreground">Last 7 days average</p>
+                {presenceStats.totalCount > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-2xl font-bold text-secondary">{Math.round(presenceStats.rate)}%</div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <MiniSparkline 
+                                data={presenceStats.sparklineData}
+                                color="hsl(var(--secondary))"
+                                className="h-6 w-12"
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-sm">{presenceStats.presenceCount}/{presenceStats.totalCount} responses</p>
+                            <p className="text-xs text-muted-foreground">Last 7 days trend</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Last 7 days ({presenceStats.presenceCount}/{presenceStats.totalCount})</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <div className="text-2xl font-bold text-muted-foreground">-/10</div>
-                    <p className="text-xs text-muted-foreground">No data available</p>
+                    <div className="text-2xl font-bold text-muted-foreground">-%</div>
+                    <p className="text-xs text-muted-foreground">No data yet</p>
                   </div>
                 )}
               </CardContent>
@@ -391,7 +457,7 @@ export default function Dashboard() {
                         tickLine={false}
                         tick={{ fontSize: 12 }}
                       />
-                      <Tooltip 
+                      <ChartTooltip 
                         labelFormatter={(value) => new Date(value).toLocaleDateString()}
                         formatter={(value: any) => [`${formatScore(value)}/10`, 'Visibility Score']}
                         contentStyle={{ 
