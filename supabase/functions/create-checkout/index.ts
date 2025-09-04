@@ -3,6 +3,28 @@ import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getStrictCorsHeaders } from "../_shared/cors.ts";
 
+interface RequestBody {
+  tier: 'starter' | 'growth' | 'pro';
+  billingCycle: 'monthly' | 'yearly';
+}
+
+const TIER_PRICES = {
+  starter: { monthly: 2900, yearly: 29000 }, // $29/mo, $290/year
+  growth: { monthly: 7900, yearly: 79000 }, // $79/mo, $790/year  
+  pro: { monthly: 15900, yearly: 159000 }, // $159/mo, $1590/year
+};
+
+const generateIdempotencyKey = (userId: string, intent: string): string => {
+  return `${userId}:${intent}:${Date.now() >> 13}`;
+};
+
+const validateProductionSafety = (stripeKey: string) => {
+  const nodeEnv = Deno.env.get("NODE_ENV");
+  if (nodeEnv === "production" && stripeKey.startsWith("sk_test_")) {
+    throw new Error("Cannot use test Stripe keys in production environment");
+  }
+};
+
 serve(async (req) => {
   const requestOrigin = req.headers.get('Origin');
   const corsHeaders = getStrictCorsHeaders(requestOrigin);

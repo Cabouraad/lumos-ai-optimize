@@ -53,11 +53,12 @@ export function PricingCard({
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          tier,
-          billingCycle,
-        },
+      // Use create-trial-checkout for starter tier, create-checkout for others
+      const functionName = tier === 'starter' ? 'create-trial-checkout' : 'create-checkout';
+      const body = tier === 'starter' ? {} : { tier, billingCycle };
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body,
       });
 
       if (error) throw error;
