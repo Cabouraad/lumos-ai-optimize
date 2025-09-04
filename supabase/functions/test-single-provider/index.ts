@@ -16,15 +16,16 @@ async function executeOpenAI(promptText: string): Promise<{ responseText: string
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-2025-08-07',
       messages: [{ role: 'user', content: promptText }],
-      temperature: 0.3,
-      max_tokens: 2000,
+      max_completion_tokens: 2000,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
+    const errorText = await response.text();
+    console.error(`OpenAI API error ${response.status}:`, errorText);
+    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -241,7 +242,20 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json();
+    // Safely parse request body
+    const requestText = await req.text();
+    if (!requestText || requestText.trim() === '') {
+      throw new Error('Empty request body');
+    }
+    
+    let requestBody;
+    try {
+      requestBody = JSON.parse(requestText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      throw new Error('Invalid JSON in request body');
+    }
+    
     const { promptText, provider, orgId } = requestBody;
     
     // Debug what we received
@@ -317,12 +331,17 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error(`=== PROVIDER TEST ERROR ===`, error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Ensure we always return valid JSON
+    const errorResponse = {
+      success: false,
+      error: error.message || 'Unknown error occurred',
+      timestamp: new Date().toISOString()
+    };
     
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
+      JSON.stringify(errorResponse),
       { 
         status: 200, // Return 200 so client can parse the error
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

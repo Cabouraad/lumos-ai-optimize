@@ -102,9 +102,6 @@ export function ProviderDebugPanel() {
             provider,
             orgId,
             promptId: selectedPrompt.id
-          },
-          headers: {
-            'Content-Type': 'application/json'
           }
         });
 
@@ -115,7 +112,19 @@ export function ProviderDebugPanel() {
           return { 
             provider, 
             status: 'error' as const, 
-            error: error.message || 'Unknown error', 
+            error: error.message || 'Edge function invocation failed', 
+            startTime, 
+            endTime 
+          };
+        }
+        
+        // Check if we got valid data back
+        if (!data) {
+          console.error(`${provider} returned null data`);
+          return { 
+            provider, 
+            status: 'error' as const, 
+            error: 'No data returned from provider', 
             startTime, 
             endTime 
           };
@@ -291,9 +300,9 @@ export function ProviderDebugPanel() {
                                 <div>
                                   <span className="font-medium">Score:</span> {result.response.score}/10
                                 </div>
-                                <div>
-                                  <span className="font-medium">Brand Present:</span> {result.response.orgBrandPresent ? 'Yes' : 'No'}
-                                </div>
+                                 <div>
+                                   <span className="font-medium">Brand Present:</span> {result.response.brandPresent ? 'Yes' : 'No'}
+                                 </div>
                                 <div>
                                   <span className="font-medium">Competitors:</span> {result.response.competitors?.length || 0}
                                 </div>
