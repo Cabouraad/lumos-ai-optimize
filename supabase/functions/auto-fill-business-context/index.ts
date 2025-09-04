@@ -58,29 +58,56 @@ Deno.serve(async (req) => {
 
     console.log('Processing auto-fill for user:', user.id)
 
-    // Get user's organization
-    const { data: userData, error: userDataError } = await supabaseClient
+    // Get request body to check for domain override
+    const requestBody = await req.json().catch(() => ({}))
+    const domainOverride = requestBody?.domain
+
+    console.log('Request body:', { domainOverride })
+
+    // Try to get user's organization, but don't fail if it doesn't exist
+    const { data: userData } = await supabaseClient
       .from('users')
       .select('org_id')
       .eq('id', user.id)
       .single()
 
-    if (userDataError || !userData?.org_id) {
-      throw new Error('User organization not found')
+    let orgData = null
+    let targetDomain = domainOverride
+
+    // If we have an org_id, try to get organization data
+    if (userData?.org_id) {
+      const { data: orgResult } = await supabaseClient
+        .from('organizations')
+        .select('domain, name')
+        .eq('id', userData.org_id)
+        .single()
+      
+      orgData = orgResult
+      if (orgData?.domain && !domainOverride) {
+        targetDomain = orgData.domain
+      }
     }
 
-    // Get organization domain
-    const { data: orgData, error: orgError } = await supabaseClient
-      .from('organizations')
-      .select('domain, name')
-      .eq('id', userData.org_id)
-      .single()
-
-    if (orgError || !orgData?.domain) {
-      throw new Error('Organization domain not found')
+    // If we don't have a domain from either source, return error
+    if (!targetDomain) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'No domain available for auto-fill. Please provide a domain.',
+          suggestManual: true
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
     }
 
-    console.log('Organization found:', { name: orgData.name, domain: orgData.domain })
+    console.log('Using domain for auto-fill:', { 
+      targetDomain, 
+      orgName: orgData?.name || 'N/A', 
+      hasOrganization: !!orgData 
+    })
 
     // Try to fetch website content with multiple methods
     let websiteContent = ''
@@ -88,10 +115,10 @@ Deno.serve(async (req) => {
 
     // Method 1: Direct fetch with multiple URL attempts
     const urlsToTry = [
-      orgData.domain.startsWith('http') ? orgData.domain : `https://${orgData.domain}`,
-      orgData.domain.startsWith('http') ? orgData.domain : `http://${orgData.domain}`,
-      `https://www.${orgData.domain.replace(/^https?:\/\/(www\.)?/, '')}`,
-      `http://www.${orgData.domain.replace(/^https?:\/\/(www\.)?/, '')}`
+      targetDomain.startsWith('http') ? targetDomain : `https://${targetDomain}`,
+      targetDomain.startsWith('http') ? targetDomain : `http://${targetDomain}`,
+      `https://www.${targetDomain.replace(/^https?:\/\/(www\.)?/, '')}`,
+      `http://www.${targetDomain.replace(/^https?:\/\/(www\.)?/, '')}`
     ]
 
     for (const url of urlsToTry) {
@@ -142,7 +169,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Unable to automatically fetch content from ${orgData.domain}. This could be due to:
+          error: `Unable to automatically fetch content from ${targetDomain}. This could be due to:
           
 • The website blocking automated requests
 • Network connectivity issues  
@@ -150,7 +177,7 @@ Deno.serve(async (req) => {
 • SSL/security restrictions
 
 Please try manually entering your business information in the form fields below, or ensure your website is publicly accessible.`,
-          domain: orgData.domain,
+          domain: targetDomain,
           suggestManual: true,
           manualFill: true // Backward compatibility alias
         }),
@@ -200,32 +227,39 @@ Please try manually entering your business information in the form fields below,
 
     console.log('Extracted business context:', businessContext)
 
-    // Update the organization with the extracted information
-    const { error: updateError } = await supabaseClient
-      .from('organizations')
-      .update({
-        keywords: businessContext.keywords,
-        competitors: businessContext.competitors,
-        business_description: businessContext.business_description,
-        products_services: businessContext.products_services,
-        target_audience: businessContext.target_audience
-      })
-      .eq('id', userData.org_id)
+    // Only update organization if it exists and we have an org_id
+    if (userData?.org_id && orgData) {
+      const { error: updateError } = await supabaseClient
+        .from('organizations')
+        .update({
+          keywords: businessContext.keywords,
+          competitors: businessContext.competitors,
+          business_description: businessContext.business_description,
+          products_services: businessContext.products_services,
+          target_audience: businessContext.target_audience
+        })
+        .eq('id', userData.org_id)
 
-    if (updateError) {
-      console.error('Database update error:', updateError)
-      throw new Error('Failed to save business context to database')
+      if (updateError) {
+        console.error('Database update error:', updateError)
+        console.log('Continuing without database update since this may be during onboarding')
+      } else {
+        console.log('Successfully updated business context in database')
+      }
+    } else {
+      console.log('No organization found - returning context for onboarding process')
     }
-
-    console.log('Successfully updated business context in database')
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         data: businessContext,
         businessContext: businessContext, // Backward compatibility alias
-        message: 'Business context auto-filled successfully from your website!',
-        fetchMethod: fetchMethod
+        message: orgData 
+          ? 'Business context auto-filled successfully from your website!'
+          : 'Business context extracted successfully! Complete the onboarding to save it.',
+        fetchMethod: fetchMethod,
+        hasOrganization: !!orgData
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

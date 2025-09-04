@@ -178,6 +178,9 @@ export default function Onboarding() {
       console.log('Auth session:', session.data.session ? 'Present' : 'Missing');
       
       const { data, error } = await supabase.functions.invoke('auto-fill-business-context', {
+        body: {
+          domain: formData.domain
+        },
         headers: {
           Authorization: `Bearer ${session.data.session?.access_token}`,
         },
