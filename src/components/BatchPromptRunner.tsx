@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
@@ -42,13 +43,15 @@ export function BatchPromptRunner() {
   const [isReconciling, setIsReconciling] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [isDriverRunning, setIsDriverRunning] = useState(false);
+  const [preflightData, setPreflightData] = useState<any>(null);
+  const [showPreflightWarning, setShowPreflightWarning] = useState(false);
 
   // Auto-reconcile on mount to fix any stuck jobs immediately
   useEffect(() => {
     const autoReconcile = async () => {
       try {
         console.log('🔄 Auto-reconciling stuck jobs on mount...');
-        await supabase.functions.invoke('batch-reconciler', {
+        await robustInvoke('batch-reconciler', {
           body: {},
           headers: {
             'x-manual-call': 'true'
@@ -60,6 +63,7 @@ export function BatchPromptRunner() {
     };
     autoReconcile();
     loadRecentJobs();
+    runPreflight();
   }, []);
 
   // Client-side driver loop to keep batch processing alive
@@ -86,9 +90,9 @@ export function BatchPromptRunner() {
           
           console.log('🔄 Driver loop: Continuing batch processing...');
           
-          const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
-            body: { orgId, resumeJobId: currentJob.id, action: 'resume' }
-          });
+            const { data, error } = await robustInvoke('robust-batch-processor', {
+              body: { orgId, resumeJobId: currentJob.id, action: 'resume' }
+            });
 
           if (error) {
             console.error('Driver loop error:', error);
@@ -114,10 +118,10 @@ export function BatchPromptRunner() {
               // Continue processing if still in progress and action indicates more work
               if (updatedJob.status === 'processing' && data.action === 'in_progress') {
                 console.log('🔄 Driver loop continuing - more work to do');
-                setTimeout(driverLoop, 2000); // Continue after 2 seconds
+                setTimeout(driverLoop, 3000); // Continue after 3 seconds
               } else if (updatedJob.status === 'processing' && data.action !== 'in_progress') {
                 console.log('🔄 Driver loop continuing - checking for more tasks');
-                setTimeout(driverLoop, 3000); // Check again after 3 seconds
+                setTimeout(driverLoop, 5000); // Check again after 5 seconds
               } else {
                 console.log('🏁 Driver loop stopping - job complete or failed');
                 setIsDriverRunning(false);
@@ -142,7 +146,7 @@ export function BatchPromptRunner() {
       };
 
       // Start the driver loop after a short delay
-      setTimeout(driverLoop, 2000);
+      setTimeout(driverLoop, 3000);
     }
 
     return () => {
@@ -176,7 +180,7 @@ export function BatchPromptRunner() {
             if (lastHeartbeat < threeMinutesAgo) {
               console.log('🚨 Job appears stuck, triggering auto-reconciliation...');
               try {
-                await supabase.functions.invoke('batch-reconciler', {
+                await robustInvoke('batch-reconciler', {
                   body: {},
                   headers: {
                     'x-manual-call': 'true'
@@ -232,6 +236,68 @@ export function BatchPromptRunner() {
     }
   };
 
+  // Robust invoke with retry mechanism
+  const robustInvoke = async (functionName: string, options: any, retries = 2): Promise<any> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const result = await supabase.functions.invoke(functionName, options);
+        return result;
+      } catch (error: any) {
+        const isNetworkError = error.message?.includes('Failed to fetch') || 
+                              error.message?.includes('network') ||
+                              error.message?.includes('NetworkError');
+        
+        if (isNetworkError && attempt < retries) {
+          console.log(`🔄 Network error on attempt ${attempt + 1}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+        
+        // Enhance error message for network issues
+        if (isNetworkError) {
+          throw new Error('Connection failed. Please check your internet connection and try again.');
+        }
+        
+        throw error;
+      }
+    }
+  };
+
+  // Run preflight check to validate system status
+  const runPreflight = async () => {
+    try {
+      const orgId = await getOrgId();
+      const correlationId = crypto.randomUUID();
+      
+      const { data, error } = await robustInvoke('robust-batch-processor', {
+        body: { 
+          action: 'preflight',
+          orgId,
+          correlationId
+        }
+      });
+
+      if (error) {
+        console.warn('Preflight check failed:', error);
+        return;
+      }
+
+      setPreflightData(data);
+      
+      // Show warning if critical issues found
+      const hasNoProviders = data.providers?.available?.length === 0;
+      const quotaExceeded = !data.quota?.allowed;
+      
+      setShowPreflightWarning(hasNoProviders || quotaExceeded);
+      
+      if (data.providers?.missing?.length > 0) {
+        console.log('⚠️ Missing provider API keys:', data.providers.missing);
+      }
+    } catch (error) {
+      console.warn('Preflight check error:', error);
+    }
+  };
+
   const runReconciler = async () => {
     setIsReconciling(true);
     setLastError(null);
@@ -239,7 +305,7 @@ export function BatchPromptRunner() {
     try {
       console.log('🔧 Manually running batch reconciler...');
       
-      const { data, error } = await supabase.functions.invoke('batch-reconciler', {
+      const { data, error } = await robustInvoke('batch-reconciler', {
         body: {},
         headers: {
           'x-manual-call': 'true'
@@ -291,11 +357,12 @@ export function BatchPromptRunner() {
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
+      const { data, error } = await robustInvoke('robust-batch-processor', {
         body: { 
           orgId,
           action: 'create',  // Explicitly set action to create
-          replace: true      // CANCEL EXISTING: Always replace existing jobs when starting new batch
+          replace: true,     // CANCEL EXISTING: Always replace existing jobs when starting new batch
+          correlationId: crypto.randomUUID()
         }
       });
 
@@ -381,8 +448,13 @@ export function BatchPromptRunner() {
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
-        body: { orgId, resumeJobId: jobId, action: 'resume' }
+      const { data, error } = await robustInvoke('robust-batch-processor', {
+        body: { 
+          orgId, 
+          resumeJobId: jobId, 
+          action: 'resume',
+          correlationId: crypto.randomUUID()
+        }
       });
 
       if (error) {
@@ -525,7 +597,7 @@ export function BatchPromptRunner() {
             </Button>
             <Button
               onClick={startBatchProcessing}
-              disabled={isStarting}
+              disabled={isStarting || (preflightData && !preflightData.quota?.allowed)}
               className="flex items-center gap-2"
             >
               {isStarting ? (
@@ -548,6 +620,28 @@ export function BatchPromptRunner() {
           </div>
         </div>
         
+        {/* Preflight Warning */}
+        {showPreflightWarning && preflightData && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {preflightData.providers?.available?.length === 0 && (
+                <div>
+                  <strong>No API keys configured.</strong> Please configure provider API keys in Settings.
+                  <div className="mt-1 text-sm">
+                    Missing: {preflightData.providers.missing?.join(', ')}
+                  </div>
+                </div>
+              )}
+              {!preflightData.quota?.allowed && (
+                <div>
+                  <strong>Quota exceeded.</strong> {preflightData.quota.error}
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Error Alert */}
         {lastError && (
           <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">

@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 import { analyzePromptResponse } from '../_shared/brand-response-analyzer.ts'
 import { createEdgeLogger } from '../_shared/observability/structured-logger.ts'
-import { corsHeaders, isRateLimited, getRateLimitHeaders } from '../_shared/cors.ts'
+import { corsHeaders, getStrictCorsHeaders, isRateLimited, getRateLimitHeaders } from '../_shared/cors.ts'
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts'
 import { BatchUsageTracker } from '../_shared/usage-tracker.ts'
 
@@ -29,7 +29,8 @@ async function scheduleBackgroundResume(
     
     console.log(`🔄 Attempting background resume ${attempt}/${MAX_RESUME_ATTEMPTS} for job ${jobId}, correlation_id: ${correlationId}`);
     
-    // Call ourselves recursively to resume processing
+    // Call ourselves recursively to resume processing with authentication
+    const cronSecret = Deno.env.get('CRON_SECRET');
     const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
       body: { 
         action: 'resume', 
@@ -38,7 +39,10 @@ async function scheduleBackgroundResume(
         correlationId,
         resumedBy: 'background-scheduler',
         attemptNumber: attempt
-      }
+      },
+      headers: cronSecret ? {
+        'x-cron-secret': cronSecret
+      } : {}
     });
 
     if (resumeResponse.error) {
@@ -436,6 +440,9 @@ async function processTask(
 
 // Main server
 serve(async (req) => {
+  const requestOrigin = req.headers.get('origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -523,17 +530,19 @@ serve(async (req) => {
       prompts, 
       providers, 
       resumeJobId,
-      replace = false
+      replace = false,
+      correlationId = crypto.randomUUID()
     } = requestBody || {};
 
-    console.log(`🚀 Batch processor started:`, {
+    console.log(`🚀 Batch processor started: [${correlationId}]`, {
       action,
       orgId: orgId?.substring(0, 8) + '...',
       providers: providers || 'not provided',
       promptsCount: prompts?.length || 'not provided',
       batchJobId: batchJobId?.substring(0, 8) + '...' || 'none',
       resumeJobId: resumeJobId?.substring(0, 8) + '...' || 'none',
-      replace
+      replace,
+      correlationId
     });
 
     // Validate org_id and check quotas before processing
@@ -592,17 +601,58 @@ serve(async (req) => {
       console.log('✅ Quota check passed, proceeding with batch');
     }
 
+    // Handle preflight action to check system status
+    if (action === 'preflight') {
+      console.log(`🔍 Preflight check requested [${correlationId}]`);
+      
+      const configs = getProviderConfigs();
+      const availableProviders = Object.keys(configs).filter(p => configs[p]?.apiKey);
+      
+      // Check quotas if user context available
+      let quotaStatus = { allowed: true, error: null };
+      if (userId) {
+        quotaStatus = await checkPromptQuota(supabase, userId, orgId, availableProviders.length);
+      }
+      
+      // Get active prompts count
+      const { data: promptData } = await supabase
+        .from('prompts')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('active', true);
+      
+      const expectedTasks = (promptData?.length || 0) * availableProviders.length;
+      
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'preflight',
+        correlationId,
+        providers: {
+          available: availableProviders,
+          missing: Object.keys(configs).filter(p => !configs[p]?.apiKey),
+          total: Object.keys(configs).length
+        },
+        quota: quotaStatus,
+        expectedTasks,
+        promptCount: promptData?.length || 0
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Get configurations and filter by available API keys
     const configs = getProviderConfigs();
     const availableProviders = Object.keys(configs).filter(p => configs[p]?.apiKey);
     
     if (availableProviders.length === 0) {
-      console.log('⚠️ No provider API keys available');
+      console.log(`⚠️ No provider API keys available [${correlationId}]`);
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'No provider API keys configured',
         action: 'configuration_missing',
-        availableProviders: []
+        availableProviders: [],
+        correlationId
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
