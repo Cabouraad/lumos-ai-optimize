@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { PricingCard } from '@/components/PricingCard';
+import { Info } from 'lucide-react';
 
 export default function Onboarding() {
   const { user, orgData, subscriptionData } = useAuth();
@@ -21,6 +23,8 @@ export default function Onboarding() {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>('growth');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [subscriptionCompleted, setSubscriptionCompleted] = useState(false);
+  const [showManualFillBanner, setShowManualFillBanner] = useState(false);
+  const businessContextRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     orgName: '',
     domain: '',
@@ -167,6 +171,8 @@ export default function Onboarding() {
     }
 
     setAutoFillLoading(true);
+    setShowManualFillBanner(false); // Reset banner state
+    
     try {
       const session = await supabase.auth.getSession();
       console.log('Auth session:', session.data.session ? 'Present' : 'Missing');
@@ -199,12 +205,17 @@ export default function Onboarding() {
           description: "Please contact support to enable auto-fill functionality.",
           variant: "destructive",
         });
-      } else if (data?.manualFill) {
-        toast({
-          title: "Manual Input Needed",
-          description: "We couldn't automatically extract business context. Please fill in the fields manually.",
-          variant: "destructive",
-        });
+      } else if (data?.manualFill || data?.suggestManual) {
+        // Show soft banner and scroll to form instead of destructive toast
+        setShowManualFillBanner(true);
+        
+        // Scroll to business context fields after a brief delay
+        setTimeout(() => {
+          businessContextRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 300);
       }
     } catch (error: any) {
       console.error("Auto-fill error:", error);
@@ -312,6 +323,19 @@ export default function Onboarding() {
               </div>
             </div>
             
+            {/* Manual fill banner */}
+            {showManualFillBanner && (
+              <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200">
+                  <strong>Manual input needed:</strong> We couldn't automatically extract your business context from your website. 
+                  This could be due to security restrictions or the website content not being accessible. 
+                  Please fill in the fields below manually.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div ref={businessContextRef}>
             <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="keywords_required">Target Keywords *</Label>
@@ -377,6 +401,7 @@ export default function Onboarding() {
                 </Button>
               </div>
             </form>
+            </div>
           </CardContent>
         </Card>
       </div>

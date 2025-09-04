@@ -9,6 +9,17 @@ export type BrandExtraction = {
   tokenOut: number; 
 };
 
+export type BusinessContextExtraction = {
+  keywords: string[];
+  competitors: string[];
+  business_description: string;
+  products_services: string;
+  target_audience: string;
+  tokenIn: number;
+  tokenOut: number;
+  analysis_hash?: string;
+};
+
 export async function extractBrandsOpenAI(promptText: string, apiKey: string): Promise<BrandExtraction> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -217,4 +228,121 @@ function isCommonWord(word: string): boolean {
     'First', 'Last', 'Next', 'New', 'Old', 'Other', 'Another'
   ];
   return commonWords.includes(word);
+}
+
+/**
+ * Extract business context from website content using OpenAI
+ */
+export async function extractBusinessContextOpenAI(websiteContent: string, apiKey: string): Promise<BusinessContextExtraction> {
+  // Create analysis hash for deduplication
+  const encoder = new TextEncoder();
+  const data = encoder.encode(websiteContent);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const analysis_hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+
+  const analysisPrompt = `Analyze this website content and extract specific business information. Return ONLY a valid JSON object with this exact structure:
+
+{
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "competitors": ["competitor1", "competitor2", "competitor3"],
+  "business_description": "Brief description of what the business does",
+  "products_services": "Description of main products and services offered", 
+  "target_audience": "Description of ideal customers and target market"
+}
+
+Instructions:
+- Extract 5-8 specific keywords related to the industry, products, or services (avoid generic terms)
+- Extract 3-6 main competitors mentioned or implied on the website (actual company names only)
+- Keep descriptions concise and professional
+- Focus on concrete business activities, not marketing language
+- If information is unclear, provide reasonable inferences based on context
+
+Website content:
+${websiteContent}
+
+Return only the JSON object, no other text:`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'gpt-5-2025-08-07',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
+        },
+        {
+          role: 'user',
+          content: analysisPrompt
+        }
+      ],
+      max_completion_tokens: 1000
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI API error:', errorText);
+    throw new Error(`OpenAI API failed: ${response.status}`);
+  }
+
+  const openaiResult = await response.json();
+  const analysisText = openaiResult.choices[0]?.message?.content?.trim();
+  const usage = openaiResult.usage || {};
+
+  if (!analysisText) {
+    throw new Error('No analysis received from OpenAI');
+  }
+
+  console.log('Raw OpenAI response:', analysisText);
+
+  // Parse the JSON response with better error handling
+  let businessContext: any;
+  try {
+    // Clean the response to ensure it's valid JSON
+    let cleanedResponse = analysisText;
+    // Remove any markdown code blocks
+    cleanedResponse = cleanedResponse.replace(/```json\n?|\n?```/g, '').trim();
+    // Remove any leading/trailing non-JSON content
+    const jsonStart = cleanedResponse.indexOf('{');
+    const jsonEnd = cleanedResponse.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    businessContext = JSON.parse(cleanedResponse);
+  } catch (parseError) {
+    console.error('Failed to parse OpenAI response:', analysisText, 'Error:', parseError);
+    throw new Error('Failed to parse AI analysis results');
+  }
+
+  // Validate and clean the parsed data
+  const result: BusinessContextExtraction = {
+    keywords: Array.isArray(businessContext.keywords) ? 
+      businessContext.keywords
+        .filter((k: any) => k && typeof k === 'string' && k.trim().length > 0)
+        .map((k: string) => k.trim())
+        .slice(0, 10) : [],
+    competitors: Array.isArray(businessContext.competitors) ? 
+      businessContext.competitors
+        .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
+        .map((c: string) => c.trim())
+        .slice(0, 8) : [],
+    business_description: typeof businessContext.business_description === 'string' ? 
+      businessContext.business_description : '',
+    products_services: typeof businessContext.products_services === 'string' ? 
+      businessContext.products_services : '',
+    target_audience: typeof businessContext.target_audience === 'string' ? 
+      businessContext.target_audience : '',
+    tokenIn: usage.prompt_tokens || 0,
+    tokenOut: usage.completion_tokens || 0,
+    analysis_hash
+  };
+
+  return result;
 }

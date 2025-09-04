@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { extractBusinessContextOpenAI, type BusinessContextExtraction } from '../_shared/providers.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -180,117 +181,22 @@ Please try manually entering your business information in the form fields below,
       throw new Error('Insufficient content extracted from website')
     }
 
-    console.log('Analyzing content with OpenAI...')
+    console.log('Analyzing content with OpenAI using shared provider...')
 
-    // Create a more targeted prompt for business analysis
-    const analysisPrompt = `Analyze this website content and extract specific business information. Return ONLY a valid JSON object with this exact structure:
+    // Use shared provider for consistent OpenAI API calls and token tracking
+    const businessContextResult = await extractBusinessContextOpenAI(cleanContent, openaiApiKey);
+    
+    console.log('Extracted business context:', businessContextResult)
+    console.log('Token usage - Input:', businessContextResult.tokenIn, 'Output:', businessContextResult.tokenOut)
 
-{
-  "keywords": ["keyword1", "keyword2", "keyword3"],
-  "competitors": ["competitor1", "competitor2", "competitor3"],
-  "business_description": "Brief description of what the business does",
-  "products_services": "Description of main products and services offered", 
-  "target_audience": "Description of ideal customers and target market"
-}
-
-Instructions:
-- Extract 5-8 specific keywords related to the industry, products, or services (avoid generic terms)
-- Extract 3-6 main competitors mentioned or implied on the website (actual company names only)
-- Keep descriptions concise and professional
-- Focus on concrete business activities, not marketing language
-- If information is unclear, provide reasonable inferences based on context
-
-Website content:
-${cleanContent}
-
-Return only the JSON object, no other text:`
-
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
-          },
-          {
-            role: 'user',
-            content: analysisPrompt
-          }
-        ],
-        max_completion_tokens: 1000
-      })
-    })
-
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text()
-      console.error('OpenAI API error:', errorText)
-      throw new Error(`OpenAI API failed: ${openaiResponse.status}`)
-    }
-
-    const openaiResult = await openaiResponse.json()
-    const analysisText = openaiResult.choices[0]?.message?.content?.trim()
-
-    if (!analysisText) {
-      throw new Error('No analysis received from OpenAI')
-    }
-
-    console.log('Raw OpenAI response:', analysisText)
-
-    // Parse the JSON response with better error handling
-    let businessContext: BusinessContext
-    try {
-      // Clean the response to ensure it's valid JSON
-      let cleanedResponse = analysisText
-      // Remove any markdown code blocks
-      cleanedResponse = cleanedResponse.replace(/```json\n?|\n?```/g, '').trim()
-      // Remove any leading/trailing non-JSON content
-      const jsonStart = cleanedResponse.indexOf('{')
-      const jsonEnd = cleanedResponse.lastIndexOf('}')
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1)
-      }
-      
-      businessContext = JSON.parse(cleanedResponse)
-      
-      // Validate and clean the parsed data
-      if (!businessContext.keywords || !Array.isArray(businessContext.keywords)) {
-        businessContext.keywords = []
-      }
-      if (!businessContext.competitors || !Array.isArray(businessContext.competitors)) {
-        businessContext.competitors = []
-      }
-      if (typeof businessContext.business_description !== 'string') {
-        businessContext.business_description = ''
-      }
-      if (typeof businessContext.products_services !== 'string') {
-        businessContext.products_services = ''
-      }
-      if (typeof businessContext.target_audience !== 'string') {
-        businessContext.target_audience = ''
-      }
-
-      // Filter out empty or invalid keywords
-      businessContext.keywords = businessContext.keywords
-        .filter(k => k && typeof k === 'string' && k.trim().length > 0)
-        .map(k => k.trim())
-        .slice(0, 10) // Limit to 10 keywords
-
-      // Filter out empty or invalid competitors
-      businessContext.competitors = businessContext.competitors
-        .filter(c => c && typeof c === 'string' && c.trim().length > 0)
-        .map(c => c.trim())
-        .slice(0, 8) // Limit to 8 competitors
-
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', analysisText, 'Error:', parseError)
-      throw new Error('Failed to parse AI analysis results')
-    }
+    // Convert to expected format (maintaining backward compatibility)
+    const businessContext: BusinessContext = {
+      keywords: businessContextResult.keywords,
+      competitors: businessContextResult.competitors,
+      business_description: businessContextResult.business_description,
+      products_services: businessContextResult.products_services,
+      target_audience: businessContextResult.target_audience
+    };
 
     console.log('Extracted business context:', businessContext)
 
