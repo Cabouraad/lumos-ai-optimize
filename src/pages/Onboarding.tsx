@@ -193,6 +193,8 @@ export default function Onboarding() {
         
         setFormData(prev => ({
           ...prev,
+          keywords: context.keywords ? context.keywords.join(', ') : prev.keywords,
+          competitors: context.competitors ? context.competitors.join(', ') : prev.competitors,
           business_description: context.business_description || prev.business_description,
           products_services: context.products_services || prev.products_services,
           target_audience: context.target_audience || prev.target_audience,
