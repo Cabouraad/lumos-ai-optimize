@@ -89,6 +89,61 @@ export default function Dashboard() {
     return { rate, sparklineData, totalCount, presenceCount };
   }, [dashboardData?.responses]);
 
+  // Compute competitor presence chart data
+  const competitorChartData = useMemo(() => {
+    if (chartView !== 'competitors' || !dashboardData?.responses || competitors.length === 0) {
+      return [];
+    }
+
+    const chartData: any[] = [];
+    
+    // Create 7 days of data
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = new Date();
+      dayDate.setDate(dayDate.getDate() - i);
+      dayDate.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(dayDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      // Filter responses for this day
+      const dayResponses = dashboardData.responses.filter((response: any) => {
+        const responseDate = new Date(response.created_at);
+        return responseDate >= dayDate && responseDate < nextDay && response.score !== null && response.error === null;
+      });
+      
+      const dayData: any = {
+        date: dayDate.toISOString(),
+        orgPresence: 0
+      };
+
+      // Calculate org presence rate
+      const totalDayResponses = dayResponses.length;
+      if (totalDayResponses > 0) {
+        const orgPresent = dayResponses.filter((r: any) => r.org_brand_present === true).length;
+        dayData.orgPresence = Math.round((orgPresent / totalDayResponses) * 100);
+      }
+
+      // Calculate competitor presence rates
+      competitors.forEach((competitor, index) => {
+        const competitorResponses = dayResponses.filter((response: any) => {
+          if (!response.detected_brands) return false;
+          const brands = Array.isArray(response.detected_brands) ? response.detected_brands : [response.detected_brands];
+          return brands.some((brand: string) => 
+            brand && brand.toLowerCase().trim() === competitor.name.toLowerCase().trim()
+          );
+        });
+        
+        const competitorRate = totalDayResponses > 0 ? Math.round((competitorResponses.length / totalDayResponses) * 100) : 0;
+        dayData[`competitor${index}`] = competitorRate;
+      });
+
+      chartData.push(dayData);
+    }
+
+    return chartData;
+  }, [chartView, dashboardData?.responses, competitors]);
+
   useEffect(() => {
     if (orgData?.organizations?.id) {
       loadRecommendations();
@@ -337,60 +392,6 @@ export default function Dashboard() {
     );
   }
 
-  // Compute competitor presence chart data
-  const competitorChartData = useMemo(() => {
-    if (chartView !== 'competitors' || !dashboardData?.responses || competitors.length === 0) {
-      return [];
-    }
-
-    const chartData: any[] = [];
-    
-    // Create 7 days of data
-    for (let i = 6; i >= 0; i--) {
-      const dayDate = new Date();
-      dayDate.setDate(dayDate.getDate() - i);
-      dayDate.setHours(0, 0, 0, 0);
-      
-      const nextDay = new Date(dayDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      
-      // Filter responses for this day
-      const dayResponses = dashboardData.responses.filter((response: any) => {
-        const responseDate = new Date(response.created_at);
-        return responseDate >= dayDate && responseDate < nextDay && response.score !== null && response.error === null;
-      });
-      
-      const dayData: any = {
-        date: dayDate.toISOString(),
-        orgPresence: 0
-      };
-
-      // Calculate org presence rate
-      const totalDayResponses = dayResponses.length;
-      if (totalDayResponses > 0) {
-        const orgPresent = dayResponses.filter((r: any) => r.org_brand_present === true).length;
-        dayData.orgPresence = Math.round((orgPresent / totalDayResponses) * 100);
-      }
-
-      // Calculate competitor presence rates
-      competitors.forEach((competitor, index) => {
-        const competitorResponses = dayResponses.filter((response: any) => {
-          if (!response.detected_brands) return false;
-          const brands = Array.isArray(response.detected_brands) ? response.detected_brands : [response.detected_brands];
-          return brands.some((brand: string) => 
-            brand && brand.toLowerCase().trim() === competitor.name.toLowerCase().trim()
-          );
-        });
-        
-        const competitorRate = totalDayResponses > 0 ? Math.round((competitorResponses.length / totalDayResponses) * 100) : 0;
-        dayData[`competitor${index}`] = competitorRate;
-      });
-
-      chartData.push(dayData);
-    }
-
-    return chartData;
-  }, [chartView, dashboardData?.responses, competitors]);
 
   const formatScore = (score: number) => Math.round(score * 10) / 10;
   const getTrendIcon = (trend: number) => {
