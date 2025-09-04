@@ -12,8 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { RefreshButton } from '@/components/RefreshButton';
 import { MiniSparkline } from '@/components/MiniSparkline';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip } from 'recharts';
-import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb, FileText, Download } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
+import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb, FileText, Download, BarChart3 } from 'lucide-react';
 import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -27,6 +27,9 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [latestReport, setLatestReport] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [chartView, setChartView] = useState<'score' | 'competitors'>('score');
+  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [loadingCompetitors, setLoadingCompetitors] = useState(false);
   const { toast } = useToast();
   
   // Use real-time dashboard hook with longer interval to reduce refreshes
@@ -92,8 +95,11 @@ export default function Dashboard() {
       if (isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
         loadLatestReport();
       }
+      if (chartView === 'competitors') {
+        loadCompetitors();
+      }
     }
-  }, [orgData?.organizations?.id]);
+  }, [orgData?.organizations?.id, chartView]);
 
   // Show error if dashboard fetch failed
   useEffect(() => {
@@ -224,6 +230,53 @@ export default function Dashboard() {
     }
   };
 
+  const loadCompetitors = async () => {
+    try {
+      setLoadingCompetitors(true);
+      const orgId = orgData?.organizations?.id;
+      if (!orgId) return;
+
+      const { data, error } = await supabase.rpc('get_org_competitor_summary', {
+        p_org_id: orgId
+      });
+
+      if (error) {
+        console.error('RPC error, falling back to client-side aggregation:', error);
+        // Fallback: aggregate from existing dashboard data
+        const competitorMap = new Map();
+        if (dashboardData?.responses) {
+          dashboardData.responses.forEach((response: any) => {
+            if (response.detected_brands) {
+              const brands = Array.isArray(response.detected_brands) ? response.detected_brands : [response.detected_brands];
+              brands.forEach((brand: string) => {
+                if (brand && brand.trim() && !response.org_brand_present) {
+                  const existing = competitorMap.get(brand);
+                  competitorMap.set(brand, (existing || 0) + 1);
+                }
+              });
+            }
+          });
+        }
+        
+        const fallbackCompetitors = Array.from(competitorMap.entries())
+          .map(([name, count]) => ({ name, total_mentions: count }))
+          .sort((a, b) => b.total_mentions - a.total_mentions)
+          .slice(0, 5);
+        
+        setCompetitors(fallbackCompetitors);
+        return;
+      }
+
+      // Take top 5 competitors
+      setCompetitors((data || []).slice(0, 5));
+    } catch (error) {
+      console.error('Error loading competitors:', error);
+      setCompetitors([]);
+    } finally {
+      setLoadingCompetitors(false);
+    }
+  };
+
   const formatWeekPeriod = (start: string, end: string): string => {
     const startDate = new Date(start);
     const endDate = new Date(end);
@@ -283,6 +336,61 @@ export default function Dashboard() {
       </Layout>
     );
   }
+
+  // Compute competitor presence chart data
+  const competitorChartData = useMemo(() => {
+    if (chartView !== 'competitors' || !dashboardData?.responses || competitors.length === 0) {
+      return [];
+    }
+
+    const chartData: any[] = [];
+    
+    // Create 7 days of data
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = new Date();
+      dayDate.setDate(dayDate.getDate() - i);
+      dayDate.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(dayDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      // Filter responses for this day
+      const dayResponses = dashboardData.responses.filter((response: any) => {
+        const responseDate = new Date(response.created_at);
+        return responseDate >= dayDate && responseDate < nextDay && response.score !== null && response.error === null;
+      });
+      
+      const dayData: any = {
+        date: dayDate.toISOString(),
+        orgPresence: 0
+      };
+
+      // Calculate org presence rate
+      const totalDayResponses = dayResponses.length;
+      if (totalDayResponses > 0) {
+        const orgPresent = dayResponses.filter((r: any) => r.org_brand_present === true).length;
+        dayData.orgPresence = Math.round((orgPresent / totalDayResponses) * 100);
+      }
+
+      // Calculate competitor presence rates
+      competitors.forEach((competitor, index) => {
+        const competitorResponses = dayResponses.filter((response: any) => {
+          if (!response.detected_brands) return false;
+          const brands = Array.isArray(response.detected_brands) ? response.detected_brands : [response.detected_brands];
+          return brands.some((brand: string) => 
+            brand && brand.toLowerCase().trim() === competitor.name.toLowerCase().trim()
+          );
+        });
+        
+        const competitorRate = totalDayResponses > 0 ? Math.round((competitorResponses.length / totalDayResponses) * 100) : 0;
+        dayData[`competitor${index}`] = competitorRate;
+      });
+
+      chartData.push(dayData);
+    }
+
+    return chartData;
+  }, [chartView, dashboardData?.responses, competitors]);
 
   const formatScore = (score: number) => Math.round(score * 10) / 10;
   const getTrendIcon = (trend: number) => {
@@ -432,61 +540,193 @@ export default function Dashboard() {
           {/* Visibility Trend Chart */}
           <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-primary" />
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    {chartView === 'score' ? <TrendingUp className="h-5 w-5 text-primary" /> : <BarChart3 className="h-5 w-5 text-primary" />}
+                  </div>
+                  <span>{chartView === 'score' ? 'Visibility Trend' : 'Presence Rate (Top Competitors)'}</span>
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant={chartView === 'score' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setChartView('score')}
+                    className="hover-lift"
+                  >
+                    Score
+                  </Button>
+                  <Button
+                    variant={chartView === 'competitors' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setChartView('competitors')}
+                    className="hover-lift"
+                  >
+                    Competitors
+                  </Button>
                 </div>
-                <span>Visibility Trend</span>
-              </CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
-              {memoizedChartData && memoizedChartData.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={memoizedChartData}>
-                      <XAxis 
-                        dataKey="date" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      />
-                      <YAxis 
-                        domain={[0, 10]}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12 }}
-                      />
-                      <ChartTooltip 
-                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                        formatter={(value: any) => [`${formatScore(value)}/10`, 'Visibility Score']}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                        animationDuration={0}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="hsl(var(--primary))" 
-                        strokeWidth={3}
-                        dot={false}
-                        activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
-                        animationDuration={0}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-64 flex items-center justify-center">
-                  <div className="text-center">
-                    <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No visibility data available</p>
-                    <p className="text-sm text-muted-foreground mt-2">Run prompts to start collecting data</p>
+              {chartView === 'score' ? (
+                // Score Chart View
+                memoizedChartData && memoizedChartData.length > 0 ? (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={memoizedChartData}>
+                        <XAxis 
+                          dataKey="date" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        />
+                        <YAxis 
+                          domain={[0, 10]}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <ChartTooltip 
+                          labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                          formatter={(value: any) => [`${formatScore(value)}/10`, 'Visibility Score']}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                          animationDuration={0}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="score" 
+                          stroke="hsl(var(--primary))" 
+                          strokeWidth={3}
+                          dot={false}
+                          activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                          animationDuration={0}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="text-center">
+                      <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No visibility data available</p>
+                      <p className="text-sm text-muted-foreground mt-2">Run prompts to start collecting data</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                // Competitors Chart View
+                loadingCompetitors ? (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Loading competitors...</span>
+                  </div>
+                ) : competitors.length > 0 && competitorChartData.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={competitorChartData}>
+                          <XAxis 
+                            dataKey="date" 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 12 }}
+                            tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          />
+                          <YAxis 
+                            domain={[0, 100]}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 12 }}
+                            tickFormatter={(value) => `${value}%`}
+                          />
+                          <ChartTooltip 
+                            labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                            formatter={(value: any, name: string) => {
+                              if (name === 'orgPresence') return [`${value}%`, 'Your Brand'];
+                              const compIndex = parseInt(name.replace('competitor', ''));
+                              const compName = competitors[compIndex]?.name || 'Unknown';
+                              return [`${value}%`, compName];
+                            }}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--card))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px'
+                            }}
+                            animationDuration={0}
+                          />
+                          <Legend 
+                            content={(props) => (
+                              <div className="flex flex-wrap gap-4 justify-center mt-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-0.5 bg-primary rounded"></div>
+                                  <span className="text-sm text-foreground font-medium">Your Brand</span>
+                                </div>
+                                {competitors.slice(0, 4).map((comp, index) => (
+                                  <div key={comp.name} className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-0.5 rounded"
+                                      style={{ backgroundColor: `hsl(${(index + 1) * 60 + 180}, 70%, 50%)` }}
+                                    ></div>
+                                    <span className="text-sm text-muted-foreground truncate max-w-20" title={comp.name}>
+                                      {comp.name}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="orgPresence"
+                            stroke="hsl(var(--primary))" 
+                            strokeWidth={3}
+                            dot={false}
+                            activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                            animationDuration={0}
+                          />
+                          {competitors.slice(0, 4).map((comp, index) => (
+                            <Line 
+                              key={comp.name}
+                              type="monotone" 
+                              dataKey={`competitor${index}`}
+                              stroke={`hsl(${(index + 1) * 60 + 180}, 70%, 50%)`}
+                              strokeWidth={2}
+                              dot={false}
+                              activeDot={{ r: 3, strokeWidth: 2 }}
+                              animationDuration={0}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Showing presence rates for top {Math.min(competitors.length, 4)} competitors
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate('/competitors')}
+                        className="hover-lift"
+                      >
+                        View Competitors
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="text-center">
+                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No competitor data available</p>
+                      <p className="text-sm text-muted-foreground mt-2">Run more prompts to detect competitors</p>
+                    </div>
+                  </div>
+                )
               )}
             </CardContent>
           </Card>
