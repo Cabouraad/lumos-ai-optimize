@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { extractBusinessContextOpenAI, type BusinessContextExtraction } from '../_shared/providers.ts'
+import { extractBusinessContextOpenAI, generateKeywordsOnly, extractMetaKeywords, extractHeuristicKeywords, type BusinessContextExtraction } from '../_shared/providers.ts'
+import FirecrawlApp from 'https://esm.sh/@mendable/firecrawl-js@3.0.3'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,8 +113,10 @@ Deno.serve(async (req) => {
     // Try to fetch website content with multiple methods
     let websiteContent = ''
     let fetchMethod = 'none'
+    let rawHtml = ''
+    const fetchStartTime = Date.now()
 
-    // Method 1: Direct fetch with multiple URL attempts
+    // Method 1: Direct fetch with multiple URL attempts (faster timeout)
     const urlsToTry = [
       targetDomain.startsWith('http') ? targetDomain : `https://${targetDomain}`,
       targetDomain.startsWith('http') ? targetDomain : `http://${targetDomain}`,
@@ -126,7 +129,7 @@ Deno.serve(async (req) => {
         console.log(`Attempting to fetch: ${url}`)
         
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // Reduced to 10 second timeout
         
         const websiteResponse = await fetch(url, {
           method: 'GET',
@@ -150,6 +153,7 @@ Deno.serve(async (req) => {
         if (websiteResponse.ok) {
           const html = await websiteResponse.text()
           if (html && html.length > 100) { // Ensure we got meaningful content
+            rawHtml = html
             websiteContent = html
             fetchMethod = `direct-${url}`
             console.log(`Successfully fetched content from: ${url} (${html.length} chars)`)
@@ -163,9 +167,37 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If direct fetch failed, provide a helpful fallback message
-    if (!websiteContent) {
-      console.log('All direct fetch attempts failed')
+    // Method 2: Try Firecrawl if direct fetch failed or returned minimal content
+    const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY')
+    if ((!websiteContent || websiteContent.length < 50) && firecrawlApiKey) {
+      try {
+        console.log('Direct fetch failed or insufficient content, trying Firecrawl...')
+        
+        const app = new FirecrawlApp({ apiKey: firecrawlApiKey })
+        const cleanDomain = targetDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+        
+        const crawlResult = await app.scrapeUrl(`https://${cleanDomain}`, {
+          formats: ['markdown', 'html'],
+          onlyMainContent: true,
+          timeout: 12000
+        })
+
+        if (crawlResult.success && crawlResult.data?.markdown) {
+          websiteContent = crawlResult.data.markdown
+          rawHtml = crawlResult.data.html || rawHtml
+          fetchMethod = 'firecrawl'
+          console.log(`Successfully crawled content with Firecrawl (${websiteContent.length} chars)`)
+        }
+      } catch (firecrawlError) {
+        console.log('Firecrawl attempt failed:', firecrawlError.message)
+      }
+    }
+
+    const fetchDuration = Date.now() - fetchStartTime
+
+    // If both methods failed, provide a helpful fallback message
+    if (!websiteContent || websiteContent.length < 50) {
+      console.log('All content fetch attempts failed or insufficient content')
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -175,17 +207,26 @@ Deno.serve(async (req) => {
 • Network connectivity issues  
 • The domain not being publicly accessible
 • SSL/security restrictions
+• Heavy JavaScript-rendered content
 
 Please try manually entering your business information in the form fields below, or ensure your website is publicly accessible.`,
           domain: targetDomain,
           suggestManual: true,
-          manualFill: true // Backward compatibility alias
+          manualFill: true, // Backward compatibility alias
+          fetchDuration
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         }
       )
+    }
+
+    // Extract meta keywords before cleaning HTML (for keyword fallback)
+    let metaKeywords: string[] = []
+    if (rawHtml) {
+      metaKeywords = extractMetaKeywords(rawHtml)
+      console.log('Meta keywords found:', metaKeywords)
     }
 
     // Clean and extract meaningful content from HTML
@@ -204,17 +245,14 @@ Please try manually entering your business information in the form fields below,
 
     console.log(`Extracted content: ${cleanContent.length} characters using ${fetchMethod}`)
 
-    if (cleanContent.length < 50) {
-      throw new Error('Insufficient content extracted from website')
-    }
-
     console.log('Analyzing content with OpenAI using shared provider...')
 
+    const aiStartTime = Date.now()
+    
     // Use shared provider for consistent OpenAI API calls and token tracking with error containment
-    let businessContextResult: BusinessContextExtraction;
+    let businessContextResult: BusinessContextExtraction & { model_used: string; source?: string };
     try {
       businessContextResult = await extractBusinessContextOpenAI(cleanContent, openaiApiKey);
-      console.log('Extracted business context:', businessContextResult)
       console.log('Token usage - Input:', businessContextResult.tokenIn, 'Output:', businessContextResult.tokenOut)
     } catch (openaiError) {
       console.error('OpenAI analysis failed:', openaiError.message);
@@ -232,7 +270,9 @@ Please try manually entering your business information in the form fields below,
 Please try manually entering your business information in the form fields below, or try again in a few moments.`,
           domain: targetDomain,
           suggestManual: true,
-          aiAnalysisFailed: true
+          aiAnalysisFailed: true,
+          fetchDuration,
+          aiDuration: Date.now() - aiStartTime
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -241,16 +281,60 @@ Please try manually entering your business information in the form fields below,
       )
     }
 
+    const aiDuration = Date.now() - aiStartTime
+    
+    // Guaranteed keywords: ensure we have at least 3 keywords
+    let finalKeywords = businessContextResult.keywords || []
+    
+    if (finalKeywords.length < 3) {
+      console.log(`Only ${finalKeywords.length} keywords found, attempting to enhance...`)
+      
+      // Try meta keywords first
+      if (metaKeywords.length > 0) {
+        finalKeywords = [...finalKeywords, ...metaKeywords]
+        console.log('Added meta keywords:', metaKeywords)
+      }
+      
+      // If still insufficient, try AI keywords-only prompt
+      if (finalKeywords.length < 3) {
+        try {
+          const aiKeywords = await generateKeywordsOnly(cleanContent, openaiApiKey)
+          finalKeywords = [...finalKeywords, ...aiKeywords]
+          console.log('Added AI-generated keywords:', aiKeywords)
+        } catch (keywordError) {
+          console.log('AI keywords generation failed:', keywordError.message)
+        }
+      }
+      
+      // Final fallback: heuristic keywords
+      if (finalKeywords.length < 3) {
+        const heuristicKeywords = extractHeuristicKeywords(cleanContent)
+        finalKeywords = [...finalKeywords, ...heuristicKeywords]
+        console.log('Added heuristic keywords:', heuristicKeywords)
+      }
+      
+      // Clean and deduplicate
+      finalKeywords = [...new Set(finalKeywords)]
+        .filter(k => k && k.trim().length > 0)
+        .slice(0, 10)
+    }
+
     // Convert to expected format (maintaining backward compatibility)
     const businessContext: BusinessContext = {
-      keywords: businessContextResult.keywords,
-      competitors: businessContextResult.competitors,
-      business_description: businessContextResult.business_description,
-      products_services: businessContextResult.products_services,
-      target_audience: businessContextResult.target_audience
+      keywords: finalKeywords,
+      competitors: businessContextResult.competitors || [],
+      business_description: businessContextResult.business_description || '',
+      products_services: businessContextResult.products_services || '',
+      target_audience: businessContextResult.target_audience || ''
     };
 
-    console.log('Extracted business context:', businessContext)
+    console.log('Final business context:', {
+      ...businessContext,
+      keywordsCount: finalKeywords.length,
+      source: fetchMethod,
+      model: businessContextResult.model_used,
+      durations: { fetchMs: fetchDuration, aiMs: aiDuration }
+    })
 
     // Only update organization if it exists and we have an org_id
     if (userData?.org_id && orgData) {
@@ -283,8 +367,15 @@ Please try manually entering your business information in the form fields below,
         message: orgData 
           ? 'Business context auto-filled successfully from your website!'
           : 'Business context extracted successfully! Complete the onboarding to save it.',
-        fetchMethod: fetchMethod,
-        hasOrganization: !!orgData
+        source: fetchMethod,
+        model_used: businessContextResult.model_used,
+        durations: {
+          fetch_ms: fetchDuration,
+          ai_ms: aiDuration,
+          total_ms: Date.now() - fetchStartTime
+        },
+        hasOrganization: !!orgData,
+        keywordsEnhanced: finalKeywords.length > (businessContextResult.keywords?.length || 0)
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

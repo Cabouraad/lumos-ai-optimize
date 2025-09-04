@@ -231,9 +231,9 @@ function isCommonWord(word: string): boolean {
 }
 
 /**
- * Extract business context from website content using OpenAI
+ * Extract business context from website content using OpenAI with robust fallback chain
  */
-export async function extractBusinessContextOpenAI(websiteContent: string, apiKey: string): Promise<BusinessContextExtraction> {
+export async function extractBusinessContextOpenAI(websiteContent: string, apiKey: string): Promise<BusinessContextExtraction & { model_used: string; source?: string }> {
   // Create analysis hash for deduplication
   const encoder = new TextEncoder();
   const data = encoder.encode(websiteContent);
@@ -263,52 +263,169 @@ ${websiteContent}
 
 Return only the JSON object, no other text:`;
 
-  // First attempt with GPT-5
-  let response: Response;
-  let model = 'gpt-5-2025-08-07';
-  
-  try {
-    console.log('Attempting OpenAI analysis with GPT-5...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 22000); // 22 second timeout
-    
-    response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
+  // Model fallback chain with proper parameters
+  const modelChain = [
+    { 
+      name: 'gpt-5-2025-08-07', 
+      params: { 
         model: 'gpt-5-2025-08-07',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
-          },
-          {
-            role: 'user',
-            content: analysisPrompt
-          }
-        ],
-        response_format: { type: 'json_object' },
-        max_completion_tokens: 1000
-      })
-    });
-    
-    clearTimeout(timeoutId);
-  } catch (error) {
-    console.error('GPT-5 attempt failed:', error.message);
-    
-    // Retry with GPT-4.1 as fallback
-    console.log('Retrying with GPT-4.1...');
-    model = 'gpt-4.1-2025-04-14';
-    
+        max_completion_tokens: 1000,
+        response_format: { type: 'json_object' }
+      } 
+    },
+    { 
+      name: 'gpt-4.1-2025-04-14', 
+      params: { 
+        model: 'gpt-4.1-2025-04-14',
+        max_completion_tokens: 1000,
+        response_format: { type: 'json_object' }
+      } 
+    },
+    { 
+      name: 'gpt-5-mini-2025-08-07', 
+      params: { 
+        model: 'gpt-5-mini-2025-08-07',
+        max_completion_tokens: 800,
+        response_format: { type: 'json_object' }
+      } 
+    },
+    { 
+      name: 'o4-mini-2025-04-16', 
+      params: { 
+        model: 'o4-mini-2025-04-16',
+        max_completion_tokens: 800
+      } 
+    }
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const { name, params } of modelChain) {
+    try {
+      console.log(`Attempting OpenAI analysis with ${name}...`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // Reduced to 12s per model
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...params,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
+            },
+            {
+              role: 'user',
+              content: analysisPrompt
+            }
+          ]
+        })
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`OpenAI API error (${name}):`, errorText);
+        lastError = new Error(`${name} failed: ${response.status}`);
+        continue;
+      }
+
+      const openaiResult = await response.json();
+      const analysisText = openaiResult.choices[0]?.message?.content?.trim();
+      const usage = openaiResult.usage || {};
+      
+      console.log(`OpenAI analysis successful with ${name}. Response length:`, analysisText?.length || 0);
+
+      // Handle empty response from successful call
+      if (!analysisText || analysisText.length === 0) {
+        console.log(`${name} returned empty response, trying next model`);
+        lastError = new Error(`${name} returned empty response`);
+        continue;
+      }
+
+      console.log('Raw OpenAI response:', analysisText);
+
+      // Parse the JSON response with better error handling
+      let businessContext: any;
+      try {
+        // Clean the response to ensure it's valid JSON
+        let cleanedResponse = analysisText;
+        // Remove any markdown code blocks
+        cleanedResponse = cleanedResponse.replace(/```json\n?|\n?```/g, '').trim();
+        // Remove any leading/trailing non-JSON content
+        const jsonStart = cleanedResponse.indexOf('{');
+        const jsonEnd = cleanedResponse.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1);
+        }
+        
+        businessContext = JSON.parse(cleanedResponse);
+      } catch (parseError) {
+        console.error(`Failed to parse ${name} response:`, analysisText, 'Error:', parseError);
+        lastError = new Error(`${name} JSON parse failed`);
+        continue;
+      }
+
+      // Validate and clean the parsed data
+      const result = {
+        keywords: Array.isArray(businessContext.keywords) ? 
+          businessContext.keywords
+            .filter((k: any) => k && typeof k === 'string' && k.trim().length > 0)
+            .map((k: string) => k.trim())
+            .slice(0, 10) : [],
+        competitors: Array.isArray(businessContext.competitors) ? 
+          businessContext.competitors
+            .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
+            .map((c: string) => c.trim())
+            .slice(0, 8) : [],
+        business_description: typeof businessContext.business_description === 'string' ? 
+          businessContext.business_description : '',
+        products_services: typeof businessContext.products_services === 'string' ? 
+          businessContext.products_services : '',
+        target_audience: typeof businessContext.target_audience === 'string' ? 
+          businessContext.target_audience : '',
+        tokenIn: usage.prompt_tokens || 0,
+        tokenOut: usage.completion_tokens || 0,
+        analysis_hash,
+        model_used: name
+      };
+
+      return result;
+
+    } catch (error) {
+      console.error(`${name} attempt failed:`, error.message);
+      lastError = error;
+      continue;
+    }
+  }
+
+  // All models failed
+  throw lastError || new Error('All OpenAI models failed');
+}
+
+/**
+ * Generate keywords from text using a fast, focused prompt
+ */
+export async function generateKeywordsOnly(text: string, apiKey: string): Promise<string[]> {
+  const keywordPrompt = `Extract 6-8 specific business keywords from this content. Return only a JSON array of strings:
+
+${text.substring(0, 2000)}
+
+Return format: ["keyword1", "keyword2", ...]`;
+
+  try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 22000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // Fast 8s timeout
     
-    response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       signal: controller.signal,
       headers: {
@@ -316,85 +433,76 @@ Return only the JSON object, no other text:`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           {
-            role: 'system',
-            content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
-          },
-          {
             role: 'user',
-            content: analysisPrompt
+            content: keywordPrompt
           }
         ],
-        max_tokens: 1000,
-        temperature: 0.3
+        max_completion_tokens: 200
       })
     });
     
     clearTimeout(timeoutId);
-  }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`OpenAI API error (${model}):`, errorText);
-    throw new Error(`OpenAI API failed with ${model}: ${response.status}`);
-  }
-
-  const openaiResult = await response.json();
-  const analysisText = openaiResult.choices[0]?.message?.content?.trim();
-  const usage = openaiResult.usage || {};
-  
-  console.log(`OpenAI analysis successful with ${model}. Response length:`, analysisText?.length || 0);
-
-  if (!analysisText) {
-    throw new Error(`No analysis received from OpenAI (${model})`);
-  }
-
-  console.log('Raw OpenAI response:', analysisText);
-
-  // Parse the JSON response with better error handling
-  let businessContext: any;
-  try {
-    // Clean the response to ensure it's valid JSON
-    let cleanedResponse = analysisText;
-    // Remove any markdown code blocks
-    cleanedResponse = cleanedResponse.replace(/```json\n?|\n?```/g, '').trim();
-    // Remove any leading/trailing non-JSON content
-    const jsonStart = cleanedResponse.indexOf('{');
-    const jsonEnd = cleanedResponse.lastIndexOf('}');
-    if (jsonStart !== -1 && jsonEnd !== -1) {
-      cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1);
+    if (!response.ok) {
+      throw new Error(`Keywords API failed: ${response.status}`);
     }
+
+    const result = await response.json();
+    const content = result.choices[0]?.message?.content?.trim();
     
-    businessContext = JSON.parse(cleanedResponse);
-  } catch (parseError) {
-    console.error('Failed to parse OpenAI response:', analysisText, 'Error:', parseError);
-    throw new Error('Failed to parse AI analysis results');
+    if (content) {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(k => k && typeof k === 'string').slice(0, 8);
+      }
+    }
+    return [];
+  } catch (error) {
+    console.error('Keywords generation failed:', error);
+    return [];
   }
+}
 
-  // Validate and clean the parsed data
-  const result: BusinessContextExtraction = {
-    keywords: Array.isArray(businessContext.keywords) ? 
-      businessContext.keywords
-        .filter((k: any) => k && typeof k === 'string' && k.trim().length > 0)
-        .map((k: string) => k.trim())
-        .slice(0, 10) : [],
-    competitors: Array.isArray(businessContext.competitors) ? 
-      businessContext.competitors
-        .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
-        .map((c: string) => c.trim())
-        .slice(0, 8) : [],
-    business_description: typeof businessContext.business_description === 'string' ? 
-      businessContext.business_description : '',
-    products_services: typeof businessContext.products_services === 'string' ? 
-      businessContext.products_services : '',
-    target_audience: typeof businessContext.target_audience === 'string' ? 
-      businessContext.target_audience : '',
-    tokenIn: usage.prompt_tokens || 0,
-    tokenOut: usage.completion_tokens || 0,
-    analysis_hash
-  };
+/**
+ * Extract keywords from meta tags in HTML
+ */
+export function extractMetaKeywords(html: string): string[] {
+  const metaMatch = html.match(/<meta\s+name=["']keywords["']\s+content=["']([^"']+)["']/i);
+  if (metaMatch && metaMatch[1]) {
+    return metaMatch[1]
+      .split(',')
+      .map(k => k.trim())
+      .filter(k => k.length > 0)
+      .slice(0, 8);
+  }
+  return [];
+}
 
-  return result;
+/**
+ * Heuristic keyword extraction from text
+ */
+export function extractHeuristicKeywords(text: string): string[] {
+  // Extract potential keywords using simple patterns
+  const words = text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && w.length < 20);
+
+  // Count word frequencies
+  const freq: Record<string, number> = {};
+  words.forEach(w => {
+    if (!isCommonWord(w.charAt(0).toUpperCase() + w.slice(1))) {
+      freq[w] = (freq[w] || 0) + 1;
+    }
+  });
+
+  // Get most frequent, non-generic words
+  return Object.entries(freq)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 6)
+    .map(([word]) => word)
+    .filter(w => !['website', 'company', 'business', 'service', 'product'].includes(w));
 }
