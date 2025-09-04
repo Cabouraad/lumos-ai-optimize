@@ -1,6 +1,7 @@
 /**
- * Structured logging utility for observability
+ * Structured logging utility for observability with security redaction
  * Provides consistent log formatting across the application
+ * Automatically redacts sensitive fields like keys, secrets, and billing data
  */
 
 export interface LogContext {
@@ -11,6 +12,41 @@ export interface LogContext {
   action?: string;
   duration?: number;
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Pattern to match sensitive field names that should be redacted
+ */
+const SENSITIVE_FIELD_PATTERN = /(key|secret|stripe_|card|customer_id|subscription_id|token|password|auth|billing)/i;
+
+/**
+ * Recursively redact sensitive fields from log context
+ */
+function redactSensitiveFields(obj: any, depth = 0): any {
+  if (depth > 10) return '[MAX_DEPTH_REACHED]';
+  
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => redactSensitiveFields(item, depth + 1));
+  }
+
+  const redacted: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (SENSITIVE_FIELD_PATTERN.test(key)) {
+      // Redact sensitive fields but preserve type info
+      if (typeof value === 'string') {
+        redacted[key] = value.length > 0 ? `[REDACTED:${value.length}chars]` : '[REDACTED:empty]';
+      } else {
+        redacted[key] = `[REDACTED:${typeof value}]`;
+      }
+    } else {
+      redacted[key] = redactSensitiveFields(value, depth + 1);
+    }
+  }
+  return redacted;
 }
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -27,14 +63,17 @@ class Logger {
   private isDev = import.meta.env?.DEV || false;
   
   private formatLog(level: LogLevel, message: string, context: LogContext = {}): StructuredLog {
+    // Redact sensitive information from context before logging
+    const redactedContext = redactSensitiveFields({
+      ...context,
+      sessionId: context.sessionId || this.getSessionId(),
+    });
+
     return {
       timestamp: new Date().toISOString(),
       level,
       message,
-      context: {
-        ...context,
-        sessionId: context.sessionId || this.getSessionId(),
-      },
+      context: redactedContext,
     };
   }
 
