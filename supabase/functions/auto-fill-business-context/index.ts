@@ -1,9 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
 const corsHeaders = {
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -32,7 +30,8 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: 'OpenAI API key not configured. Please add your OpenAI API key in the project settings.',
-          needsApiKey: true
+          needsApiKey: true,
+          missingApiKey: true  // Backward compatibility
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -151,7 +150,8 @@ Deno.serve(async (req) => {
 
 Please try manually entering your business information in the form fields below, or ensure your website is publicly accessible.`,
           domain: orgData.domain,
-          suggestManual: true
+          suggestManual: true,
+          manualFill: true  // Backward compatibility
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -318,6 +318,7 @@ Return only the JSON object, no other text:`
       JSON.stringify({ 
         success: true, 
         data: businessContext,
+        businessContext: businessContext,  // Backward compatibility
         message: 'Business context auto-filled successfully from your website!',
         fetchMethod: fetchMethod
       }),
