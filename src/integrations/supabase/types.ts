@@ -926,7 +926,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      subscriber_public: {
+        Row: {
+          created_at: string | null
+          current_period_end: string | null
+          payment_collected: boolean | null
+          plan: string | null
+          status: string | null
+          trial_expires_at: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_period_end?: string | null
+          payment_collected?: boolean | null
+          plan?: string | null
+          status?: never
+          trial_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_period_end?: string | null
+          payment_collected?: boolean | null
+          plan?: string | null
+          status?: never
+          trial_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_brand_candidate: {
