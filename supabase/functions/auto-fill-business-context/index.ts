@@ -210,11 +210,36 @@ Please try manually entering your business information in the form fields below,
 
     console.log('Analyzing content with OpenAI using shared provider...')
 
-    // Use shared provider for consistent OpenAI API calls and token tracking
-    const businessContextResult = await extractBusinessContextOpenAI(cleanContent, openaiApiKey);
-    
-    console.log('Extracted business context:', businessContextResult)
-    console.log('Token usage - Input:', businessContextResult.tokenIn, 'Output:', businessContextResult.tokenOut)
+    // Use shared provider for consistent OpenAI API calls and token tracking with error containment
+    let businessContextResult: BusinessContextExtraction;
+    try {
+      businessContextResult = await extractBusinessContextOpenAI(cleanContent, openaiApiKey);
+      console.log('Extracted business context:', businessContextResult)
+      console.log('Token usage - Input:', businessContextResult.tokenIn, 'Output:', businessContextResult.tokenOut)
+    } catch (openaiError) {
+      console.error('OpenAI analysis failed:', openaiError.message);
+      
+      // Return graceful fallback instead of 500 error
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Unable to automatically analyze ${targetDomain} content using AI. This could be due to:
+          
+• API timeout or service temporarily unavailable
+• Website content too complex to analyze
+• Network connectivity issues
+
+Please try manually entering your business information in the form fields below, or try again in a few moments.`,
+          domain: targetDomain,
+          suggestManual: true,
+          aiAnalysisFailed: true
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
 
     // Convert to expected format (maintaining backward compatibility)
     const businessContext: BusinessContext = {

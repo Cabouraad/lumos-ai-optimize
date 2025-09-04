@@ -263,40 +263,92 @@ ${websiteContent}
 
 Return only the JSON object, no other text:`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'gpt-5-2025-08-07',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
-        },
-        {
-          role: 'user',
-          content: analysisPrompt
-        }
-      ],
-      max_completion_tokens: 1000
-    })
-  });
+  // First attempt with GPT-5
+  let response: Response;
+  let model = 'gpt-5-2025-08-07';
+  
+  try {
+    console.log('Attempting OpenAI analysis with GPT-5...');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 22000); // 22 second timeout
+    
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-2025-08-07',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ],
+        response_format: { type: 'json_object' },
+        max_completion_tokens: 1000
+      })
+    });
+    
+    clearTimeout(timeoutId);
+  } catch (error) {
+    console.error('GPT-5 attempt failed:', error.message);
+    
+    // Retry with GPT-4.1 as fallback
+    console.log('Retrying with GPT-4.1...');
+    model = 'gpt-4.1-2025-04-14';
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 22000);
+    
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a business analyst expert at extracting structured business information from website content. Always respond with valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.3
+      })
+    });
+    
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenAI API error:', errorText);
-    throw new Error(`OpenAI API failed: ${response.status}`);
+    console.error(`OpenAI API error (${model}):`, errorText);
+    throw new Error(`OpenAI API failed with ${model}: ${response.status}`);
   }
 
   const openaiResult = await response.json();
   const analysisText = openaiResult.choices[0]?.message?.content?.trim();
   const usage = openaiResult.usage || {};
+  
+  console.log(`OpenAI analysis successful with ${model}. Response length:`, analysisText?.length || 0);
 
   if (!analysisText) {
-    throw new Error('No analysis received from OpenAI');
+    throw new Error(`No analysis received from OpenAI (${model})`);
   }
 
   console.log('Raw OpenAI response:', analysisText);
