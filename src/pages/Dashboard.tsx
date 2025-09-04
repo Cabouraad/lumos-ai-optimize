@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
@@ -27,11 +27,17 @@ export default function Dashboard() {
   const [loadingReport, setLoadingReport] = useState(false);
   const { toast } = useToast();
   
-  // Use real-time dashboard hook
+  // Use real-time dashboard hook with longer interval to reduce refreshes
   const { data: dashboardData, loading, error, refresh, lastUpdated } = useRealTimeDashboard({
-    autoRefreshInterval: 60000, // 1 minute
+    autoRefreshInterval: 120000, // 2 minutes (slower to reduce refreshes)
     enableAutoRefresh: true
   });
+
+  // Memoize chart data to prevent unnecessary re-renders
+  const memoizedChartData = useMemo(() => {
+    console.log('[Dashboard] Chart data memoized:', dashboardData?.chartData?.length || 0, 'points');
+    return dashboardData?.chartData || [];
+  }, [dashboardData?.chartData]);
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -368,10 +374,10 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {dashboardData?.chartData && dashboardData.chartData.length > 0 ? (
+              {memoizedChartData && memoizedChartData.length > 0 ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dashboardData.chartData}>
+                    <LineChart data={memoizedChartData}>
                       <XAxis 
                         dataKey="date" 
                         axisLine={false}
@@ -393,14 +399,16 @@ export default function Dashboard() {
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px'
                         }}
+                        animationDuration={0}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="score" 
                         stroke="hsl(var(--primary))" 
                         strokeWidth={3}
-                        dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                        dot={false}
+                        activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
+                        animationDuration={0}
                       />
                     </LineChart>
                   </ResponsiveContainer>

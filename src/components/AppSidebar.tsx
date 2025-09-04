@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import { isFeatureEnabled } from '@/lib/config/feature-flags';
 export function AppSidebar() {
   const { signOut, orgData } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { canAccessCompetitorAnalysis, canAccessRecommendations } = useSubscriptionGate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -84,7 +85,7 @@ export function AppSidebar() {
                         size="icon"
                         variant="secondary"
                         className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 p-0"
-                        onClick={(e) => { e.stopPropagation(); window.location.href = '/pricing'; }}
+                        onClick={(e) => { e.stopPropagation(); navigate('/pricing'); }}
                         aria-label="Upgrade plan"
                         title="Upgrade plan"
                       >
