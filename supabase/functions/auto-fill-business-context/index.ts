@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
           success: false, 
           error: 'OpenAI API key not configured. Please add your OpenAI API key in the project settings.',
           needsApiKey: true,
-          missingApiKey: true  // Backward compatibility
+          missingApiKey: true // Backward compatibility alias
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
 Please try manually entering your business information in the form fields below, or ensure your website is publicly accessible.`,
           domain: orgData.domain,
           suggestManual: true,
-          manualFill: true  // Backward compatibility
+          manualFill: true // Backward compatibility alias
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -212,7 +212,7 @@ Return only the JSON object, no other text:`
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-2025-08-07',
         messages: [
           {
             role: 'system',
@@ -223,8 +223,7 @@ Return only the JSON object, no other text:`
             content: analysisPrompt
           }
         ],
-        temperature: 0.2,
-        max_tokens: 1000
+        max_completion_tokens: 1000
       })
     })
 
@@ -318,7 +317,7 @@ Return only the JSON object, no other text:`
       JSON.stringify({ 
         success: true, 
         data: businessContext,
-        businessContext: businessContext,  // Backward compatibility
+        businessContext: businessContext, // Backward compatibility alias
         message: 'Business context auto-filled successfully from your website!',
         fetchMethod: fetchMethod
       }),
