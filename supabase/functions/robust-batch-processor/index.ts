@@ -92,28 +92,37 @@ interface ProviderConfig {
 
 // Provider configurations
 function getProviderConfigs(): Record<string, ProviderConfig> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY') || '';
+  const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY') || '';
+  const geminiKey = Deno.env.get('GEMINI_API_KEY') || '';
+  
+  console.log('🔑 API Key Status:', {
+    openai: openaiKey ? '✅ Available' : '❌ Missing',
+    perplexity: perplexityKey ? '✅ Available' : '❌ Missing', 
+    gemini: geminiKey ? '✅ Available' : '❌ Missing'
+  });
+  
   return {
     openai: {
-      apiKey: Deno.env.get('OPENAI_API_KEY') || '',
+      apiKey: openaiKey,
       baseURL: 'https://api.openai.com/v1/chat/completions',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-2025-08-07',
       buildRequest: (prompt: string) => ({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-2025-08-07',
         messages: [
           { role: 'system', content: 'You are a helpful assistant that provides comprehensive answers to business questions.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 2000,
-        temperature: 0.7
+        max_completion_tokens: 2000
       }),
       extractResponse: (data: any) => data.choices?.[0]?.message?.content || ''
     },
     perplexity: {
-      apiKey: Deno.env.get('PERPLEXITY_API_KEY') || '',
+      apiKey: perplexityKey,
       baseURL: 'https://api.perplexity.ai/chat/completions',
-      model: 'sonar',
+      model: 'llama-3.1-sonar-small-128k-online',
       buildRequest: (prompt: string) => ({
-        model: 'sonar',
+        model: 'llama-3.1-sonar-small-128k-online',
         messages: [
           { role: 'system', content: 'Be precise and informative in your responses. Focus on providing actionable insights.' },
           { role: 'user', content: prompt }
@@ -124,7 +133,7 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
       extractResponse: (data: any) => data.choices?.[0]?.message?.content || ''
     },
     gemini: {
-      apiKey: Deno.env.get('GEMINI_API_KEY') || '',
+      apiKey: geminiKey,
       baseURL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
       model: 'gemini-1.5-flash-latest',
       buildRequest: (prompt: string) => ({
@@ -616,15 +625,31 @@ serve(async (req) => {
     // Determine which providers to use (already done above)
     
     if (validProviders.length === 0) {
-      console.log('⚠️ No valid providers with API keys found');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No enabled providers have API keys configured',
-        action: 'no_valid_providers',
-        requestedProviders: activeProviders,
-        availableProviders
-      }), {
-        status: 200,
+    console.log('⚠️ No valid providers with API keys found');
+    console.log('🔍 Provider Debug:', {
+      providerConfigs: Object.keys(providerConfigs),
+      validProviders,
+      activeProviders,
+      apiKeyStatus: Object.keys(providerConfigs).map(p => ({
+        provider: p,
+        hasKey: !!providerConfigs[p].apiKey,
+        keyLength: providerConfigs[p].apiKey?.length || 0
+      }))
+    });
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'No enabled providers have API keys configured',
+      action: 'no_valid_providers',
+      requestedProviders: activeProviders,
+      availableProviders,
+      debug: {
+        apiKeyStatus: Object.keys(providerConfigs).map(p => ({
+          provider: p,
+          hasKey: !!providerConfigs[p].apiKey
+        }))
+      }
+    }), {
+      status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
