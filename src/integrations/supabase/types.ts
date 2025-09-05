@@ -403,6 +403,7 @@ export type Database = {
           products_services: string | null
           subscription_tier: string | null
           target_audience: string | null
+          updated_at: string | null
           verification_token: string | null
           verified_at: string | null
         }
@@ -428,6 +429,7 @@ export type Database = {
           products_services?: string | null
           subscription_tier?: string | null
           target_audience?: string | null
+          updated_at?: string | null
           verification_token?: string | null
           verified_at?: string | null
         }
@@ -453,6 +455,7 @@ export type Database = {
           products_services?: string | null
           subscription_tier?: string | null
           target_audience?: string | null
+          updated_at?: string | null
           verification_token?: string | null
           verified_at?: string | null
         }
