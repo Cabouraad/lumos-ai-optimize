@@ -103,6 +103,7 @@ if ((manualSubscribed || manualTrialActive) && isManualBypass) {
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: false,
     bypass_mode: true,
+    metadata: existingSubscriber?.metadata || null, // Include metadata in bypass response
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
@@ -145,6 +146,7 @@ if (isManualBypass) {
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: !(manualSubscribed || manualTrialActive),
     bypass_mode: true,
+    metadata: existingSubscriber?.metadata || null, // Include metadata for bypass users
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
@@ -325,6 +327,7 @@ if (customers.data.length === 0) {
         payment_collected: true,
         requires_subscription: false,
         bypass_mode: true,
+        metadata: bypassData.metadata, // Include metadata in response
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -342,6 +345,7 @@ if (customers.data.length === 0) {
       trial_started_at: updateData.trial_started_at || null,
       payment_collected: updateData.payment_collected || false,
       requires_subscription: !(hasActiveSub || trialActive),
+      metadata: existingSubscriber?.metadata || null, // Include existing metadata
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

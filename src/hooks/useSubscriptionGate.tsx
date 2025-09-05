@@ -25,8 +25,19 @@ export interface TierLimits {
 export function useSubscriptionGate() {
   const { subscriptionData } = useAuth();
   
-  const currentTier = subscriptionData?.subscription_tier || 'free';
+  // BYPASS LOGIC: Check for bypass metadata and enforce Starter entitlements
+  const isBypassUser = subscriptionData?.metadata?.source === "bypass";
+  
+  // If bypass user, force plan to 'starter' and never upgrade above it
+  const currentTier = isBypassUser ? 'starter' : (subscriptionData?.subscription_tier || 'free');
   const isSubscribed = subscriptionData?.subscribed || false;
+  
+  console.log('[SUBSCRIPTION_GATE]', {
+    originalTier: subscriptionData?.subscription_tier,
+    forcedTier: currentTier,
+    isBypassUser,
+    metadata: subscriptionData?.metadata
+  });
   
   // Trial status with feature flag protection
   const allowTrialGrace = optimizationFlags.FEATURE_TRIAL_GRACE;
@@ -43,14 +54,17 @@ export function useSubscriptionGate() {
     ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   
-  // Get tier limits
+  // Get tier limits - bypass users are locked to Starter limits regardless of claimed tier
   const getTierLimits = (tier: string): TierLimits => {
     const quotas = getQuotasForTier(tier as any);
     
-    switch (tier) {
+    // BYPASS ENFORCEMENT: Never allow bypass users to get above Starter entitlements
+    const effectiveTier = isBypassUser ? 'starter' : tier;
+    
+    switch (effectiveTier) {
       case 'starter':
         return {
-          promptsPerDay: quotas.promptsPerDay,
+          promptsPerDay: quotas.promptsPerDay, // Standard Starter quota enforcement
           providersPerPrompt: quotas.providersPerPrompt,
           hasRecommendations: false,
           hasCompetitorAnalysis: false,
@@ -213,6 +227,7 @@ export function useSubscriptionGate() {
     trialExpired,
     daysRemainingInTrial,
     trialExpiresAt,
+    isBypassUser, // Expose bypass status for UI feedback
     canAccessRecommendations,
     canAccessCompetitorAnalysis,
     canAccessAdvancedScoring,

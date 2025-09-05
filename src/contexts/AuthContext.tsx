@@ -16,6 +16,7 @@ interface AuthContextType {
     trial_started_at?: string;
     payment_collected?: boolean;
     requires_subscription?: boolean;
+    metadata?: any; // Include metadata for bypass tracking
   } | null;
   checkSubscription: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     trial_started_at?: string;
     payment_collected?: boolean;
     requires_subscription?: boolean;
+    metadata?: any; // Include metadata for bypass tracking
   } | null>(null);
 
   useEffect(() => {
@@ -130,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         trial_started_at: data.trial_started_at,
         payment_collected: data.payment_collected,
         requires_subscription: data.requires_subscription,
+        metadata: data.metadata, // Capture metadata from edge function response
       });
       console.log('AuthContext: Subscription data updated via edge function:', {
         subscribed: data.subscribed,
@@ -163,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           trial_started_at: undefined,
           payment_collected: row.payment_collected ?? undefined,
           requires_subscription,
+          metadata: undefined, // RPC fallback doesn't have metadata
         });
         console.log('AuthContext: Subscription data updated via fallback RPC:', {
           subscribed: !!row.subscribed,
