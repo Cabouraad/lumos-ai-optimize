@@ -4,8 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
 interface PricingCardProps {
@@ -34,8 +36,11 @@ export function PricingCard({
   currentTier,
 }: PricingCardProps) {
   const { user, checkSubscription } = useAuth();
+  const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const price = billingCycle === 'yearly' ? yearlyPrice : monthlyPrice;
   const isCurrentTier = currentTier === tier;
@@ -61,10 +66,9 @@ export function PricingCard({
           title: "Test Access Granted",
           description: "Starter subscription activated for testing purposes.",
         });
-        // Refresh subscription status
-        if (checkSubscription) {
-          await checkSubscription();
-        }
+        
+        // Post-bypass subscription refresh with timeout
+        await refreshSubscriptionWithRetry();
         return;
       }
 
@@ -92,6 +96,48 @@ export function PricingCard({
     }
 
     setLoading(false);
+  };
+
+  const refreshSubscriptionWithRetry = async () => {
+    setRetryError(null);
+    
+    try {
+      // Call check-subscription edge function
+      await supabase.functions.invoke('check-subscription');
+      
+      // Refresh subscription store
+      if (checkSubscription) {
+        await checkSubscription();
+      }
+      
+      // Add a small delay for state propagation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check access with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Subscription verification timeout')), 8000)
+      );
+      
+      const checkAccess = async () => {
+        let attempts = 0;
+        while (attempts < 8) {
+          const accessCheck = hasAccessToApp();
+          if (accessCheck.hasAccess) {
+            navigate('/dashboard');
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        throw new Error('Access verification failed');
+      };
+      
+      await Promise.race([checkAccess(), timeoutPromise]);
+      
+    } catch (error: any) {
+      console.error('Subscription refresh error:', error);
+      setRetryError(error.message || 'Failed to verify subscription access');
+    }
   };
 
   return (
@@ -148,7 +194,7 @@ export function PricingCard({
         </div>
       </CardContent>
 
-      <CardFooter>
+      <CardFooter className="flex-col space-y-2">
         <Button
           className="w-full"
           onClick={handleSubscribe}
@@ -164,8 +210,24 @@ export function PricingCard({
             : `Subscribe to ${title}`
           }
         </Button>
-        {tier === 'starter' && !isCurrentTier && (
-          <p className="text-xs text-muted-foreground mt-2 text-center">
+        
+        {retryError && (
+          <div className="w-full p-2 bg-destructive/10 border border-destructive/20 rounded text-center">
+            <p className="text-xs text-destructive mb-1">{retryError}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshSubscriptionWithRetry}
+              disabled={loading}
+              className="h-6 text-xs"
+            >
+              Try Again
+            </Button>
+          </div>
+        )}
+        
+        {tier === 'starter' && !isCurrentTier && !retryError && (
+          <p className="text-xs text-muted-foreground text-center">
             No charge until trial ends
           </p>
         )}

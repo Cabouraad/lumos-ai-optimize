@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,8 @@ import { Info } from 'lucide-react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
 export default function Onboarding() {
-  const { user, orgData, subscriptionData } = useAuth();
+  const { user, orgData, subscriptionData, checkSubscription } = useAuth();
+  const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -25,6 +27,7 @@ export default function Onboarding() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [subscriptionCompleted, setSubscriptionCompleted] = useState(false);
   const [showManualFillBanner, setShowManualFillBanner] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const businessContextRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     orgName: '',
@@ -56,7 +59,9 @@ export default function Onboarding() {
           title: 'Test Access Granted',
           description: 'Starter subscription activated for testing.',
         });
-        setSubscriptionCompleted(true);
+        
+        // Post-bypass subscription refresh with timeout
+        await refreshSubscriptionWithRetry();
         return;
       }
 
@@ -95,6 +100,49 @@ export default function Onboarding() {
       });
     }
     setLoading(false);
+  };
+
+  const refreshSubscriptionWithRetry = async () => {
+    setRetryError(null);
+    
+    try {
+      // Call check-subscription edge function
+      await supabase.functions.invoke('check-subscription');
+      
+      // Refresh subscription store
+      if (checkSubscription) {
+        await checkSubscription();
+      }
+      
+      // Add a small delay for state propagation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check access with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Subscription verification timeout')), 8000)
+      );
+      
+      const checkAccess = async () => {
+        let attempts = 0;
+        while (attempts < 8) {
+          const accessCheck = hasAccessToApp();
+          if (accessCheck.hasAccess) {
+            setSubscriptionCompleted(true);
+            navigate('/dashboard');
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        throw new Error('Access verification failed');
+      };
+      
+      await Promise.race([checkAccess(), timeoutPromise]);
+      
+    } catch (error: any) {
+      console.error('Subscription refresh error:', error);
+      setRetryError(error.message || 'Failed to verify subscription access');
+    }
   };
 
   const handleCompleteOnboarding = async () => {
@@ -651,6 +699,20 @@ export default function Onboarding() {
               : `Start ${selectedPlan === 'starter' ? '7-Day Free Trial' : 'Subscription'} - ${pricingTiers.find(t => t.tier === selectedPlan)?.title} Plan`
             }
           </Button>
+          
+          {retryError && (
+            <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive mb-2">{retryError}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refreshSubscriptionWithRetry}
+                disabled={loading}
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
         </div>
         
         <div className="text-center space-y-2 mt-4">

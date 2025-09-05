@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
@@ -11,9 +12,11 @@ export default function TrialSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { checkSubscription } = useAuth();
+  const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
     const activateTrial = async () => {
@@ -38,8 +41,8 @@ export default function TrialSuccess() {
 
         if (data.success) {
           setSuccess(true);
-          // Refresh subscription status after successful checkout
-          await checkSubscription();
+          // Post-activation subscription refresh with timeout  
+          await refreshSubscriptionWithRetry();
           toast({
             title: "Trial Activated!",
             description: "Your 7-day trial has been activated. Enjoy full access to all features!",
@@ -60,6 +63,48 @@ export default function TrialSuccess() {
 
     activateTrial();
   }, [searchParams, navigate, checkSubscription, toast]);
+
+  const refreshSubscriptionWithRetry = async () => {
+    setRetryError(null);
+    
+    try {
+      // Call check-subscription edge function
+      await supabase.functions.invoke('check-subscription');
+      
+      // Refresh subscription store
+      if (checkSubscription) {
+        await checkSubscription();
+      }
+      
+      // Add a small delay for state propagation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check access with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Subscription verification timeout')), 8000)
+      );
+      
+      const checkAccess = async () => {
+        let attempts = 0;
+        while (attempts < 8) {
+          const accessCheck = hasAccessToApp();
+          if (accessCheck.hasAccess) {
+            // Success - stay on current page to show success message
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        throw new Error('Access verification failed');
+      };
+      
+      await Promise.race([checkAccess(), timeoutPromise]);
+      
+    } catch (error: any) {
+      console.error('Subscription refresh error:', error);
+      setRetryError(error.message || 'Failed to verify subscription access');
+    }
+  };
 
   if (loading) {
     return (
@@ -105,6 +150,20 @@ export default function TrialSuccess() {
           <Button onClick={() => navigate('/dashboard')} className="w-full">
             Go to Dashboard
           </Button>
+          
+          {retryError && (
+            <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive mb-2">{retryError}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refreshSubscriptionWithRetry}
+                disabled={loading}
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
