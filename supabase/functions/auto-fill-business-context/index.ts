@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractBusinessContextOpenAI, generateKeywordsOnly, extractMetaKeywords, extractHeuristicKeywords, type BusinessContextExtraction } from '../_shared/providers.ts'
-import FirecrawlApp from 'https://esm.sh/@mendable/firecrawl-js@3.0.3'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -169,27 +168,67 @@ Deno.serve(async (req) => {
 
     // Method 2: Try Firecrawl if direct fetch failed or returned minimal content
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY')
-    if ((!websiteContent || websiteContent.length < 50) && firecrawlApiKey) {
-      try {
-        console.log('Direct fetch failed or insufficient content, trying Firecrawl...')
-        
-        const app = new FirecrawlApp({ apiKey: firecrawlApiKey })
-        const cleanDomain = targetDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-        
-        const crawlResult = await app.crawlUrl(`https://${cleanDomain}`, {
-          formats: ['markdown', 'html'],
-          onlyMainContent: true,
-          timeout: 12000
-        })
-
-        if (crawlResult.success && crawlResult.data?.markdown) {
-          websiteContent = crawlResult.data.markdown
-          rawHtml = crawlResult.data.html || rawHtml
-          fetchMethod = 'firecrawl'
-          console.log(`Successfully crawled content with Firecrawl (${websiteContent.length} chars)`)
+    if ((!websiteContent || websiteContent.length < 50)) {
+      console.log('Direct fetch failed or insufficient content, trying Firecrawl...')
+      
+      if (!firecrawlApiKey) {
+        console.log('Firecrawl API key not available, skipping Firecrawl attempt')
+      } else {
+        try {
+          const cleanDomain = targetDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+          const scrapeUrl = `https://${cleanDomain}`
+          
+          console.log(`Attempting Firecrawl scrape for: ${scrapeUrl}`)
+          
+          // Use direct REST API call with proper timeout
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+          
+          const firecrawlResponse = await fetch('https://api.firecrawl.dev/v0/scrape', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${firecrawlApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              url: scrapeUrl,
+              formats: ['markdown', 'html'],
+              onlyMainContent: true,
+              timeout: 12000
+            })
+          })
+          
+          clearTimeout(timeoutId)
+          
+          if (firecrawlResponse.ok) {
+            const firecrawlData = await firecrawlResponse.json()
+            console.log('Firecrawl response keys:', Object.keys(firecrawlData))
+            
+            // Handle both single object and array responses
+            const content = Array.isArray(firecrawlData.data) ? firecrawlData.data[0] : firecrawlData.data
+            
+            if (content?.markdown && content.markdown.length > 50) {
+              websiteContent = content.markdown
+              rawHtml = content.html || rawHtml
+              fetchMethod = 'firecrawl-scrape'
+              console.log(`Successfully scraped content with Firecrawl (${websiteContent.length} chars)`)
+            } else if (content?.content && content.content.length > 50) {
+              websiteContent = content.content
+              fetchMethod = 'firecrawl-content'
+              console.log(`Successfully scraped content field with Firecrawl (${websiteContent.length} chars)`)
+            } else {
+              console.log('Firecrawl returned insufficient content:', { 
+                markdownLength: content?.markdown?.length || 0,
+                contentLength: content?.content?.length || 0 
+              })
+            }
+          } else {
+            console.log(`Firecrawl API error: ${firecrawlResponse.status} ${firecrawlResponse.statusText}`)
+          }
+        } catch (firecrawlError) {
+          console.log('Firecrawl attempt failed:', firecrawlError.message)
         }
-      } catch (firecrawlError) {
-        console.log('Firecrawl attempt failed:', firecrawlError.message)
       }
     }
 
