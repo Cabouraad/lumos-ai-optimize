@@ -9,8 +9,8 @@ import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { ExternalLink, Crown, Zap, Shield } from 'lucide-react';
 
 export function SubscriptionManager() {
-  const { subscriptionData, checkSubscription } = useAuth();
-  const { currentTier, limits } = useSubscriptionGate();
+  const { subscriptionData, checkSubscription, orgData } = useAuth();
+  const { currentTier, limits, isBypassUser } = useSubscriptionGate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +41,28 @@ export function SubscriptionManager() {
       title: "Subscription Refreshed",
       description: "Your subscription status has been updated.",
     });
+    setLoading(false);
+  };
+
+  const handleRemoveTestAccess = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('remove-test-access');
+      if (error) throw error;
+      
+      await checkSubscription();
+      toast({
+        title: "Test Access Removed",
+        description: "Billing bypass has been removed from this account.",
+      });
+    } catch (error: any) {
+      console.error('Remove test access error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove test access",
+        variant: "destructive",
+      });
+    }
     setLoading(false);
   };
 
@@ -81,7 +103,19 @@ export function SubscriptionManager() {
                 <span>Current Plan</span>
                 <Badge className={getTierColor(currentTier)}>
                   {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
+                  {isBypassUser && ' (test access)'}
                 </Badge>
+                {isBypassUser && orgData?.role === 'owner' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveTestAccess}
+                    disabled={loading}
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    Remove test access
+                  </Button>
+                )}
               </CardTitle>
               {subscriptionData?.subscription_end && (
                 <CardDescription>

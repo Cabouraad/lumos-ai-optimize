@@ -90,6 +90,12 @@ verify_jwt = true
 [functions.convert-competitor-to-brand]
 verify_jwt = true
 
+[functions.grant-starter-bypass]
+verify_jwt = true
+
+[functions.remove-test-access]
+verify_jwt = true
+
 [functions.stripe-webhook]
 verify_jwt = false
 
