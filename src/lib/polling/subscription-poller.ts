@@ -1,3 +1,4 @@
+import { EdgeFunctionClient } from "@/lib/edge-functions/client";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -18,7 +19,7 @@ export async function pollEntitlements(options: PollEntitlementsOptions = {}): P
   for (let attempt = 0; attempt < max; attempt++) {
     try {
       // Call check-subscription edge function
-      await supabase.functions.invoke('check-subscription');
+      await EdgeFunctionClient.checkSubscription();
       
       // Check subscription gate for access
       // Note: We need to get fresh subscription data, so we'll use a direct check

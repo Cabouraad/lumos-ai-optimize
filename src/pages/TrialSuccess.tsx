@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { EdgeFunctionClient } from "@/lib/edge-functions/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,9 +45,7 @@ export default function TrialSuccess() {
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke('activate-trial', {
-          body: { sessionId }
-        });
+        const { data, error } = await EdgeFunctionClient.activateTrial(sessionId);
 
         if (error) throw error;
 
@@ -59,8 +57,8 @@ export default function TrialSuccess() {
           const maxAttempts = 6;
           
           const checkEntitlement = async () => {
-            while (attempts < maxAttempts) {
-              await supabase.functions.invoke('check-subscription');
+          while (attempts < maxAttempts) {
+            await EdgeFunctionClient.checkSubscription();
               
               // Check if access is granted
               const access = hasAccessToApp();
@@ -105,7 +103,7 @@ export default function TrialSuccess() {
     
     while (attempts < maxAttempts) {
       try {
-        await supabase.functions.invoke('check-subscription');
+        await EdgeFunctionClient.checkSubscription();
         
         // Check if access is granted
         const access = hasAccessToApp();

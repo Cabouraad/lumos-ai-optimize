@@ -3,7 +3,7 @@
  * Uses environment variables for dynamic control
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 
 /**
  * Check if user is eligible for billing bypass
@@ -27,12 +27,7 @@ export function isBillingBypassEligible(userEmail?: string | null): boolean {
 export async function grantStarterBypass(userEmail: string) {
   console.log(`[BILLING_BYPASS] Attempting to grant starter access to: ${userEmail}`);
   
-  const { data, error } = await supabase.functions.invoke('grant-starter-bypass', { 
-    body: { 
-      bypass_mode: true,
-      user_email: userEmail 
-    } 
-  });
+  const { data, error } = await EdgeFunctionClient.grantStarterBypass();
   
   if (error) throw error;
   

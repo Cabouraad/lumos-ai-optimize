@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Check, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { EdgeFunctionClient } from "@/lib/edge-functions/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useToast } from '@/components/ui/use-toast';
@@ -74,7 +74,7 @@ export function PricingCard({
         
         const checkEntitlement = async () => {
           while (attempts < maxAttempts) {
-            await supabase.functions.invoke('check-subscription');
+            await EdgeFunctionClient.checkSubscription();
             
             // Check if access is granted
             const access = hasAccessToApp();
@@ -104,7 +104,7 @@ export function PricingCard({
       const functionName = tier === 'starter' ? 'create-trial-checkout' : 'create-checkout';
       const body = tier === 'starter' ? {} : { tier, billingCycle };
       
-      const { data, error } = await supabase.functions.invoke(functionName, {
+      const { data, error } = await EdgeFunctionClient.invoke(functionName, {
         body,
       });
 
@@ -135,7 +135,7 @@ export function PricingCard({
     
     while (attempts < maxAttempts) {
       try {
-        await supabase.functions.invoke('check-subscription');
+        await EdgeFunctionClient.checkSubscription();
         
         // Check if access is granted
         const access = hasAccessToApp();

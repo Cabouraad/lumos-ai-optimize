@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { Zap, CreditCard } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
@@ -37,7 +37,7 @@ export function SubscriptionBanner() {
       }
 
       // Default: start standard trial checkout
-      const { data, error } = await supabase.functions.invoke('create-trial-checkout');
+      const { data, error } = await EdgeFunctionClient.createTrialCheckout();
       if (error) throw error;
       if (data?.url) {
         window.location.href = data.url;

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 
 interface AuthContextType {
   user: User | null;
@@ -115,9 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
-      const { data, error } = await supabase.functions.invoke('check-subscription', {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      });
+      const { data, error } = await EdgeFunctionClient.checkSubscription();
 
       if (error) {
         console.error('Error checking subscription (edge function):', error);

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +68,7 @@ export default function Onboarding() {
         
         const checkEntitlement = async () => {
           while (attempts < maxAttempts) {
-            await supabase.functions.invoke('check-subscription');
+            await EdgeFunctionClient.checkSubscription();
             
             // Check if access is granted
             const access = hasAccessToApp();
@@ -130,7 +131,7 @@ export default function Onboarding() {
     
     while (attempts < maxAttempts) {
       try {
-        await supabase.functions.invoke('check-subscription');
+        await EdgeFunctionClient.checkSubscription();
         
         // Check if access is granted
         const access = hasAccessToApp();
