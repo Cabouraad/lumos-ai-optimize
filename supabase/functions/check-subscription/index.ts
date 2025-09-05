@@ -268,6 +268,69 @@ if (customers.data.length === 0) {
 
     logStep("Updated database with subscription info", { subscribed: updateData.subscribed, subscriptionTier });
 
+    // BILLING BYPASS LOGIC - Check environment toggles after Stripe processing
+    const bypassEnabled = Deno.env.get("BILLING_BYPASS_ENABLED") === "true";
+    const allowedEmails = (Deno.env.get("BILLING_BYPASS_EMAILS") ?? "").split(",").map(s => s.trim().toLowerCase());
+    const bypassCutoff = Deno.env.get("BILLING_BYPASS_EXPIRES_AT");
+    
+    const isEmailAllowed = allowedEmails.includes(user.email.toLowerCase());
+    const isCutoffValid = !bypassCutoff || new Date() < new Date(bypassCutoff);
+    
+    if (bypassEnabled && isEmailAllowed && isCutoffValid) {
+      logStep("BYPASS MODE - Applying subscription bypass", { 
+        bypass: true, 
+        email: user.email, 
+        user_id: user.id 
+      });
+      
+      const bypassPeriodEnd = new Date();
+      bypassPeriodEnd.setFullYear(bypassPeriodEnd.getFullYear() + 1); // 12 months from now
+      
+      const bypassData = {
+        email: user.email,
+        user_id: user.id,
+        stripe_customer_id: "manual_bypass",
+        subscribed: true,
+        subscription_tier: "starter",
+        subscription_end: bypassPeriodEnd.toISOString(),
+        trial_started_at: null,
+        trial_expires_at: null,
+        payment_collected: true,
+        metadata: {
+          source: "bypass",
+          set_at: new Date().toISOString(),
+          by: "check-subscription"
+        },
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Idempotent upsert - override any existing data for bypass users
+      await supabaseClient.from("subscribers").upsert(bypassData, { onConflict: 'user_id' });
+      
+      logStep("BYPASS MODE - Subscription bypass applied successfully", { 
+        bypass: true, 
+        email: user.email, 
+        user_id: user.id,
+        tier: "starter",
+        expires: bypassPeriodEnd.toISOString()
+      });
+      
+      // Return bypass subscription data
+      return new Response(JSON.stringify({
+        subscribed: true,
+        subscription_tier: "starter",
+        subscription_end: bypassPeriodEnd.toISOString(),
+        trial_expires_at: null,
+        trial_started_at: null,
+        payment_collected: true,
+        requires_subscription: false,
+        bypass_mode: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const nowDate = new Date();
     const trialActive = updateData.trial_expires_at && new Date(updateData.trial_expires_at) > nowDate;
 
