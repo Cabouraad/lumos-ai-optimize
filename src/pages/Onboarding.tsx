@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { PricingCard } from '@/components/PricingCard';
 import { Info } from 'lucide-react';
+import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
 export default function Onboarding() {
   const { user, orgData, subscriptionData } = useAuth();
@@ -48,20 +49,15 @@ export default function Onboarding() {
   const handleSubscriptionSetup = async () => {
     setLoading(true);
     try {
-      // Bypass payment for dedicated test user on Starter
-      if (user?.email === 'starter@test.app' && selectedPlan === 'starter') {
-        const { data, error } = await supabase.functions.invoke('grant-starter-bypass', { body: {} });
-        if (error) throw error;
-        if (data?.success) {
-          toast({
-            title: 'Test Access Granted',
-            description: 'Starter subscription activated for testing.',
-          });
-          setSubscriptionCompleted(true);
-          return;
-        } else {
-          throw new Error(data?.error || 'Failed to grant test access');
-        }
+      // Check if user is eligible for billing bypass (only for starter tier)
+      if (selectedPlan === 'starter' && isBillingBypassEligible(user?.email)) {
+        await grantStarterBypass(user!.email!);
+        toast({
+          title: 'Test Access Granted',
+          description: 'Starter subscription activated for testing.',
+        });
+        setSubscriptionCompleted(true);
+        return;
       }
 
       // Use trial checkout for Starter, regular checkout for others

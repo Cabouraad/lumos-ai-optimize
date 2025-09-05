@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getStrictCorsHeaders } from "../_shared/cors.ts";
+import { isEdgeFeatureEnabled } from "../_shared/feature-flags.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -14,6 +15,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Check if billing bypass is enabled
+  if (!isEdgeFeatureEnabled('FEATURE_BILLING_BYPASS')) {
+    logStep("BLOCKED - Billing bypass feature is disabled");
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: "Billing bypass feature is not enabled"
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
+  }
+
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -21,7 +34,7 @@ serve(async (req) => {
   );
 
   try {
-    logStep("Function started");
+    logStep("Function started - BYPASS MODE ACTIVE");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
@@ -36,12 +49,46 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id });
 
-    // Only allow this for the specific test user
-    if (user.email !== "starter@test.app") {
-      throw new Error("This bypass is only available for the test account");
+    // Validate test user eligibility
+    const testEmails = ['starter@test.app', 'test@example.com'];
+    if (!testEmails.includes(user.email)) {
+      logStep("BLOCKED - User not eligible for bypass", { email: user.email });
+      throw new Error("This bypass is only available for authorized test accounts");
     }
 
-    logStep("Test user verified, granting starter bypass");
+    logStep("BYPASS - Test user verified, granting starter bypass", { email: user.email });
+
+    // Check for existing subscription to ensure idempotency
+    const { data: existingSubscription } = await supabaseClient
+      .from("subscribers")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingSubscription?.subscribed && existingSubscription?.subscription_tier === "starter") {
+      logStep("BYPASS - Subscription already exists, skipping creation", {
+        tier: existingSubscription.subscription_tier,
+        expires: existingSubscription.trial_expires_at
+      });
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Starter subscription already active (idempotent)",
+        subscription: {
+          subscribed: existingSubscription.subscribed,
+          subscription_tier: existingSubscription.subscription_tier,
+          subscription_end: existingSubscription.subscription_end,
+          trial_expires_at: existingSubscription.trial_expires_at,
+          trial_started_at: existingSubscription.trial_started_at,
+          payment_collected: existingSubscription.payment_collected,
+          requires_subscription: false,
+          bypass_mode: true,
+        }
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     // Set up starter subscription with manual bypass
     const trialStart = new Date();
@@ -63,15 +110,16 @@ serve(async (req) => {
 
     const { error: upsertError } = await supabaseClient
       .from("subscribers")
-      .upsert(subscriptionData, { onConflict: 'email' });
+      .upsert(subscriptionData, { onConflict: 'user_id' });
 
     if (upsertError) {
       throw new Error(`Failed to update subscription: ${upsertError.message}`);
     }
 
-    logStep("Successfully granted starter bypass", {
+    logStep("BYPASS - Successfully granted starter bypass", {
       tier: subscriptionData.subscription_tier,
-      expires: subscriptionData.trial_expires_at
+      expires: subscriptionData.trial_expires_at,
+      bypass_mode: true
     });
 
     return new Response(JSON.stringify({
@@ -85,6 +133,7 @@ serve(async (req) => {
         trial_started_at: subscriptionData.trial_started_at,
         payment_collected: true,
         requires_subscription: false,
+        bypass_mode: true,
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
+import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
 interface PricingCardProps {
   tier: 'starter' | 'growth' | 'pro';
@@ -53,27 +54,18 @@ export function PricingCard({
     setLoading(true);
 
     try {
-      // Special handling for test user starter@test.app
-      if (user.email === "starter@test.app" && tier === 'starter') {
-        const { data, error } = await supabase.functions.invoke('grant-starter-bypass', {
-          body: {},
+      // Check if user is eligible for billing bypass (only for starter tier)
+      if (tier === 'starter' && isBillingBypassEligible(user.email)) {
+        await grantStarterBypass(user.email!);
+        toast({
+          title: "Test Access Granted",
+          description: "Starter subscription activated for testing purposes.",
         });
-
-        if (error) throw error;
-
-        if (data?.success) {
-          toast({
-            title: "Test Access Granted",
-            description: "Starter subscription activated for testing purposes.",
-          });
-          // Refresh subscription status
-          if (checkSubscription) {
-            await checkSubscription();
-          }
-          return;
-        } else {
-          throw new Error(data?.error || 'Failed to grant test access');
+        // Refresh subscription status
+        if (checkSubscription) {
+          await checkSubscription();
         }
+        return;
       }
 
       // Use create-trial-checkout for starter tier, create-checkout for others

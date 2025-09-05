@@ -87,11 +87,12 @@ const manualTrialActive = !!(existingSubscriber?.trial_expires_at && new Date(ex
 const isManualBypass = existingSubscriber?.stripe_customer_id === "manual_bypass";
 
 if ((manualSubscribed || manualTrialActive) && isManualBypass) {
-  logStep("Using manual subscription override from DB (bypass mode)", {
+  logStep("BYPASS MODE - Manual subscription found, preserving test account status", {
     subscribed: existingSubscriber?.subscribed,
     trial_expires_at: existingSubscriber?.trial_expires_at,
     subscription_tier: existingSubscriber?.subscription_tier,
-    subscription_end: existingSubscriber?.subscription_end
+    subscription_end: existingSubscriber?.subscription_end,
+    bypass_mode: true
   });
   return new Response(JSON.stringify({
     subscribed: true,
@@ -101,6 +102,7 @@ if ((manualSubscribed || manualTrialActive) && isManualBypass) {
     trial_started_at: existingSubscriber?.trial_started_at ?? null,
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: false,
+    bypass_mode: true,
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
@@ -130,7 +132,10 @@ if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
 
 // Skip Stripe checks for manual bypass users
 if (isManualBypass) {
-  logStep("Skipping Stripe checks for manual bypass user");
+  logStep("BYPASS MODE - Skipping Stripe checks for manual bypass user", { 
+    email: user.email,
+    bypass_mode: true 
+  });
   return new Response(JSON.stringify({
     subscribed: manualSubscribed || manualTrialActive,
     subscription_tier: existingSubscriber?.subscription_tier ?? null,
@@ -139,6 +144,7 @@ if (isManualBypass) {
     trial_started_at: existingSubscriber?.trial_started_at ?? null,
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: !(manualSubscribed || manualTrialActive),
+    bypass_mode: true,
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
