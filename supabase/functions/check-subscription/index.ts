@@ -1,34 +1,95 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { cors } from "../_shared/cors.ts";
 import { createDiagnostics } from "../_shared/diagnostics.ts";
-import { authenticateRequest, validateAuthEnvironment } from "../_shared/auth-utils.ts";
+import { authenticateRequest } from "../_shared/auth-utils.ts";
+
+// Simplified and reliable CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
 
 serve(async (req) => {
-  const C = cors(req);
-  if (req.method === "OPTIONS") return new Response(null, { headers: C.headers });
-  if (!C.allowed) return new Response("CORS: origin not allowed", { status: 403, headers: C.headers });
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
   
   const diagnostics = createDiagnostics("check-subscription", req);
 
   try {
-    // Validate environment and authenticate user
-    validateAuthEnvironment(diagnostics);
+    // Enhanced environment validation with detailed error messages
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+
+    if (!supabaseUrl) {
+      diagnostics.logStep("env_missing_supabase_url");
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Server configuration error: SUPABASE_URL not set",
+        code: "ENV_MISSING_SUPABASE_URL"
+      }), {
+        headers: { ...corsHeaders, "content-type": "application/json" },
+        status: 500,
+      });
+    }
+
+    if (!serviceRoleKey) {
+      diagnostics.logStep("env_missing_service_key");
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Server configuration error: Service role key not configured",
+        code: "ENV_MISSING_SERVICE_KEY"
+      }), {
+        headers: { ...corsHeaders, "content-type": "application/json" },
+        status: 500,
+      });
+    }
+
+    if (!stripeKey) {
+      diagnostics.logStep("env_missing_stripe_key");
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Server configuration error: Stripe not configured",
+        code: "ENV_MISSING_STRIPE_KEY"
+      }), {
+        headers: { ...corsHeaders, "content-type": "application/json" },
+        status: 500,
+      });
+    }
+
+    diagnostics.logStep("env_validation_success");
     
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      supabaseUrl,
+      serviceRoleKey,
       { auth: { persistSession: false } }
     );
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      throw new Error("STRIPE_SECRET_KEY is not set");
-    }
     diagnostics.logStep("stripe_key_verified");
 
-    const user = await authenticateRequest(req, supabaseClient, diagnostics);
+    // Enhanced authentication with timeout
+    let user;
+    try {
+      const authPromise = authenticateRequest(req, supabaseClient, diagnostics);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Authentication timeout")), 10000)
+      );
+      user = await Promise.race([authPromise, timeoutPromise]);
+    } catch (authError) {
+      diagnostics.logStep("auth_failed", { error: authError.message });
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: `Authentication failed: ${authError.message}`,
+        code: "AUTH_FAILED"
+      }), {
+        headers: { ...corsHeaders, "content-type": "application/json" },
+        status: 401,
+      });
+    }
 
     // Check for existing subscriber record
     const { data: existingSubscriber } = await diagnostics.measure(
@@ -70,7 +131,7 @@ const isManualBypass = existingSubscriber?.stripe_customer_id === "manual_bypass
     current_period_end: existingSubscriber?.subscription_end ?? null,
     source: 'bypass'
     }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
     });
 }
@@ -91,7 +152,7 @@ if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: false,
     }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
     });
 }
@@ -119,13 +180,34 @@ if (isManualBypass) {
     current_period_end: existingSubscriber?.subscription_end ?? null,
     source: 'bypass'
     }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
     });
 }
 
+// Enhanced Stripe API calls with timeout handling
 const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+
+let customers;
+try {
+  diagnostics.logStep("stripe_customer_lookup_start", { email: user.email });
+  const customerPromise = stripe.customers.list({ email: user.email, limit: 1 });
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error("Stripe API timeout")), 15000)
+  );
+  customers = await Promise.race([customerPromise, timeoutPromise]);
+  diagnostics.logStep("stripe_customer_lookup_success", { count: customers.data.length });
+} catch (stripeError) {
+  diagnostics.logStep("stripe_customer_lookup_failed", { error: stripeError.message });
+  return new Response(JSON.stringify({ 
+    success: false, 
+    error: `Unable to verify subscription status: ${stripeError.message}`,
+    code: "STRIPE_API_ERROR"
+  }), {
+    headers: { ...corsHeaders, "content-type": "application/json" },
+    status: 503,
+  });
+}
 
 // If no Stripe customer and no manual override, mark as unsubscribed (no free tier)
 if (customers.data.length === 0) {
@@ -151,7 +233,7 @@ if (customers.data.length === 0) {
     payment_collected: false,
     requires_subscription: true,
     }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
     });
 }
@@ -266,7 +348,7 @@ if (customers.data.length === 0) {
       if (!userData?.org_id) {
         diagnostics.logStep("BYPASS MODE - Cannot apply bypass: No org_id found for user");
         return new Response(JSON.stringify({ error: "User not associated with organization" }), {
-          headers: { ...C.headers, "content-type": "application/json" },
+          headers: { ...corsHeaders, "content-type": "application/json" },
           status: 400,
         });
       }
@@ -302,7 +384,7 @@ if (customers.data.length === 0) {
           current_period_end: existingNonBypass.subscription_end,
           source: existingNonBypass.metadata?.source || 'stripe'
         }), {
-          headers: { ...C.headers, "content-type": "application/json" },
+          headers: { ...corsHeaders, "content-type": "application/json" },
           status: 200,
         });
       }
@@ -371,7 +453,7 @@ if (customers.data.length === 0) {
         current_period_end: bypassPeriodEnd.toISOString(),
         source: 'bypass'
       }), {
-        headers: { ...C.headers, "content-type": "application/json" },
+        headers: { ...corsHeaders, "content-type": "application/json" },
         status: 200,
       });
     }
@@ -389,10 +471,19 @@ if (customers.data.length === 0) {
       requires_subscription: !(hasActiveSub || trialActive),
       metadata: existingSubscriber?.metadata || null, // Include existing metadata
     }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    return diagnostics.createErrorResponse(error as Error, 500);
+    diagnostics.logStep("unexpected_error", { error: error.message, stack: error.stack });
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: `Subscription check failed: ${error.message}`,
+      code: "UNEXPECTED_ERROR",
+      requestId: diagnostics.getRequestSummary().requestId
+    }), {
+      headers: { ...corsHeaders, "content-type": "application/json" },
+      status: 500,
+    });
   }
 });
