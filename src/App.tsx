@@ -19,6 +19,7 @@ const TrialSuccess = lazy(() => import("./pages/TrialSuccess"));
 const DomainVerification = lazy(() => import("./pages/DomainVerification"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Reports = lazy(() => import("./pages/Reports"));
+const BypassTestPage = lazy(() => import("./pages/BypassTestPage"));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -72,6 +73,11 @@ const App = () => (
             <Route path="/domain-verification" element={
               <SubscriptionGate>
                 <DomainVerification />
+              </SubscriptionGate>
+            } />
+            <Route path="/bypass-test" element={
+              <SubscriptionGate>
+                <BypassTestPage />
               </SubscriptionGate>
             } />
             <Route path="*" element={<NotFound />} />
