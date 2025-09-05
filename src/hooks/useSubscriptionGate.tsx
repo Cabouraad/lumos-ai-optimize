@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { getQuotasForTier } from '../../lib/tiers/quotas';
 import { optimizationFlags } from '@/config/featureFlags';
+import { useEffect } from 'react';
 
 export interface FeatureGate {
   hasAccess: boolean;
@@ -23,7 +24,7 @@ export interface TierLimits {
 }
 
 export function useSubscriptionGate() {
-  const { subscriptionData } = useAuth();
+  const { subscriptionData, loading: authLoading } = useAuth();
   
   // BYPASS LOGIC: Check for bypass metadata and enforce Starter entitlements
   const isBypassUser = subscriptionData?.metadata?.source === "bypass";
@@ -31,6 +32,23 @@ export function useSubscriptionGate() {
   // If bypass user, force plan to 'starter' and never upgrade above it
   const currentTier = isBypassUser ? 'starter' : (subscriptionData?.subscription_tier || 'free');
   const isSubscribed = subscriptionData?.subscribed || false;
+  
+  // Debug logging for subscription state changes
+  useEffect(() => {
+    console.log('[SUBSCRIPTION_GATE] Hook mounted/updated', {
+      plan: subscriptionData?.subscription_tier,
+      status: subscriptionData?.subscribed ? 'active' : 'inactive',
+      payment_collected: subscriptionData?.payment_collected,
+      trial_expires_at: subscriptionData?.trial_expires_at,
+      loading: authLoading
+    });
+  }, [
+    subscriptionData?.subscription_tier,
+    subscriptionData?.subscribed,
+    subscriptionData?.payment_collected,
+    subscriptionData?.trial_expires_at,
+    authLoading
+  ]);
   
   console.log('[SUBSCRIPTION_GATE]', {
     originalTier: subscriptionData?.subscription_tier,

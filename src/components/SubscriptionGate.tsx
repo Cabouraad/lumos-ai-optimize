@@ -13,6 +13,24 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Debug logging for subscription gate state changes
+  useEffect(() => {
+    console.log('[SUBSCRIPTION_GATE_COMPONENT] State updated', {
+      plan: subscriptionData?.subscription_tier,
+      status: subscriptionData?.subscribed ? 'active' : 'inactive',
+      payment_collected: subscriptionData?.payment_collected,
+      trial_expires_at: subscriptionData?.trial_expires_at,
+      loading: loading || subscriptionLoading
+    });
+  }, [
+    subscriptionData?.subscription_tier,
+    subscriptionData?.subscribed,
+    subscriptionData?.payment_collected,
+    subscriptionData?.trial_expires_at,
+    loading,
+    subscriptionLoading
+  ]);
+
   // Trigger subscription check if user exists but subscriptionData is null
   useEffect(() => {
     if (user && !loading && !subscriptionLoading && subscriptionData === null) {
