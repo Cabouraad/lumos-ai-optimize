@@ -5,10 +5,70 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EdgeFunctionClient } from '@/lib/edge-functions/client';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [showDiagModal, setShowDiagModal] = useState(false);
+  const [diagResult, setDiagResult] = useState<any>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
   const { subscriptionData } = useAuth();
+  const { toast } = useToast();
+
+  // Show dev tools in non-production or with ?dev=1
+  const isDev = import.meta.env.DEV || new URLSearchParams(window.location.search).has('dev');
+
+  const checkEdgeConnectivity = async () => {
+    setDiagLoading(true);
+    setDiagResult(null);
+    setShowDiagModal(true);
+
+    try {
+      const { data, error } = await EdgeFunctionClient.invoke('diag');
+      
+      if (error) {
+        setDiagResult({ error: error.message || 'Unknown error', details: error });
+        toast({
+          title: "Edge Connectivity Failed",
+          description: `Error: ${error.message || 'Unknown error'}`,
+          variant: "destructive",
+        });
+      } else {
+        setDiagResult(data);
+        if (data?.ok === true && data?.allowed === true) {
+          toast({
+            title: "Edge Connectivity Success",
+            description: "CORS and origin validation working correctly",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Edge Connectivity Issues",
+            description: `ok: ${data?.ok}, allowed: ${data?.allowed}`,
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (err: any) {
+      const errorInfo = {
+        name: err.name,
+        message: err.message,
+        isFetchError: err.__isFetchError,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      };
+      setDiagResult({ error: 'Network error', details: errorInfo });
+      toast({
+        title: "Network Error",
+        description: `${err.name}: ${err.message}`,
+        variant: "destructive",
+      });
+    }
+
+    setDiagLoading(false);
+  };
 
   const pricingTiers = [
     {
@@ -190,6 +250,59 @@ export default function Pricing() {
             </Card>
           </div>
         </div>
+
+        {/* Dev Tools */}
+        {isDev && (
+          <div className="fixed bottom-4 right-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkEdgeConnectivity}
+              disabled={diagLoading}
+              className="text-xs bg-background/80 backdrop-blur"
+            >
+              {diagLoading ? 'Checking...' : 'Check Edge Connectivity'}
+            </Button>
+          </div>
+        )}
+
+        {/* Diagnostic Modal */}
+        <Dialog open={showDiagModal} onOpenChange={setShowDiagModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edge Function Connectivity Test</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {diagLoading ? (
+                <div className="text-center py-4">Checking connectivity...</div>
+              ) : diagResult ? (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Result:</div>
+                  <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-96">
+                    {JSON.stringify(diagResult, null, 2)}
+                  </pre>
+                  {diagResult.ok === true && diagResult.allowed === true && (
+                    <div className="text-green-600 text-sm font-medium">
+                      ✅ Connectivity and CORS working correctly
+                    </div>
+                  )}
+                  {(diagResult.ok !== true || diagResult.allowed !== true) && !diagResult.error && (
+                    <div className="text-orange-600 text-sm font-medium">
+                      ⚠️ CORS/Origin issues detected
+                    </div>
+                  )}
+                  {diagResult.error && (
+                    <div className="text-red-600 text-sm font-medium">
+                      ❌ Connection failed
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-muted-foreground text-sm">Click "Check Edge Connectivity" to test</div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
