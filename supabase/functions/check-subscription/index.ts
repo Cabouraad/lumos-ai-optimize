@@ -95,6 +95,7 @@ if ((manualSubscribed || manualTrialActive) && isManualBypass) {
     bypass_mode: true
   });
   return new Response(JSON.stringify({
+    // Legacy API fields (keep unchanged)
     subscribed: true,
     subscription_tier: existingSubscriber?.subscription_tier ?? null,
     subscription_end: existingSubscriber?.subscription_end ?? null,
@@ -103,7 +104,12 @@ if ((manualSubscribed || manualTrialActive) && isManualBypass) {
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: false,
     bypass_mode: true,
-    metadata: existingSubscriber?.metadata || null, // Include metadata in bypass response
+    metadata: existingSubscriber?.metadata || null,
+    // Normalized payload fields
+    plan: (existingSubscriber?.subscription_tier ?? 'starter').toUpperCase(),
+    status: 'active',
+    current_period_end: existingSubscriber?.subscription_end ?? null,
+    source: 'bypass'
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
@@ -138,6 +144,7 @@ if (isManualBypass) {
     bypass_mode: true 
   });
   return new Response(JSON.stringify({
+    // Legacy API fields (keep unchanged)
     subscribed: manualSubscribed || manualTrialActive,
     subscription_tier: existingSubscriber?.subscription_tier ?? null,
     subscription_end: existingSubscriber?.subscription_end ?? null,
@@ -146,7 +153,12 @@ if (isManualBypass) {
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: !(manualSubscribed || manualTrialActive),
     bypass_mode: true,
-    metadata: existingSubscriber?.metadata || null, // Include metadata for bypass users
+    metadata: existingSubscriber?.metadata || null,
+    // Normalized payload fields
+    plan: (existingSubscriber?.subscription_tier ?? 'starter').toUpperCase(),
+    status: (manualSubscribed || manualTrialActive) ? 'active' : 'inactive',
+    current_period_end: existingSubscriber?.subscription_end ?? null,
+    source: 'bypass'
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
@@ -319,6 +331,7 @@ if (customers.data.length === 0) {
       
       // Return bypass subscription data
       return new Response(JSON.stringify({
+        // Legacy API fields (keep unchanged)
         subscribed: true,
         subscription_tier: "starter",
         subscription_end: bypassPeriodEnd.toISOString(),
@@ -327,7 +340,12 @@ if (customers.data.length === 0) {
         payment_collected: true,
         requires_subscription: false,
         bypass_mode: true,
-        metadata: bypassData.metadata, // Include metadata in response
+        metadata: bypassData.metadata,
+        // Normalized payload fields
+        plan: 'STARTER',
+        status: 'active',
+        current_period_end: bypassPeriodEnd.toISOString(),
+        source: 'bypass'
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
