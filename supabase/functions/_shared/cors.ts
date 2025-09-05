@@ -35,25 +35,40 @@ const ALLOWED_ORIGINS = getAllowedOrigins();
  * Get CORS headers for a specific origin (strict mode)
  */
 export function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, string> {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin) 
-    ? requestOrigin 
-    : ALLOWED_ORIGINS[0]; // Default to first allowed origin
+  // For development environments (localhost and sandbox URLs), be more permissive
+  const isDevelopment = requestOrigin?.includes('localhost') || 
+                       requestOrigin?.includes('sandbox.lovable.dev') ||
+                       requestOrigin?.includes('127.0.0.1');
+  
+  let origin = '*'; // Default permissive for development
+  
+  if (!isDevelopment) {
+    // In production, be strict about origins
+    origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin) 
+      ? requestOrigin 
+      : ALLOWED_ORIGINS[0]; // Default to first allowed origin
+  } else if (requestOrigin) {
+    // For development, allow the specific origin
+    origin = requestOrigin;
+  }
 
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
   };
 }
 
 /**
- * Legacy CORS headers (permissive - only for backward compatibility)
- * @deprecated Use getStrictCorsHeaders instead
+ * Legacy CORS headers (permissive - for development and backward compatibility)
  */
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 // Rate limiting utilities

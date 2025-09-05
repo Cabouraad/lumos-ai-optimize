@@ -238,24 +238,47 @@ export function BatchPromptRunner() {
 
   // Robust invoke with retry mechanism
   const robustInvoke = async (functionName: string, options: any, retries = 2): Promise<any> => {
+    console.log(`🔄 Attempting to invoke ${functionName}:`, {
+      hasAuth: !!options.headers?.authorization || !!options.body?.auth,
+      bodyKeys: Object.keys(options.body || {}),
+      attempt: 1
+    });
+    
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const result = await supabase.functions.invoke(functionName, options);
+        
+        if (result.error) {
+          console.error(`❌ ${functionName} returned error:`, result.error);
+          throw new Error(result.error.message || `${functionName} failed`);
+        }
+        
+        console.log(`✅ ${functionName} success:`, result.data?.action || 'success');
         return result;
       } catch (error: any) {
+        console.error(`❌ ${functionName} attempt ${attempt + 1} error:`, {
+          message: error.message,
+          name: error.name,
+          stack: error.stack?.split('\n')[0],
+          attempt: attempt + 1,
+          maxAttempts: retries + 1
+        });
+        
         const isNetworkError = error.message?.includes('Failed to fetch') || 
                               error.message?.includes('network') ||
-                              error.message?.includes('NetworkError');
+                              error.message?.includes('NetworkError') ||
+                              error.name === 'TypeError' && error.message?.includes('fetch');
         
         if (isNetworkError && attempt < retries) {
-          console.log(`🔄 Network error on attempt ${attempt + 1}, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          const backoffMs = 1000 * (attempt + 1);
+          console.log(`🔄 Network error on attempt ${attempt + 1}, retrying in ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
           continue;
         }
         
         // Enhance error message for network issues
         if (isNetworkError) {
-          throw new Error('Connection failed. Please check your internet connection and try again.');
+          throw new Error(`Connection to ${functionName} failed. Please check your internet connection and try again. (${error.message})`);
         }
         
         throw error;
@@ -266,6 +289,7 @@ export function BatchPromptRunner() {
   // Run preflight check to validate system status
   const runPreflight = async () => {
     try {
+      console.log('🔍 Running preflight check...');
       const orgId = await getOrgId();
       const correlationId = crypto.randomUUID();
       
@@ -278,10 +302,12 @@ export function BatchPromptRunner() {
       });
 
       if (error) {
-        console.warn('Preflight check failed:', error);
+        console.error('❌ Preflight check failed:', error);
+        setLastError(`Preflight failed: ${error.message}`);
         return;
       }
 
+      console.log('✅ Preflight check successful:', data);
       setPreflightData(data);
       
       // Show warning if critical issues found
@@ -291,10 +317,20 @@ export function BatchPromptRunner() {
       setShowPreflightWarning(hasNoProviders || quotaExceeded);
       
       if (data.providers?.missing?.length > 0) {
-        console.log('⚠️ Missing provider API keys:', data.providers.missing);
+        console.warn('⚠️ Missing provider API keys:', data.providers.missing);
+        toast.warning(`Missing API keys for: ${data.providers.missing.join(', ')}`);
       }
-    } catch (error) {
-      console.warn('Preflight check error:', error);
+      
+      if (hasNoProviders) {
+        toast.error('No LLM provider API keys configured. Please add API keys in settings.');
+      }
+      
+      if (quotaExceeded) {
+        toast.error('Daily quota exceeded. Upgrade your plan to continue.');
+      }
+    } catch (error: any) {
+      console.error('💥 Preflight check error:', error);
+      setLastError(`Preflight error: ${error.message}`);
     }
   };
 

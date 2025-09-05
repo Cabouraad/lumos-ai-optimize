@@ -98,12 +98,22 @@ interface ProviderConfig {
 function getProviderConfigs(): Record<string, ProviderConfig> {
   const openaiKey = Deno.env.get('OPENAI_API_KEY') || '';
   const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY') || '';
-  const geminiKey = Deno.env.get('GEMINI_API_KEY') || '';
+  // Check multiple possible Gemini key names (consistent with other functions)
+  const geminiKey = Deno.env.get('GEMINI_API_KEY') || 
+                    Deno.env.get('GOOGLE_API_KEY') || 
+                    Deno.env.get('GOOGLE_GENAI_API_KEY') || 
+                    Deno.env.get('GENAI_API_KEY') || '';
   
   console.log('🔑 API Key Status:', {
     openai: openaiKey ? '✅ Available' : '❌ Missing',
     perplexity: perplexityKey ? '✅ Available' : '❌ Missing', 
-    gemini: geminiKey ? '✅ Available' : '❌ Missing'
+    gemini: geminiKey ? '✅ Available' : '❌ Missing',
+    geminiKeySource: geminiKey ? (
+      Deno.env.get('GEMINI_API_KEY') ? 'GEMINI_API_KEY' :
+      Deno.env.get('GOOGLE_API_KEY') ? 'GOOGLE_API_KEY' :
+      Deno.env.get('GOOGLE_GENAI_API_KEY') ? 'GOOGLE_GENAI_API_KEY' :
+      Deno.env.get('GENAI_API_KEY') ? 'GENAI_API_KEY' : 'unknown'
+    ) : 'none'
   });
   
   return {
@@ -443,7 +453,17 @@ serve(async (req) => {
   const requestOrigin = req.headers.get('origin');
   const corsHeaders = getStrictCorsHeaders(requestOrigin);
   
+  console.log(`🔍 Request received:`, {
+    method: req.method,
+    origin: requestOrigin,
+    userAgent: req.headers.get('user-agent')?.substring(0, 50) + '...',
+    hasAuth: !!req.headers.get('authorization'),
+    hasCronSecret: !!req.headers.get('x-cron-secret'),
+    isManualCall: req.headers.get('x-manual-call') === 'true'
+  });
+  
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight handled');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -477,15 +497,23 @@ serve(async (req) => {
       // Check for Bearer token (from UI)
       if (authHeader.startsWith('Bearer ')) {
         isAuthenticated = true; // Basic validation - token presence
+        console.log('🔐 Authenticated via Bearer token');
       }
     } else if (cronSecret) {
       // Check for valid cron secret (from scheduler)
       const validCronSecret = Deno.env.get('CRON_SECRET');
       isAuthenticated = validCronSecret && cronSecret === validCronSecret;
+      console.log('🔐 Authenticated via cron secret:', isAuthenticated);
     }
     
     if (!isAuthenticated) {
       console.error('❌ Authentication failed: No valid authorization header or cron secret');
+      console.log('🔍 Auth Debug:', {
+        hasAuthHeader: !!authHeader,
+        hasCronSecret: !!cronSecret,
+        authHeaderPrefix: authHeader?.substring(0, 10) + '...',
+        hasCronSecretEnv: !!Deno.env.get('CRON_SECRET')
+      });
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Authentication required',
@@ -566,8 +594,10 @@ serve(async (req) => {
         const token = authHeader.substring(7);
         const payload = JSON.parse(atob(token.split('.')[1]));
         userId = payload.sub;
+        console.log('🔍 Extracted user ID from JWT:', userId?.substring(0, 8) + '...');
       } catch (error) {
-        console.warn('Failed to parse JWT for user ID:', error);
+        console.warn('⚠️ Failed to parse JWT for user ID:', error);
+        // Don't fail the request, just skip quota checking
       }
     }
 

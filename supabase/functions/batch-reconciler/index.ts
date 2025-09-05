@@ -6,11 +6,23 @@ const ORIGIN = '*';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 serve(async (req) => {
+  const requestOrigin = req.headers.get('origin');
+  console.log(`🔍 Batch reconciler request:`, {
+    method: req.method,
+    origin: requestOrigin,
+    hasAuth: !!req.headers.get('authorization'),
+    hasCronSecret: !!req.headers.get('x-cron-secret'),
+    isManualCall: req.headers.get('x-manual-call') === 'true'
+  });
+  
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight handled for reconciler');
     return new Response(null, { headers: corsHeaders });
   }
 
