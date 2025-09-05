@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getStrictCorsHeaders } from "../_shared/cors.ts";
-
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[GRANT-STARTER-BYPASS] ${step}${detailsStr}`);
-};
+import { createDiagnostics } from "../_shared/diagnostics.ts";
+import { authenticateRequest, validateAuthEnvironment, getUserOrgId } from "../_shared/auth-utils.ts";
 
 // Check if billing bypass is enabled and user is eligible
 function checkBypassEligibility(userEmail: string): { eligible: boolean; reason?: string } {
@@ -29,67 +26,50 @@ function checkBypassEligibility(userEmail: string): { eligible: boolean; reason?
 
 serve(async (req) => {
   const corsHeaders = getStrictCorsHeaders(req.headers.get("Origin"));
+  const diagnostics = createDiagnostics("grant-starter-bypass", req);
   
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
-  );
-
   try {
-    logStep("Function started - BYPASS MODE ACTIVE");
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
-    logStep("Authorization header found");
-
-    const token = authHeader.replace("Bearer ", "");
-    logStep("Authenticating user with token");
+    // Validate environment and authenticate user
+    validateAuthEnvironment(diagnostics);
     
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
-    const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id });
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } }
+    );
+
+    const user = await authenticateRequest(req, supabaseClient, diagnostics);
 
     // Check bypass eligibility using environment variables
     const eligibility = checkBypassEligibility(user.email);
     if (!eligibility.eligible) {
-      logStep("BLOCKED - User not eligible for bypass", { 
-        email: user.email,
+      diagnostics.logStep("bypass_eligibility_denied", { 
         reason: eligibility.reason 
       });
       throw new Error(`Access denied: ${eligibility.reason}`);
     }
 
-    logStep("BYPASS - Environment check passed, granting starter bypass", { 
-      email: user.email,
+    diagnostics.logStep("bypass_eligibility_approved", { 
       bypass_enabled: Deno.env.get("BILLING_BYPASS_ENABLED"),
       expires_at: Deno.env.get("BILLING_BYPASS_EXPIRES_AT") || "no expiration"
     });
 
     // Check for existing subscription to protect real paid customers
-    const { data: existingSubscription } = await supabaseClient
-      .from("subscribers")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data: existingSubscription } = await diagnostics.measure(
+      "existing_subscription_check",
+      () => supabaseClient
+        .from("subscribers")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+    );
 
     // Get user's org_id for org-based bypass logic
-    const { data: userData } = await supabaseClient
-      .from('users')
-      .select('org_id')
-      .eq('id', user.id)
-      .single();
-    
-    if (!userData?.org_id) {
-      logStep("BYPASS - Cannot apply bypass: No org_id found for user");
-      throw new Error("User not associated with organization");
-    }
+    const orgId = await getUserOrgId(supabaseClient, user.id, diagnostics);
 
     // Check for existing non-bypass active or trialing subscriptions for this org
     const { data: existingNonBypass } = await supabaseClient
@@ -102,7 +82,7 @@ serve(async (req) => {
 
     // CRITICAL: Never overwrite real paid subscriptions
     if (existingNonBypass && existingNonBypass.metadata?.source !== 'bypass') {
-      logStep("BYPASS - Active non-bypass subscription detected, skipping bypass", {
+      diagnostics.logStep("bypass_blocked_existing_subscription", {
         tier: existingNonBypass.subscription_tier,
         subscribed: existingNonBypass.subscribed,
         source: existingNonBypass.metadata?.source
@@ -121,7 +101,7 @@ serve(async (req) => {
     if (existingSubscription?.subscribed && 
         existingSubscription?.subscription_tier === "starter" &&
         existingSubscription?.metadata?.source === 'bypass') {
-      logStep("BYPASS - Subscription already exists, skipping creation", {
+      diagnostics.logStep("bypass_already_exists", {
         tier: existingSubscription.subscription_tier,
         expires: existingSubscription.subscription_end
       });
@@ -186,10 +166,10 @@ serve(async (req) => {
       throw new Error(`Failed to update subscription: ${upsertError.message}`);
     }
 
-    logStep("BYPASS - Successfully granted starter bypass", {
+    diagnostics.logStep("bypass_granted_successfully", {
       tier: subscriptionData.subscription_tier,
       expires: subscriptionData.subscription_end,
-      org_id: userData.org_id,
+      org_id: orgId,
       bypass_mode: true
     });
 
@@ -218,14 +198,6 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in grant-starter-bypass", { message: errorMessage });
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: errorMessage 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return diagnostics.createErrorResponse(error as Error, 500);
   }
 });

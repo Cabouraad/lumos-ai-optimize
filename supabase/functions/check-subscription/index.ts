@@ -1,84 +1,45 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-// Dynamic CORS origin handling for multiple domains
-function getCorsHeaders(requestOrigin: string | null) {
-  const allowedOrigins = [
-    "https://llumos.app",
-    "https://www.llumos.app", 
-    /^https:\/\/.*\.lovable\.app$/,
-    /^https:\/\/.*\.lovable\.dev$/,
-    /^http:\/\/localhost:\d+$/
-  ];
-  
-  let allowedOrigin = "https://llumos.app"; // default fallback
-  
-  if (requestOrigin) {
-    const isAllowed = allowedOrigins.some(origin => {
-      if (typeof origin === 'string') {
-        return origin === requestOrigin;
-      } else {
-        return origin.test(requestOrigin);
-      }
-    });
-    
-    if (isAllowed) {
-      allowedOrigin = requestOrigin;
-    }
-  }
-  
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
-
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
-};
+import { getStrictCorsHeaders } from "../_shared/cors.ts";
+import { createDiagnostics } from "../_shared/diagnostics.ts";
+import { authenticateRequest, validateAuthEnvironment } from "../_shared/auth-utils.ts";
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req.headers.get("Origin"));
+  const corsHeaders = getStrictCorsHeaders(req.headers.get("Origin"));
+  const diagnostics = createDiagnostics("check-subscription", req);
   
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
-  );
-
   try {
-    logStep("Function started");
+    // Validate environment and authenticate user
+    validateAuthEnvironment(diagnostics);
+    
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } }
+    );
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-    logStep("Stripe key verified");
+    if (!stripeKey) {
+      throw new Error("STRIPE_SECRET_KEY is not set");
+    }
+    diagnostics.logStep("stripe_key_verified");
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
-    logStep("Authorization header found");
+    const user = await authenticateRequest(req, supabaseClient, diagnostics);
 
-    const token = authHeader.replace("Bearer ", "");
-    logStep("Authenticating user with token");
-    
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
-    const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id }); // Removed email logging
-
-// Check for existing subscriber record
-const { data: existingSubscriber } = await supabaseClient
-  .from('subscribers')
-  .select('*')
-  .eq('email', user.email)
-  .maybeSingle();
+    // Check for existing subscriber record
+    const { data: existingSubscriber } = await diagnostics.measure(
+      "subscriber_lookup",
+      () => supabaseClient
+        .from('subscribers')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle()
+    );
 
 // Manual override: honor existing active subscription or active trial in DB
 const now = new Date();
@@ -86,14 +47,13 @@ const manualSubscribed = !!existingSubscriber?.subscribed;
 const manualTrialActive = !!(existingSubscriber?.trial_expires_at && new Date(existingSubscriber.trial_expires_at) > now);
 const isManualBypass = existingSubscriber?.stripe_customer_id === "manual_bypass";
 
-if ((manualSubscribed || manualTrialActive) && isManualBypass) {
-  logStep("BYPASS MODE - Manual subscription found, preserving test account status", {
-    subscribed: existingSubscriber?.subscribed,
-    trial_expires_at: existingSubscriber?.trial_expires_at,
-    subscription_tier: existingSubscriber?.subscription_tier,
-    subscription_end: existingSubscriber?.subscription_end,
-    bypass_mode: true
-  });
+    if ((manualSubscribed || manualTrialActive) && isManualBypass) {
+      diagnostics.logStep("bypass_manual_subscription", {
+        subscribed: existingSubscriber?.subscribed,
+        trial_expires_at: existingSubscriber?.trial_expires_at,
+        subscription_tier: existingSubscriber?.subscription_tier,
+        subscription_end: existingSubscriber?.subscription_end
+      });
   return new Response(JSON.stringify({
     // Legacy API fields (keep unchanged)
     subscribed: true,
@@ -434,11 +394,6 @@ if (customers.data.length === 0) {
       status: 200,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in check-subscription", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return diagnostics.createErrorResponse(error as Error, 500);
   }
 });
