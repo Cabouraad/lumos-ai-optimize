@@ -1,13 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { cors } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -15,9 +9,9 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const C = cors(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: C.headers });
+  if (!C.allowed) return new Response("CORS: origin not allowed", { status: 403, headers: C.headers });
 
   try {
     // Get authorization header for authenticated requests
@@ -26,7 +20,7 @@ serve(async (req) => {
       logStep('Missing authorization header');
       return new Response(
         JSON.stringify({ error: 'Authorization required' }),
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: { ...C.headers, "content-type": "application/json" } }
       );
     }
 
@@ -51,7 +45,7 @@ serve(async (req) => {
       logStep('Authentication failed', { error: authError });
       return new Response(
         JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: { ...C.headers, "content-type": "application/json" } }
       );
     }
 
@@ -96,7 +90,7 @@ serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ error: 'User email does not match customer email' }),
-        { status: 403, headers: corsHeaders }
+        { status: 403, headers: { ...C.headers, "content-type": "application/json" } }
       );
     }
 
@@ -109,7 +103,7 @@ serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ error: 'User ID mismatch' }),
-        { status: 403, headers: corsHeaders }
+        { status: 403, headers: { ...C.headers, "content-type": "application/json" } }
       );
     }
 
@@ -143,13 +137,13 @@ serve(async (req) => {
         trial_expires_at: trialExpiresAt.toISOString(),
         trial_started_at: trialStartedAt.toISOString()
       }),
-      { headers: corsHeaders }
+      { headers: { ...C.headers, "content-type": "application/json" } }
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in activate-trial", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...C.headers, "content-type": "application/json" },
       status: 500,
     });
   }

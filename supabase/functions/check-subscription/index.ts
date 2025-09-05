@@ -1,17 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getStrictCorsHeaders } from "../_shared/cors.ts";
+import { cors } from "../_shared/cors.ts";
 import { createDiagnostics } from "../_shared/diagnostics.ts";
 import { authenticateRequest, validateAuthEnvironment } from "../_shared/auth-utils.ts";
 
 serve(async (req) => {
-  const corsHeaders = getStrictCorsHeaders(req.headers.get("Origin"));
-  const diagnostics = createDiagnostics("check-subscription", req);
+  const C = cors(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: C.headers });
+  if (!C.allowed) return new Response("CORS: origin not allowed", { status: 403, headers: C.headers });
   
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const diagnostics = createDiagnostics("check-subscription", req);
 
   try {
     // Validate environment and authenticate user
@@ -70,10 +69,10 @@ const isManualBypass = existingSubscriber?.stripe_customer_id === "manual_bypass
     status: 'active',
     current_period_end: existingSubscriber?.subscription_end ?? null,
     source: 'bypass'
-  }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-    status: 200,
-  });
+    }), {
+      headers: { ...C.headers, "content-type": "application/json" },
+      status: 200,
+    });
 }
 
 if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
@@ -91,10 +90,10 @@ if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
     trial_started_at: existingSubscriber?.trial_started_at ?? null,
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: false,
-  }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-    status: 200,
-  });
+    }), {
+      headers: { ...C.headers, "content-type": "application/json" },
+      status: 200,
+    });
 }
 
 // Skip Stripe checks for manual bypass users
@@ -119,10 +118,10 @@ if (isManualBypass) {
     status: (manualSubscribed || manualTrialActive) ? 'active' : 'inactive',
     current_period_end: existingSubscriber?.subscription_end ?? null,
     source: 'bypass'
-  }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-    status: 200,
-  });
+    }), {
+      headers: { ...C.headers, "content-type": "application/json" },
+      status: 200,
+    });
 }
 
 const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
@@ -151,10 +150,10 @@ if (customers.data.length === 0) {
     trial_started_at: null,
     payment_collected: false,
     requires_subscription: true,
-  }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-    status: 200,
-  });
+    }), {
+      headers: { ...C.headers, "content-type": "application/json" },
+      status: 200,
+    });
 }
 
     const customerId = customers.data[0].id;
@@ -267,7 +266,7 @@ if (customers.data.length === 0) {
       if (!userData?.org_id) {
         logStep("BYPASS MODE - Cannot apply bypass: No org_id found for user");
         return new Response(JSON.stringify({ error: "User not associated with organization" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...C.headers, "content-type": "application/json" },
           status: 400,
         });
       }
@@ -303,7 +302,7 @@ if (customers.data.length === 0) {
           current_period_end: existingNonBypass.subscription_end,
           source: existingNonBypass.metadata?.source || 'stripe'
         }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...C.headers, "content-type": "application/json" },
           status: 200,
         });
       }
@@ -372,7 +371,7 @@ if (customers.data.length === 0) {
         current_period_end: bypassPeriodEnd.toISOString(),
         source: 'bypass'
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...C.headers, "content-type": "application/json" },
         status: 200,
       });
     }
@@ -390,7 +389,7 @@ if (customers.data.length === 0) {
       requires_subscription: !(hasActiveSub || trialActive),
       metadata: existingSubscriber?.metadata || null, // Include existing metadata
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...C.headers, "content-type": "application/json" },
       status: 200,
     });
   } catch (error) {

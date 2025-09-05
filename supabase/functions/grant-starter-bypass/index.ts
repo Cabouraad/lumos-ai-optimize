@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getStrictCorsHeaders } from "../_shared/cors.ts";
+import { cors } from "../_shared/cors.ts";
 import { createDiagnostics } from "../_shared/diagnostics.ts";
 import { authenticateRequest, validateAuthEnvironment, getUserOrgId } from "../_shared/auth-utils.ts";
 
@@ -25,12 +25,11 @@ function checkBypassEligibility(userEmail: string): { eligible: boolean; reason?
 }
 
 serve(async (req) => {
-  const corsHeaders = getStrictCorsHeaders(req.headers.get("Origin"));
-  const diagnostics = createDiagnostics("grant-starter-bypass", req);
+  const C = cors(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: C.headers });
+  if (!C.allowed) return new Response("CORS: origin not allowed", { status: 403, headers: C.headers });
   
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const diagnostics = createDiagnostics("grant-starter-bypass", req);
 
   try {
     // Validate environment and authenticate user
@@ -92,7 +91,7 @@ serve(async (req) => {
         success: false,
         error: "Cannot apply bypass to user with existing non-bypass subscription"
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...C.headers, "content-type": "application/json" },
         status: 400,
       });
     }
@@ -125,7 +124,7 @@ serve(async (req) => {
           source: 'bypass'
         }
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...C.headers, "content-type": "application/json" },
         status: 200,
       });
     }
@@ -193,7 +192,7 @@ serve(async (req) => {
         source: 'bypass'
       }
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...C.headers, "content-type": "application/json" },
       status: 200,
     });
 

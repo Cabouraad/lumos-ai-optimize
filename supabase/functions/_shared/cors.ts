@@ -1,3 +1,17 @@
+export function cors(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const list = (Deno.env.get("APP_ORIGINS") ?? Deno.env.get("APP_ORIGIN") ?? "")
+    .split(",").map(s=>s.trim()).filter(Boolean);
+  const allowed = list.includes(origin);
+  const headers = {
+    "Vary": "Origin",
+    "Access-Control-Allow-Origin": allowed ? origin : "",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, content-type"
+  };
+  return { allowed, origin, headers };
+}
+
 /**
  * Strict CORS configuration for production security
  */

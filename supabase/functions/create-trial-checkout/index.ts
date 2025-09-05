@@ -1,13 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { cors } from "../_shared/cors.ts";
 
 const generateIdempotencyKey = (userId: string, intent: string): string => {
   return `${userId}:${intent}:${Date.now() >> 13}`;
@@ -26,9 +20,9 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const C = cors(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: C.headers });
+  if (!C.allowed) return new Response("CORS: origin not allowed", { status: 403, headers: C.headers });
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -101,14 +95,14 @@ serve(async (req) => {
     logStep("Trial checkout session created", { sessionId: session.id, url: session.url });
 
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...C.headers, "content-type": "application/json" },
       status: 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-trial-checkout", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...C.headers, "content-type": "application/json" },
       status: 500,
     });
   }
