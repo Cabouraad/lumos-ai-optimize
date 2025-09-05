@@ -32,7 +32,7 @@ export function PricingCard({
   billingCycle,
   currentTier,
 }: PricingCardProps) {
-  const { user } = useAuth();
+  const { user, checkSubscription } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +43,7 @@ export function PricingCard({
   const handleSubscribe = async () => {
     if (!user) {
       toast({
-        title: "Authentication required",
+        title: "Authentication Required",
         description: "Please sign in to subscribe to a plan.",
         variant: "destructive",
       });
@@ -53,6 +53,29 @@ export function PricingCard({
     setLoading(true);
 
     try {
+      // Special handling for test user starter@test.app
+      if (user.email === "starter@test.app" && tier === 'starter') {
+        const { data, error } = await supabase.functions.invoke('grant-starter-bypass', {
+          body: {},
+        });
+
+        if (error) throw error;
+
+        if (data?.success) {
+          toast({
+            title: "Test Access Granted",
+            description: "Starter subscription activated for testing purposes.",
+          });
+          // Refresh subscription status
+          if (checkSubscription) {
+            await checkSubscription();
+          }
+          return;
+        } else {
+          throw new Error(data?.error || 'Failed to grant test access');
+        }
+      }
+
       // Use create-trial-checkout for starter tier, create-checkout for others
       const functionName = tier === 'starter' ? 'create-trial-checkout' : 'create-checkout';
       const body = tier === 'starter' ? {} : { tier, billingCycle };

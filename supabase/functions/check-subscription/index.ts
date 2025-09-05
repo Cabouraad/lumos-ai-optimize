@@ -84,7 +84,30 @@ const { data: existingSubscriber } = await supabaseClient
 const now = new Date();
 const manualSubscribed = !!existingSubscriber?.subscribed;
 const manualTrialActive = !!(existingSubscriber?.trial_expires_at && new Date(existingSubscriber.trial_expires_at) > now);
-if (manualSubscribed || manualTrialActive) {
+const isManualBypass = existingSubscriber?.stripe_customer_id === "manual_bypass";
+
+if ((manualSubscribed || manualTrialActive) && isManualBypass) {
+  logStep("Using manual subscription override from DB (bypass mode)", {
+    subscribed: existingSubscriber?.subscribed,
+    trial_expires_at: existingSubscriber?.trial_expires_at,
+    subscription_tier: existingSubscriber?.subscription_tier,
+    subscription_end: existingSubscriber?.subscription_end
+  });
+  return new Response(JSON.stringify({
+    subscribed: true,
+    subscription_tier: existingSubscriber?.subscription_tier ?? null,
+    subscription_end: existingSubscriber?.subscription_end ?? null,
+    trial_expires_at: existingSubscriber?.trial_expires_at ?? null,
+    trial_started_at: existingSubscriber?.trial_started_at ?? null,
+    payment_collected: existingSubscriber?.payment_collected ?? false,
+    requires_subscription: false,
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 200,
+  });
+}
+
+if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
   logStep("Using manual subscription override from DB", {
     subscribed: existingSubscriber?.subscribed,
     trial_expires_at: existingSubscriber?.trial_expires_at,
@@ -99,6 +122,23 @@ if (manualSubscribed || manualTrialActive) {
     trial_started_at: existingSubscriber?.trial_started_at ?? null,
     payment_collected: existingSubscriber?.payment_collected ?? false,
     requires_subscription: false,
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 200,
+  });
+}
+
+// Skip Stripe checks for manual bypass users
+if (isManualBypass) {
+  logStep("Skipping Stripe checks for manual bypass user");
+  return new Response(JSON.stringify({
+    subscribed: manualSubscribed || manualTrialActive,
+    subscription_tier: existingSubscriber?.subscription_tier ?? null,
+    subscription_end: existingSubscriber?.subscription_end ?? null,
+    trial_expires_at: existingSubscriber?.trial_expires_at ?? null,
+    trial_started_at: existingSubscriber?.trial_started_at ?? null,
+    payment_collected: existingSubscriber?.payment_collected ?? false,
+    requires_subscription: !(manualSubscribed || manualTrialActive),
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
