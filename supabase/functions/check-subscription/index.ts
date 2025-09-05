@@ -76,7 +76,7 @@ const isManualBypass = existingSubscriber?.stripe_customer_id === "manual_bypass
 }
 
 if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
-  logStep("Using manual subscription override from DB", {
+  diagnostics.logStep("Using manual subscription override from DB", {
     subscribed: existingSubscriber?.subscribed,
     trial_expires_at: existingSubscriber?.trial_expires_at,
     subscription_tier: existingSubscriber?.subscription_tier,
@@ -98,7 +98,7 @@ if ((manualSubscribed || manualTrialActive) && !isManualBypass) {
 
 // Skip Stripe checks for manual bypass users
 if (isManualBypass) {
-  logStep("BYPASS MODE - Skipping Stripe checks for manual bypass user", { 
+  diagnostics.logStep("BYPASS MODE - Skipping Stripe checks for manual bypass user", { 
     email: user.email,
     bypass_mode: true 
   });
@@ -129,7 +129,7 @@ const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
 // If no Stripe customer and no manual override, mark as unsubscribed (no free tier)
 if (customers.data.length === 0) {
-  logStep("No Stripe customer found, marking unsubscribed");
+  diagnostics.logStep("No Stripe customer found, marking unsubscribed");
   await supabaseClient.from("subscribers").upsert({
     email: user.email,
     user_id: user.id,
@@ -157,7 +157,7 @@ if (customers.data.length === 0) {
 }
 
     const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    diagnostics.logStep("Found Stripe customer", { customerId });
 
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -176,11 +176,11 @@ if (customers.data.length === 0) {
       const subscription = subscriptions.data[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       paymentCollected = true; // Active subscription means payment was collected
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+      diagnostics.logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
       
       // First check subscription metadata for tier (most reliable)
       subscriptionTier = subscription.metadata?.tier || null;
-      logStep("Checked subscription metadata", { tier: subscriptionTier });
+      diagnostics.logStep("Checked subscription metadata", { tier: subscriptionTier });
       
       // If no metadata tier, determine from price
       if (!subscriptionTier) {
@@ -200,10 +200,10 @@ if (customers.data.length === 0) {
         } else {
           subscriptionTier = "starter"; // Default fallback
         }
-        logStep("Determined subscription tier from price", { priceId, amount, monthlyAmount, subscriptionTier });
+        diagnostics.logStep("Determined subscription tier from price", { priceId, amount, monthlyAmount, subscriptionTier });
       }
     } else {
-      logStep("No active subscription found");
+      diagnostics.logStep("No active subscription found");
       // Check for trial subscription (trialing status)
       const trialingSubscriptions = await stripe.subscriptions.list({
         customer: customerId,
@@ -217,7 +217,7 @@ if (customers.data.length === 0) {
         trialStartedAt = new Date(trialSubscription.created * 1000).toISOString();
         trialExpiresAt = subscriptionEnd;
         paymentCollected = true; // Payment method was collected
-        logStep("Found trialing subscription", { subscriptionId: trialSubscription.id, trialEnd: subscriptionEnd });
+        diagnostics.logStep("Found trialing subscription", { subscriptionId: trialSubscription.id, trialEnd: subscriptionEnd });
       } else {
         subscriptionTier = null;
       }
@@ -239,7 +239,7 @@ if (customers.data.length === 0) {
 
     await supabaseClient.from("subscribers").upsert(updateData, { onConflict: 'email' });
 
-    logStep("Updated database with subscription info", { subscribed: updateData.subscribed, subscriptionTier });
+    diagnostics.logStep("Updated database with subscription info", { subscribed: updateData.subscribed, subscriptionTier });
 
     // BILLING BYPASS LOGIC - Check environment toggles after Stripe processing
     const bypassEnabled = Deno.env.get("BILLING_BYPASS_ENABLED") === "true";
@@ -250,7 +250,7 @@ if (customers.data.length === 0) {
     const isCutoffValid = !bypassCutoff || new Date() < new Date(bypassCutoff);
     
     if (bypassEnabled && isEmailAllowed && isCutoffValid) {
-      logStep("BYPASS MODE - Applying subscription bypass", { 
+      diagnostics.logStep("BYPASS MODE - Applying subscription bypass", { 
         bypass: true, 
         email: user.email, 
         user_id: user.id 
@@ -264,7 +264,7 @@ if (customers.data.length === 0) {
         .single();
       
       if (!userData?.org_id) {
-        logStep("BYPASS MODE - Cannot apply bypass: No org_id found for user");
+        diagnostics.logStep("BYPASS MODE - Cannot apply bypass: No org_id found for user");
         return new Response(JSON.stringify({ error: "User not associated with organization" }), {
           headers: { ...C.headers, "content-type": "application/json" },
           status: 400,
@@ -281,7 +281,7 @@ if (customers.data.length === 0) {
         .maybeSingle();
       
       if (existingNonBypass && existingNonBypass.metadata?.source !== 'bypass') {
-        logStep("BYPASS MODE - Existing non-bypass subscription found, skipping bypass", {
+        diagnostics.logStep("BYPASS MODE - Existing non-bypass subscription found, skipping bypass", {
           existing_subscription: existingNonBypass.subscription_tier,
           existing_source: existingNonBypass.metadata?.source
         });
@@ -340,11 +340,11 @@ if (customers.data.length === 0) {
         });
       
       if (upsertError) {
-        logStep("BYPASS MODE - Upsert error", { error: upsertError.message });
+        diagnostics.logStep("BYPASS MODE - Upsert error", { error: upsertError.message });
         throw new Error(`Failed to apply bypass: ${upsertError.message}`);
       }
       
-      logStep("BYPASS MODE - Subscription bypass applied successfully", { 
+      diagnostics.logStep("BYPASS MODE - Subscription bypass applied successfully", { 
         bypass: true, 
         email: user.email, 
         user_id: user.id,

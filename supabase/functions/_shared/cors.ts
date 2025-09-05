@@ -22,10 +22,11 @@ const getAllowedOrigins = (): string[] => {
   const appOrigins = Deno.env.get('APP_ORIGINS');
   
   if (appOrigins) {
-    return appOrigins.split(',').map(origin => origin.trim());
+    return appOrigins.split(',').map(origin => origin.trim()).filter(Boolean);
   }
   
-  return [appOrigin];
+  // Default origins for development and production
+  return [appOrigin, 'http://localhost:5173', 'https://llumos.app'];
 };
 
 const ALLOWED_ORIGINS = getAllowedOrigins();

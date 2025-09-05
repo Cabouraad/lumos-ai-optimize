@@ -58,15 +58,21 @@ export class EdgeFunctionClient {
         }
       }
 
-      // Show user-friendly toast notification
+      // Show user-friendly toast notification with enhanced info
       const errorMessage = this.getErrorMessage(error);
       const statusCode = error.response?.status;
+      const statusText = error.response?.statusText;
+      
+      let description = errorMessage;
+      if (statusCode) {
+        description = statusText 
+          ? `${statusCode} ${statusText}: ${errorMessage}`
+          : `${statusCode}: ${errorMessage}`;
+      }
       
       toast({
-        title: `Error calling ${functionName}`,
-        description: statusCode 
-          ? `${statusCode}: ${errorMessage}` 
-          : errorMessage,
+        title: `Failed to send a request to the Edge Function`,
+        description: `${functionName} - ${description}`,
         variant: "destructive",
       });
 
@@ -85,24 +91,24 @@ export class EdgeFunctionClient {
     if (error.response?.status) {
       switch (error.response.status) {
         case 400:
-          return "Invalid request";
+          return "Invalid request data";
         case 401:
-          return "Authentication required";
+          return "Authentication required - please sign in";
         case 403:
-          return "Access denied";
+          return "CORS/Origin blocked or access denied";
         case 404:
-          return "Function not found";
+          return "Edge function not found - check function name";
         case 429:
-          return "Too many requests";
+          return "Too many requests - try again later";
         case 500:
-          return "Server error";
+          return "Server error - check function logs";
         default:
           return `HTTP ${error.response.status}`;
       }
     }
 
-    if (error.__isFetchError) {
-      return "Network connection error";
+    if (error.__isFetchError || error.name === 'TypeError') {
+      return "Network/CORS error - check connectivity";
     }
 
     return "Unknown error";
