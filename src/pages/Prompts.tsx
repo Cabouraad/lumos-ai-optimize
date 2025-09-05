@@ -410,13 +410,12 @@ export default function Prompts() {
     try {
       console.log('🚀 Starting admin global batch processing...');
       
-      const { data, error } = await supabase.functions.invoke('admin-batch-trigger', {
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
-      });
+      const { data, error } = await supabase.functions.invoke('admin-batch-trigger');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Function invoke error:', error);
+        throw error;
+      }
 
       toast({
         title: "Global Batch Processing Started",
@@ -426,9 +425,18 @@ export default function Prompts() {
       console.log('✅ Admin batch result:', data);
     } catch (error: any) {
       console.error('❌ Admin batch error:', error);
+      
+      // Handle specific error types
+      let errorMessage = 'Failed to start global batch processing';
+      if (error.message?.includes('404') || error.message?.includes('FunctionsFetchError')) {
+        errorMessage = 'Admin batch function not found. Please ensure it is deployed.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message || 'Failed to start global batch processing',
+        description: errorMessage,
         variant: "destructive",
       });
     }
