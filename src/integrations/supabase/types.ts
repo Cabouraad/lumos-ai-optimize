@@ -1210,6 +1210,20 @@ export type Database = {
         Args: { p_today_key: string }
         Returns: Json
       }
+      update_org_business_context: {
+        Args: {
+          p_business_city?: string
+          p_business_country?: string
+          p_business_description?: string
+          p_business_state?: string
+          p_competitors?: string[]
+          p_enable_localized_prompts?: boolean
+          p_keywords?: string[]
+          p_products_services?: string
+          p_target_audience?: string
+        }
+        Returns: undefined
+      }
       update_subscriber_safe: {
         Args: {
           p_email: string

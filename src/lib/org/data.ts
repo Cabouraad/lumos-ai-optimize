@@ -44,14 +44,23 @@ export async function getOrganizationKeywords(): Promise<OrganizationKeywords> {
 
 export async function updateOrganizationKeywords(keywords: Partial<OrganizationKeywords>) {
   try {
-    const orgId = await getOrgId();
+    // Use the secure RPC function instead of direct table update
+    const { error } = await supabase.rpc('update_org_business_context', {
+      p_keywords: keywords.keywords || null,
+      p_competitors: keywords.competitors || null,
+      p_products_services: keywords.products_services || null,
+      p_target_audience: keywords.target_audience || null,
+      p_business_description: keywords.business_description || null,
+      p_business_city: keywords.business_city || null,
+      p_business_state: keywords.business_state || null,
+      p_business_country: keywords.business_country || null,
+      p_enable_localized_prompts: keywords.enable_localized_prompts || null
+    });
 
-    const { error } = await supabase
-      .from("organizations")
-      .update(keywords)
-      .eq("id", orgId);
-
-    if (error) throw error;
+    if (error) {
+      console.error("RPC function error:", error);
+      throw error;
+    }
 
     return { success: true };
   } catch (error) {
