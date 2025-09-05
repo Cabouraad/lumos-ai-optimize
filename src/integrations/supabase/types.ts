@@ -709,6 +709,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          metadata: Json | null
           payment_collected: boolean | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -724,6 +725,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          metadata?: Json | null
           payment_collected?: boolean | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -739,6 +741,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          metadata?: Json | null
           payment_collected?: boolean | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
