@@ -250,6 +250,18 @@ serve(async (req) => {
 
 // Provider execution functions
 async function executeOpenAI(promptText: string) {
+  // Check for fake provider mode in E2E testing
+  if (Deno.env.get('E2E_FAKE_PROVIDERS') === 'true') {
+    console.log('[E2E] Using fake OpenAI provider (runPromptNow)');
+    const { extractBrands } = await import('../../lib/providers/fake.ts');
+    const result = await extractBrands(promptText, 'openai');
+    return {
+      text: result.responseText,
+      tokenIn: result.tokenIn,
+      tokenOut: result.tokenOut
+    };
+  }
+
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('OpenAI API key not found');
 
@@ -278,6 +290,18 @@ async function executeOpenAI(promptText: string) {
 }
 
 async function executePerplexity(promptText: string) {
+  // Check for fake provider mode in E2E testing
+  if (Deno.env.get('E2E_FAKE_PROVIDERS') === 'true') {
+    console.log('[E2E] Using fake Perplexity provider (runPromptNow)');
+    const { extractBrands } = await import('../../lib/providers/fake.ts');
+    const result = await extractBrands(promptText, 'perplexity');
+    return {
+      text: result.responseText,
+      tokenIn: result.tokenIn,
+      tokenOut: result.tokenOut
+    };
+  }
+
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) throw new Error('Perplexity API key not found');
 
@@ -307,6 +331,18 @@ async function executePerplexity(promptText: string) {
 
 async function executeGemini(promptText: string) {
   console.log('[Gemini] Starting standardized execution');
+  
+  // Check for fake provider mode in E2E testing
+  if (Deno.env.get('E2E_FAKE_PROVIDERS') === 'true') {
+    console.log('[E2E] Using fake Gemini provider (runPromptNow)');
+    const { extractBrands } = await import('../../lib/providers/fake.ts');
+    const result = await extractBrands(promptText, 'gemini');
+    return {
+      text: result.responseText,
+      tokenIn: result.tokenIn,
+      tokenOut: result.tokenOut
+    };
+  }
   
   const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
   

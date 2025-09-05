@@ -39,6 +39,13 @@ function computeScore(orgPresent: boolean, orgBrandIdx: number | null, competito
 
 // Provider extraction functions
 async function extractBrandsOpenAI(promptText: string, apiKey: string) {
+  // Check for fake provider mode in E2E testing
+  if (Deno.env.get('E2E_FAKE_PROVIDERS') === 'true') {
+    console.log('[E2E] Using fake OpenAI provider (dailyScan)');
+    const { extractBrands } = await import('../../../lib/providers/fake.ts');
+    return await extractBrands(promptText, 'openai');
+  }
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -95,6 +102,13 @@ async function extractBrandsOpenAI(promptText: string, apiKey: string) {
 }
 
 async function extractBrandsPerplexity(promptText: string, apiKey: string) {
+  // Check for fake provider mode in E2E testing
+  if (Deno.env.get('E2E_FAKE_PROVIDERS') === 'true') {
+    console.log('[E2E] Using fake Perplexity provider (dailyScan)');
+    const { extractBrands } = await import('../../../lib/providers/fake.ts');
+    return await extractBrands(promptText, 'perplexity');
+  }
+
   const models = ['sonar']; // Use official Perplexity model as per their docs
 
   let lastError: any = null;
@@ -189,6 +203,13 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
 }
 
 async function extractBrandsGemini(promptText: string, apiKey: string) {
+  // Check for fake provider mode in E2E testing
+  if (Deno.env.get('E2E_FAKE_PROVIDERS') === 'true') {
+    console.log('[E2E] Using fake Gemini provider');
+    const { extractBrands } = await import('../../../lib/providers/fake.ts');
+    return await extractBrands(promptText, 'gemini');
+  }
+
   const maxAttempts = 3;
   let attempt = 0;
   let lastError: any = null;
