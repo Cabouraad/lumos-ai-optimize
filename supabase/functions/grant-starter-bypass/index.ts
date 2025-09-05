@@ -77,31 +77,53 @@ serve(async (req) => {
       .from("subscribers")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    // CRITICAL: Never clobber paid subscriptions - check for non-bypass source
-    if (existingSubscription?.subscribed && 
-        existingSubscription.metadata?.source !== 'bypass') {
-      
-      logStep("BYPASS - Active paid customer detected (non-bypass source), skipping bypass", {
-        tier: existingSubscription.subscription_tier,
-        subscribed: existingSubscription.subscribed,
-        metadata: existingSubscription.metadata
+    // Get user's org_id for org-based bypass logic
+    const { data: userData } = await supabaseClient
+      .from('users')
+      .select('org_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (!userData?.org_id) {
+      logStep("BYPASS - Cannot apply bypass: No org_id found for user");
+      throw new Error("User not associated with organization");
+    }
+
+    // Check for existing non-bypass active or trialing subscriptions for this org
+    const { data: existingNonBypass } = await supabaseClient
+      .from('subscribers')
+      .select('*')
+      .eq('user_id', user.id)
+      .or('subscribed.eq.true,trial_expires_at.gte.' + new Date().toISOString())
+      .neq('stripe_customer_id', 'manual_bypass')
+      .maybeSingle();
+
+    // CRITICAL: Never overwrite real paid subscriptions
+    if (existingNonBypass && existingNonBypass.metadata?.source !== 'bypass') {
+      logStep("BYPASS - Active non-bypass subscription detected, skipping bypass", {
+        tier: existingNonBypass.subscription_tier,
+        subscribed: existingNonBypass.subscribed,
+        source: existingNonBypass.metadata?.source
       });
       
       return new Response(JSON.stringify({
         success: false,
-        error: "Cannot apply bypass to existing paid customer"
+        error: "Cannot apply bypass to user with existing non-bypass subscription"
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    if (existingSubscription?.subscribed && existingSubscription?.subscription_tier === "starter") {
+    // Check if bypass already exists and is active
+    if (existingSubscription?.subscribed && 
+        existingSubscription?.subscription_tier === "starter" &&
+        existingSubscription?.metadata?.source === 'bypass') {
       logStep("BYPASS - Subscription already exists, skipping creation", {
         tier: existingSubscription.subscription_tier,
-        expires: existingSubscription.trial_expires_at
+        expires: existingSubscription.subscription_end
       });
       
       return new Response(JSON.stringify({
@@ -116,6 +138,11 @@ serve(async (req) => {
           payment_collected: existingSubscription.payment_collected,
           requires_subscription: false,
           bypass_mode: true,
+          // Normalized payload fields
+          plan: 'STARTER',
+          status: 'active',
+          current_period_end: existingSubscription.subscription_end,
+          source: 'bypass'
         }
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -123,28 +150,37 @@ serve(async (req) => {
       });
     }
 
-    // Set up starter subscription with manual bypass
-    const trialStart = new Date();
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 30); // 30-day starter access for testing
+    // Set up starter subscription with manual bypass (12 months)
+    const bypassPeriodEnd = new Date();
+    bypassPeriodEnd.setFullYear(bypassPeriodEnd.getFullYear() + 1); // 12 months from now
 
     const subscriptionData = {
       email: user.email,
       user_id: user.id,
-      stripe_customer_id: "manual_bypass", // Special flag to prevent Stripe override
+      stripe_customer_id: "manual_bypass",
       subscribed: true,
       subscription_tier: "starter",
-      subscription_end: trialEnd.toISOString(),
-      trial_started_at: trialStart.toISOString(),
-      trial_expires_at: trialEnd.toISOString(),
-      payment_collected: true, // Bypass payment requirement
-      metadata: { source: 'bypass' },
+      subscription_end: bypassPeriodEnd.toISOString(),
+      trial_started_at: null,
+      trial_expires_at: null,
+      payment_collected: true,
+      metadata: {
+        source: "bypass",
+        set_at: new Date().toISOString(),
+        by: "grant-starter-bypass",
+        plan: "STARTER",
+        status: "active"
+      },
       updated_at: new Date().toISOString(),
     };
 
+    // Upsert with conflict handling - only update if existing record is also a bypass
     const { error: upsertError } = await supabaseClient
       .from("subscribers")
-      .upsert(subscriptionData, { onConflict: 'user_id' });
+      .upsert(subscriptionData, { 
+        onConflict: 'user_id',
+        ignoreDuplicates: false 
+      });
 
     if (upsertError) {
       throw new Error(`Failed to update subscription: ${upsertError.message}`);
@@ -152,7 +188,8 @@ serve(async (req) => {
 
     logStep("BYPASS - Successfully granted starter bypass", {
       tier: subscriptionData.subscription_tier,
-      expires: subscriptionData.trial_expires_at,
+      expires: subscriptionData.subscription_end,
+      org_id: userData.org_id,
       bypass_mode: true
     });
 
@@ -163,11 +200,17 @@ serve(async (req) => {
         subscribed: true,
         subscription_tier: "starter",
         subscription_end: subscriptionData.subscription_end,
-        trial_expires_at: subscriptionData.trial_expires_at,
-        trial_started_at: subscriptionData.trial_started_at,
+        trial_expires_at: null,
+        trial_started_at: null,
         payment_collected: true,
         requires_subscription: false,
         bypass_mode: true,
+        metadata: subscriptionData.metadata,
+        // Normalized payload fields
+        plan: 'STARTER',
+        status: 'active',
+        current_period_end: subscriptionData.subscription_end,
+        source: 'bypass'
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

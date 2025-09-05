@@ -297,9 +297,61 @@ if (customers.data.length === 0) {
         user_id: user.id 
       });
       
+      // Get user's org_id
+      const { data: userData } = await supabaseClient
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!userData?.org_id) {
+        logStep("BYPASS MODE - Cannot apply bypass: No org_id found for user");
+        return new Response(JSON.stringify({ error: "User not associated with organization" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      
+      // Check for existing non-bypass active or trialing subscriptions for this org
+      const { data: existingNonBypass } = await supabaseClient
+        .from('subscribers')
+        .select('*')
+        .eq('user_id', user.id)
+        .or('subscribed.eq.true,trial_expires_at.gte.' + new Date().toISOString())
+        .neq('stripe_customer_id', 'manual_bypass')
+        .maybeSingle();
+      
+      if (existingNonBypass && existingNonBypass.metadata?.source !== 'bypass') {
+        logStep("BYPASS MODE - Existing non-bypass subscription found, skipping bypass", {
+          existing_subscription: existingNonBypass.subscription_tier,
+          existing_source: existingNonBypass.metadata?.source
+        });
+        
+        // Return the existing subscription data without modification
+        return new Response(JSON.stringify({
+          subscribed: existingNonBypass.subscribed,
+          subscription_tier: existingNonBypass.subscription_tier,
+          subscription_end: existingNonBypass.subscription_end,
+          trial_expires_at: existingNonBypass.trial_expires_at,
+          trial_started_at: existingNonBypass.trial_started_at,
+          payment_collected: existingNonBypass.payment_collected,
+          requires_subscription: !existingNonBypass.subscribed,
+          metadata: existingNonBypass.metadata,
+          // Normalized payload fields
+          plan: (existingNonBypass.subscription_tier || 'starter').toUpperCase(),
+          status: existingNonBypass.subscribed ? 'active' : 'inactive',
+          current_period_end: existingNonBypass.subscription_end,
+          source: existingNonBypass.metadata?.source || 'stripe'
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      
       const bypassPeriodEnd = new Date();
       bypassPeriodEnd.setFullYear(bypassPeriodEnd.getFullYear() + 1); // 12 months from now
       
+      // Prepare bypass data with normalized payload fields
       const bypassData = {
         email: user.email,
         user_id: user.id,
@@ -313,23 +365,36 @@ if (customers.data.length === 0) {
         metadata: {
           source: "bypass",
           set_at: new Date().toISOString(),
-          by: "check-subscription"
+          by: "check-subscription",
+          plan: "STARTER",
+          status: "active"
         },
         updated_at: new Date().toISOString(),
       };
       
-      // Idempotent upsert - override any existing data for bypass users
-      await supabaseClient.from("subscribers").upsert(bypassData, { onConflict: 'user_id' });
+      // Upsert with conflict handling - only update if existing record is also a bypass
+      const { error: upsertError } = await supabaseClient
+        .from("subscribers")
+        .upsert(bypassData, { 
+          onConflict: 'user_id',
+          ignoreDuplicates: false 
+        });
+      
+      if (upsertError) {
+        logStep("BYPASS MODE - Upsert error", { error: upsertError.message });
+        throw new Error(`Failed to apply bypass: ${upsertError.message}`);
+      }
       
       logStep("BYPASS MODE - Subscription bypass applied successfully", { 
         bypass: true, 
         email: user.email, 
         user_id: user.id,
+        org_id: userData.org_id,
         tier: "starter",
         expires: bypassPeriodEnd.toISOString()
       });
       
-      // Return bypass subscription data
+      // Return bypass subscription data with normalized payload
       return new Response(JSON.stringify({
         // Legacy API fields (keep unchanged)
         subscribed: true,
