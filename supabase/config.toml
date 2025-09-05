@@ -12,6 +12,9 @@ project_id = "cgocsffxqyhojtyzniyz"
 verify_jwt = false
 import_map = ""
 
+[functions.admin-batch-trigger]
+verify_jwt = true
+
 [functions.daily-scheduler-deprecated]
 verify_jwt = false
 

@@ -406,12 +406,43 @@ export default function Prompts() {
     }
   };
 
+  const handleRunGlobalBatch = async () => {
+    try {
+      console.log('🚀 Starting admin global batch processing...');
+      
+      const { data, error } = await supabase.functions.invoke('admin-batch-trigger', {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Global Batch Processing Started",
+        description: `${data.message} - Processing ${data.successfulJobs}/${data.totalOrgs} organizations`,
+      });
+
+      console.log('✅ Admin batch result:', data);
+    } catch (error: any) {
+      console.error('❌ Admin batch error:', error);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to start global batch processing',
+        variant: "destructive",
+      });
+    }
+  };
+
 
   // Transform data for the PromptList component
   const transformedPrompts = transformPromptData(rawPrompts, providerData);
 
   // Check if user is test user for debug tools access
   const isTestUser = user?.email === 'abouraa.chri@gmail.com';
+  
+  // Check if user is admin for global batch processing
+  const isAdmin = user?.email === 'abouraa.chri@gmail.com' || user?.email === 'amirdt22@gmail.com';
 
   // Check app access first
   const appAccess = hasAccessToApp();
@@ -462,13 +493,24 @@ export default function Prompts() {
                     Manage search prompts and discover smart improvements
                   </p>
                 </div>
-                <Button 
-                  onClick={refreshPromptsData}
-                  variant="outline"
-                  className="rounded-xl hover-lift border-border/50 hover:border-primary/50 transition-smooth"
-                >
-                  Refresh Data
-                </Button>
+                <div className="flex gap-3">
+                  {isAdmin && (
+                    <Button 
+                      onClick={handleRunGlobalBatch}
+                      variant="default"
+                      className="rounded-xl hover-lift bg-gradient-primary text-white border-0 shadow-elegant hover:shadow-glow transition-smooth"
+                    >
+                      Run for all orgs
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={refreshPromptsData}
+                    variant="outline"
+                    className="rounded-xl hover-lift border-border/50 hover:border-primary/50 transition-smooth"
+                  >
+                    Refresh Data
+                  </Button>
+                </div>
               </div>
               
               {/* Scheduler Status */}
