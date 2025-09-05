@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
 
 export function SubscriptionBanner() {
-  const { subscriptionData } = useAuth();
+  const { user, subscriptionData, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -22,19 +22,36 @@ export function SubscriptionBanner() {
   const handleStartTrial = async () => {
     setLoading(true);
     try {
+      // Bypass payment for dedicated test user on Starter
+      if (user?.email === 'starter@test.app') {
+        const { data, error } = await supabase.functions.invoke('grant-starter-bypass', { body: {} });
+        if (error) throw error;
+        if (data?.success) {
+          toast({
+            title: 'Test Access Granted',
+            description: 'Starter subscription activated for testing.',
+          });
+          if (checkSubscription) {
+            await checkSubscription();
+          }
+          return;
+        } else {
+          throw new Error(data?.error || 'Failed to grant test access');
+        }
+      }
+
+      // Default: start standard trial checkout
       const { data, error } = await supabase.functions.invoke('create-trial-checkout');
-      
       if (error) throw error;
-      
       if (data?.url) {
         window.location.href = data.url;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting trial:', error);
       toast({
-        title: "Error",
-        description: "Failed to start trial. Please try again.",
-        variant: "destructive"
+        title: 'Error',
+        description: error.message || 'Failed to start trial. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);

@@ -48,11 +48,28 @@ export default function Onboarding() {
   const handleSubscriptionSetup = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          tier: selectedPlan,
-          billingCycle,
-        },
+      // Bypass payment for dedicated test user on Starter
+      if (user?.email === 'starter@test.app' && selectedPlan === 'starter') {
+        const { data, error } = await supabase.functions.invoke('grant-starter-bypass', { body: {} });
+        if (error) throw error;
+        if (data?.success) {
+          toast({
+            title: 'Test Access Granted',
+            description: 'Starter subscription activated for testing.',
+          });
+          setSubscriptionCompleted(true);
+          return;
+        } else {
+          throw new Error(data?.error || 'Failed to grant test access');
+        }
+      }
+
+      // Use trial checkout for Starter, regular checkout for others
+      const functionName = selectedPlan === 'starter' ? 'create-trial-checkout' : 'create-checkout';
+      const body = selectedPlan === 'starter' ? {} : { tier: selectedPlan, billingCycle };
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body,
       });
 
       if (error) throw error;
@@ -64,10 +81,10 @@ export default function Onboarding() {
         // Redirect to Stripe checkout in the same tab for reliability
         window.location.href = data.url;
         toast({
-          title: selectedPlan === 'starter' ? "Starting Free Trial" : "Processing Payment",
+          title: selectedPlan === 'starter' ? 'Starting Free Trial' : 'Processing Payment',
           description: selectedPlan === 'starter' 
-            ? "Complete setup to start your 7-day free trial."
-            : "Complete your payment to activate your subscription.",
+            ? 'Complete setup to start your 7-day free trial.'
+            : 'Complete your payment to activate your subscription.',
         });
         
         // Set a flag that subscription is in progress
