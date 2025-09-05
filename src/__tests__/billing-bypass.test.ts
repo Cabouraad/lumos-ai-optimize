@@ -28,8 +28,9 @@ const mockUpsertSubscriber = (
   userId: string,
   existingSubscriber: any = null
 ) => {
-  // Skip if existing paid customer
-  if (existingSubscriber?.subscribed && existingSubscriber?.subscription_tier !== 'starter') {
+  // Skip if existing paid customer with non-bypass source
+  if (existingSubscriber?.subscribed && 
+      existingSubscriber.metadata?.source !== 'bypass') {
     return { skipped: true, reason: 'Existing paid customer' };
   }
 
@@ -111,14 +112,15 @@ describe('Billing Bypass Tests', () => {
     expect(eligibility.reason).toBe('Email not in bypass list');
   });
 
-  it('should skip bypass for existing paid customer', () => {
+  it('should skip bypass for existing paid customer (non-bypass source)', () => {
     // Arrange
     const userEmail = 'test@allowlisted.com';
     const userId = 'user-123';
     const existingPaidSubscriber = {
       subscribed: true,
       subscription_tier: 'pro',
-      payment_collected: true
+      payment_collected: true,
+      metadata: { source: 'stripe' } // Non-bypass source
     };
 
     // Act
@@ -127,6 +129,47 @@ describe('Billing Bypass Tests', () => {
     // Assert
     expect(result.skipped).toBe(true);
     expect(result.reason).toBe('Existing paid customer');
+  });
+
+  it('should skip bypass for existing active customer with null metadata source', () => {
+    // Arrange
+    const userEmail = 'test@allowlisted.com';
+    const userId = 'user-123';
+    const existingPaidSubscriber = {
+      subscribed: true,
+      subscription_tier: 'growth',
+      payment_collected: true,
+      metadata: null // Null metadata means non-bypass
+    };
+
+    // Act
+    const result = mockUpsertSubscriber(userEmail, userId, existingPaidSubscriber);
+
+    // Assert
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toBe('Existing paid customer');
+  });
+
+  it('should allow bypass override for existing bypass customer', () => {
+    // Arrange
+    const userEmail = 'test@allowlisted.com';
+    const userId = 'user-123';
+    const existingBypassSubscriber = {
+      subscribed: true,
+      subscription_tier: 'starter',
+      payment_collected: true,
+      metadata: { source: 'bypass' }
+    };
+
+    // Act
+    const result = mockUpsertSubscriber(userEmail, userId, existingBypassSubscriber);
+
+    // Assert
+    expect(result.skipped).toBeFalsy();
+    expect(result).toEqual(expect.objectContaining({
+      subscription_tier: 'starter',
+      metadata: { source: 'bypass' }
+    }));
   });
 
   it('should handle expired bypass period', () => {

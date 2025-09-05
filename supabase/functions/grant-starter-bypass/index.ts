@@ -72,18 +72,21 @@ serve(async (req) => {
       expires_at: Deno.env.get("BILLING_BYPASS_EXPIRES_AT") || "no expiration"
     });
 
-    // Check for existing subscription to ensure we don't overwrite paid customers
+    // Check for existing subscription to protect real paid customers
     const { data: existingSubscription } = await supabaseClient
       .from("subscribers")
       .select("*")
       .eq("user_id", user.id)
       .single();
 
-    // Skip bypass if user has existing paid subscription (non-starter)
-    if (existingSubscription?.subscribed && existingSubscription?.subscription_tier !== "starter") {
-      logStep("BYPASS - Existing paid customer detected, skipping bypass", {
+    // CRITICAL: Never clobber paid subscriptions - check for non-bypass source
+    if (existingSubscription?.subscribed && 
+        existingSubscription.metadata?.source !== 'bypass') {
+      
+      logStep("BYPASS - Active paid customer detected (non-bypass source), skipping bypass", {
         tier: existingSubscription.subscription_tier,
-        subscribed: existingSubscription.subscribed
+        subscribed: existingSubscription.subscribed,
+        metadata: existingSubscription.metadata
       });
       
       return new Response(JSON.stringify({
