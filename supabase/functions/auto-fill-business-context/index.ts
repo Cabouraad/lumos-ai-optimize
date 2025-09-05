@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
         const app = new FirecrawlApp({ apiKey: firecrawlApiKey })
         const cleanDomain = targetDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
         
-        const crawlResult = await app.scrapeUrl(`https://${cleanDomain}`, {
+        const crawlResult = await app.crawlUrl(`https://${cleanDomain}`, {
           formats: ['markdown', 'html'],
           onlyMainContent: true,
           timeout: 12000
