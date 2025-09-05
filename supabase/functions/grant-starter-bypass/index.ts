@@ -1,30 +1,37 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getStrictCorsHeaders } from "../_shared/cors.ts";
-import { isEdgeFeatureEnabled } from "../_shared/feature-flags.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[GRANT-STARTER-BYPASS] ${step}${detailsStr}`);
 };
 
+// Check if billing bypass is enabled and user is eligible
+function checkBypassEligibility(userEmail: string): { eligible: boolean; reason?: string } {
+  const bypassEnabled = Deno.env.get("BILLING_BYPASS_ENABLED") === "true";
+  if (!bypassEnabled) {
+    return { eligible: false, reason: "Billing bypass is disabled" };
+  }
+
+  const allowedEmails = Deno.env.get("BILLING_BYPASS_EMAILS")?.split(",").map(email => email.trim().toLowerCase()) || [];
+  if (!allowedEmails.includes(userEmail.toLowerCase())) {
+    return { eligible: false, reason: "Email not in bypass list" };
+  }
+
+  const expiresAt = Deno.env.get("BILLING_BYPASS_EXPIRES_AT");
+  if (expiresAt && new Date() > new Date(expiresAt)) {
+    return { eligible: false, reason: "Bypass period has expired" };
+  }
+
+  return { eligible: true };
+}
+
 serve(async (req) => {
   const corsHeaders = getStrictCorsHeaders(req.headers.get("Origin"));
   
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  // Check if billing bypass is enabled
-  if (!isEdgeFeatureEnabled('FEATURE_BILLING_BYPASS')) {
-    logStep("BLOCKED - Billing bypass feature is disabled");
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: "Billing bypass feature is not enabled"
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 403,
-    });
   }
 
   const supabaseClient = createClient(
@@ -49,14 +56,21 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id });
 
-    // Validate test user eligibility
-    const testEmails = ['starter@test.app', 'test@example.com'];
-    if (!testEmails.includes(user.email)) {
-      logStep("BLOCKED - User not eligible for bypass", { email: user.email });
-      throw new Error("This bypass is only available for authorized test accounts");
+    // Check bypass eligibility using environment variables
+    const eligibility = checkBypassEligibility(user.email);
+    if (!eligibility.eligible) {
+      logStep("BLOCKED - User not eligible for bypass", { 
+        email: user.email,
+        reason: eligibility.reason 
+      });
+      throw new Error(`Access denied: ${eligibility.reason}`);
     }
 
-    logStep("BYPASS - Test user verified, granting starter bypass", { email: user.email });
+    logStep("BYPASS - Environment check passed, granting starter bypass", { 
+      email: user.email,
+      bypass_enabled: Deno.env.get("BILLING_BYPASS_ENABLED"),
+      expires_at: Deno.env.get("BILLING_BYPASS_EXPIRES_AT") || "no expiration"
+    });
 
     // Check for existing subscription to ensure idempotency
     const { data: existingSubscription } = await supabaseClient
