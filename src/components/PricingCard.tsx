@@ -35,7 +35,7 @@ export function PricingCard({
   billingCycle,
   currentTier,
 }: PricingCardProps) {
-  const { user, checkSubscription } = useAuth();
+  const { user, subscriptionData } = useAuth();
   const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -67,8 +67,36 @@ export function PricingCard({
           description: "Starter subscription activated for testing purposes.",
         });
         
-        // Post-bypass subscription refresh with timeout
-        await refreshSubscriptionWithRetry();
+        // Post-bypass entitlement check
+        setLoading(true);
+        let attempts = 0;
+        const maxAttempts = 6;
+        
+        const checkEntitlement = async () => {
+          while (attempts < maxAttempts) {
+            await supabase.functions.invoke('check-subscription');
+            
+            // Check if access is granted
+            const access = hasAccessToApp();
+            if (access.hasAccess) {
+              navigate('/dashboard');
+              return;
+            }
+            
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+          // Failed after max attempts
+          setLoading(false);
+          toast({
+            title: "Verification Timeout",
+            description: "We couldn't verify your Starter access yet. Please try again.",
+            variant: "destructive"
+          });
+        };
+        
+        checkEntitlement();
         return;
       }
 
@@ -83,7 +111,7 @@ export function PricingCard({
       if (error) throw error;
 
       if (data?.url) {
-        // Redirect to Stripe checkout in the same tab for reliability
+        // Redirect to Stripe checkout
         window.location.href = data.url;
       }
     } catch (error: any) {
@@ -100,44 +128,33 @@ export function PricingCard({
 
   const refreshSubscriptionWithRetry = async () => {
     setRetryError(null);
+    setLoading(true);
     
-    try {
-      // Call check-subscription edge function
-      await supabase.functions.invoke('check-subscription');
-      
-      // Refresh subscription store
-      if (checkSubscription) {
-        await checkSubscription();
-      }
-      
-      // Add a small delay for state propagation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check access with timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Subscription verification timeout')), 8000)
-      );
-      
-      const checkAccess = async () => {
-        let attempts = 0;
-        while (attempts < 8) {
-          const accessCheck = hasAccessToApp();
-          if (accessCheck.hasAccess) {
-            navigate('/dashboard');
-            return;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
+    let attempts = 0;
+    const maxAttempts = 6;
+    
+    while (attempts < maxAttempts) {
+      try {
+        await supabase.functions.invoke('check-subscription');
+        
+        // Check if access is granted
+        const access = hasAccessToApp();
+        if (access.hasAccess) {
+          navigate('/dashboard');
+          return;
         }
-        throw new Error('Access verification failed');
-      };
-      
-      await Promise.race([checkAccess(), timeoutPromise]);
-      
-    } catch (error: any) {
-      console.error('Subscription refresh error:', error);
-      setRetryError(error.message || 'Failed to verify subscription access');
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error: any) {
+        console.error('Subscription check error:', error);
+        break;
+      }
     }
+    
+    // Failed after max attempts
+    setLoading(false);
+    setRetryError('Failed to verify subscription access');
   };
 
   return (

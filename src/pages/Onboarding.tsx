@@ -15,7 +15,7 @@ import { Info } from 'lucide-react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
 export default function Onboarding() {
-  const { user, orgData, subscriptionData, checkSubscription } = useAuth();
+  const { user, orgData, subscriptionData } = useAuth();
   const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -60,8 +60,36 @@ export default function Onboarding() {
           description: 'Starter subscription activated for testing.',
         });
         
-        // Post-bypass subscription refresh with timeout
-        await refreshSubscriptionWithRetry();
+        // Post-bypass entitlement check
+        setLoading(true);
+        let attempts = 0;
+        const maxAttempts = 6;
+        
+        const checkEntitlement = async () => {
+          while (attempts < maxAttempts) {
+            await supabase.functions.invoke('check-subscription');
+            
+            // Check if access is granted
+            const access = hasAccessToApp();
+            if (access.hasAccess) {
+              navigate('/dashboard');
+              return;
+            }
+            
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+          // Failed after max attempts
+          setLoading(false);
+          toast({
+            title: "Verification Timeout", 
+            description: "We couldn't verify your access yet. Please try again.",
+            variant: "destructive"
+          });
+        };
+        
+        checkEntitlement();
         return;
       }
 
@@ -79,17 +107,8 @@ export default function Onboarding() {
         // Store onboarding data temporarily to complete after payment
         sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
         
-        // Redirect to Stripe checkout in the same tab for reliability
+        // Redirect to Stripe checkout
         window.location.href = data.url;
-        toast({
-          title: selectedPlan === 'starter' ? 'Starting Free Trial' : 'Processing Payment',
-          description: selectedPlan === 'starter' 
-            ? 'Complete setup to start your 7-day free trial.'
-            : 'Complete your payment to activate your subscription.',
-        });
-        
-        // Set a flag that subscription is in progress
-        setSubscriptionCompleted(true);
       }
     } catch (error: any) {
       console.error("Subscription error:", error);
@@ -104,45 +123,34 @@ export default function Onboarding() {
 
   const refreshSubscriptionWithRetry = async () => {
     setRetryError(null);
+    setLoading(true);
     
-    try {
-      // Call check-subscription edge function
-      await supabase.functions.invoke('check-subscription');
-      
-      // Refresh subscription store
-      if (checkSubscription) {
-        await checkSubscription();
-      }
-      
-      // Add a small delay for state propagation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check access with timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Subscription verification timeout')), 8000)
-      );
-      
-      const checkAccess = async () => {
-        let attempts = 0;
-        while (attempts < 8) {
-          const accessCheck = hasAccessToApp();
-          if (accessCheck.hasAccess) {
-            setSubscriptionCompleted(true);
-            navigate('/dashboard');
-            return;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
+    let attempts = 0;
+    const maxAttempts = 6;
+    
+    while (attempts < maxAttempts) {
+      try {
+        await supabase.functions.invoke('check-subscription');
+        
+        // Check if access is granted
+        const access = hasAccessToApp();
+        if (access.hasAccess) {
+          setSubscriptionCompleted(true);
+          navigate('/dashboard');
+          return;
         }
-        throw new Error('Access verification failed');
-      };
-      
-      await Promise.race([checkAccess(), timeoutPromise]);
-      
-    } catch (error: any) {
-      console.error('Subscription refresh error:', error);
-      setRetryError(error.message || 'Failed to verify subscription access');
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error: any) {
+        console.error('Subscription check error:', error);
+        break;
+      }
     }
+    
+    // Failed after max attempts
+    setLoading(false);
+    setRetryError('Failed to verify subscription access');
   };
 
   const handleCompleteOnboarding = async () => {

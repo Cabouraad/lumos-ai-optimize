@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 export default function TrialSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { checkSubscription } = useAuth();
+  const { checkSubscription, subscriptionData } = useAuth();
   const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -23,8 +23,20 @@ export default function TrialSuccess() {
       const sessionId = searchParams.get('session_id');
       
       if (!sessionId) {
+        // No session_id - check if already has access
+        const access = hasAccessToApp();
+        const isSubscribed = subscriptionData?.subscribed;
+        const trialActive = subscriptionData?.trial_expires_at && new Date(subscriptionData.trial_expires_at) > new Date();
+        const paymentCollected = subscriptionData?.payment_collected;
+        
+        if (isSubscribed || (trialActive && paymentCollected)) {
+          setSuccess(true);
+          setLoading(false);
+          return;
+        }
+        
         toast({
-          title: "Error",
+          title: "Error", 
           description: "Invalid session. Please try again.",
           variant: "destructive"
         });
@@ -41,13 +53,34 @@ export default function TrialSuccess() {
 
         if (data.success) {
           setSuccess(true);
-          // Post-activation subscription refresh with timeout  
-          await refreshSubscriptionWithRetry();
-          toast({
-            title: "Trial Activated!",
-            description: "Your 7-day trial has been activated. Enjoy full access to all features!",
-            variant: "success"
-          });
+          
+          // Post-activation entitlement check
+          let attempts = 0;
+          const maxAttempts = 6;
+          
+          const checkEntitlement = async () => {
+            while (attempts < maxAttempts) {
+              await supabase.functions.invoke('check-subscription');
+              
+              // Check if access is granted
+              const access = hasAccessToApp();
+              if (access.hasAccess) {
+                toast({
+                  title: "Trial Activated!",
+                  description: "Your 7-day trial has been activated. Enjoy full access to all features!"
+                });
+                return;
+              }
+              
+              attempts++;
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            // Failed after max attempts
+            setRetryError("We couldn't verify your trial access yet. Please try again.");
+          };
+          
+          checkEntitlement();
         }
       } catch (error) {
         console.error('Error activating trial:', error);
@@ -62,48 +95,35 @@ export default function TrialSuccess() {
     };
 
     activateTrial();
-  }, [searchParams, navigate, checkSubscription, toast]);
+  }, [searchParams, navigate, subscriptionData, hasAccessToApp, toast]);
 
   const refreshSubscriptionWithRetry = async () => {
     setRetryError(null);
     
-    try {
-      // Call check-subscription edge function
-      await supabase.functions.invoke('check-subscription');
-      
-      // Refresh subscription store
-      if (checkSubscription) {
-        await checkSubscription();
-      }
-      
-      // Add a small delay for state propagation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check access with timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Subscription verification timeout')), 8000)
-      );
-      
-      const checkAccess = async () => {
-        let attempts = 0;
-        while (attempts < 8) {
-          const accessCheck = hasAccessToApp();
-          if (accessCheck.hasAccess) {
-            // Success - stay on current page to show success message
-            return;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
+    let attempts = 0;
+    const maxAttempts = 6;
+    
+    while (attempts < maxAttempts) {
+      try {
+        await supabase.functions.invoke('check-subscription');
+        
+        // Check if access is granted
+        const access = hasAccessToApp();
+        if (access.hasAccess) {
+          setRetryError(null);
+          return;
         }
-        throw new Error('Access verification failed');
-      };
-      
-      await Promise.race([checkAccess(), timeoutPromise]);
-      
-    } catch (error: any) {
-      console.error('Subscription refresh error:', error);
-      setRetryError(error.message || 'Failed to verify subscription access');
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error: any) {
+        console.error('Subscription check error:', error);
+        break;
+      }
     }
+    
+    // Failed after max attempts
+    setRetryError('Failed to verify subscription access');
   };
 
   if (loading) {
