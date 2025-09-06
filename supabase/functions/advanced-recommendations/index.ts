@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Removed requireOwnerRole import as we'll validate differently
 import { getScoreThresholds } from '../_shared/scoring.ts';
+import { toCanonical, cleanCompetitorList, type BrandCatalogEntry } from '../_shared/brand-matching.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -94,8 +95,8 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
   try {
     const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch org, prompts, and recent responses in parallel
-    const [orgRes, promptsRes, responsesRes] = await Promise.all([
+    // Fetch org, prompts, brand catalog, and recent responses in parallel
+    const [orgRes, promptsRes, catalogRes, responsesRes] = await Promise.all([
       supabase
         .from('organizations')
         .select('id, name, business_description, target_audience, keywords')
@@ -104,6 +105,10 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
       supabase
         .from('prompts')
         .select('id, text')
+        .eq('org_id', orgId),
+      supabase
+        .from('brand_catalog')
+        .select('id, name, variants_json, is_org_brand')
         .eq('org_id', orgId),
       supabase
         .from('prompt_provider_responses')
@@ -117,6 +122,7 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
 
     const org = orgRes.data;
     const prompts = promptsRes.data || [];
+    const brandCatalog = catalogRes.data || [];
     const responses = responsesRes.data || [];
 
     if (!org) {
@@ -129,8 +135,8 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
 
     const promptMap = new Map<string, string>(prompts.map((p: any) => [p.id, p.text]));
 
-    // Analyze data
-    const analysisResults = analyzePPRData(responses, promptMap, org);
+    // Analyze data with brand canonicalization
+    const analysisResults = analyzePPRData(responses, promptMap, org, brandCatalog);
 
     // Build recommendations from analysis
     const recommendations = buildRecommendationsFromAnalysis(analysisResults, org, orgId);
@@ -155,6 +161,8 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
 
     const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
 
+    console.log(`[advanced-recommendations] Generated ${created} recommendations for org ${orgId}`);
+
     return {
       success: true,
       created,
@@ -163,7 +171,7 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
         totalResults: responses.length,
         lowVisibilityPrompts: analysisResults.lowVisibilityPrompts.length,
         noMentionPrompts: analysisResults.noMentionPrompts.length,
-        topCompetitors: analysisResults.topCompetitors.slice(0, 3).map((c: any) => c[0]),
+        topCompetitors: analysisResults.topCompetitors.slice(0, 3).map((c: any) => c.canonical),
         avgVisibilityScore: analysisResults.avgScore,
       },
     };
@@ -173,14 +181,18 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
   }
 }
 
-function analyzePPRData(responses: any[], promptMap: Map<string, string>, org: any) {
+function analyzePPRData(responses: any[], promptMap: Map<string, string>, org: any, brandCatalog: BrandCatalogEntry[]) {
   const lowVisibilityPrompts: any[] = [];
   const noMentionPrompts: any[] = [];
-  const competitorCounts: Record<string, number> = {};
   let totalScore = 0;
   let scoreCount = 0;
 
+  // Create canonical brand mapping
+  const canonicalMap = toCanonical(brandCatalog);
+  console.log(`[analyzePPRData] Created canonical map with ${canonicalMap.size} brand entries`);
+
   const groups: Record<string, { id: string, text: string, scores: number[], orgMentions: number, totalRuns: number, runIds: string[] }> = {};
+  const allCompetitorBrands: string[] = [];
 
   for (const r of responses) {
     const pid = r.prompt_id;
@@ -196,16 +208,14 @@ function analyzePPRData(responses: any[], promptMap: Map<string, string>, org: a
     totalScore += Number(r.score) || 0;
     scoreCount++;
 
-    const brands = Array.isArray(r.brands_json) ? r.brands_json : [];
-    for (const brand of brands) {
-      if (typeof brand !== 'string') continue;
-      const normalized = brand.toLowerCase().trim();
-      if (org?.name && normalized.includes(org.name.toLowerCase())) continue;
-      const exclude = ['openai','claude','copilot','google','chatgpt','ai','microsoft'];
-      if (exclude.some(t => normalized.includes(t))) continue;
-      competitorCounts[brand] = (competitorCounts[brand] || 0) + 1;
-    }
+    // Collect all competitor brands for canonicalization
+    const competitors = Array.isArray(r.competitors_json) ? r.competitors_json : [];
+    allCompetitorBrands.push(...competitors);
   }
+
+  // Clean and canonicalize competitors
+  const cleanedCompetitors = cleanCompetitorList(allCompetitorBrands, canonicalMap);
+  console.log(`[analyzePPRData] Found ${cleanedCompetitors.length} unique canonical competitors`);
 
   const thresholds = getScoreThresholds();
   for (const pid of Object.keys(groups)) {
@@ -215,16 +225,23 @@ function analyzePPRData(responses: any[], promptMap: Map<string, string>, org: a
 
     const promptData = { id: g.id, text: g.text, avgScore, orgMentionRate, totalRuns: g.totalRuns, runIds: g.runIds };
 
-    if (orgMentionRate === 0) noMentionPrompts.push(promptData);
-    else if (avgScore < thresholds.fair) lowVisibilityPrompts.push(promptData);
+    // Apply quality thresholds - only generate recommendations for significant data
+    if (g.totalRuns < 3) continue; // Skip prompts with insufficient data
+    
+    if (orgMentionRate === 0 && g.totalRuns >= 5) {
+      noMentionPrompts.push(promptData);
+    } else if (avgScore < thresholds.fair && orgMentionRate > 0) {
+      lowVisibilityPrompts.push(promptData);
+    }
   }
 
-  const topCompetitors = Object.entries(competitorCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  // Filter top competitors by mention threshold
+  const qualifiedCompetitors = cleanedCompetitors.filter(c => c.mentions >= 3);
 
   return {
     lowVisibilityPrompts: lowVisibilityPrompts.slice(0, 8),
     noMentionPrompts: noMentionPrompts.slice(0, 8),
-    topCompetitors,
+    topCompetitors: qualifiedCompetitors,
     avgScore: scoreCount > 0 ? totalScore / scoreCount : 0,
   };
 }
@@ -277,12 +294,15 @@ function buildRecommendationsFromAnalysis(analysis: any, org: any, orgId: string
 
   // Competitive comparison against top competitor
   if (analysis.topCompetitors.length > 0) {
-    const [competitorName] = analysis.topCompetitors[0];
+    const topCompetitor = analysis.topCompetitors[0];
+    const competitorName = topCompetitor.canonical;
+    const mentions = topCompetitor.mentions;
+    
     recs.push({
       org_id: orgId,
       type: 'content',
       title: `Create definitive "${org.name} vs ${competitorName}" comparison page`,
-      rationale: `${competitorName} appears in ${analysis.topCompetitors[0][1]} AI responses, dominating competitive conversations. A transparent, evidence-based comparison will intercept high-intent buyers and reframe evaluation criteria in your favor.`,
+      rationale: `${competitorName} appears in ${mentions} AI responses across recent queries, showing strong competitive presence. Create an evidence-based comparison page to capture high-intent prospects evaluating alternatives.`,
       status: 'open',
       metadata: {
         timeline: '2-3 weeks development + ongoing optimization',
@@ -310,9 +330,10 @@ function buildRecommendationsFromAnalysis(analysis: any, org: any, orgId: string
         estLift: 0.18,
         sourcePromptIds: analysis.lowVisibilityPrompts.slice(0, 5).map((p: any) => p.id),
         sourceRunIds: [],
-        cooldownDays: 14,
+        cooldownDays: 21, // Longer cooldown for competitive content
         impact: 'high',
         category: 'competitive_analysis',
+        competitorMentions: mentions,
       },
     });
   }

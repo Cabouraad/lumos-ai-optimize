@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { toCanonical, cleanCompetitorList } from '../_shared/brand-matching.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -88,7 +89,7 @@ async function generateRecommendations(orgId: string, supabase: any) {
     const recommendations = [];
     
     // Analyze patterns and generate recommendations
-    const analysis = analyzeVisibilityResults(results, org);
+    const analysis = await analyzeVisibilityResults(results, org, supabase, orgId);
     
     // Generate recommendations based on analysis
     if (analysis.lowVisibilityCount > 0) {
@@ -172,12 +173,22 @@ async function generateRecommendations(orgId: string, supabase: any) {
   }
 }
 
-function analyzeVisibilityResults(results: any[], org: any) {
+async function analyzeVisibilityResults(results: any[], org: any, supabase: any, orgId: string) {
   let lowVisibilityCount = 0;
   let notMentionedCount = 0;
   let lowProminenceCount = 0;
-  const competitorCounts: Record<string, number> = {};
   let orgMentions = 0;
+
+  // Fetch brand catalog for canonicalization
+  const { data: brandCatalog } = await supabase
+    .from('brand_catalog')
+    .select('id, name, variants_json, is_org_brand')
+    .eq('org_id', orgId);
+
+  // Create canonical brand mapping
+  const canonicalMap = toCanonical(brandCatalog || []);
+
+  const allCompetitorBrands: string[] = [];
 
   for (const result of results) {
     const score = result.score || 0;
@@ -202,35 +213,20 @@ function analyzeVisibilityResults(results: any[], org: any) {
       }
     }
 
-    // Count competitor mentions
-    for (const brand of brands) {
-      if (typeof brand === 'string' && brand.length > 1) {
-        const normalized = brand.toLowerCase().trim();
-        
-        // Skip if it's the org's brand
-        if (org?.name && normalized.includes(org.name.toLowerCase())) {
-          continue;
-        }
-        
-        // Skip generic terms and AI tools
-        const excludeTerms = ['openai', 'claude', 'copilot', 'google', 'chatgpt', 'ai', 'artificial intelligence', 'microsoft'];
-        if (excludeTerms.some(term => normalized.includes(term))) {
-          continue;
-        }
-
-        competitorCounts[brand] = (competitorCounts[brand] || 0) + 1;
-      }
-    }
+    // Collect competitor brands for canonicalization
+    allCompetitorBrands.push(...brands);
   }
 
-  // Get top competitors
-  const topCompetitors = Object.entries(competitorCounts)
-    .sort(([,a], [,b]) => b - a)
+  // Clean and canonicalize competitors
+  const cleanedCompetitors = cleanCompetitorList(allCompetitorBrands, canonicalMap);
+  const topCompetitors = cleanedCompetitors
     .slice(0, 5)
-    .map(([name]) => name);
+    .map(c => c.canonical);
 
-  const totalCompetitorMentions = Object.values(competitorCounts).reduce((sum, count) => sum + count, 0);
+  const totalCompetitorMentions = cleanedCompetitors.reduce((sum, c) => sum + c.mentions, 0);
   const competitorAdvantage = Math.max(0, totalCompetitorMentions - orgMentions);
+
+  console.log(`[analyzeVisibilityResults] Found ${cleanedCompetitors.length} canonical competitors, ${topCompetitors.length} top competitors`);
 
   return {
     totalResults: results.length,
