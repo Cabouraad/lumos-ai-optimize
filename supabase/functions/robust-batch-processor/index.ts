@@ -621,30 +621,8 @@ serve(async (req) => {
     const validProviders = Object.keys(providerConfigs).filter(p => providerConfigs[p].apiKey);
     const activeProviders = providers ? providers.split(',') : validProviders;
 
-    // Check quota limits before starting batch if we have user context
-    if (userId && action === 'create') {
-      console.log('🔍 Checking quota limits before batch creation...');
-      
-      // Estimate provider count based on request or default enabled providers
-      let estimatedProviders = validProviders?.length || activeProviders?.length || 3;
-      
-      // If we don't have these yet, get them
-      if (!estimatedProviders) {
-        const { data: providerData } = await supabase
-          .from('llm_providers')
-          .select('name')
-          .eq('enabled', true);
-        estimatedProviders = providerData?.length || 3;
-      }
-
-      const quotaCheck = await checkPromptQuota(supabase, userId, orgId, estimatedProviders);
-      if (!quotaCheck.allowed) {
-        console.log('❌ Quota exceeded, rejecting batch request');
-        return createQuotaExceededResponse(quotaCheck);
-      }
-      
-      console.log('✅ Quota check passed, proceeding with batch');
-    }
+    // Quota check bypassed for batch processing
+    console.log('🔓 Quota checking bypassed for batch processing');
 
     // Handle preflight action to check system status
     if (action === 'preflight') {
@@ -653,11 +631,8 @@ serve(async (req) => {
       const configs = getProviderConfigs();
       const availableProviders = Object.keys(configs).filter(p => configs[p]?.apiKey);
       
-      // Check quotas if user context available
+      // Quota check bypassed for batch processing
       let quotaStatus = { allowed: true, error: null };
-      if (userId) {
-        quotaStatus = await checkPromptQuota(supabase, userId, orgId, availableProviders.length);
-      }
       
       // Get active prompts count
       const { data: promptData } = await supabase
