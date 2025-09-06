@@ -120,23 +120,32 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
     openai: {
       apiKey: openaiKey,
       baseURL: 'https://api.openai.com/v1/chat/completions',
-      model: 'gpt-5-2025-08-07',
+      model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
       buildRequest: (prompt: string) => ({
-        model: 'gpt-5-2025-08-07',
+        model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'You are a helpful assistant that provides comprehensive answers to business questions.' },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 2000
+        max_tokens: 2000
       }),
-      extractResponse: (data: any) => data.choices?.[0]?.message?.content || ''
+      extractResponse: (data: any) => {
+        const content = data.choices?.[0]?.message?.content;
+        if (Array.isArray(content)) {
+          return content.map(c => typeof c === 'string' ? c : c.text || '').join('');
+        }
+        if (!content) {
+          console.log('⚠️ OpenAI: No content in response:', JSON.stringify(data.choices?.[0], null, 2));
+        }
+        return content || '';
+      }
     },
     perplexity: {
       apiKey: perplexityKey,
       baseURL: 'https://api.perplexity.ai/chat/completions',
-      model: 'llama-3.1-sonar-small-128k-online',
+      model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar',
       buildRequest: (prompt: string) => ({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: Deno.env.get('PERPLEXITY_MODEL') || 'sonar',
         messages: [
           { role: 'system', content: 'Be precise and informative in your responses. Focus on providing actionable insights.' },
           { role: 'user', content: prompt }
@@ -144,7 +153,13 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
         max_tokens: 2000,
         temperature: 0.3
       }),
-      extractResponse: (data: any) => data.choices?.[0]?.message?.content || ''
+      extractResponse: (data: any) => {
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+          console.log('⚠️ Perplexity: No content in response:', JSON.stringify(data.choices?.[0], null, 2));
+        }
+        return content || '';
+      }
     },
     gemini: {
       apiKey: geminiKey,
