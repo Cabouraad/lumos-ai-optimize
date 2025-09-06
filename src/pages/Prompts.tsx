@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { getUnifiedPromptData, invalidateCache } from '@/lib/data/unified-fetcher';
@@ -86,6 +87,14 @@ export default function Prompts() {
   const [suggestedPrompts, setSuggestedPrompts] = useState<any[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
+
+  // Global batch processing state
+  const [isRunningGlobalBatch, setIsRunningGlobalBatch] = useState(false);
+  const [showGlobalBatchDialog, setShowGlobalBatchDialog] = useState(false);
+  const [globalBatchOptions, setGlobalBatchOptions] = useState({
+    replace: false,
+    preflight: false
+  });
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
@@ -406,23 +415,47 @@ export default function Prompts() {
     }
   };
 
-  const handleRunGlobalBatch = async () => {
+  const handleRunGlobalBatch = async (options = { replace: false, preflight: false }) => {
+    setIsRunningGlobalBatch(true);
     try {
-      console.log('🚀 Starting admin global batch processing...');
+      console.log('🚀 Starting admin global batch processing...', options);
       
-      const { data, error } = await supabase.functions.invoke('admin-batch-trigger');
+      const { data, error } = await supabase.functions.invoke('admin-batch-trigger', {
+        body: options
+      });
 
       if (error) {
         console.error('Function invoke error:', error);
         throw error;
       }
 
+      console.log('✅ Admin batch result:', data);
+
+      // Show detailed results
+      const summary = data.summary;
+      const successRate = summary.processedOrgs > 0 ? 
+        Math.round((summary.successfulJobs / summary.processedOrgs) * 100) : 0;
+
+      let description = '';
+      if (options.preflight) {
+        description = `Preflight completed: ${summary.totalOrgs} orgs, ${summary.totalPrompts} prompts, ${summary.totalExpectedTasks} expected tasks`;
+      } else {
+        description = `${data.message}\nSuccess rate: ${successRate}% (${summary.successfulJobs}/${summary.processedOrgs} organizations)\nTotal tasks: ${summary.totalExpectedTasks} | Providers: ${summary.providersUsed.join(', ')}`;
+      }
+
+      // Show warning if some orgs were skipped
+      if (summary.skippedOrgs > 0) {
+        const skippedResults = data.results.filter((r: any) => r.skipReason);
+        const skipReasons = [...new Set(skippedResults.map((r: any) => r.skipReason))];
+        description += `\n\nSkipped ${summary.skippedOrgs} orgs: ${skipReasons.join(', ')}`;
+      }
+
       toast({
-        title: "Global Batch Processing Started",
-        description: `${data.message} - Processing ${data.successfulJobs}/${data.totalOrgs} organizations`,
+        title: options.preflight ? "Preflight Check Complete" : "Global Batch Processing Started",
+        description,
+        duration: 10000
       });
 
-      console.log('✅ Admin batch result:', data);
     } catch (error: any) {
       console.error('❌ Admin batch error:', error);
       
@@ -430,6 +463,8 @@ export default function Prompts() {
       let errorMessage = 'Failed to start global batch processing';
       if (error.message?.includes('404') || error.message?.includes('FunctionsFetchError')) {
         errorMessage = 'Admin batch function not found. Please ensure it is deployed.';
+      } else if (error.message?.includes('Forbidden')) {
+        errorMessage = 'Access denied. Admin privileges required.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -439,6 +474,9 @@ export default function Prompts() {
         description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsRunningGlobalBatch(false);
+      setShowGlobalBatchDialog(false);
     }
   };
 
@@ -504,11 +542,12 @@ export default function Prompts() {
                 <div className="flex gap-3">
                   {isAdmin && (
                     <Button 
-                      onClick={handleRunGlobalBatch}
+                      onClick={() => setShowGlobalBatchDialog(true)}
+                      disabled={isRunningGlobalBatch}
                       variant="default"
                       className="rounded-xl hover-lift bg-gradient-primary text-white border-0 shadow-elegant hover:shadow-glow transition-smooth"
                     >
-                      Run for all orgs
+                      {isRunningGlobalBatch ? 'Processing...' : 'Run for all orgs'}
                     </Button>
                   )}
                   <Button 
@@ -632,6 +671,67 @@ export default function Prompts() {
                       Add Prompt
                     </Button>
                   </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Global Batch Processing Dialog */}
+            <Dialog open={showGlobalBatchDialog} onOpenChange={setShowGlobalBatchDialog}>
+              <DialogContent className="rounded-2xl max-w-md bg-card/95 backdrop-blur-sm border-border/50 shadow-elegant">
+                <DialogHeader>
+                  <DialogTitle className="text-xl gradient-primary bg-clip-text text-transparent">
+                    Run Global Batch Processing
+                  </DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
+                    Execute batch processing for all organizations in the system. This will run all active prompts across enabled providers.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="replace-jobs"
+                      checked={globalBatchOptions.replace}
+                      onCheckedChange={(checked) => 
+                        setGlobalBatchOptions(prev => ({ ...prev, replace: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="replace-jobs" className="text-sm">
+                      Cancel existing jobs before starting new ones
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="preflight-only"
+                      checked={globalBatchOptions.preflight}
+                      onCheckedChange={(checked) => 
+                        setGlobalBatchOptions(prev => ({ ...prev, preflight: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="preflight-only" className="text-sm">
+                      Preflight check only (don't start actual batches)
+                    </Label>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground">
+                    <strong>Note:</strong> This will process all organizations with active prompts. 
+                    Use preflight mode to see what would be processed without starting actual jobs.
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowGlobalBatchDialog(false)}
+                    disabled={isRunningGlobalBatch}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => handleRunGlobalBatch(globalBatchOptions)}
+                    disabled={isRunningGlobalBatch}
+                    className="bg-gradient-primary text-white border-0"
+                  >
+                    {isRunningGlobalBatch ? 'Processing...' : 
+                     globalBatchOptions.preflight ? 'Run Preflight' : 'Start Batch Processing'}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>

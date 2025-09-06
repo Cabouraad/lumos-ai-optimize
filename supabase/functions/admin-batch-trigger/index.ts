@@ -17,7 +17,8 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔐 Admin batch trigger started');
+    const runId = crypto.randomUUID();
+    console.log('🔐 Admin batch trigger started', { runId });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -56,6 +57,20 @@ serve(async (req) => {
     }
 
     console.log('✅ Admin user authenticated:', user.email);
+
+    // Parse request body to get options
+    let requestBody: any = {};
+    try {
+      const body = await req.text();
+      if (body) {
+        requestBody = JSON.parse(body);
+      }
+    } catch (e) {
+      // Not JSON or empty body, continue
+    }
+
+    const replaceJobs = requestBody.replace === true;
+    const preflightOnly = requestBody.preflight === true;
 
     // Get cron secret for calling batch processor
     const cronSecret = Deno.env.get('CRON_SECRET');
@@ -102,12 +117,89 @@ serve(async (req) => {
 
     let processedOrgs = 0;
     let successfulJobs = 0;
+    let skippedOrgs = 0;
     const results: any[] = [];
 
     // Process each organization
     for (const org of orgs) {
       try {
         console.log(`🏢 Processing org: ${org.name} (${org.id})`);
+        
+        // Run preflight check first
+        console.log(`🔍 Running preflight for org ${org.id}...`);
+        const { data: preflightData, error: preflightError } = await supabase.functions.invoke('robust-batch-processor', {
+          body: { 
+            action: 'preflight',
+            orgId: org.id
+          },
+          headers: { 'x-cron-secret': cronSecret }
+        });
+
+        if (preflightError) {
+          console.error(`❌ Preflight failed for org ${org.name}:`, preflightError);
+          results.push({
+            orgId: org.id,
+            orgName: org.name,
+            success: false,
+            action: 'preflight_failed',
+            error: preflightError.message,
+            promptCount: 0,
+            availableProviders: [],
+            expectedTasks: 0,
+            skipReason: 'Preflight check failed'
+          });
+          processedOrgs++;
+          continue;
+        }
+
+        const promptCount = preflightData?.prompts?.count || 0;
+        const availableProviders = preflightData?.providers?.available || [];
+        const expectedTasks = preflightData?.expectedTasks || 0;
+        const quotaAllowed = preflightData?.quota?.allowed || false;
+
+        // Check if we should skip this org
+        let skipReason = null;
+        if (promptCount === 0) {
+          skipReason = 'No active prompts found';
+        } else if (availableProviders.length === 0) {
+          skipReason = 'No API keys configured for any providers';
+        } else if (!quotaAllowed) {
+          skipReason = 'Daily quota exceeded';
+        } else if (expectedTasks === 0) {
+          skipReason = 'No tasks would be created';
+        }
+
+        if (skipReason) {
+          console.log(`⏭️ Skipping org ${org.name}: ${skipReason}`);
+          results.push({
+            orgId: org.id,
+            orgName: org.name,
+            success: false,
+            action: 'skipped',
+            promptCount,
+            availableProviders,
+            expectedTasks,
+            skipReason
+          });
+          skippedOrgs++;
+          processedOrgs++;
+          continue;
+        }
+
+        // If preflight only, don't actually run batch
+        if (preflightOnly) {
+          results.push({
+            orgId: org.id,
+            orgName: org.name,
+            success: true,
+            action: 'preflight_only',
+            promptCount,
+            availableProviders,
+            expectedTasks
+          });
+          processedOrgs++;
+          continue;
+        }
         
         // Call robust-batch-processor with cron secret
         const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
@@ -116,7 +208,8 @@ serve(async (req) => {
             orgId: org.id, 
             source: 'admin-batch-trigger',
             adminEmail: user.email,
-            replace: false
+            replace: replaceJobs,
+            correlationId: runId
           },
           headers: { 'x-cron-secret': cronSecret }
         });
@@ -127,7 +220,11 @@ serve(async (req) => {
             orgId: org.id,
             orgName: org.name,
             success: false,
-            error: error.message
+            action: 'batch_failed',
+            error: error.message,
+            promptCount,
+            availableProviders,
+            expectedTasks
           });
         } else {
           console.log(`✅ Batch triggered for org ${org.name}, result: ${data?.action}`);
@@ -136,7 +233,11 @@ serve(async (req) => {
             orgName: org.name,
             success: true,
             action: data?.action,
-            batchJobId: data?.batchJobId
+            batchJobId: data?.batchJobId,
+            promptCount,
+            availableProviders,
+            expectedTasks,
+            processedTasks: data?.processedTasks || data?.totalTasks || 0
           });
           successfulJobs++;
         }
@@ -144,7 +245,7 @@ serve(async (req) => {
         processedOrgs++;
 
         // Small delay to avoid overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
 
       } catch (orgError) {
         console.error(`❌ Error processing org ${org.name}:`, orgError);
@@ -158,13 +259,33 @@ serve(async (req) => {
       }
     }
 
+    // Calculate summary statistics
+    const totalPrompts = results.reduce((sum, r) => sum + (r.promptCount || 0), 0);
+    const totalExpectedTasks = results.reduce((sum, r) => sum + (r.expectedTasks || 0), 0);
+    const providersUsed = [...new Set(results.flatMap(r => r.availableProviders || []))];
+
     const result = {
       success: true,
-      message: `Admin batch processing initiated for ${successfulJobs}/${processedOrgs} organizations`,
+      runId,
+      message: preflightOnly 
+        ? `Preflight completed for ${processedOrgs} organizations`
+        : replaceJobs
+        ? `Admin batch processing initiated (with job replacement) for ${successfulJobs}/${processedOrgs} organizations`
+        : `Admin batch processing initiated for ${successfulJobs}/${processedOrgs} organizations`,
       adminUser: user.email,
-      totalOrgs: orgs.length,
-      processedOrgs,
-      successfulJobs,
+      options: {
+        replace: replaceJobs,
+        preflightOnly
+      },
+      summary: {
+        totalOrgs: orgs.length,
+        processedOrgs,
+        successfulJobs,
+        skippedOrgs,
+        totalPrompts,
+        totalExpectedTasks,
+        providersUsed
+      },
       results,
       timestamp: new Date().toISOString()
     };

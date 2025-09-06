@@ -256,13 +256,14 @@ serve(async (req) => {
         
         let batchSuccess = false;
         let attempts = 0;
+        let data: any = null; // Declare data in outer scope
         const maxAttempts = 2;
         
         while (!batchSuccess && attempts < maxAttempts) {
           attempts++;
           
           try {
-            const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
+            const batchResult = await supabase.functions.invoke('robust-batch-processor', {
               body: { 
                 action: 'create',
                 orgId: org.id, 
@@ -273,15 +274,17 @@ serve(async (req) => {
               headers: { 'x-cron-secret': cronSecret! }
             });
 
-            if (error) {
-              console.error(`Attempt ${attempts} failed for org ${org.id}:`, error);
+            if (batchResult.error) {
+              console.error(`Attempt ${attempts} failed for org ${org.id}:`, batchResult.error);
               if (attempts < maxAttempts) {
                 console.log(`Retrying in 30 seconds...`);
                 await new Promise(resolve => setTimeout(resolve, 30000));
                 continue;
               }
-              throw error;
+              throw batchResult.error;
             }
+            
+            data = batchResult.data; // Assign to outer scope variable
             
             // Handle in_progress responses - background resumption is automatic
             if (data?.action === 'in_progress') {
