@@ -57,8 +57,8 @@ export default function Dashboard() {
 
     // Filter successful responses in last 7 days
     const recentResponses = dashboardData.responses.filter((response: any) => {
-      const responseDate = new Date(response.created_at);
-      return responseDate >= sevenDaysAgo && response.score !== null && response.error === null;
+      const responseDate = new Date(response.run_at || response.created_at);
+      return responseDate >= sevenDaysAgo && response.status === 'success';
     });
 
     const totalCount = recentResponses.length;
@@ -76,7 +76,7 @@ export default function Dashboard() {
       nextDay.setDate(nextDay.getDate() + 1);
       
       const dayResponses = recentResponses.filter((response: any) => {
-        const responseDate = new Date(response.created_at);
+        const responseDate = new Date(response.run_at || response.created_at);
         return responseDate >= dayDate && responseDate < nextDay;
       });
       
@@ -109,8 +109,8 @@ export default function Dashboard() {
       
       // Filter responses for this day
       const dayResponses = dashboardData.responses.filter((response: any) => {
-        const responseDate = new Date(response.created_at);
-        return responseDate >= dayDate && responseDate < nextDay && response.score !== null && response.error === null;
+        const responseDate = new Date(response.run_at || response.created_at);
+        return responseDate >= dayDate && responseDate < nextDay && response.status === 'success';
       });
       
       const dayData: any = {
@@ -464,7 +464,7 @@ export default function Dashboard() {
                 {presenceStats.totalCount > 0 ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-2xl font-bold text-secondary">{Math.round(presenceStats.rate)}%</div>
+                      <div className="text-2xl font-bold text-secondary">{presenceStats.rate.toFixed(1)}%</div>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
