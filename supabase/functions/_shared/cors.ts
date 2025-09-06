@@ -35,9 +35,11 @@ const ALLOWED_ORIGINS = getAllowedOrigins();
  * Get CORS headers for a specific origin (strict mode)
  */
 export function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, string> {
-  // For development environments (localhost and sandbox URLs), be more permissive
+  // For development environments (localhost, sandbox, and Lovable preview URLs), be more permissive
   const isDevelopment = requestOrigin?.includes('localhost') || 
                        requestOrigin?.includes('sandbox.lovable.dev') ||
+                       requestOrigin?.includes('lovable.app') ||
+                       requestOrigin?.includes('lovable.dev') ||
                        requestOrigin?.includes('127.0.0.1');
   
   let origin = '*'; // Default permissive for development
