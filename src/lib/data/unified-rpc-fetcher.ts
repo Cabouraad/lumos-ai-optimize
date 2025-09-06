@@ -148,7 +148,7 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
 export class RealTimeDashboardFetcher {
   private cache: UnifiedDashboardResponse | null = null;
   private lastFetch: number = 0;
-  private readonly CACHE_DURATION = 30000; // 30 seconds
+  private readonly CACHE_DURATION = 15000; // 15 seconds (reduced for better responsiveness)
   private refreshCallbacks: ((data: UnifiedDashboardResponse) => void)[] = [];
 
   /**
