@@ -58,13 +58,11 @@ const App = () => (
                 <Optimizations />
               </SubscriptionGate>
             } />
-            {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
-              <Route path="/reports" element={
-                <SubscriptionGate>
-                  <Reports />
-                </SubscriptionGate>
-              } />
-            )}
+            <Route path="/reports" element={
+              <SubscriptionGate>
+                <Reports />
+              </SubscriptionGate>
+            } />
             <Route path="/settings" element={
               <SubscriptionGate>
                 <Settings />

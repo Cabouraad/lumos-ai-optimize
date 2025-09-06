@@ -9,9 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, FileText, Crown, Calendar, Users } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Download, FileText, Crown, Calendar, Users, RefreshCw, Clock, Settings } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 interface Report {
   id: string;
@@ -23,13 +25,29 @@ interface Report {
   created_at: string;
 }
 
+interface WeeklyReport {
+  id: string;
+  week_start_date: string;
+  week_end_date: string;
+  status: string;
+  file_path?: string | null;
+  file_size_bytes?: number | null;
+  generated_at?: string | null;
+  error_message?: string | null;
+  metadata?: any;
+}
+
 export default function Reports() {
   const { orgData } = useAuth();
   const { hasAccessToApp, canAccessRecommendations, daysRemainingInTrial } = useSubscriptionGate();
-  const { toast } = useToast();
+  const { toast: showToast } = useToast();
   const [reports, setReports] = useState<Report[]>([]);
+  const [csvReports, setCsvReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [csvLoading, setCsvLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('pdf-reports');
 
   const accessGate = hasAccessToApp();
   const reportsAccess = canAccessRecommendations(); // Using recommendations as proxy for Growth/Pro access
@@ -37,8 +55,10 @@ export default function Reports() {
   useEffect(() => {
     if (orgData?.organizations?.id && reportsAccess.hasAccess) {
       loadReports();
+      loadCsvReports();
     } else {
       setLoading(false);
+      setCsvLoading(false);
     }
   }, [orgData?.organizations?.id, reportsAccess.hasAccess]);
 
@@ -52,7 +72,7 @@ export default function Reports() {
 
       if (error) {
         console.error('Error loading reports:', error);
-        toast({
+        showToast({
           title: "Error loading reports",
           description: error.message,
           variant: "destructive",
@@ -63,13 +83,45 @@ export default function Reports() {
       setReports(data || []);
     } catch (error) {
       console.error('Error loading reports:', error);
-      toast({
+      showToast({
         title: "Error loading reports", 
         description: "Failed to load reports. Please try again.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCsvReports = async () => {
+    try {
+      setCsvLoading(true);
+      const { data, error } = await supabase
+        .from('weekly_reports')
+        .select('*')
+        .order('week_start_date', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error loading CSV reports:', error);
+        showToast({
+          title: "Error loading CSV reports",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCsvReports(data || []);
+    } catch (error) {
+      console.error('Error loading CSV reports:', error);
+      showToast({
+        title: "Error loading CSV reports",
+        description: "Failed to load CSV reports. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCsvLoading(false);
     }
   };
 
@@ -83,7 +135,7 @@ export default function Reports() {
 
       if (error) {
         if (error.message?.includes('plan_denied')) {
-          toast({
+          showToast({
             title: "Access Denied",
             description: "Upgrade to Growth or Pro plan to download reports.",
             variant: "destructive",
@@ -92,7 +144,7 @@ export default function Reports() {
         }
         
         console.error('Error generating download URL:', error);
-        toast({
+        showToast({
           title: "Download failed",
           description: error.message || "Failed to generate download link",
           variant: "destructive",
@@ -103,12 +155,12 @@ export default function Reports() {
       if (data?.url) {
         // Open download in new tab
         window.open(data.url, '_blank');
-        toast({
+        showToast({
           title: "Download started",
           description: "Your report is being downloaded.",
         });
       } else {
-        toast({
+        showToast({
           title: "Download failed",
           description: "Failed to generate download link",
           variant: "destructive",
@@ -116,13 +168,84 @@ export default function Reports() {
       }
     } catch (error) {
       console.error('Error downloading report:', error);
-      toast({
+      showToast({
         title: "Download failed",
         description: "Failed to download report. Please try again.",
         variant: "destructive",
       });
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const generateCsvReport = async (weekStart?: string, weekEnd?: string) => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-weekly-report', {
+        body: weekStart && weekEnd ? { weekStart, weekEnd } : undefined
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success('CSV report generated successfully');
+        loadCsvReports(); // Refresh the list
+        
+        // Auto-download if available
+        if (data.downloadUrl) {
+          window.open(data.downloadUrl, '_blank');
+        }
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error generating CSV report:', error);
+      toast.error('Failed to generate CSV report');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const downloadCsvReport = async (report: WeeklyReport) => {
+    if (!report.file_path) {
+      toast.error('Report file not available');
+      return;
+    }
+
+    try {
+      const { data } = await supabase.storage
+        .from('weekly-reports')
+        .createSignedUrl(report.file_path, 3600);
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      } else {
+        throw new Error('Failed to get download URL');
+      }
+    } catch (error) {
+      console.error('Error downloading CSV report:', error);
+      toast.error('Failed to download CSV report');
+    }
+  };
+
+  const generateLatestPdfReport = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('weekly-report');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success('PDF report generation initiated');
+        loadReports(); // Refresh the list
+      } else {
+        throw new Error(data?.error || 'Failed to generate report');
+      }
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      toast.error('Failed to generate PDF report');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -141,6 +264,29 @@ export default function Reports() {
 
   const formatGeneratedAt = (createdAt: string): string => {
     return formatDistanceToNow(new Date(createdAt), { addSuffix: true });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200';
+      case 'generating': return 'bg-amber-500/10 text-amber-600 border-amber-200';
+      case 'failed': return 'bg-red-500/10 text-red-600 border-red-200';
+      default: return 'bg-slate-500/10 text-slate-600 border-slate-200';
+    }
+  };
+
+  const formatCsvFileSize = (bytes?: number) => {
+    if (!bytes) return 'N/A';
+    const kb = bytes / 1024;
+    return kb < 1024 ? `${kb.toFixed(1)}KB` : `${(kb / 1024).toFixed(1)}MB`;
+  };
+
+  const formatCsvDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   if (!accessGate.hasAccess) {
@@ -171,6 +317,31 @@ export default function Reports() {
               Weekly visibility reports for your brand
             </p>
           </div>
+          {reportsAccess.hasAccess && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  loadReports();
+                  loadCsvReports();
+                }}
+                variant="outline"
+                size="sm"
+                disabled={loading || csvLoading}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh All
+              </Button>
+              <Button
+                onClick={() => activeTab === 'pdf-reports' ? generateLatestPdfReport() : generateCsvReport()}
+                disabled={generating}
+                size="sm"
+              >
+                {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
+                <Settings className="h-4 w-4 mr-2" />
+                {generating ? 'Generating...' : 'Generate Latest'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {!reportsAccess.hasAccess ? (
@@ -206,82 +377,197 @@ export default function Reports() {
             </CardContent>
           </Card>
         ) : (
-          // Reports table for Growth/Pro users
-          <Card>
-            <CardHeader>
-              <CardTitle>Generated Reports</CardTitle>
-              <CardDescription>
-                Download your weekly brand visibility reports
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                // Loading skeleton
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center space-x-4">
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-40" />
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-8 w-20" />
+          // Tabbed interface for Growth/Pro users
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="pdf-reports" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                PDF Reports
+              </TabsTrigger>
+              <TabsTrigger value="csv-reports" className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                CSV Reports
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pdf-reports" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>PDF Reports</CardTitle>
+                  <CardDescription>
+                    Comprehensive weekly brand visibility reports (automatically generated every Monday)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    // Loading skeleton
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center space-x-4">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : reports.length === 0 ? (
-                // Empty state
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No reports yet</h3>
-                  <p className="text-muted-foreground">
-                    Reports generate weekly after your scans. Check back Monday mornings.
-                  </p>
-                </div>
-              ) : (
-                // Reports table
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Week</TableHead>
-                      <TableHead>Period</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Generated</TableHead>
-                      <TableHead>Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reports.map((report) => (
-                      <TableRow key={report.id}>
-                        <TableCell>
-                          <Badge variant="outline">{report.week_key}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {formatPeriod(report.period_start, report.period_end)}
-                        </TableCell>
-                        <TableCell>
-                          {formatFileSize(report.byte_size)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatGeneratedAt(report.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadReport(report.id)}
-                            disabled={downloadingId === report.id}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            {downloadingId === report.id ? 'Downloading...' : 'Download'}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                  ) : reports.length === 0 ? (
+                    // Empty state
+                    <div className="text-center py-12">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No PDF reports yet</h3>
+                      <p className="text-muted-foreground mb-4">
+                        PDF reports generate weekly after your scans. Check back Monday mornings.
+                      </p>
+                      <Button onClick={generateLatestPdfReport} disabled={generating}>
+                        {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
+                        Generate Latest Report
+                      </Button>
+                    </div>
+                  ) : (
+                    // Reports table
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Week</TableHead>
+                          <TableHead>Period</TableHead>
+                          <TableHead>Size</TableHead>
+                          <TableHead>Generated</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reports.map((report) => (
+                          <TableRow key={report.id}>
+                            <TableCell>
+                              <Badge variant="outline">{report.week_key}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {formatPeriod(report.period_start, report.period_end)}
+                            </TableCell>
+                            <TableCell>
+                              {formatFileSize(report.byte_size)}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {formatGeneratedAt(report.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => downloadReport(report.id)}
+                                disabled={downloadingId === report.id}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                {downloadingId === report.id ? 'Downloading...' : 'Download PDF'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="csv-reports" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>CSV Reports</CardTitle>
+                  <CardDescription>
+                    Prompt-level data exports for detailed analysis (generate on-demand)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {csvLoading ? (
+                    // Loading skeleton
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center space-x-4">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-8 w-24" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : csvReports.length === 0 ? (
+                    // Empty state
+                    <div className="text-center py-12">
+                      <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No CSV reports yet</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Generate your first CSV report with prompt-level data
+                      </p>
+                      <Button onClick={() => generateCsvReport()} disabled={generating}>
+                        {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
+                        Generate CSV Report
+                      </Button>
+                    </div>
+                  ) : (
+                    // CSV reports list
+                    <div className="space-y-4">
+                      {csvReports.map((report) => (
+                        <Card key={report.id}>
+                          <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    Week of {formatCsvDate(report.week_start_date)}
+                                  </span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={getStatusColor(report.status)}
+                                  >
+                                    {report.status}
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {formatCsvDate(report.week_start_date)} - {formatCsvDate(report.week_end_date)}
+                                </div>
+                                <div className="flex items-center gap-4 mt-2 text-sm">
+                                  {report.metadata?.prompts_analyzed && (
+                                    <span>Prompts: <strong>{report.metadata.prompts_analyzed}</strong></span>
+                                  )}
+                                  {report.metadata?.total_responses && (
+                                    <span>Responses: <strong>{report.metadata.total_responses}</strong></span>
+                                  )}
+                                  {report.file_size_bytes && (
+                                    <span>Size: <strong>{formatCsvFileSize(report.file_size_bytes)}</strong></span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                {report.status === 'completed' && report.file_path && (
+                                  <Button
+                                    onClick={() => downloadCsvReport(report)}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download CSV
+                                  </Button>
+                                )}
+                                {report.status === 'failed' && report.error_message && (
+                                  <div className="text-sm text-red-600 max-w-md">
+                                    Error: {report.error_message}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
 
         {/* Information card */}
@@ -291,13 +577,16 @@ export default function Reports() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              • Reports are automatically generated every Monday at 08:00 UTC for the previous week
+              • <strong>PDF Reports:</strong> Comprehensive weekly summaries generated automatically every Monday at 08:00 UTC
             </p>
             <p>
-              • Each report contains brand visibility metrics, competitor analysis, and recommendations
+              • <strong>CSV Reports:</strong> Raw prompt-level data exports generated on-demand for detailed analysis
             </p>
             <p>
-              • Download links expire after 5 minutes for security
+              • Each report contains brand visibility metrics, competitor analysis, and performance insights
+            </p>
+            <p>
+              • Download links expire after 1-5 minutes for security
             </p>
             <p>
               • Available to Growth and Pro subscribers

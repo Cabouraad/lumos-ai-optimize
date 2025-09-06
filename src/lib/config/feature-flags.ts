@@ -23,7 +23,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   FEATURE_BATCH_OPTIMIZATION: false,
   FEATURE_CONDENSED_UI: false,
   FEATURE_SCHEDULING_NOTICES: false,
-  FEATURE_WEEKLY_REPORT: false,
+  FEATURE_WEEKLY_REPORT: true, // Enable weekly reports by default
   FEATURE_BILLING_BYPASS: false,
 };
 
