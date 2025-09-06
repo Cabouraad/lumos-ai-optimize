@@ -52,21 +52,3 @@ export async function extractBrands(promptText: string, provider: string = 'fake
     tokenOut: 384,
   };
 }
-
-/**
- * Provider factory that routes to fake providers when E2E_FAKE_PROVIDERS is enabled
- */
-export function createProviderAdapter(provider: string, realAdapter: any) {
-  return {
-    extractBrands: async (promptText: string, ...args: any[]) => {
-      const isFakeMode = Deno.env.get('E2E_FAKE_PROVIDERS') === 'true';
-      
-      if (isFakeMode) {
-        console.log(`[E2E] Using fake ${provider} provider`);
-        return extractBrands(promptText, provider);
-      } else {
-        return realAdapter.extractBrands(promptText, ...args);
-      }
-    }
-  };
-}
