@@ -671,7 +671,7 @@ export function BatchPromptRunner() {
               )}
               {!preflightData.quota?.allowed && (
                 <div>
-                  <strong>Quota exceeded.</strong> {preflightData.quota.error}
+                  <strong>Quota exceeded.</strong> {preflightData.quota.error?.message || 'Daily quota limit reached'}
                 </div>
               )}
             </AlertDescription>
