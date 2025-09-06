@@ -148,7 +148,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
         {response.status === 'error' && response.error ? (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
             <p className="text-sm font-medium text-rose-800">Error</p>
-            <p className="text-xs text-rose-600 mt-1">{response.error}</p>
+            <p className="text-xs text-rose-600 mt-1">{typeof response.error === 'string' ? response.error : (response.error as any)?.message || 'Unknown error'}</p>
           </div>
         ) : (
           <>

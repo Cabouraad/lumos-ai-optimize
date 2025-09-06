@@ -335,7 +335,7 @@ export function ProviderDebugPanel() {
                     
                     {result.status === 'error' && (
                       <span className="text-red-600 text-sm max-w-xs truncate">
-                        {result.error}
+                        {typeof result.error === 'string' ? result.error : (result.error as any)?.message || 'An error occurred'}
                       </span>
                     )}
                     
