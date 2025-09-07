@@ -46,7 +46,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [csvLoading, setCsvLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
+  
   const [activeTab, setActiveTab] = useState('pdf-reports');
 
   const accessGate = hasAccessToApp();
@@ -178,33 +178,6 @@ export default function Reports() {
     }
   };
 
-  const generateCsvReport = async (weekStart?: string, weekEnd?: string) => {
-    setGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-weekly-report', {
-        body: weekStart && weekEnd ? { weekStart, weekEnd } : undefined
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast.success('CSV report generated successfully');
-        loadCsvReports(); // Refresh the list
-        
-        // Auto-download if available
-        if (data.downloadUrl) {
-          window.open(data.downloadUrl, '_blank');
-        }
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      console.error('Error generating CSV report:', error);
-      toast.error('Failed to generate CSV report');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const downloadCsvReport = async (report: WeeklyReport) => {
     if (!report.file_path) {
@@ -228,26 +201,6 @@ export default function Reports() {
     }
   };
 
-  const generateLatestPdfReport = async () => {
-    setGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('weekly-report');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        toast.success('PDF report generation initiated');
-        loadReports(); // Refresh the list
-      } else {
-        throw new Error(data?.error || 'Failed to generate report');
-      }
-    } catch (error) {
-      console.error('Error generating PDF report:', error);
-      toast.error('Failed to generate PDF report');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const formatFileSize = (bytes: number | null): string => {
     if (!bytes) return 'Unknown';
@@ -318,29 +271,18 @@ export default function Reports() {
             </p>
           </div>
           {reportsAccess.hasAccess && (
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  loadReports();
-                  loadCsvReports();
-                }}
-                variant="outline"
-                size="sm"
-                disabled={loading || csvLoading}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh All
-              </Button>
-              <Button
-                onClick={() => activeTab === 'pdf-reports' ? generateLatestPdfReport() : generateCsvReport()}
-                disabled={generating}
-                size="sm"
-              >
-                {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
-                <Settings className="h-4 w-4 mr-2" />
-                {generating ? 'Generating...' : 'Generate Latest'}
-              </Button>
-            </div>
+            <Button
+              onClick={() => {
+                loadReports();
+                loadCsvReports();
+              }}
+              variant="outline"
+              size="sm"
+              disabled={loading || csvLoading}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh All
+            </Button>
           )}
         </div>
 
@@ -418,12 +360,8 @@ export default function Reports() {
                       <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No PDF reports yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        PDF reports generate weekly after your scans. Check back Monday mornings.
+                        Reports are generated automatically every Monday.
                       </p>
-                      <Button onClick={generateLatestPdfReport} disabled={generating}>
-                        {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
-                        Generate Latest Report
-                      </Button>
                     </div>
                   ) : (
                     // Reports table
@@ -477,7 +415,7 @@ export default function Reports() {
                 <CardHeader>
                   <CardTitle>CSV Reports</CardTitle>
                   <CardDescription>
-                    Prompt-level data exports for detailed analysis (generate on-demand)
+                    Prompt-level data exports for detailed analysis (automatically generated weekly)
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -499,12 +437,8 @@ export default function Reports() {
                       <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No CSV reports yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        Generate your first CSV report with prompt-level data
+                        CSV reports are generated automatically every Monday.
                       </p>
-                      <Button onClick={() => generateCsvReport()} disabled={generating}>
-                        {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
-                        Generate CSV Report
-                      </Button>
                     </div>
                   ) : (
                     // CSV reports list
@@ -577,10 +511,10 @@ export default function Reports() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              • <strong>PDF Reports:</strong> Comprehensive weekly summaries generated automatically every Monday at 08:00 UTC
+              • <strong>PDF Reports:</strong> Comprehensive weekly summaries generated automatically every Monday
             </p>
             <p>
-              • <strong>CSV Reports:</strong> Raw prompt-level data exports generated on-demand for detailed analysis
+              • <strong>CSV Reports:</strong> Raw prompt-level data exports generated automatically every Monday
             </p>
             <p>
               • Each report contains brand visibility metrics, competitor analysis, and performance insights

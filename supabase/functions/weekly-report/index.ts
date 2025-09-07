@@ -116,142 +116,37 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authentication handling: either CRON_SECRET or valid JWT
+    // Authentication handling: CRON_SECRET required for all requests
     const authHeader = req.headers.get('Authorization');
     const cronSecret = Deno.env.get('CRON_SECRET');
     const isScheduledRun = authHeader === `Bearer ${cronSecret}` && cronSecret;
 
-    let targetOrgIds: string[] = [];
-
-    if (isScheduledRun) {
-      // Scheduled run: process all organizations
-      console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
-      
-      const { data: orgs, error: orgsError } = await supabase
-        .from('organizations')
-        .select('id')
-        .order('created_at');
-
-      if (orgsError) {
-        console.error('[WEEKLY-REPORT] Error fetching organizations:', orgsError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch organizations' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      targetOrgIds = orgs?.map(org => org.id) || [];
-      console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
-    } else {
-      // User-initiated run: require valid JWT and verify org membership
-      if (!authHeader?.startsWith('Bearer ')) {
-        return new Response(
-          JSON.stringify({ error: 'Missing or invalid authorization header' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Initialize client for JWT verification
-      const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
-
-      // Set the session for auth verification
-      const jwt = authHeader.replace('Bearer ', '');
-      const { data: { user }, error: authError } = await authClient.auth.getUser(jwt);
-      
-      if (authError || !user) {
-        console.error('[WEEKLY-REPORT] Auth error:', authError);
-        return new Response(
-          JSON.stringify({ error: 'Invalid authentication token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Get user's organization ID and verify membership
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('org_id')
-        .eq('id', user.id)
-        .single();
-
-      if (userError || !userData?.org_id) {
-        console.error('[WEEKLY-REPORT] User lookup error:', userError);
-        return new Response(
-          JSON.stringify({ error: 'User organization not found' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      targetOrgIds = [userData.org_id];
-    }
-
-    if (req.method === 'GET') {
-      // Handle GET request - fetch signed URL for existing report
-      // Note: GET requests are only supported for user-initiated requests, not scheduled runs
-      if (isScheduledRun || targetOrgIds.length !== 1) {
-        return new Response(
-          JSON.stringify({ error: 'GET method only supported for user-initiated requests' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const orgId = targetOrgIds[0];
-      const url = new URL(req.url);
-      const weekParam = url.searchParams.get('week');
-      
-      if (!weekParam) {
-        return new Response(
-          JSON.stringify({ error: 'Missing week parameter (format: YYYY-Www)' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const weekBoundaries = parseWeekKey(weekParam);
-      if (!weekBoundaries) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid week format. Use YYYY-Www (e.g., 2025-W01)' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Check if report exists
-      const { data: existingReport, error: reportError } = await supabase
-        .from('reports')
-        .select('storage_path, created_at, byte_size')
-        .eq('org_id', orgId)
-        .eq('week_key', weekBoundaries.weekKey)
-        .single();
-
-      if (reportError || !existingReport) {
-        return new Response(
-          JSON.stringify({ error: 'Report not found for specified week' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Generate signed URL for the report (short TTL for security)
-      const { data: signedUrlData, error: urlError } = await supabase.storage
-        .from('reports')
-        .createSignedUrl(existingReport.storage_path.replace('reports/', ''), 300); // 5 minutes TTL
-
-      if (urlError || !signedUrlData?.signedUrl) {
-        console.error('[WEEKLY-REPORT] Signed URL error:', urlError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to generate download URL' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+    if (!isScheduledRun) {
+      console.log('[WEEKLY-REPORT] Unauthorized request - CRON_SECRET required');
       return new Response(
-        JSON.stringify({
-          ok: true,
-          week_key: weekBoundaries.weekKey,
-          download_url: signedUrlData.signedUrl,
-          created_at: existingReport.created_at,
-          file_size: existingReport.byte_size,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Unauthorized. Reports are generated automatically.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Scheduled run: process all organizations
+    console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
+    
+    const { data: orgs, error: orgsError } = await supabase
+      .from('organizations')
+      .select('id')
+      .order('created_at');
+
+    if (orgsError) {
+      console.error('[WEEKLY-REPORT] Error fetching organizations:', orgsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch organizations' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const targetOrgIds = orgs?.map(org => org.id) || [];
+    console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
 
     if (req.method === 'POST') {
       // Handle POST request - generate new report(s)
@@ -260,7 +155,7 @@ Deno.serve(async (req) => {
 
       // Calculate last complete week boundaries
       const { weekKey, periodStart, periodEnd } = getLastCompleteWeek();
-      
+
       console.log(`[WEEKLY-REPORT] Generating reports for week ${weekKey} (${periodStart} to ${periodEnd})`);
       console.log(`[WEEKLY-REPORT] Processing ${targetOrgIds.length} organization(s)`);
 
@@ -362,69 +257,30 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Return appropriate response based on whether this was a scheduled or user-initiated run
-      if (isScheduledRun) {
-        // For scheduled runs, return summary of all operations
-        const successCount = results.length;
-        const errorCount = errors.length;
-        
-        console.log(`[WEEKLY-REPORT] Scheduled run completed: ${successCount} successful, ${errorCount} errors`);
-        
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            scheduled_run: true,
-            week_key: weekKey,
-            total_orgs: targetOrgIds.length,
-            successful: successCount,
-            errors: errorCount,
-            results: results.length > 0 ? results : undefined,
-            error_details: errors.length > 0 ? errors : undefined,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else {
-        // For user-initiated runs, return single org result
-        if (results.length > 0) {
-          const result = results[0];
-          if (result.status === 'exists') {
-            return new Response(
-              JSON.stringify({
-                exists: true,
-                week_key: result.week_key,
-                storage_path: result.storage_path,
-                message: 'Report already generated for this week'
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          } else {
-            return new Response(
-              JSON.stringify({
-                ok: true,
-                week_key: result.week_key,
-                storage_path: result.storage_path,
-                period_start: result.period_start,
-                period_end: result.period_end,
-                file_size: result.file_size,
-                sha256: result.sha256,
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-        } else {
-          // Return first error if no successful results
-          const error = errors[0];
-          return new Response(
-            JSON.stringify({ error: error?.error || 'Report generation failed', details: error?.details }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
+      // Return summary of all operations
+      const successCount = results.length;
+      const errorCount = errors.length;
+      
+      console.log(`[WEEKLY-REPORT] Scheduled run completed: ${successCount} successful, ${errorCount} errors`);
+      
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          scheduled_run: true,
+          week_key: weekKey,
+          total_orgs: targetOrgIds.length,
+          successful: successCount,
+          errors: errorCount,
+          results: results.length > 0 ? results : undefined,
+          error_details: errors.length > 0 ? errors : undefined,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Method not allowed
+    // Method not allowed for non-POST requests
     return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
+      JSON.stringify({ error: 'Only scheduled POST requests allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

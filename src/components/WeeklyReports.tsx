@@ -22,7 +22,7 @@ interface WeeklyReport {
 export const WeeklyReports = () => {
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  
 
   // Don't render if feature flag is disabled
   if (!isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
@@ -51,33 +51,6 @@ export const WeeklyReports = () => {
     }
   };
 
-  const generateReport = async (weekStart?: string, weekEnd?: string) => {
-    setGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-weekly-report', {
-        body: weekStart && weekEnd ? { weekStart, weekEnd } : undefined
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast.success('Weekly report generated successfully');
-        fetchReports(); // Refresh the list
-        
-        // Auto-download if available
-        if (data.downloadUrl) {
-          window.open(data.downloadUrl, '_blank');
-        }
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      console.error('Error generating report:', error);
-      toast.error('Failed to generate report');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const downloadReport = async (report: WeeklyReport) => {
     if (!report.file_path) {
@@ -139,27 +112,18 @@ export const WeeklyReports = () => {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Weekly Reports</h2>
           <p className="text-muted-foreground">
-            Generate and download weekly visibility performance reports
+            Automatically generated weekly visibility performance reports
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => fetchReports()}
-            variant="outline"
-            size="sm"
-            disabled={loading}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button
-            onClick={() => generateReport()}
-            disabled={generating}
-          >
-            {generating && <Clock className="h-4 w-4 mr-2 animate-spin" />}
-            {generating ? 'Generating...' : 'Generate This Week'}
-          </Button>
-        </div>
+        <Button
+          onClick={() => fetchReports()}
+          variant="outline"
+          size="sm"
+          disabled={loading}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       <div className="grid gap-4">
@@ -168,10 +132,7 @@ export const WeeklyReports = () => {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium">No reports yet</h3>
-              <p className="text-muted-foreground mb-4">Generate your first weekly report</p>
-              <Button onClick={() => generateReport()}>
-                Generate Report
-              </Button>
+              <p className="text-muted-foreground mb-4">Reports are generated automatically every Monday</p>
             </CardContent>
           </Card>
         ) : (

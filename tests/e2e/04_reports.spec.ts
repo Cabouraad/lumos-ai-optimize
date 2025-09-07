@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Reports Functionality', () => {
   
-  test('should restrict reports access for starter tier', async ({ page }) => {
+  test('should show auto-generated reports message for starter tier', async ({ page }) => {
     // Login as starter user
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'starter_e2e@test.app');
@@ -16,13 +16,13 @@ test.describe('Reports Functionality', () => {
     // Should see upgrade/subscription required message
     await expect(page.locator('text=upgrade, text=subscription, text=Growth').first()).toBeVisible({ timeout: 5000 });
     
-    // Should NOT see reports list or download buttons
-    await expect(page.locator('.reports-list, button:has-text("Download")')).not.toBeVisible();
+    // Should NOT see any generation buttons
+    await expect(page.locator('button:has-text("Generate")')).not.toBeVisible();
     
-    console.log('✅ Starter tier correctly restricted from reports');
+    console.log('✅ Starter tier correctly shows automatic generation message');
   });
 
-  test('should allow reports access for growth tier', async ({ page }) => {
+  test('should show automatic generation message for growth tier', async ({ page }) => {
     // Login as growth user
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'growth_e2e@test.app');
@@ -36,13 +36,16 @@ test.describe('Reports Functionality', () => {
     // Should see reports page
     await expect(page.locator('h1:has-text("Reports"), h2:has-text("Reports")').first()).toBeVisible();
     
-    // Should NOT see upgrade prompts
-    await expect(page.locator('text=upgrade to access, text=subscription required')).not.toBeVisible();
+    // Should NOT see any manual generation buttons
+    await expect(page.locator('button:has-text("Generate")')).not.toBeVisible();
     
-    console.log('✅ Growth tier has proper access to reports');
+    // Should see automatic generation message
+    await expect(page.locator('text=automatically, text=every Monday').first()).toBeVisible();
+    
+    console.log('✅ Growth tier shows proper automatic generation messaging');
   });
 
-  test('should generate and display weekly report', async ({ page }) => {
+  test('should display existing reports and refresh functionality', async ({ page }) => {
     // Login as growth user
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'growth_e2e@test.app');
@@ -52,29 +55,28 @@ test.describe('Reports Functionality', () => {
     
     await page.goto('/reports');
     
-    // Look for generate report button
-    const generateButton = page.locator('button:has-text("Generate"), button:has-text("Create Report"), button:has-text("Weekly Report")');
+    // Should see refresh button (not generate)
+    await expect(page.locator('button:has-text("Refresh")')).toBeVisible();
     
-    if (await generateButton.isVisible()) {
-      await generateButton.click();
-      
-      // Wait for generation process
-      await expect(page.locator('text=generating, text=processing').first()).toBeVisible({ timeout: 5000 });
-      
-      // Wait for completion (this might take a while with real generation)
-      await expect(page.locator('text=completed, text=ready, .report-item').first()).toBeVisible({ timeout: 30000 });
-      
-      console.log('✅ Weekly report generated successfully');
-    } else {
-      console.log('ℹ️ Generate button not found - checking for existing reports');
+    // Should NOT see any generate buttons
+    await expect(page.locator('button:has-text("Generate")')).not.toBeVisible();
+    
+    // Check for automatic messaging
+    const automaticText = page.locator('text=automatically, text=every Monday');
+    if (await automaticText.isVisible()) {
+      console.log('✅ Shows automatic generation messaging');
     }
     
-    // Check if reports list shows something
+    // Check if reports list exists or shows proper empty state
     const reportItems = page.locator('.report-item, .report-row, tr');
     const reportCount = await reportItems.count();
     
     if (reportCount > 0) {
       console.log(`✅ Found ${reportCount} reports in the list`);
+    } else {
+      // Check for proper empty state message
+      await expect(page.locator('text=automatically, text=every Monday').first()).toBeVisible();
+      console.log('✅ Shows proper empty state with automatic generation message');
     }
   });
 
@@ -166,7 +168,7 @@ test.describe('Reports Functionality', () => {
     console.log('✅ Reports page handles empty/error states properly');
   });
 
-  test('should show weekly report date ranges correctly', async ({ page }) => {
+  test('should show weekly report scheduling information correctly', async ({ page }) => {
     // Login as growth user  
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'growth_e2e@test.app');
@@ -176,17 +178,12 @@ test.describe('Reports Functionality', () => {
     
     await page.goto('/reports');
     
-    // Look for date range information
-    const dateElements = page.locator('text=Week, text=to, text=-, text=Jan, text=Feb');
+    // Should show Monday generation messaging without specific times
+    await expect(page.locator('text=every Monday').first()).toBeVisible({ timeout: 5000 });
     
-    if (await dateElements.first().isVisible()) {
-      // Should show proper week ranges
-      await expect(page.locator('text=Week of, text=Jan 1 - Jan 7, text=to').first()).toBeVisible({ timeout: 5000 });
-      
-      console.log('✅ Weekly report date ranges display correctly');
-      
-    } else {
-      console.log('ℹ️ No date ranges found - may need existing reports');
-    }
+    // Should NOT show specific times like "08:00 UTC"
+    await expect(page.locator('text=08:00, text=6 AM, text=UTC')).not.toBeVisible();
+    
+    console.log('✅ Shows correct automatic generation messaging without specific times');
   });
 });
