@@ -80,6 +80,23 @@ const getClientIP = (req: Request): string => {
          'unknown';
 };
 
+// Helper to get today's date key in NY timezone
+function getTodayKeyNY(d = new Date()): string {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  
+  const parts = formatter.formatToParts(d);
+  const yyyy = parts.find(part => part.type === 'year')?.value || '1970';
+  const mm = parts.find(part => part.type === 'month')?.value || '01';
+  const dd = parts.find(part => part.type === 'day')?.value || '01';
+  
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 interface TaskResult {
   success: boolean;
   data?: any;
@@ -773,6 +790,35 @@ serve(async (req) => {
     let totalTasks = 0;
 
     if (action === 'create') {
+      // IDEMPOTENCY GUARD: Check for existing daily job unless replace=true
+      if (!replace) {
+        const todayKeyNY = getTodayKeyNY();
+        const { data: existingJob, error: checkError } = await supabase
+          .from('batch_jobs')
+          .select('id, status, created_at')
+          .eq('org_id', orgId)
+          .gte('created_at', `${todayKeyNY}T00:00:00`)
+          .lt('created_at', `${todayKeyNY}T23:59:59`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!checkError && existingJob) {
+          console.log(`✅ Daily job already exists for org ${orgId} today: ${existingJob.id} (${existingJob.status})`);
+          return new Response(JSON.stringify({
+            success: true,
+            action: 'duplicate_prevented',
+            existingJobId: existingJob.id,
+            existingJobStatus: existingJob.status,
+            message: `Daily job already exists for today (${todayKeyNY})`,
+            correlationId
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       // Cancel existing jobs if replace=true
       if (replace) {
         console.log('🗑️ Cancelling existing active jobs for org...');
@@ -791,7 +837,7 @@ serve(async (req) => {
 
       totalTasks = activePrompts.length * validProviders.length;
 
-      // Create batch job
+      // Create batch job with enhanced metadata
       const { data: batchJob, error: batchError } = await supabase
         .from('batch_jobs')
         .insert({
@@ -805,7 +851,9 @@ serve(async (req) => {
             providers_count: validProviders.length,
             provider_names: validProviders,
             source: 'robust-batch-processor',
-            created_at: new Date().toISOString()
+            correlation_id: correlationId,
+            created_at: new Date().toISOString(),
+            today_key: getTodayKeyNY()
           }
         })
         .select()
@@ -1104,7 +1152,15 @@ serve(async (req) => {
       console.log(`📊 Job not fully complete: ${totalCompletedOrFailed}/${actualTotalTasks} tasks done`);
     }
 
-    console.log(`🏁 Batch processing completed: ${processedCount} successful, ${failedCount} failed`);
+    // Enhanced completion logging with correlation ID and org summary
+    console.log(`🏁 Batch processing completed [${correlationId}]:`, {
+      orgId,
+      successful: processedCount,
+      failed: failedCount,
+      totalTasks: actualTotalTasks,
+      promptCount: activePrompts?.length || 0,
+      providerCount: validProviders?.length || 0
+    });
 
     return new Response(JSON.stringify({
       success: true,
@@ -1117,6 +1173,15 @@ serve(async (req) => {
       failed: failedCount,
       completedTasks: processedCount,
       failedTasks: failedCount,
+      correlationId,
+      orgSummary: {
+        orgId,
+        promptCount: activePrompts?.length || 0,
+        providerCount: validProviders?.length || 0,
+        expectedTasks: actualTotalTasks,
+        completedTasks: processedCount,
+        failedTasks: failedCount
+      },
       message: `Batch processing completed: ${processedCount} successful, ${failedCount} failed`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

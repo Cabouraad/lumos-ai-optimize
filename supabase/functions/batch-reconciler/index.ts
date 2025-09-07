@@ -94,12 +94,12 @@ serve(async (req) => {
 
     console.log('🔧 Batch reconciler running - detecting and fixing stuck jobs...');
 
-    // AGGRESSIVE: Find stuck batch jobs using multiple criteria:
-    // 1. Processing/pending for more than 2 minutes with no recent heartbeat
-    // 2. Processing/pending with old heartbeat (>2 minutes ago)
-    // 3. Jobs that started but show no progress for 3+ minutes
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    // HARDENING: Find stuck batch jobs using multiple criteria:
+    // 1. Processing/pending for more than 3 minutes with no recent heartbeat (was 2 min)
+    // 2. Processing/pending with old heartbeat (>3 minutes ago) 
+    // 3. Jobs that started but show no progress for 5+ minutes (was 3 min)
     const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     
     const { data: potentiallyStuckJobs, error: fetchError } = await supabase
       .from('batch_jobs')

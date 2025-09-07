@@ -1128,6 +1128,10 @@ export type Database = {
           text: string
         }[]
       }
+      get_today_key_ny: {
+        Args: { d?: string }
+        Returns: string
+      }
       get_unified_dashboard_data: {
         Args: { p_org_id?: string }
         Returns: Json
