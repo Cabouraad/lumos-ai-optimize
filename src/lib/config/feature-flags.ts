@@ -13,6 +13,7 @@ export interface FeatureFlags {
   FEATURE_SCHEDULING_NOTICES: boolean;
   FEATURE_WEEKLY_REPORT: boolean;
   FEATURE_BILLING_BYPASS: boolean;
+  FEATURE_ANALYZER_V2: boolean;
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
@@ -25,6 +26,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   FEATURE_SCHEDULING_NOTICES: false,
   FEATURE_WEEKLY_REPORT: true, // Enable weekly reports by default
   FEATURE_BILLING_BYPASS: false,
+  FEATURE_ANALYZER_V2: false, // Default off for safety
 };
 
 // Override flags from environment in development
@@ -40,6 +42,7 @@ const getFeatureFlags = (): FeatureFlags => {
       FEATURE_SCHEDULING_NOTICES: import.meta.env.VITE_FEATURE_SCHEDULING_NOTICES === 'true',
       FEATURE_WEEKLY_REPORT: import.meta.env.VITE_FEATURE_WEEKLY_REPORT === 'true',
       FEATURE_BILLING_BYPASS: import.meta.env.VITE_FEATURE_BILLING_BYPASS === 'true',
+      FEATURE_ANALYZER_V2: import.meta.env.VITE_FEATURE_ANALYZER_V2 === 'true',
     };
   }
   
