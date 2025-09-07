@@ -566,8 +566,7 @@ export default function Prompts() {
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-glow" />
                     <div className="text-sm">
-                      <div className="font-medium gradient-primary bg-clip-text text-transparent">Automated daily runs at 12:00 AM EST</div>
-                      <div className="text-muted-foreground text-xs mt-1">All active prompts run automatically</div>
+                      <div className="font-medium gradient-primary bg-clip-text text-transparent">All prompts automatically run daily</div>
                     </div>
                   </div>
                 </div>
