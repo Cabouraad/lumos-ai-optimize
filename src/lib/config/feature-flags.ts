@@ -14,6 +14,7 @@ export interface FeatureFlags {
   FEATURE_WEEKLY_REPORT: boolean;
   FEATURE_BILLING_BYPASS: boolean;
   FEATURE_ANALYZER_V2: boolean;
+  AUDIT_UI: boolean;
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
@@ -27,6 +28,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   FEATURE_WEEKLY_REPORT: true, // Enable weekly reports by default
   FEATURE_BILLING_BYPASS: false,
   FEATURE_ANALYZER_V2: false, // Default off for safety
+  AUDIT_UI: true, // Enable audit UI by default for admins
 };
 
 // Override flags from environment in development
@@ -43,6 +45,7 @@ const getFeatureFlags = (): FeatureFlags => {
       FEATURE_WEEKLY_REPORT: import.meta.env.VITE_FEATURE_WEEKLY_REPORT === 'true',
       FEATURE_BILLING_BYPASS: import.meta.env.VITE_FEATURE_BILLING_BYPASS === 'true',
       FEATURE_ANALYZER_V2: import.meta.env.VITE_FEATURE_ANALYZER_V2 === 'true',
+      AUDIT_UI: import.meta.env.VITE_AUDIT_UI === 'true',
     };
   }
   

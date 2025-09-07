@@ -87,6 +87,9 @@ verify_jwt = true
 [functions.activate-trial]
 verify_jwt = true
 
+[functions.auto-audit]
+verify_jwt = false
+
 [functions.test-single-provider]
 verify_jwt = true
 
@@ -130,3 +133,4 @@ verify_jwt = false
 [functions.schedules]
 weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
 daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
+auto_audit_nightly = { schedule = "0 7 * * *", endpoint = "/auto-audit", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }

@@ -38,6 +38,80 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_events: {
+        Row: {
+          data: Json | null
+          id: number
+          level: string | null
+          name: string | null
+          phase: string | null
+          run_id: string
+          ts: string
+        }
+        Insert: {
+          data?: Json | null
+          id?: number
+          level?: string | null
+          name?: string | null
+          phase?: string | null
+          run_id: string
+          ts?: string
+        }
+        Update: {
+          data?: Json | null
+          id?: number
+          level?: string | null
+          name?: string | null
+          phase?: string | null
+          run_id?: string
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_runs: {
+        Row: {
+          artifact_url: string | null
+          corr_id: string
+          created_by: string
+          details: Json | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+          summary: Json | null
+        }
+        Insert: {
+          artifact_url?: string | null
+          corr_id: string
+          created_by?: string
+          details?: Json | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status: string
+          summary?: Json | null
+        }
+        Update: {
+          artifact_url?: string | null
+          corr_id?: string
+          created_by?: string
+          details?: Json | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          summary?: Json | null
+        }
+        Relationships: []
+      }
       batch_jobs: {
         Row: {
           cancellation_requested: boolean

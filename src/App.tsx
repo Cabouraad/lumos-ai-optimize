@@ -21,6 +21,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Reports = lazy(() => import("./pages/Reports"));
 const BypassTestPage = lazy(() => import("./pages/BypassTestPage"));
 const Labs = lazy(() => import("./pages/Labs"));
+const AuditRuns = lazy(() => import("./pages/admin/AuditRuns"));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -84,6 +85,13 @@ const App = () => (
                 <Labs />
               </SubscriptionGate>
             } />
+            {isFeatureEnabled('AUDIT_UI') && (
+              <Route path="/admin/audit-runs" element={
+                <SubscriptionGate>
+                  <AuditRuns />
+                </SubscriptionGate>
+              } />
+            )}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
