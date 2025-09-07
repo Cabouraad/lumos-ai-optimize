@@ -39,7 +39,7 @@ interface WeeklyReport {
 
 export default function Reports() {
   const { orgData } = useAuth();
-  const { hasAccessToApp, canAccessRecommendations, daysRemainingInTrial } = useSubscriptionGate();
+  const { hasAccessToApp, canAccessRecommendations, daysRemainingInTrial, isOnTrial } = useSubscriptionGate();
   const { toast: showToast } = useToast();
   const [reports, setReports] = useState<Report[]>([]);
   const [csvReports, setCsvReports] = useState<WeeklyReport[]>([]);
@@ -308,7 +308,7 @@ export default function Reports() {
   return (
     <Layout>
       <div className="space-y-6">
-        <TrialBanner daysRemaining={daysRemainingInTrial || 0} />
+        {isOnTrial && <TrialBanner daysRemaining={daysRemainingInTrial || 0} />}
         
         <div className="flex items-center justify-between">
           <div>

@@ -63,10 +63,10 @@ serve(async (req) => {
     const userId = userData.user.id;
     logStep("User authenticated", { userId });
 
-    // 2) Get user's org_id from users table
+    // 2) Get user's org_id and role from users table
     const { data: userRecord, error: userRecordError } = await supabaseAdmin
       .from("users")
-      .select("org_id")
+      .select("org_id, role, email")
       .eq("id", userId)
       .single();
 
@@ -79,7 +79,9 @@ serve(async (req) => {
     }
 
     const orgId = userRecord.org_id;
-    logStep("User org resolved", { orgId });
+    const userRole = userRecord.role;
+    const userEmail = userRecord.email;
+    logStep("User org resolved", { orgId, userRole, userEmail });
 
     // Parse request body to get reportId
     const { reportId } = await req.json();
@@ -110,41 +112,64 @@ serve(async (req) => {
 
     logStep("Report found", { reportId, storagePath: report.storage_path });
 
-    // 4) Plan gate - check subscription tier
-    const { data: subscription, error: subError } = await supabaseAdmin
-      .from("subscribers")
-      .select("subscription_tier, subscribed")
-      .eq("user_id", userId)
-      .single();
-
-    if (subError || !subscription) {
-      logStep("No subscription found", { userId, error: subError?.message });
-      return new Response(JSON.stringify({ 
-        error: 'Access denied', 
-        code: 'plan_denied',
-        message: 'Upgrade to Growth or Pro plan to access reports'
-      }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tier = subscription.subscription_tier?.toLowerCase();
-    const allowedTiers = ['growth', 'pro'];
+    // 4) Admin override - bypass plan gate for owners/admins
+    const adminEmails = ['abouraa.chri@gmail.com', 'amirdt22@gmail.com'];
+    const isAdminUser = adminEmails.includes(userEmail) || userRole === 'owner';
     
-    if (!allowedTiers.includes(tier)) {
-      logStep("Plan not allowed", { tier, allowedTiers });
-      return new Response(JSON.stringify({ 
-        error: 'Access denied', 
-        code: 'plan_denied',
-        message: 'Upgrade to Growth or Pro plan to access reports'
-      }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (isAdminUser) {
+      logStep("Admin user - bypassing plan gate", { userEmail, userRole });
+    } else {
+      // Regular plan gate - check subscription tier
+      let subscription = null;
+      
+      // Try user_id first, fallback to email
+      const { data: subByUserId, error: subByUserIdError } = await supabaseAdmin
+        .from("subscribers")
+        .select("subscription_tier, subscribed")
+        .eq("user_id", userId)
+        .maybeSingle();
+        
+      if (subByUserId) {
+        subscription = subByUserId;
+      } else {
+        // Fallback to email lookup
+        const { data: subByEmail, error: subByEmailError } = await supabaseAdmin
+          .from("subscribers")
+          .select("subscription_tier, subscribed")
+          .eq("email", userEmail)
+          .maybeSingle();
+        subscription = subByEmail;
+      }
 
-    logStep("Plan gate passed", { tier });
+      if (!subscription) {
+        logStep("No subscription found", { userId, userEmail });
+        return new Response(JSON.stringify({ 
+          error: 'Access denied', 
+          code: 'plan_denied',
+          message: 'Upgrade to Growth or Pro plan to access reports'
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const tier = subscription.subscription_tier?.toLowerCase();
+      const allowedTiers = ['growth', 'pro'];
+      
+      if (!allowedTiers.includes(tier)) {
+        logStep("Plan not allowed", { tier, allowedTiers });
+        return new Response(JSON.stringify({ 
+          error: 'Access denied', 
+          code: 'plan_denied',
+          message: 'Upgrade to Growth or Pro plan to access reports'
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      logStep("Plan gate passed", { tier });
+    }
 
     // 5) Generate signed download URL
     const expiresIn = 300; // 5 minutes TTL
