@@ -4,6 +4,7 @@
  */
 
 import { normalizeBrandName, isValidBrandName } from './normalizer.ts';
+import { getOrgOverlay as fetchOrgOverlay, getCrossProviderConsensus } from './org-overlay.ts';
 import stopwords from './rulesets/v2/stopwords.json';
 import brandCues from './rulesets/v2/brand_cues.json';
 import automotiveMarketplaces from './rulesets/v2/industry/automotive_marketplaces.json';
@@ -76,6 +77,20 @@ export async function analyzeResponseV2(
   const startTime = performance.now();
   console.log('🔍 Starting V2 brand analysis...');
 
+  // Fetch org overlay and cross-provider context if not provided
+  const orgOverlay = context.orgOverlay || await fetchOrgOverlay(context.orgData.name);
+  const crossProviderContext = context.crossProviderContext || {
+    prompt_id: 'unknown',
+    recent_competitors: []
+  };
+
+  // Update context with fetched data
+  const enhancedContext = {
+    ...context,
+    orgOverlay,
+    crossProviderContext
+  };
+
   // Stage 1: Extract candidates
   const candidates = extractCandidates(responseText);
   console.log(`📋 Stage 1: Extracted ${candidates.length} candidates`);
@@ -91,10 +106,10 @@ export async function analyzeResponseV2(
   // Stage 4: Classify and score
   const classified = await classifyAndScore(
     filtered,
-    context.orgData,
-    context.brandCatalog,
-    getOrgOverlay(context.orgData.name),
-    context.crossProviderContext
+    enhancedContext.orgData,
+    enhancedContext.brandCatalog,
+    enhancedContext.orgOverlay,
+    enhancedContext.crossProviderContext
   );
   console.log(`✅ Stage 4: Final classification complete`);
 
@@ -599,7 +614,7 @@ function generateAnalysisHash(responseText: string, orgBrands: string[], competi
 }
 
 function getOrgOverlay(orgName: string): OrgOverlay {
-  // For now, return empty overlay - in production this would be fetched from database
+  // This function is now deprecated - use the imported getOrgOverlay instead
   const defaultOverlay: OrgOverlay = {
     org_id: orgName,
     competitor_overrides: [],

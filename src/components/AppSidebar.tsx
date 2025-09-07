@@ -25,16 +25,20 @@ import {
   Settings,
   LogOut,
   Crown,
-  Calendar
+  Calendar,
+  Beaker
 } from 'lucide-react';
 
 export function AppSidebar() {
-  const { signOut, orgData } = useAuth();
+  const { signOut, orgData, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { canAccessCompetitorAnalysis, canAccessRecommendations } = useSubscriptionGate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+
+  // Check if user is admin (owner role)
+  const isAdmin = user?.user_metadata?.role === 'owner' || orgData?.users?.role === 'owner';
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -44,6 +48,7 @@ export function AppSidebar() {
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
     { name: 'Reports', href: '/reports', icon: Calendar },
     { name: 'Settings', href: '/settings', icon: Settings },
+    ...(isAdmin ? [{ name: 'Labs', href: '/labs', icon: Beaker }] : []),
   ];
 
   return (

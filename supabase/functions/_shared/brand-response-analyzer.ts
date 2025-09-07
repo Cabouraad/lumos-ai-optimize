@@ -20,11 +20,20 @@ export interface BrandAnalysisResult {
     global_competitors: number; 
     discovered_competitors: number;
     ner_organizations: string[];
-    analysis_method: 'comprehensive' | 'deterministic';
+    analysis_method: 'comprehensive' | 'deterministic' | 'v2_enhanced';
     confidence_score: number;
     analysis_hash?: string; // For deduplication
     deterministic_mode?: boolean;
     processing_time_ms?: number;
+    // V2-specific fields
+    ruleset_version?: 'v2';
+    pipeline_stages?: {
+      candidates_extracted: number;
+      candidates_normalized: number;
+      candidates_filtered: number;
+      final_classified: number;
+    };
+    consensus_boost_applied?: boolean;
   };
 }
 
@@ -85,8 +94,19 @@ async function analyzeWithV2(
       name: bc.name,
       is_org_brand: bc.is_org_brand,
       variants_json: bc.variants_json
-    }))
-    // Note: orgOverlay and crossProviderContext would be populated in production
+    })),
+    // TODO: In production, fetch org overlay from database
+    orgOverlay: {
+      org_id: orgData.name, // Use org name as temp ID
+      competitor_overrides: [],
+      competitor_exclusions: [],
+      brand_variants: []
+    },
+    // TODO: In production, fetch cross-provider consensus data
+    crossProviderContext: {
+      prompt_id: 'unknown', // Would be passed from calling function
+      recent_competitors: []
+    }
   };
 
   // Run V2 analysis
