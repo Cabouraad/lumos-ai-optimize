@@ -1,12 +1,12 @@
 /**
  * Comprehensive Brand Response Analyzer
  * Produces EXACT same results as manual analysis by using:
- * 1. Org brand variants (from brand_catalog where is_org_brand = true)
- * 2. Global competitors gazetteer 
- * 3. Proper noun extraction + NER for discovery
+ * 1. V1: Org brand variants + global competitors gazetteer + NER discovery
+ * 2. V2: Enhanced 4-stage pipeline with per-org isolation (behind feature flag)
  */
 
 import { GLOBAL_COMPETITORS, findGlobalCompetitor } from './global-competitors-gazetteer.ts';
+import { analyzeResponseV2, type AnalyzerV2Result, type AnalyzerV2Context } from '../../lib/brand/analyzer-v2.ts';
 
 export interface BrandAnalysisResult {
   org_brand_present: boolean;
@@ -43,15 +43,164 @@ export interface BrandCatalogEntry {
 }
 
 /**
- * Main analysis function - produces same results as manual analysis
+ * Main analysis function - chooses v1 or v2 based on feature flag
  */
 export async function analyzePromptResponse(
+  responseText: string,
+  orgData: OrgData,
+  brandCatalog: BrandCatalogEntry[],
+  options: { deterministicMode?: boolean; enableNER?: boolean; useV2?: boolean } = {}
+): Promise<BrandAnalysisResult> {
+  // Check if V2 analyzer should be used
+  const useV2 = options.useV2 || Deno.env.get('FEATURE_ANALYZER_V2') === 'true';
+  
+  if (useV2) {
+    console.log('🚀 Using V2 Enhanced Analyzer');
+    return await analyzeWithV2(responseText, orgData, brandCatalog, options);
+  } else {
+    console.log('📊 Using V1 Legacy Analyzer');
+    return await analyzeWithV1(responseText, orgData, brandCatalog, options);
+  }
+}
+
+/**
+ * V2 Enhanced Analysis Pipeline
+ */
+async function analyzeWithV2(
+  responseText: string,
+  orgData: OrgData,
+  brandCatalog: BrandCatalogEntry[],
+  options: { deterministicMode?: boolean; enableNER?: boolean } = {}
+): Promise<BrandAnalysisResult> {
+  // Build V2 context
+  const context: AnalyzerV2Context = {
+    orgData: {
+      name: orgData.name,
+      domain: orgData.domain,
+      keywords: orgData.keywords,
+      competitors: orgData.competitors,
+      products_services: orgData.products_services
+    },
+    brandCatalog: brandCatalog.map(bc => ({
+      name: bc.name,
+      is_org_brand: bc.is_org_brand,
+      variants_json: bc.variants_json
+    }))
+    // Note: orgOverlay and crossProviderContext would be populated in production
+  };
+
+  // Run V2 analysis
+  const v2Result = await analyzeResponseV2(responseText, context);
+
+  // Convert V2 result to V1 format for API compatibility
+  const result: BrandAnalysisResult = {
+    org_brand_present: v2Result.org_brand_present,
+    org_brand_prominence: v2Result.org_brand_prominence,
+    competitors_json: v2Result.competitors_json,
+    brands_json: v2Result.brands_json,
+    score: v2Result.score,
+    metadata: {
+      org_brands_found: v2Result.metadata.org_brands_found,
+      catalog_competitors: v2Result.metadata.catalog_competitors,
+      global_competitors: v2Result.metadata.global_competitors,
+      discovered_competitors: v2Result.metadata.discovered_competitors,
+      ner_organizations: v2Result.metadata.ner_organizations,
+      analysis_method: v2Result.metadata.analysis_method,
+      confidence_score: v2Result.metadata.confidence_score,
+      analysis_hash: v2Result.metadata.analysis_hash,
+      deterministic_mode: options.deterministicMode || false,
+      processing_time_ms: v2Result.metadata.processing_time_ms,
+      // V2-specific metadata
+      ruleset_version: v2Result.metadata.ruleset_version,
+      pipeline_stages: v2Result.metadata.pipeline_stages,
+      consensus_boost_applied: v2Result.metadata.consensus_boost_applied
+    }
+  };
+
+  return result;
+}
+
+/**
+ * V1 Legacy Analysis Pipeline (unchanged for backward compatibility)
+ */
+async function analyzeWithV1(
   responseText: string,
   orgData: OrgData,
   brandCatalog: BrandCatalogEntry[],
   options: { deterministicMode?: boolean; enableNER?: boolean } = {}
 ): Promise<BrandAnalysisResult> {
   const startTime = Date.now();
+  console.log('🔍 Starting V1 brand analysis...');
+  console.log(`📊 Response length: ${responseText.length} chars`);
+  
+  // ... keep existing V1 code (Step 1-5 from original function)
+  const orgBrandVariants = extractOrgBrandVariants(brandCatalog);
+  const catalogCompetitors = extractCatalogCompetitors(brandCatalog);
+  const globalCompetitors = GLOBAL_COMPETITORS.map(c => c.name);
+  
+  console.log(`🏷️ Org brand variants: ${orgBrandVariants.length}`);
+  console.log(`📋 Catalog competitors: ${catalogCompetitors.length}`);
+  console.log(`🌍 Global competitors: ${globalCompetitors.length}`);
+  
+  const orgBrands = findBrandMentions(responseText, orgBrandVariants);
+  const catalogMatches = findBrandMentions(responseText, catalogCompetitors);
+  const globalMatches = findGlobalCompetitorMentions(responseText);
+  
+  const discoveredOrgs = options.enableNER !== false 
+    ? await extractOrganizationsNER(responseText, [...orgBrandVariants, ...catalogCompetitors, ...globalMatches])
+    : [];
+  
+  console.log(`✅ V1 Analysis results:`);
+  console.log(`  - Org brands found: ${orgBrands.length}`);
+  console.log(`  - Catalog competitors: ${catalogMatches.length}`);
+  console.log(`  - Global competitors: ${globalMatches.length}`);
+  console.log(`  - Discovered orgs: ${discoveredOrgs.length}`);
+  
+  const orgBrandPresent = orgBrands.length > 0;
+  const orgBrandProminence = orgBrandPresent ? calculateProminence(responseText, orgBrands) : null;
+  
+  const allCompetitors = [
+    ...catalogMatches,
+    ...globalMatches, 
+    ...discoveredOrgs
+  ];
+  
+  const uniqueCompetitors = [...new Set(allCompetitors)]
+    .filter(comp => !orgBrandVariants.some(org => 
+      normalize(comp) === normalize(org)
+    ))
+    .slice(0, 20);
+  
+  const score = calculateVisibilityScore(
+    orgBrandPresent,
+    orgBrandProminence,
+    uniqueCompetitors.length,
+    responseText.length
+  );
+  
+  const analysisHash = generateAnalysisHash(responseText, orgBrands, uniqueCompetitors, score);
+  const processingTime = Date.now() - startTime;
+
+  return {
+    org_brand_present: orgBrandPresent,
+    org_brand_prominence: orgBrandProminence,
+    competitors_json: uniqueCompetitors,
+    brands_json: orgBrands,
+    score: Math.round(score * 10) / 10,
+    metadata: {
+      org_brands_found: orgBrands,
+      catalog_competitors: catalogMatches.length,
+      global_competitors: globalMatches.length,
+      discovered_competitors: discoveredOrgs.length,
+      ner_organizations: discoveredOrgs,
+      analysis_method: options.deterministicMode ? 'deterministic' : 'comprehensive',
+      confidence_score: calculateConfidence(orgBrands, uniqueCompetitors),
+      analysis_hash: analysisHash,
+      deterministic_mode: options.deterministicMode || false,
+      processing_time_ms: processingTime
+    }
+  };
+}
   console.log('🔍 Starting comprehensive brand analysis...');
   console.log(`📊 Response length: ${responseText.length} chars`);
   

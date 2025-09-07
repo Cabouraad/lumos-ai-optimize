@@ -1,0 +1,143 @@
+{
+  "canonical_brands": [
+    {
+      "name": "CarGurus",
+      "aliases": ["cargurus", "car gurus", "cargurus.com"],
+      "confidence": 1.0
+    },
+    {
+      "name": "Autotrader",
+      "aliases": ["autotrader", "auto trader", "autotrader.com", "auto trader.com"],
+      "confidence": 1.0
+    },
+    {
+      "name": "Cars.com", 
+      "aliases": ["cars.com", "cars", "cars com", "cars website"],
+      "confidence": 1.0
+    },
+    {
+      "name": "CarMax",
+      "aliases": ["carmax", "car max", "carmax.com"],
+      "confidence": 1.0
+    },
+    {
+      "name": "Carvana",
+      "aliases": ["carvana", "carvana.com"],
+      "confidence": 1.0
+    },
+    {
+      "name": "TrueCar",
+      "aliases": ["truecar", "true car", "truecar.com"],
+      "confidence": 1.0
+    },
+    {
+      "name": "Edmunds",
+      "aliases": ["edmunds", "edmunds.com", "edmund"],
+      "confidence": 1.0
+    },
+    {
+      "name": "Kelley Blue Book",
+      "aliases": ["kelley blue book", "kbb", "kbb.com", "kelly blue book", "blue book"],
+      "confidence": 1.0
+    },
+    {
+      "name": "CarsDirect",
+      "aliases": ["carsdirect", "cars direct", "carsdirect.com"],
+      "confidence": 0.9
+    },
+    {
+      "name": "CarSoup",
+      "aliases": ["carsoup", "car soup", "carsoup.com"],
+      "confidence": 0.8
+    },
+    {
+      "name": "CarQuery",
+      "aliases": ["carquery", "car query", "carquery.com"],
+      "confidence": 0.8
+    },
+    {
+      "name": "Vroom",
+      "aliases": ["vroom", "vroom.com"],
+      "confidence": 0.9
+    },
+    {
+      "name": "Shift",
+      "aliases": ["shift", "shift.com", "shift cars"],
+      "confidence": 0.8
+    },
+    {
+      "name": "Beepi",
+      "aliases": ["beepi", "beepi.com"],
+      "confidence": 0.7
+    },
+    {
+      "name": "Dealer.com",
+      "aliases": ["dealer.com", "dealer", "dealercom"],
+      "confidence": 0.9
+    },
+    {
+      "name": "AutoTrader.ca",
+      "aliases": ["autotrader.ca", "autotrader canada"],
+      "confidence": 0.8
+    },
+    {
+      "name": "Kijiji Autos",
+      "aliases": ["kijiji autos", "kijiji", "kijiji.ca"],
+      "confidence": 0.7
+    }
+  ],
+  "generic_terms": [
+    "auto",
+    "car",
+    "cars", 
+    "vehicle",
+    "vehicles",
+    "automotive",
+    "dealer",
+    "dealership",
+    "marketplace",
+    "listing",
+    "inventory",
+    "search",
+    "finder",
+    "locator",
+    "directory",
+    "guide",
+    "review",
+    "reviews",
+    "rating",
+    "ratings",
+    "comparison",
+    "compare",
+    "price",
+    "pricing",
+    "value",
+    "valuation",
+    "appraisal",
+    "estimate",
+    "quote",
+    "quotes",
+    "financing",
+    "loan",
+    "loans",
+    "credit",
+    "insurance",
+    "warranty",
+    "service",
+    "repair",
+    "maintenance",
+    "inspection",
+    "history",
+    "report",
+    "certified",
+    "used",
+    "new",
+    "pre-owned",
+    "trade-in",
+    "sell",
+    "buy",
+    "purchase",
+    "lease",
+    "rental"
+  ]
+}

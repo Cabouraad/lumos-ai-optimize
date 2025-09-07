@@ -11,6 +11,7 @@ export interface OptimizationFeatureFlags {
   // Detection and processing flags  
   FEATURE_STRICT_COMPETITOR_DETECT: boolean;
   FEATURE_DETECTOR_SHADOW: boolean;
+  FEATURE_ANALYZER_V2: boolean; // V2 brand analyzer with enhanced rulesets
   
   // UI optimization flags
   FEATURE_LIGHT_UI: boolean;
@@ -28,6 +29,7 @@ const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
   FEATURE_RESPONSE_CACHE: false, 
   FEATURE_STRICT_COMPETITOR_DETECT: false,
   FEATURE_DETECTOR_SHADOW: false,
+  FEATURE_ANALYZER_V2: false, // Default OFF for safety
   FEATURE_LIGHT_UI: false,
   FEATURE_A11Y: false,
   FEATURE_TRIAL_GRACE: false,
@@ -45,6 +47,7 @@ const getOptimizationFeatureFlags = (): OptimizationFeatureFlags => {
       FEATURE_RESPONSE_CACHE: import.meta.env.VITE_FEATURE_RESPONSE_CACHE === 'true',
       FEATURE_STRICT_COMPETITOR_DETECT: import.meta.env.VITE_FEATURE_STRICT_COMPETITOR_DETECT === 'true',
       FEATURE_DETECTOR_SHADOW: import.meta.env.VITE_FEATURE_DETECTOR_SHADOW === 'true',
+      FEATURE_ANALYZER_V2: import.meta.env.VITE_FEATURE_ANALYZER_V2 === 'true',
       FEATURE_LIGHT_UI: import.meta.env.VITE_FEATURE_LIGHT_UI === 'true',
       FEATURE_A11Y: import.meta.env.VITE_FEATURE_A11Y === 'true',
       FEATURE_TRIAL_GRACE: import.meta.env.VITE_FEATURE_TRIAL_GRACE === 'true',
