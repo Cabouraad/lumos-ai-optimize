@@ -6,7 +6,7 @@
  */
 
 import { GLOBAL_COMPETITORS, findGlobalCompetitor } from './global-competitors-gazetteer.ts';
-import { analyzeResponseV2, type AnalyzerV2Result, type AnalyzerV2Context } from '../../lib/brand/analyzer-v2.ts';
+import { analyzeResponseV2, type AnalyzerV2Result, type AnalyzerV2Context } from '../../../lib/brand/analyzer-v2.ts';
 
 export interface BrandAnalysisResult {
   org_brand_present: boolean;
