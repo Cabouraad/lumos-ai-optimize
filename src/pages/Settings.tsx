@@ -5,7 +5,7 @@ import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
-import { CompetitorDisplayTest } from '@/components/CompetitorDisplayTest';
+
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -173,10 +173,6 @@ export default function Settings() {
           <DomainEnforcementDemo />
         </section>
 
-        {/* Competitor Display Test (Development Only) */}
-        <section className="rounded-xl border p-4">
-          <CompetitorDisplayTest />
-        </section>
 
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Organization</h2>
