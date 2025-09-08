@@ -8,6 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle, RefreshCw } from 'lucide-react';
 import { CompetitorChipList } from './CompetitorChip';
 import { useToast } from '@/components/ui/use-toast';
+import { useOrgBrands } from '@/hooks/useOrgBrands';
+import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
+import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
 
 interface ProviderResponse {
   id: string;
@@ -41,6 +44,8 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
   const [debugMode, setDebugMode] = useState(false);
   const [fixing, setFixing] = useState(false);
   const { toast } = useToast();
+  const { orgBrandVariants } = useOrgBrands();
+  const { filterCompetitorsByCatalog } = useCatalogCompetitors();
 
   useEffect(() => {
     fetchResults();
@@ -131,10 +136,9 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
     
     // For legacy data with potentially incorrect prominence values,
     // try to compute from raw response if available
-    if (rawResponse && prominence === 1) {
-      // Likely legacy bug - compute from raw response
-      const brandNames = ['hubspot', 'marketing hub', 'hub spot']; // Common org brand variants
-      const localProminence = calculateLocalProminence(rawResponse, brandNames);
+    if (rawResponse && prominence === 1 && orgBrandVariants.length > 0) {
+      // Use actual org brand variants instead of hardcoded values
+      const localProminence = calculateLocalProminence(rawResponse, orgBrandVariants);
       if (localProminence !== 'Not found') {
         return localProminence;
       }

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,9 @@ import { ProviderResponseData } from '@/lib/data/unified-fetcher';
 import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle } from 'lucide-react';
 import { ResponseClassificationFixer } from './ResponseClassificationFixer';
 import { CompetitorChipList } from './CompetitorChip';
+import { useOrgBrands } from '@/hooks/useOrgBrands';
+import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
+import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
 
 interface ProviderResponseCardProps {
   provider: 'openai' | 'gemini' | 'perplexity';
@@ -23,6 +27,8 @@ const PROVIDER_CONFIG = {
 
 export function ProviderResponseCard({ provider, response, promptText }: ProviderResponseCardProps) {
   const config = PROVIDER_CONFIG[provider];
+  const { orgBrandVariants } = useOrgBrands();
+  const { filterCompetitorsByCatalog } = useCatalogCompetitors();
 
   if (!response) {
     return (
@@ -43,6 +49,13 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
       </Card>
     );
   }
+
+  // Clean competitors using org brand variants and catalog filter
+  const cleanedCompetitors = cleanCompetitors(
+    response.competitors_json || [], 
+    orgBrandVariants, 
+    { catalogFilter: filterCompetitorsByCatalog }
+  );
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -103,10 +116,9 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
     
     // For legacy data with potentially incorrect prominence values,
     // try to compute from raw response if available
-    if (rawResponse && prominence === 1) {
-      // Likely legacy bug - compute from raw response
-      const brandNames = ['hubspot', 'marketing hub', 'hub spot']; // Common org brand variants
-      const localProminence = calculateLocalProminence(rawResponse, brandNames);
+    if (rawResponse && prominence === 1 && orgBrandVariants.length > 0) {
+      // Use actual org brand variants instead of hardcoded values
+      const localProminence = calculateLocalProminence(rawResponse, orgBrandVariants);
       if (localProminence !== 'Not found') {
         return localProminence;
       }
@@ -186,7 +198,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                 <div>
                   <p className="text-xs font-medium">Competitors</p>
                   <p className="text-xs text-muted-foreground">
-                    {response.competitors_count} found
+                    {cleanedCompetitors.length} found
                   </p>
                 </div>
               </div>
@@ -196,7 +208,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-xs font-medium">Competitors Found:</p>
-                {response.competitors_count > 15 && (
+                {cleanedCompetitors.length > 15 && (
                   <Tooltip>
                     <TooltipTrigger>
                       <AlertTriangle className="h-3 w-3 text-amber-500" />
@@ -208,7 +220,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                 )}
               </div>
               <CompetitorChipList 
-                competitors={response.competitors_json || []}
+                competitors={cleanedCompetitors}
                 maxDisplay={4}
                 size="sm"
                 skipCatalogValidation={true}

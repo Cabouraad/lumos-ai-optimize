@@ -111,29 +111,34 @@ async function analyzeWithV2(
 
   // Run V2 analysis
   const v2Result = await analyzeResponseV2(responseText, context);
+  
+  // Apply brand presence safeguard for V2 results
+  const safeguardedResult = applySafeguard(v2Result, responseText, context.brandCatalog);
 
   // Convert V2 result to V1 format for API compatibility
   const result: BrandAnalysisResult = {
-    org_brand_present: v2Result.org_brand_present,
-    org_brand_prominence: v2Result.org_brand_prominence,
-    competitors_json: v2Result.competitors_json,
-    brands_json: v2Result.brands_json,
-    score: v2Result.score,
+    org_brand_present: safeguardedResult.org_brand_present,
+    org_brand_prominence: safeguardedResult.org_brand_prominence,
+    competitors_json: safeguardedResult.competitors_json,
+    brands_json: safeguardedResult.brands_json,
+    score: safeguardedResult.score,
     metadata: {
-      org_brands_found: v2Result.metadata.org_brands_found,
-      catalog_competitors: v2Result.metadata.catalog_competitors,
-      global_competitors: v2Result.metadata.global_competitors,
-      discovered_competitors: v2Result.metadata.discovered_competitors,
-      ner_organizations: v2Result.metadata.ner_organizations,
-      analysis_method: v2Result.metadata.analysis_method,
-      confidence_score: v2Result.metadata.confidence_score,
-      analysis_hash: v2Result.metadata.analysis_hash,
+      org_brands_found: safeguardedResult.metadata.org_brands_found,
+      catalog_competitors: safeguardedResult.metadata.catalog_competitors,
+      global_competitors: safeguardedResult.metadata.global_competitors,
+      discovered_competitors: safeguardedResult.metadata.discovered_competitors,
+      ner_organizations: safeguardedResult.metadata.ner_organizations,
+      analysis_method: safeguardedResult.metadata.analysis_method,
+      confidence_score: safeguardedResult.metadata.confidence_score,
+      analysis_hash: safeguardedResult.metadata.analysis_hash,
       deterministic_mode: options.deterministicMode || false,
-      processing_time_ms: v2Result.metadata.processing_time_ms,
+      processing_time_ms: safeguardedResult.metadata.processing_time_ms,
       // V2-specific metadata
-      ruleset_version: v2Result.metadata.ruleset_version,
-      pipeline_stages: v2Result.metadata.pipeline_stages,
-      consensus_boost_applied: v2Result.metadata.consensus_boost_applied
+      ruleset_version: safeguardedResult.metadata.ruleset_version,
+      pipeline_stages: safeguardedResult.metadata.pipeline_stages,
+      consensus_boost_applied: safeguardedResult.metadata.consensus_boost_applied,
+      // Safeguard metadata
+      text_presence_override: safeguardedResult.metadata.text_presence_override
     }
   };
 
@@ -668,4 +673,71 @@ function extractSurroundingText(text: string, target: string, radius: number): s
   const start = Math.max(0, index - radius);
   const end = Math.min(text.length, index + target.length + radius);
   return text.slice(start, end).toLowerCase();
+}
+
+/**
+ * Brand presence safeguard - detects org brand in raw response even if primary detection missed it
+ */
+function applySafeguard(
+  result: any,
+  responseText: string,
+  brandCatalog: BrandCatalogEntry[]
+): any {
+  // If org brand already detected, no need for safeguard
+  if (result.org_brand_present) {
+    return result;
+  }
+  
+  // Extract org brand variants from catalog
+  const orgBrandVariants = extractOrgBrandVariants(brandCatalog);
+  if (orgBrandVariants.length === 0) {
+    return result;
+  }
+  
+  // Check if raw response contains any org brand variant
+  const textLower = responseText.toLowerCase();
+  let foundBrand = false;
+  let bestPosition = 1.0;
+  
+  for (const variant of orgBrandVariants) {
+    const index = textLower.indexOf(variant.toLowerCase());
+    if (index >= 0) {
+      foundBrand = true;
+      const position = index / responseText.length;
+      bestPosition = Math.min(bestPosition, position);
+    }
+  }
+  
+  if (!foundBrand) {
+    return result;
+  }
+  
+  // Brand found in text but not detected - apply safeguard
+  console.log('🔧 Brand presence safeguard activated - found brand in raw response');
+  
+  // Calculate prominence from text position
+  let prominence;
+  if (bestPosition <= 0.1) prominence = 1; // Very early
+  else if (bestPosition <= 0.25) prominence = 2; // Early
+  else if (bestPosition <= 0.5) prominence = 4; // Middle
+  else if (bestPosition <= 0.75) prominence = 7; // Late
+  else prominence = 9; // Very late
+  
+  // Recalculate score with brand presence
+  const competitorCount = result.competitors_json ? result.competitors_json.length : 0;
+  const newScore = calculateVisibilityScore(true, prominence, competitorCount, responseText.length);
+  
+  return {
+    ...result,
+    org_brand_present: true,
+    org_brand_prominence: prominence,
+    score: newScore,
+    metadata: {
+      ...result.metadata,
+      text_presence_override: true,
+      original_org_brand_present: result.org_brand_present,
+      original_score: result.score,
+      safeguard_applied_at: new Date().toISOString()
+    }
+  };
 }
