@@ -3,7 +3,7 @@
  * Provides NFKC normalization, whitespace collapse, title-casing, and alias mapping
  */
 
-import aliases from './aliases.json';
+import aliases from './aliases.json' with { type: 'json' };
 
 export interface NormalizationResult {
   normalized: string;

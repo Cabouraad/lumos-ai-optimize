@@ -5,9 +5,9 @@
 
 import { normalizeBrandName, isValidBrandName } from './normalizer.ts';
 import { getOrgOverlay as fetchOrgOverlay, getCrossProviderConsensus } from './org-overlay.ts';
-import stopwords from './stopwords.json';
-import brandCues from './brand_cues.json';
-import automotiveMarketplaces from './automotive_marketplaces.json';
+import stopwords from './stopwords.json' with { type: 'json' };
+import brandCues from './brand_cues.json' with { type: 'json' };
+import automotiveMarketplaces from './automotive_marketplaces.json' with { type: 'json' };
 
 export interface AnalyzerV2Result {
   org_brand_present: boolean;
