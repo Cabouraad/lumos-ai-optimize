@@ -69,9 +69,6 @@ export function BrandDisplay({ brandName, collapsed = false }: BrandDisplayProps
           <h2 className="text-lg font-semibold text-foreground truncate">
             {brandName}
           </h2>
-          <p className="text-xs text-muted-foreground font-medium tracking-wide">
-            YOUR BRAND
-          </p>
         </div>
       </div>
     </div>
