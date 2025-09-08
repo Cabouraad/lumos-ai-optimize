@@ -1092,7 +1092,7 @@ serve(async (req) => {
         console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
 
         // Get organization subscription tier for provider filtering
-        const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, jobData.org_id);
+        const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
 
         // Concurrent task processing using provider configs with tier restrictions
         const taskPromises = claimedTasks.map(task => 
