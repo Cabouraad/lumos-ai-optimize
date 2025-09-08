@@ -36,9 +36,10 @@ const Index = () => {
             <Search className="w-8 h-8 text-primary" />
             <span className="text-2xl font-bold text-foreground">Llumos</span>
           </div>
-          <nav className="hidden md:flex items-center space-x-6">
+            <nav className="hidden md:flex items-center space-x-6">
             <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
             <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
+            <Link to="/resources" className="text-muted-foreground hover:text-foreground transition-colors">Resources</Link>
             <Button variant="outline" asChild>
               <Link to="/auth">Sign In</Link>
             </Button>
@@ -253,6 +254,7 @@ const Index = () => {
             AI Search Optimization. Simplified.
           </p>
           <div className="flex justify-center space-x-6 text-sm text-muted-foreground">
+            <Link to="/resources" className="hover:text-foreground transition-colors">Resources</Link>
             <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
             <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
           </div>

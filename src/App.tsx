@@ -15,6 +15,8 @@ const LLMsText = lazy(() => import("./pages/LLMsText"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Features = lazy(() => import("./pages/Features"));
+const Resources = lazy(() => import("./pages/Resources"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
 const TrialSuccess = lazy(() => import("./pages/TrialSuccess"));
 const DomainVerification = lazy(() => import("./pages/DomainVerification"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/features" element={<Features />} />
+            <Route path="/resources" element={<Resources />} />
+            <Route path="/resources/:slug" element={<BlogPost />} />
             <Route path="/trial-success" element={<TrialSuccess />} />
             <Route path="/dashboard" element={
               <SubscriptionGate>
