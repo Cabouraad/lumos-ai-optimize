@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -262,234 +261,243 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
         </div>
       </div>
       
-      {displayResults.map((result) => (
-        <Card key={`${result.id}-${result.run_at}`} className="relative">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="capitalize">
-                  {result.provider}
-                </Badge>
-                {result.model && (
-                  <Badge variant="secondary" className="text-xs">
-                    {result.model}
+      {displayResults.map((result) => {
+        // Clean competitors for this result
+        const cleanedCompetitors = cleanCompetitors(
+          result.competitors_json || [], 
+          orgBrandVariants, 
+          { catalogFilter: filterCompetitorsByCatalog }
+        );
+
+        return (
+          <Card key={`${result.id}-${result.run_at}`} className="relative">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className="capitalize">
+                    {result.provider}
                   </Badge>
-                )}
-                <Badge className={`text-xs ${getStatusColor(result.status)}`}>
-                  {result.status}
+                  {result.model && (
+                    <Badge variant="secondary" className="text-xs">
+                      {result.model}
+                    </Badge>
+                  )}
+                  <Badge className={`text-xs ${getStatusColor(result.status)}`}>
+                    {result.status}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(result.run_at).toLocaleString()}
+                  </span>
+                </div>
+                
+                <Badge className={`font-bold text-lg px-3 py-1 ${getScoreColor(result.score)}`}>
+                  {result.score}/10
                 </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {new Date(result.run_at).toLocaleString()}
-                </span>
               </div>
-              
-              <Badge className={`font-bold text-lg px-3 py-1 ${getScoreColor(result.score)}`}>
-                {result.score}/10
-              </Badge>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="pt-0">
-            {result.status === 'error' && result.error ? (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-red-800">Execution Error</p>
-                    <p className="text-sm text-red-600 mt-1">{result.error}</p>
+            </CardHeader>
+            
+            <CardContent className="pt-0">
+              {result.status === 'error' && result.error ? (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">Execution Error</p>
+                      <p className="text-sm text-red-600 mt-1">{result.error}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                {/* Potential Misclassification Alert */}
-                {detectMisclassification(result) && (
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-amber-800">Potential Misclassification</p>
-                          <p className="text-sm text-amber-600 mt-1">
-                            The response may contain your brand but wasn't detected. This can happen with partial matches.
-                          </p>
+              ) : (
+                <>
+                  {/* Potential Misclassification Alert */}
+                  {detectMisclassification(result) && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-amber-800">Potential Misclassification</p>
+                            <p className="text-sm text-amber-600 mt-1">
+                              The response may contain your brand but wasn't detected. This can happen with partial matches.
+                            </p>
+                          </div>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleFixClassification}
+                          disabled={fixing}
+                          className="ml-2"
+                        >
+                          {fixing ? (
+                            <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                          )}
+                          Fix
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleFixClassification}
-                        disabled={fixing}
-                        className="ml-2"
-                      >
-                        {fixing ? (
-                          <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                        )}
-                        Fix
-                      </Button>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Brand Presence */}
-                  <div className="flex items-center gap-2">
-                    {result.org_brand_present ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium">Brand Present</p>
-                      <p className="text-sm text-muted-foreground">
-                        {result.org_brand_present ? 'Yes' : 'No'}
-                        {detectMisclassification(result) && (
-                          <span className="text-amber-600 ml-1">(?)</span>
-                        )}
-                      </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Brand Presence */}
+                    <div className="flex items-center gap-2">
+                      {result.org_brand_present ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">Brand Present</p>
+                        <p className="text-sm text-muted-foreground">
+                          {result.org_brand_present ? 'Yes' : 'No'}
+                          {detectMisclassification(result) && (
+                            <span className="text-amber-600 ml-1">(?)</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Brand Position */}
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-yellow-500" />
+                      <div>
+                        <p className="text-sm font-medium">Position</p>
+                         <p className="text-sm text-muted-foreground">
+                           {getProminenceText(result.org_brand_prominence, result.raw_ai_response)}
+                         </p>
+                      </div>
+                    </div>
+
+                    {/* Competitors */}
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <div>
+                        <p className="text-sm font-medium">Competitors</p>
+                        <p className="text-sm text-muted-foreground">
+                          {cleanedCompetitors.length} found
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Brand Position */}
-                  <div className="flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-yellow-500" />
-                    <div>
-                      <p className="text-sm font-medium">Position</p>
-                       <p className="text-sm text-muted-foreground">
-                         {getProminenceText(result.org_brand_prominence, result.raw_ai_response)}
-                       </p>
+                  {/* Detected Brands */}
+                  {result.brands_json && Array.isArray(result.brands_json) && result.brands_json.length > 0 && (
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm font-medium mb-2">All Detected Brands:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {result.brands_json.map((brand: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {brand}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Competitors */}
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <p className="text-sm font-medium">Competitors</p>
-                      <p className="text-sm text-muted-foreground">
-                        {result.competitors_count} found
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Detected Brands */}
-                {result.brands_json && Array.isArray(result.brands_json) && result.brands_json.length > 0 && (
                   <div className="mt-4 pt-4 border-t">
-                    <p className="text-sm font-medium mb-2">All Detected Brands:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {result.brands_json.map((brand: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {brand}
-                        </Badge>
-                      ))}
-                    </div>
+                    <p className="text-sm font-medium mb-3">Competitor Brands:</p>
+                    <CompetitorChipList 
+                      competitors={cleanedCompetitors}
+                      maxDisplay={8}
+                      size="sm"
+                      skipCatalogValidation={true}
+                    />
                   </div>
-                )}
 
-                {/* Competitors */}
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-sm font-medium mb-3">Competitor Brands:</p>
-                  <CompetitorChipList 
-                    competitors={result.competitors_json || []}
-                    maxDisplay={8}
-                    size="sm"
-                    skipCatalogValidation={true}
-                  />
-                </div>
-
-                {/* Raw AI Response */}
-                {result.raw_ai_response && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium">AI Response:</p>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-7">
-                            <FileText className="h-3 w-3 mr-1" />
-                            View Full Response
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[80vh]">
-                          <DialogHeader>
-                            <DialogTitle>Full AI Response - {result.provider}</DialogTitle>
-                            <DialogDescription>
-                              Response generated on {new Date(result.run_at).toLocaleString()}
-                              {result.model && ` using ${result.model}`}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="mt-4 max-h-96 overflow-y-auto">
-                            <div className="p-4 bg-muted rounded-lg">
-                              <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
-                                {result.raw_ai_response}
-                              </pre>
+                  {/* Raw AI Response */}
+                  {result.raw_ai_response && (
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium">AI Response:</p>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-7">
+                              <FileText className="h-3 w-3 mr-1" />
+                              View Full Response
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[80vh]">
+                            <DialogHeader>
+                              <DialogTitle>Full AI Response - {result.provider}</DialogTitle>
+                              <DialogDescription>
+                                Response generated on {new Date(result.run_at).toLocaleString()}
+                                {result.model && ` using ${result.model}`}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="mt-4 max-h-96 overflow-y-auto">
+                              <div className="p-4 bg-muted rounded-lg">
+                                <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
+                                  {result.raw_ai_response}
+                                </pre>
+                              </div>
                             </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded border-l-4 border-primary/30">
+                        {result.raw_ai_response.length > 200 
+                          ? `${result.raw_ai_response.substring(0, 200)}...` 
+                          : result.raw_ai_response
+                        }
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded border-l-4 border-primary/30">
-                      {result.raw_ai_response.length > 200 
-                        ? `${result.raw_ai_response.substring(0, 200)}...` 
-                        : result.raw_ai_response
-                      }
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
 
-            {/* Debug Information */}
-            {debugMode && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm font-medium mb-2">Debug Info:</p>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <p><strong>Response ID:</strong> {result.id}</p>
-                      <p><strong>Tokens In:</strong> {result.token_in}</p>
-                      <p><strong>Tokens Out:</strong> {result.token_out}</p>
+              {/* Debug Information */}
+              {debugMode && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-medium mb-2">Debug Info:</p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <p><strong>Response ID:</strong> {result.id}</p>
+                        <p><strong>Tokens In:</strong> {result.token_in}</p>
+                        <p><strong>Tokens Out:</strong> {result.token_out}</p>
+                      </div>
+                      <div>
+                        <p><strong>Model:</strong> {result.model || 'N/A'}</p>
+                        <p><strong>Status:</strong> {result.status}</p>
+                        {result.metadata?.manual_fix_applied && (
+                          <p><strong>Manual Fix:</strong> ✅ Applied</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p><strong>Model:</strong> {result.model || 'N/A'}</p>
-                      <p><strong>Status:</strong> {result.status}</p>
-                      {result.metadata?.manual_fix_applied && (
-                        <p><strong>Manual Fix:</strong> ✅ Applied</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Analysis metadata from new system */}
-                  {result.metadata && (result.metadata.extractionMethod || result.metadata.analysisConfidence) && (
-                    <div className="text-xs">
-                      <p className="font-medium mb-1">Analysis Details:</p>
-                      <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-32 overflow-y-auto">
-                        <div>
-                          <p>Method: {result.metadata.extractionMethod || 'new-analysis-v1'}</p>
-                          <p>Confidence: {Math.round((result.metadata.analysisConfidence || 0.5) * 100)}%</p>
-                          <p>Processing: {result.metadata.processingTime || 0}ms</p>
+                    
+                    {/* Analysis metadata from new system */}
+                    {result.metadata && (result.metadata.extractionMethod || result.metadata.analysisConfidence) && (
+                      <div className="text-xs">
+                        <p className="font-medium mb-1">Analysis Details:</p>
+                        <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-32 overflow-y-auto">
+                          <div>
+                            <p>Method: {result.metadata.extractionMethod || 'new-analysis-v1'}</p>
+                            <p>Confidence: {Math.round((result.metadata.analysisConfidence || 0.5) * 100)}%</p>
+                            <p>Processing: {result.metadata.processingTime || 0}ms</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Standard metadata */}
-                  {result.metadata && (
-                    <div className="text-xs">
-                      <p className="font-medium mb-1">Metadata:</p>
-                      <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-24 overflow-y-auto">
-                        {JSON.stringify(result.metadata, null, 2)}
+                    {/* Standard metadata */}
+                    {result.metadata && (
+                      <div className="text-xs">
+                        <p className="font-medium mb-1">Metadata:</p>
+                        <div className="bg-muted/50 p-2 rounded text-xs font-mono max-h-24 overflow-y-auto">
+                          {JSON.stringify(result.metadata, null, 2)}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
