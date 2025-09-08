@@ -6,6 +6,7 @@ import { createEdgeLogger } from '../_shared/observability/structured-logger.ts'
 import { corsHeaders, getStrictCorsHeaders, isRateLimited, getRateLimitHeaders } from '../_shared/cors.ts'
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts'
 import { BatchUsageTracker } from '../_shared/usage-tracker.ts'
+import { getOrgSubscriptionTier, filterAllowedProviders, auditProviderFilter, getAllowedProviders } from '../_shared/provider-policy.ts'
 
 // Background resume function with safety limits
 async function scheduleBackgroundResume(
@@ -331,10 +332,11 @@ async function callProviderAPI(
 async function processTask(
   supabase: any,
   task: any,
-  configs: Record<string, ProviderConfig>
+  configs: Record<string, ProviderConfig>,
+  subscriptionTier: string = 'starter'
 ): Promise<TaskResult> {
   try {
-    console.log(`🎯 Processing task ${task.id} (${task.provider})`);
+    console.log(`🎯 Processing task ${task.id} (${task.provider}) for tier: ${subscriptionTier}`);
     
     // Task status is already updated by claim_batch_tasks RPC
     // No need for redundant update here
@@ -348,6 +350,13 @@ async function processTask(
 
     if (promptError) {
       throw new Error(`Failed to fetch prompt: ${promptError.message}`);
+    }
+
+    // Check if provider is allowed for this subscription tier
+    const allowedProviders = getAllowedProviders(subscriptionTier as any);
+    if (!allowedProviders.includes(task.provider)) {
+      auditProviderFilter(prompt.org_id, subscriptionTier as any, [task.provider], allowedProviders, [task.provider]);
+      throw new Error(`Provider ${task.provider} not allowed for ${subscriptionTier} tier`);
     }
 
     // Get organization data

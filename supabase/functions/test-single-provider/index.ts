@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { computeVisibilityScore } from "../_shared/scoring.ts";
+import { getOrgSubscriptionTier, isProviderAllowed, auditProviderFilter } from '../_shared/provider-policy.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -273,9 +274,33 @@ serve(async (req) => {
       throw new Error('Missing promptText, provider, or orgId');
     }
 
-    // Get org name for analysis from database
+    // Check provider access based on subscription tier
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Get organization subscription tier
+    const subscriptionTier = await getOrgSubscriptionTier({ from: () => ({ select: () => ({ eq: () => ({ single: async () => {
+      const orgResponse = await fetch(`${supabaseUrl}/rest/v1/organizations?id=eq.${orgId}&select=plan_tier`, {
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!orgResponse.ok) {
+        throw new Error('Failed to fetch organization data');
+      }
+      
+      const orgData = await orgResponse.json();
+      return { data: orgData?.[0] };
+    } }) }) }) }, orgId);
+    
+    // Check if provider is allowed for this tier
+    if (!isProviderAllowed(provider.toLowerCase() as any, subscriptionTier)) {
+      auditProviderFilter(orgId, subscriptionTier, [provider], [], [provider]);
+      throw new Error(`Provider '${provider}' not allowed for ${subscriptionTier} tier. Upgrade to access this provider.`);
+    }
     
     const orgResponse = await fetch(`${supabaseUrl}/rest/v1/organizations?id=eq.${orgId}&select=name`, {
       headers: {
@@ -291,6 +316,8 @@ serve(async (req) => {
     
     const orgData = await orgResponse.json();
     const orgName = orgData?.[0]?.name || 'Unknown Organization';
+
+    console.log(`✅ Provider ${provider} allowed for ${subscriptionTier} tier`);
 
     // Execute the specific provider
     let response;
@@ -324,6 +351,8 @@ serve(async (req) => {
         responseText: response.responseText,
         tokenIn: response.tokenIn,
         tokenOut: response.tokenOut,
+        subscriptionTier,
+        providerAllowed: true,
         ...analysis
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

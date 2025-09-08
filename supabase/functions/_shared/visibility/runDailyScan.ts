@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { extractArtifacts, createBrandGazetteer } from './extractArtifacts.ts';
+import { getOrgSubscriptionTier, filterAllowedProviders, auditProviderFilter, getAllowedProviders } from '../provider-policy.ts';
 
 // Brand normalization functions
 function normalize(brand: string): string {
@@ -396,9 +397,35 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
     // Process each organization
     for (const org of organizations) {
       try {
-        console.log(`Processing org: ${org.name}`);
+        console.log(`Processing org: ${org.name} (tier: ${org.plan_tier})`);
         
         const quotas = getQuotasForTier(org.plan_tier);
+        
+        // Get allowed providers for this organization's tier
+        const subscriptionTier = org.plan_tier === 'pro' || org.plan_tier === 'growth' ? org.plan_tier : 'starter';
+        const allowedProviderNames = getAllowedProviders(subscriptionTier as any);
+        
+        console.log(`Org ${org.name} tier ${subscriptionTier} allows providers: ${allowedProviderNames.join(', ')}`);
+        
+        // Filter enabled providers by subscription tier
+        const tierFilteredProviders = providers.filter(p => allowedProviderNames.includes(p.name as any));
+        
+        if (tierFilteredProviders.length === 0) {
+          console.log(`No providers allowed for ${org.name} on ${subscriptionTier} tier`);
+          continue;
+        }
+        
+        // Audit any blocked providers 
+        const blockedProviders = providers.filter(p => !allowedProviderNames.includes(p.name as any));
+        if (blockedProviders.length > 0) {
+          auditProviderFilter(
+            org.id, 
+            subscriptionTier as any, 
+            providers.map(p => p.name), 
+            allowedProviderNames, 
+            blockedProviders.map(p => p.name)
+          );
+        }
         
         // Create brand gazetteer and user brand norms for artifact extraction
         const brandGazetteer = createBrandGazetteer(org.brand_catalog);
@@ -445,8 +472,8 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
             if (remainingQuota <= 0) break;
           }
 
-          // Process providers for this prompt
-          for (const provider of providers.slice(0, quotas.providersPerPrompt)) {
+          // Process providers for this prompt (filtered by tier)
+          for (const provider of tierFilteredProviders.slice(0, quotas.providersPerPrompt)) {
             try {
               totalRuns++;
 

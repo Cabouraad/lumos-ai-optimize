@@ -5,6 +5,7 @@ import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { getUserOrgId } from '../_shared/auth.ts';
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts';
 import { PromptUsageTracker } from '../_shared/usage-tracker.ts';
+import { getOrgSubscriptionTier, filterAllowedProviders, auditProviderFilter } from '../_shared/provider-policy.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -45,8 +46,26 @@ serve(async (req) => {
       throw new Error('No enabled providers');
     }
 
+    // Get organization subscription tier for provider filtering
+    const subscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
+    
+    // Filter providers by subscription tier
+    const providerNames = providers.map(p => p.name);
+    const allowedProviderNames = filterAllowedProviders(providerNames as any, subscriptionTier);
+    const allowedProviders = providers.filter(p => allowedProviderNames.includes(p.name));
+    
+    // Audit provider filtering
+    const blockedProviders = providerNames.filter(name => !allowedProviderNames.includes(name));
+    if (blockedProviders.length > 0) {
+      auditProviderFilter(orgId, subscriptionTier, providerNames, allowedProviderNames, blockedProviders);
+    }
+
+    if (allowedProviders.length === 0) {
+      throw new Error('No providers allowed for current subscription tier');
+    }
+
     // Check quota limits before execution
-    const quotaCheck = await checkPromptQuota(supabase, userId, orgId, providers.length);
+    const quotaCheck = await checkPromptQuota(supabase, userId, orgId, allowedProviders.length);
     if (!quotaCheck.allowed) {
       return createQuotaExceededResponse(quotaCheck);
     }
@@ -85,10 +104,10 @@ serve(async (req) => {
     let totalRuns = 0;
     let successfulRuns = 0;
 
-    // Run prompt on each provider
-    for (const provider of providers) {
+    // Run prompt on each allowed provider
+    for (const provider of allowedProviders) {
       try {
-        console.log(`Running prompt on ${provider.name}`);
+        console.log(`Running ${provider.name} on prompt (tier: ${subscriptionTier})`);
         
         // Execute prompt based on provider
         let response;
@@ -231,9 +250,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Prompt executed successfully`,
+        message: `Prompt executed successfully on ${allowedProviders.length}/${providerNames.length} providers (tier: ${subscriptionTier})`,
         totalRuns,
         successfulRuns,
+        allowedProviders: allowedProviders.length,
+        blockedProviders: blockedProviders.length,
+        subscriptionTier,
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

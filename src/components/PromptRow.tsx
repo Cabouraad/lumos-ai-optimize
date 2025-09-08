@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ProviderResponseCard } from './ProviderResponseCard';
 import { PromptCompetitors } from './PromptCompetitors';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { 
   Calendar, 
   BarChart3, 
@@ -65,6 +66,7 @@ export function PromptRow({
   onSelect
 }: PromptRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { limits } = useSubscriptionGate();
 
 
   const handleToggleActive = () => {
@@ -249,26 +251,31 @@ export function PromptRow({
                 </CollapsibleTrigger>
 
                 <CollapsibleContent className="space-y-4 mt-4">
-                  {/* Provider Response Cards */}
-                  {promptDetails?.providers && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground border-b border-border/50 pb-2">
-                        Provider Results
-                      </h4>
-                      <div className="grid gap-3">
-                        {Object.entries(promptDetails.providers).map(([provider, response]: [string, any]) => (
-                          response && (
-                            <ProviderResponseCard
-                              key={provider}
-                              provider={provider as "openai" | "gemini" | "perplexity"}
-                              response={response}
-                              promptText={prompt.text}
-                            />
-                          )
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {/* Provider Response Cards */}
+            {promptDetails?.providers && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground border-b border-border/50 pb-2">
+                  Provider Results
+                </h4>
+                <div className="grid gap-3">
+                  {Object.entries(promptDetails.providers)
+                    .filter(([provider, response]: [string, any]) => {
+                      // Filter providers based on subscription tier
+                      const { limits } = useSubscriptionGate();
+                      const allowedProviders = limits.allowedProviders || [];
+                      return response && allowedProviders.includes(provider);
+                    })
+                    .map(([provider, response]: [string, any]) => (
+                      <ProviderResponseCard
+                        key={provider}
+                        provider={provider as "openai" | "gemini" | "perplexity"}
+                        response={response}
+                        promptText={prompt.text}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
 
                   {/* Competitors Section */}
                   <div className="border-t border-border/50 pt-4">

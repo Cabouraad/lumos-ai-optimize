@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { getQuotasForTier } from '../../lib/tiers/quotas';
+import { getAllowedProviders } from '@/lib/providers/tier-policy';
 import { optimizationFlags } from '@/config/featureFlags';
 import { useEffect } from 'react';
 
@@ -15,6 +16,7 @@ export interface FeatureGate {
 export interface TierLimits {
   promptsPerDay: number;
   providersPerPrompt: number;
+  allowedProviders: string[];
   hasRecommendations: boolean;
   hasCompetitorAnalysis: boolean;
   hasAdvancedScoring: boolean;
@@ -84,6 +86,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay, // Standard Starter quota enforcement
           providersPerPrompt: quotas.providersPerPrompt,
+          allowedProviders: getAllowedProviders('starter'),
           hasRecommendations: false,
           hasCompetitorAnalysis: false,
           hasAdvancedScoring: false,
@@ -95,6 +98,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay,
           providersPerPrompt: quotas.providersPerPrompt,
+          allowedProviders: getAllowedProviders('growth'),
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
@@ -106,6 +110,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay,
           providersPerPrompt: quotas.providersPerPrompt,
+          allowedProviders: getAllowedProviders('pro'),
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
@@ -117,6 +122,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: 5, // Free tier gets 5 prompts
           providersPerPrompt: 1,
+          allowedProviders: getAllowedProviders('free'),
           hasRecommendations: false,
           hasCompetitorAnalysis: false,
           hasAdvancedScoring: false,
