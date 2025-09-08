@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import { screen } from '@testing-library/dom';
 import { MemoryRouter } from 'react-router-dom';
 import { getAllowedProviders, isProviderAllowed, filterAllowedProviders } from '@/lib/providers/tier-policy';
 import { ProviderSelector } from '@/components/ProviderSelector';
@@ -94,7 +93,7 @@ describe('ProviderSelector Component', () => {
       }
     } as any);
 
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ProviderSelector 
           selectedProviders={[]} 
@@ -104,12 +103,12 @@ describe('ProviderSelector Component', () => {
     );
 
     // Should show OpenAI and Perplexity as enabled
-    expect(screen.getByLabelText('OpenAI')).toBeInTheDocument();
-    expect(screen.getByLabelText('Perplexity')).toBeInTheDocument();
+    expect(container.querySelector('label[for="openai"]')).toBeInTheDocument();
+    expect(container.querySelector('label[for="perplexity"]')).toBeInTheDocument();
     
     // Gemini should be shown but disabled/locked
-    expect(screen.getByLabelText('Gemini')).toBeInTheDocument();
-    expect(screen.getByText('Upgrade')).toBeInTheDocument();
+    expect(container.querySelector('label[for="gemini"]')).toBeInTheDocument();
+    expect(container.textContent).toContain('Upgrade');
   });
 
   it('shows all providers as enabled for growth tier', () => {
@@ -129,7 +128,7 @@ describe('ProviderSelector Component', () => {
       }
     } as any);
 
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ProviderSelector 
           selectedProviders={[]} 
@@ -139,8 +138,8 @@ describe('ProviderSelector Component', () => {
     );
 
     // All providers should be enabled (no upgrade buttons)
-    expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
-    expect(screen.getByText('All AI providers available on your Growth plan!')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('Upgrade');
+    expect(container.textContent).toContain('All AI providers available on your Growth plan!');
   });
 
   it('shows upgrade prompt for starter users', () => {
@@ -160,7 +159,7 @@ describe('ProviderSelector Component', () => {
       }
     } as any);
 
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ProviderSelector 
           selectedProviders={[]} 
@@ -169,7 +168,7 @@ describe('ProviderSelector Component', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Upgrade to Growth/)).toBeInTheDocument();
-    expect(screen.getByText('View plans')).toBeInTheDocument();
+    expect(container.textContent).toContain('Upgrade to Growth');
+    expect(container.textContent).toContain('View plans');
   });
 });

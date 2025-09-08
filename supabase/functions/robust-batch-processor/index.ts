@@ -1089,11 +1089,14 @@ serve(async (req) => {
           break;
         }
 
-      console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
+        console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
 
-        // Concurrent task processing using provider configs
+        // Get organization subscription tier for provider filtering
+        const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, jobData.org_id);
+
+        // Concurrent task processing using provider configs with tier restrictions
         const taskPromises = claimedTasks.map(task => 
-          processTask(supabase, task, providerConfigs)
+          processTask(supabase, task, providerConfigs, orgSubscriptionTier)
         );
 
       // Process batch of tasks concurrently with individual error handling
