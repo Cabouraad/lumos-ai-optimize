@@ -510,3 +510,25 @@ export function getAllBlogPosts(): BlogPost[] {
 export function getFeaturedPosts(): BlogPost[] {
   return blogPosts.filter(post => post.featured);
 }
+
+export function getAllCategories(): string[] {
+  const categories = blogPosts.map(post => post.category);
+  return [...new Set(categories)].sort();
+}
+
+export function getAllTags(): string[] {
+  const tags = blogPosts.flatMap(post => post.tags);
+  return [...new Set(tags)].sort();
+}
+
+export function getPostsByCategory(category: string): BlogPost[] {
+  return blogPosts
+    .filter(post => post.category === category)
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+}
+
+export function getPostsByTag(tag: string): BlogPost[] {
+  return blogPosts
+    .filter(post => post.tags.includes(tag))
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+}
