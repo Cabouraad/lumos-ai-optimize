@@ -53,13 +53,13 @@ const Index = () => {
       <section className="py-24 px-4">
         <div className="container mx-auto text-center max-w-4xl">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
-            Help Local Businesses Get Found on
-            <span className="text-primary block">AI Search Results</span>
+            The Simplest Way to Track Your
+            <span className="text-primary block">Brand Visibility on AI</span>
           </h1>
           {/* Debug: Confirm deployment version */}
           <div className="text-xs text-muted-foreground/50 mb-2">v2.1.0 - GitHub Sync Active</div>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Optimize your local business for AI-powered search engines like ChatGPT, Claude, and Perplexity. Monitor, analyze, and improve your visibility in localized AI search results that drive real customers to your door.
+            Monitor and increase your brand visibility across AI-powered search engines like ChatGPT, Claude, and Perplexity. Simple, focused, and 80% less expensive than enterprise alternatives.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button size="lg" asChild className="text-lg px-8 py-6">
@@ -77,27 +77,27 @@ const Index = () => {
       <section className="py-20 px-4 bg-muted/30">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-8">
-            The Problem with "Everything" Platforms
+            Why Pay More for Less?
           </h2>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <Card className="p-8 bg-destructive/5 border-destructive/20">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Other Platforms</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-4">Enterprise Alternatives</h3>
               <ul className="text-left space-y-3 text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
-                  <span>100+ features you'll never use</span>
+                  <span>$500-2000+ per month for basic features</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
-                  <span>Generic global insights with no local focus</span>
+                  <span>Overwhelming dashboards with 100+ metrics</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
-                  <span>Miss local search opportunities entirely</span>
+                  <span>Weeks of onboarding and training required</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 rounded-full bg-destructive mt-2 flex-shrink-0"></div>
-                  <span>Months of setup and training required</span>
+                  <span>Generic insights buried in complexity</span>
                 </li>
               </ul>
             </Card>
@@ -106,19 +106,19 @@ const Index = () => {
               <ul className="text-left space-y-3 text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Localized AI search optimization that drives foot traffic</span>
+                  <span>Starting at $29/month - 80% cost savings</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Track local competitors in AI search results</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>City and region-specific visibility insights</span>
+                  <span>Clean, focused dashboard with what matters</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                   <span>Up and running in under 5 minutes</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                  <span>Actionable insights, zero complexity</span>
                 </li>
               </ul>
             </Card>
@@ -131,35 +131,35 @@ const Index = () => {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Just What You Need. Nothing You Don't.
+              Simple. Focused. Effective.
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              We've identified the 3 core capabilities that actually drive results in AI search optimization.
+              Three core features that actually matter for brand visibility tracking on AI platforms.
             </p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="p-8 text-center hover:shadow-lg transition-shadow">
               <Target className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">Local AI Search Monitoring</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">Brand Visibility Monitoring</h3>
               <p className="text-muted-foreground">
-                Track how your local business appears in AI search results for location-based queries in your city and region.
+                Track how your brand appears across ChatGPT, Claude, Perplexity and other AI search engines with clear, actionable metrics.
               </p>
             </Card>
             
             <Card className="p-8 text-center hover:shadow-lg transition-shadow">
               <TrendingUp className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">Local Competitive Analysis</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">Competitive Intelligence</h3>
               <p className="text-muted-foreground">
-                See which local competitors are winning in AI search results and discover opportunities to outrank them.
+                See which competitors are winning in AI search results and identify opportunities to increase your brand visibility.
               </p>
             </Card>
             
             <Card className="p-8 text-center hover:shadow-lg transition-shadow">
               <Zap className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">Location-Based Optimization</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">Smart Recommendations</h3>
               <p className="text-muted-foreground">
-                Get specific recommendations to improve your visibility in local AI searches that drive customers to your business.
+                Get specific, actionable recommendations to improve your brand's visibility and presence in AI-powered search results.
               </p>
             </Card>
           </div>
@@ -171,7 +171,7 @@ const Index = () => {
         <div className="container mx-auto max-w-4xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Built for Efficiency, Not Complexity
+              Simplicity is Our Superpower
             </h2>
           </div>
           
@@ -209,10 +209,10 @@ const Index = () => {
           
           <Card className="p-8 max-w-2xl mx-auto">
             <blockquote className="text-lg text-foreground mb-4">
-              "Our local restaurant started appearing in AI search results for 'best pizza in downtown' after just 3 weeks. 
-              Customer inquiries from AI searches increased by 180%."
+              "Finally, an AI visibility tool that doesn't require a PhD to understand. We went from invisible to top-mentioned 
+              for our industry keywords in AI search results. Best part? It costs a fraction of what we were quoted elsewhere."
             </blockquote>
-            <cite className="text-muted-foreground">— Owner, Local Restaurant Chain</cite>
+            <cite className="text-muted-foreground">— Marketing Director, SaaS Company</cite>
           </Card>
         </div>
       </section>
@@ -221,10 +221,10 @@ const Index = () => {
       <section id="pricing" className="py-20 px-4 bg-primary/5">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Ready to Cut Through the Noise?
+            Simple AI Visibility Tracking. Finally.
           </h2>
           <p className="text-xl text-muted-foreground mb-8">
-            Start your free trial today. No setup fees, no long-term contracts, no feature overwhelm.
+            Start tracking your brand visibility on AI platforms today. No complexity, no enterprise pricing, no feature bloat.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
