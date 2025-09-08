@@ -1,14 +1,76 @@
 import { Helmet } from 'react-helmet-async';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, Tag, BookOpen, TrendingUp, Search } from 'lucide-react';
-import { getAllBlogPosts, getFeaturedPosts } from '@/data/blog-posts';
+import { Calendar, Clock, Tag, BookOpen, TrendingUp, Search, Filter, X } from 'lucide-react';
+import { getAllBlogPosts, getFeaturedPosts, getAllCategories, getAllTags, getPostsByCategory, getPostsByTag } from '@/data/blog-posts';
 import { generateMetaTags, generateStructuredData, createBreadcrumbStructuredData } from '@/lib/seo';
+import { useState, useMemo } from 'react';
 
 const Resources = () => {
   const allPosts = getAllBlogPosts();
   const featuredPosts = getFeaturedPosts();
+  const categories = getAllCategories();
+  const tags = getAllTags();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
+  // Filter posts based on search, category, and tags
+  const filteredPosts = useMemo(() => {
+    let filtered = allPosts;
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(post =>
+        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        post.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = getPostsByCategory(selectedCategory);
+      
+      // Apply search to category results
+      if (searchQuery) {
+        filtered = filtered.filter(post =>
+          post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+      }
+    }
+    
+    // Filter by tags
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(post =>
+        selectedTags.every(tag => post.tags.includes(tag))
+      );
+    }
+    
+    return filtered;
+  }, [allPosts, searchQuery, selectedCategory, selectedTags]);
+  
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+  
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setSelectedTags([]);
+  };
   
   const metaTags = generateMetaTags({
     title: "AI Search Resources & Insights",
@@ -66,7 +128,7 @@ const Resources = () => {
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-12 max-w-6xl">
+        <main className="container mx-auto px-4 py-12 max-w-7xl">
           {/* Hero Section */}
           <section className="text-center mb-16">
             <div className="flex items-center justify-center mb-4">
@@ -78,7 +140,7 @@ const Resources = () => {
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
               Expert guides, industry insights, and proven strategies to help you track and improve your brand visibility on AI-powered search engines.
             </p>
-            <div className="flex flex-wrap justify-center gap-3 text-sm text-muted-foreground">
+            <div className="flex flex-wrap justify-center gap-3 text-sm text-muted-foreground mb-8">
               <span className="flex items-center gap-1">
                 <Search className="w-4 h-4" />
                 AI Search Optimization
@@ -92,16 +154,58 @@ const Resources = () => {
                 Industry Best Practices
               </span>
             </div>
+            
+            {/* Search and Filter Section */}
+            <div className="max-w-2xl mx-auto space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search resources, guides, and insights..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-12 text-base"
+                />
+              </div>
+              
+              {/* Active Filters */}
+              {(selectedTags.length > 0 || selectedCategory !== 'all' || searchQuery) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Active filters:</span>
+                  {searchQuery && (
+                    <Badge variant="secondary" className="gap-1">
+                      Search: "{searchQuery}"
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => setSearchQuery('')} />
+                    </Badge>
+                  )}
+                  {selectedCategory !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      {selectedCategory}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedCategory('all')} />
+                    </Badge>
+                  )}
+                  {selectedTags.map(tag => (
+                    <Badge key={tag} variant="secondary" className="gap-1">
+                      {tag}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => toggleTag(tag)} />
+                    </Badge>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 px-2 text-xs">
+                    Clear all
+                  </Button>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Featured Posts */}
-          {featuredPosts.length > 0 && (
+          {featuredPosts.length > 0 && !searchQuery && selectedCategory === 'all' && selectedTags.length === 0 && (
             <section className="mb-16">
               <h2 className="text-3xl font-bold text-foreground mb-8">Featured Articles</h2>
-              <div className="grid md:grid-cols-2 gap-8">
+              <div className="grid lg:grid-cols-2 gap-8">
                 {featuredPosts.map((post) => (
-                  <Card key={post.slug} className="p-8 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                  <Card key={post.slug} className="group p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-background to-background/50 border-2 hover:border-primary/20">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                      <Badge variant="secondary" className="text-xs">Featured</Badge>
                       <Tag className="w-4 h-4" />
                       <span>{post.category}</span>
                       <span>•</span>
@@ -114,10 +218,10 @@ const Resources = () => {
                         })}
                       </time>
                     </div>
-                    <h3 className="text-2xl font-semibold text-foreground mb-4 line-clamp-2">
+                    <h3 className="text-2xl font-semibold text-foreground mb-4 line-clamp-2 group-hover:text-primary transition-colors">
                       {post.title}
                     </h3>
-                    <p className="text-muted-foreground mb-6 line-clamp-2">
+                    <p className="text-muted-foreground mb-6 line-clamp-3">
                       {post.description}
                     </p>
                     <div className="flex items-center justify-between">
@@ -127,7 +231,7 @@ const Resources = () => {
                           {post.readTime} min read
                         </span>
                       </div>
-                      <Button asChild>
+                      <Button asChild className="group-hover:shadow-lg">
                         <Link to={`/resources/${post.slug}`}>Read Article</Link>
                       </Button>
                     </div>
@@ -137,53 +241,112 @@ const Resources = () => {
             </section>
           )}
 
-          {/* All Posts */}
+          {/* Content Organization */}
           <section>
-            <h2 className="text-3xl font-bold text-foreground mb-8">All Resources</h2>
-            <div className="grid gap-6">
-              {allPosts.map((post) => (
-                <Card key={post.slug} className="p-6 hover:shadow-lg transition-shadow">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                        <Tag className="w-4 h-4" />
-                        <span>{post.category}</span>
-                        <span>•</span>
-                        <Calendar className="w-4 h-4" />
-                        <time dateTime={post.publishedAt}>
-                          {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </time>
-                        <span>•</span>
-                        <Clock className="w-4 h-4" />
-                        <span>{post.readTime} min read</span>
-                      </div>
-                      <h3 className="text-xl font-semibold text-foreground mb-2">
-                        {post.title}
-                      </h3>
-                      <p className="text-muted-foreground">
-                        {post.description}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {post.tags.map((tag) => (
-                          <span key={tag} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <Button asChild>
-                        <Link to={`/resources/${post.slug}`}>Read More</Link>
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl font-bold text-foreground">
+                {searchQuery || selectedCategory !== 'all' || selectedTags.length > 0 
+                  ? `${filteredPosts.length} Resource${filteredPosts.length !== 1 ? 's' : ''} Found`
+                  : 'All Resources'
+                }
+              </h2>
+              <div className="text-sm text-muted-foreground">
+                {allPosts.length} total articles
+              </div>
             </div>
+            
+            <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-8">
+              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-6">
+                <TabsTrigger value="all" className="text-xs lg:text-sm">All</TabsTrigger>
+                {categories.slice(0, 5).map(category => (
+                  <TabsTrigger key={category} value={category} className="text-xs lg:text-sm">
+                    {category}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            
+            {/* Tag Filter */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Filter by tags:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {tags.map(tag => (
+                  <Badge
+                    key={tag}
+                    variant={selectedTags.includes(tag) ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-primary/80 transition-colors"
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            
+            {/* Posts Grid */}
+            {filteredPosts.length > 0 ? (
+              <div className="grid gap-6">
+                {filteredPosts.map((post) => (
+                  <Card key={post.slug} className="group p-6 hover:shadow-lg transition-all duration-300 hover:border-primary/20">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                          <Badge variant="outline" className="text-xs">{post.category}</Badge>
+                          <Calendar className="w-4 h-4" />
+                          <time dateTime={post.publishedAt}>
+                            {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </time>
+                          <span>•</span>
+                          <Clock className="w-4 h-4" />
+                          <span>{post.readTime} min read</span>
+                        </div>
+                        <h3 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors">
+                          {post.title}
+                        </h3>
+                        <p className="text-muted-foreground mb-4 line-clamp-2">
+                          {post.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {post.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="secondary"
+                              className="text-xs cursor-pointer hover:bg-primary/20"
+                              onClick={() => toggleTag(tag)}
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <Button asChild className="group-hover:shadow-md">
+                          <Link to={`/resources/${post.slug}`}>Read More</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground mb-2">No resources found</h3>
+                <p className="text-muted-foreground mb-6">
+                  Try adjusting your search terms or filters to find what you're looking for.
+                </p>
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear all filters
+                </Button>
+              </div>
+            )}
           </section>
 
           {/* CTA Section */}
