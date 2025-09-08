@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
+import { BrandDisplay } from '@/components/BrandDisplay';
 import {
   Sidebar,
   SidebarContent,
@@ -55,12 +56,15 @@ export function AppSidebar() {
     <Sidebar className="border-r border-border/30 bg-gradient-subtle backdrop-blur-sm shadow-soft">
       <SidebarHeader className="p-6 border-b border-border/30">
         <Logo collapsed={collapsed} />
-        {!collapsed && orgData?.organizations?.name && (
-          <p className="text-sm text-muted-foreground mt-3 ml-11">
-            {orgData.organizations.name}
-          </p>
-        )}
       </SidebarHeader>
+      
+      {/* Brand Display */}
+      {orgData?.organizations?.name && (
+        <BrandDisplay 
+          brandName={orgData.organizations.name} 
+          collapsed={collapsed}
+        />
+      )}
       
       <SidebarContent className="px-3">
         <SidebarGroup>
