@@ -1199,11 +1199,11 @@ export type Database = {
         }[]
       }
       get_prompt_competitors: {
-        Args: { p_days?: number; p_prompt_id: string }
+        Args: { p_days?: number; p_prompt_id: string } | { p_prompt_id: string }
         Returns: {
           competitor_name: string
-          mentions: number
           share: number
+          total_mentions: number
         }[]
       }
       get_prompt_visibility_7d: {
