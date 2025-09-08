@@ -1106,6 +1106,20 @@ export type Database = {
           status: string
         }[]
       }
+      get_cron_jobs_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active: boolean
+          command: string
+          database: string
+          jobid: number
+          jobname: string
+          nodename: string
+          nodeport: number
+          schedule: string
+          username: string
+        }[]
+      }
       get_cron_secret: {
         Args: Record<PropertyKey, never>
         Returns: string
