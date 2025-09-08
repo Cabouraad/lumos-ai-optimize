@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle, RefreshCw } from 'lucide-react';
 import { CompetitorChipList } from './CompetitorChip';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useOrgBrands } from '@/hooks/useOrgBrands';
 import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
 import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';

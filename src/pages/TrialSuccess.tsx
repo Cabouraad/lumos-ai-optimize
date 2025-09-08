@@ -6,7 +6,7 @@ import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 export default function TrialSuccess() {
   const [searchParams] = useSearchParams();

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { Zap, CreditCard } from 'lucide-react';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 

@@ -8,7 +8,7 @@ import { SubscriptionManager } from '@/components/SubscriptionManager';
 
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
 
 export default function Settings() {

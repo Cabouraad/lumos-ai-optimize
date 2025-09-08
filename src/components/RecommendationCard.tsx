@@ -17,7 +17,7 @@ import {
   ChevronUp,
   ArrowRight
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { PromptModal } from './PromptModal';
 import { supabase } from '@/integrations/supabase/client';
 

@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Trash2, Eye, Calendar, TrendingUp, Sparkles, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 

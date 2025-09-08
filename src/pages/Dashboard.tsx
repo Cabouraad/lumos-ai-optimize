@@ -17,7 +17,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartToo
 import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb, FileText, Download, BarChart3 } from 'lucide-react';
 import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 export default function Dashboard() {

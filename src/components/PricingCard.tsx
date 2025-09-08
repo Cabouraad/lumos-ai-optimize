@@ -5,7 +5,7 @@ import { Check, X } from 'lucide-react';
 import { EdgeFunctionClient } from "@/lib/edge-functions/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
