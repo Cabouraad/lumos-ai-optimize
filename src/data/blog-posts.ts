@@ -258,234 +258,38 @@ This approach takes longer than traditional SEO tactics, but it's more sustainab
 
 Then do it again for the next problem.
 
-*The brands that will thrive in AI search aren't the ones trying to hack the algorithm – they're the ones becoming so helpful and authoritative that AI systems can't ignore them.*`
-  }
-];
-# AI Search Industry Best Practices: What Leading Brands Do Differently
-
-After analyzing thousands of AI search queries and brand mentions, we've identified the key strategies that separate industry leaders from everyone else. Here's what **top-performing brands** do differently in AI search optimization.
-
-## The 80/20 of AI Search Success
-
-### 20% of Actions Drive 80% of Results
-
-Leading brands focus their efforts on these high-impact activities:
-
-1. **Consistent industry thought leadership** (40% of impact)
-2. **Strategic competitor monitoring** (25% of impact)  
-3. **Authoritative content creation** (20% of impact)
-4. **Performance optimization based on data** (15% of impact)
-
-## Strategy 1: Own Your Industry Narrative
-
-### What Leaders Do
-Top brands don't just participate in industry conversations—**they shape them**.
-
-**Example:** A leading SaaS company consistently appears in AI responses about "project management best practices" because they:
-- Publish original research quarterly
-- Host industry roundtables with experts
-- Create comprehensive guides that become reference materials
-- Maintain thought leadership across multiple channels
-
-### Tactical Implementation
-- **Weekly content calendar** focused on industry topics
-- **Monthly expert interviews** to build authority
-- **Quarterly original research** that others cite
-- **Strategic partnerships** with industry influencers
-
-## Strategy 2: Master Competitor Intelligence
-
-### The Visibility Gap Analysis
-Leading brands perform monthly "visibility gap analysis" to identify opportunities:
-
-1. **Query mapping**: Which queries do competitors dominate?
-2. **Content gaps**: What topics are competitors missing? 
-3. **Authority building**: Where can we build stronger authority?
-4. **Response quality**: How can we improve our mention context?
-
-### Real-World Example
-A fintech startup identified that established competitors rarely appeared in AI responses about "modern banking solutions for startups." They created authoritative content specifically targeting this gap and now appear in 73% of relevant AI responses.
-
-## Strategy 3: The Content Authority Framework
-
-### The 3-Layer Content Strategy
-
-**Layer 1: Foundation Content (40% of effort)**
-- Comprehensive industry guides
-- FAQ databases  
-- Best practice documentation
-- Case studies and success stories
-
-**Layer 2: Thought Leadership (35% of effort)**  
-- Original research and surveys
-- Industry trend analysis
-- Expert commentary and opinions
-- Predictive insights
-
-**Layer 3: Real-Time Relevance (25% of effort)**
-- News commentary and analysis  
-- Trend reactions and insights
-- Community engagement
-- Social proof amplification
-
-### Content Quality Indicators AI Models Prefer
-
-✅ **Depth and comprehensiveness**
-✅ **Original data and research**  
-✅ **Expert quotes and citations**
-✅ **Updated and current information**
-✅ **Clear, authoritative writing**
-✅ **Strong topical relevance**
-
-## Strategy 4: Systematic Performance Optimization
-
-### The MONITOR Framework
-
-**M** - Measure current visibility across AI platforms
-**O** - Observe competitor performance and strategies  
-**N** - Note content gaps and opportunities
-**I** - Implement targeted improvements
-**T** - Track results and iterate
-**O** - Optimize based on performance data
-**R** - Repeat the cycle monthly
-
-### Key Performance Indicators (KPIs)
-
-**Primary Metrics:**
-- Brand mention frequency in relevant queries
-- Competitive share of voice in AI responses
-- Positive vs. neutral vs. negative mention context
-
-**Secondary Metrics:**  
-- Query coverage breadth
-- Response quality scores
-- Trend direction (growing/declining visibility)
-
-## Common Mistakes Even Smart Brands Make
-
-### ❌ Mistake 1: Focusing Only on Volume
-**What they do:** Create lots of content hoping for more mentions
-**What leaders do:** Focus on **quality and authority** over quantity
-
-### ❌ Mistake 2: Ignoring Competitor Intelligence  
-**What they do:** Monitor their own performance in isolation
-**What leaders do:** **Continuously analyze** competitor strategies and performance
-
-### ❌ Mistake 3: Set-and-Forget Approach
-**What they do:** Optimize once and assume it will continue working
-**What leaders do:** **Monthly optimization cycles** based on fresh data
-
-### ❌ Mistake 4: Treating AI Search Like Traditional SEO
-**What they do:** Apply traditional SEO tactics to AI optimization
-**What leaders do:** Develop **AI-specific strategies** for mention optimization
-
-## Industry-Specific Best Practices
-
-### SaaS & Technology
-- Focus on solution-based queries ("best CRM for small business")
-- Create detailed comparison content  
-- Maintain updated feature documentation
-- Build integration partnerships for broader mentions
-
-### Professional Services
-- Emphasize expertise and credentials
-- Create case study libraries
-- Develop thought leadership content
-- Build local authority for geographic queries
-
-### E-commerce & Retail  
-- Focus on product category leadership
-- Create comprehensive buying guides
-- Maintain detailed product information
-- Build review and social proof databases
-
-## Advanced Tactics from Industry Leaders
-
-### 1. The Citation Network Strategy
-Build a network of citations by:
-- Contributing to industry publications
-- Participating in expert roundups  
-- Creating quotable research and insights
-- Building relationships with journalists and bloggers
-
-### 2. The Omni-Channel Authority Approach
-Establish authority across:
-- Your website and blog
-- Industry publications and magazines  
-- Podcast appearances and hosting
-- Speaking engagements and webinars
-- Social media thought leadership
-
-### 3. The Predictive Content Strategy  
-Stay ahead by:
-- Monitoring industry trends and signals
-- Creating content before topics become mainstream
-- Anticipating customer questions and needs
-- Building content around emerging technologies
-
-## Measuring Success: The 90-Day Sprint Framework
-
-### Month 1: Foundation
-- Establish baseline measurements
-- Audit current AI search visibility  
-- Identify top 10 competitors
-- Create initial content calendar
-
-### Month 2: Implementation
-- Publish authoritative content weekly
-- Monitor competitor activities
-- Engage in industry conversations
-- Build citation opportunities
-
-### Month 3: Optimization  
-- Analyze performance data
-- Identify successful tactics
-- Double down on what works
-- Adjust strategy based on results
-
-## The Competitive Advantage
-
-Brands that excel in AI search share one critical trait: **they treat AI search optimization as an ongoing strategic initiative**, not a one-time project.
-
-They understand that in the AI-driven future, **brand visibility in AI responses will be more valuable than traditional search rankings**.
-
----
-
-*Ready to implement these industry-leading strategies? [Start your free Llumos trial](https://llumos.ai/auth) and begin tracking your AI search performance today.*
-    `
+*That's how you build AI search visibility that lasts.*`
   }
 ];
 
-export function getBlogPost(slug: string): BlogPost | undefined {
+export const getBlogPost = (slug: string): BlogPost | undefined => {
   return blogPosts.find(post => post.slug === slug);
-}
+};
 
-export function getAllBlogPosts(): BlogPost[] {
-  return blogPosts.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-}
-
-export function getFeaturedPosts(): BlogPost[] {
+export const getFeaturedBlogPosts = (): BlogPost[] => {
   return blogPosts.filter(post => post.featured);
-}
+};
 
-export function getAllCategories(): string[] {
-  const categories = blogPosts.map(post => post.category);
-  return [...new Set(categories)].sort();
-}
+export const getBlogPostsByCategory = (category: string): BlogPost[] => {
+  return blogPosts.filter(post => post.category === category);
+};
 
-export function getAllTags(): string[] {
-  const tags = blogPosts.flatMap(post => post.tags);
-  return [...new Set(tags)].sort();
-}
+export const getAllBlogPosts = (): BlogPost[] => {
+  return blogPosts.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+};
 
-export function getPostsByCategory(category: string): BlogPost[] {
-  return blogPosts
-    .filter(post => post.category === category)
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-}
+// Additional exports for Resources page compatibility
+export const getFeaturedPosts = getFeaturedBlogPosts;
+export const getPostsByCategory = getBlogPostsByCategory;
 
-export function getPostsByTag(tag: string): BlogPost[] {
-  return blogPosts
-    .filter(post => post.tags.includes(tag))
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-}
+export const getAllCategories = (): string[] => {
+  return [...new Set(blogPosts.map(post => post.category))];
+};
+
+export const getAllTags = (): string[] => {
+  return [...new Set(blogPosts.flatMap(post => post.tags))];
+};
+
+export const getPostsByTag = (tag: string): BlogPost[] => {
+  return blogPosts.filter(post => post.tags.includes(tag));
+};
