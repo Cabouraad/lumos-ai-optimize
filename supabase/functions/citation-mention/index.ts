@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { detectBrandMentions } from '../_shared/citations-enhanced.ts';
+import { enrichCitation } from '../_shared/domain-resolver.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,6 +80,13 @@ serve(async (req) => {
       });
     }
 
+    // Get competitor catalog for domain resolution
+    const { data: competitorCatalog } = await supabase
+      .from('brand_catalog')
+      .select('name, variants_json')
+      .eq('org_id', response.org_id)
+      .eq('is_org_brand', false);
+
     let processed = 0;
     let updated = 0;
     const citations = response.citations_json.citations;
@@ -92,12 +100,19 @@ serve(async (req) => {
 
     for (const batch of batches) {
       await Promise.all(batch.map(async (citation: any, index: number) => {
+        // First enrich with domain resolution and competitor matching
+        const enrichedCitation = enrichCitation(citation, competitorCatalog || []);
+        
+        // Copy enriched properties back to citation
+        citation.resolved_brand = enrichedCitation.resolved_brand;
+        citation.is_competitor = enrichedCitation.is_competitor;
+        
         if (citation.brand_mention !== 'unknown') {
           return; // Already processed
         }
 
         processed++;
-        console.log(`Processing citation ${processed}: ${citation.domain}`);
+        console.log(`Processing citation ${processed}: ${citation.domain} → ${citation.resolved_brand?.brand || citation.domain}`);
 
         try {
           const urlHash = await hashUrl(citation.url);
@@ -143,7 +158,7 @@ serve(async (req) => {
           });
           
           updated++;
-          console.log(`Updated ${citation.domain}: ${citation.brand_mention} (confidence: ${citation.brand_mention_confidence})`);
+          console.log(`Updated ${citation.domain} → ${citation.resolved_brand?.brand}: ${citation.brand_mention} (confidence: ${citation.brand_mention_confidence})`);
           
         } catch (error) {
           console.error(`Error processing ${citation.url}:`, error.message);

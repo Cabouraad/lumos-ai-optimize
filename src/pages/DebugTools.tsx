@@ -1,6 +1,7 @@
 import React from 'react';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
+import { DomainResolverDiagnostics } from '@/components/admin/DomainResolverDiagnostics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Lock } from 'lucide-react';
@@ -36,6 +37,12 @@ export default function DebugTools() {
 
       {/* Provider Debug Panel */}
       <ProviderDebugPanel />
+      
+      {/* Domain Resolver Diagnostics */}
+      <div className="border-t pt-6">
+        <h2 className="text-2xl font-semibold mb-4">Domain Resolver Diagnostics</h2>
+        <DomainResolverDiagnostics />
+      </div>
     </div>
   );
 }

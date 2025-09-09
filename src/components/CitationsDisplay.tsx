@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, FileText, Video, File, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ExternalLink, FileText, Video, File, CheckCircle, Clock, XCircle, AlertTriangle, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -13,6 +13,12 @@ export interface Citation {
   from_provider: boolean;
   brand_mention: 'unknown' | 'yes' | 'no';
   brand_mention_confidence: number;
+  resolved_brand?: {
+    brand: string;
+    canonicalDomain: string;
+    type: 'known' | 'heuristic' | 'unknown';
+  };
+  is_competitor?: boolean;
 }
 
 interface CitationsDisplayProps {
@@ -96,11 +102,22 @@ function CitationChip({ citation }: { citation: Citation }) {
     }
   };
 
+  const getDisplayName = () => {
+    if (citation.resolved_brand) {
+      const name = citation.resolved_brand.brand;
+      // Add ~ marker for heuristic mappings
+      return citation.resolved_brand.type === 'heuristic' ? `~${name}` : name;
+    }
+    return citation.domain;
+  };
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Card 
-          className="p-2 cursor-pointer hover:bg-muted/50 transition-colors max-w-xs"
+          className={`p-2 cursor-pointer hover:bg-muted/50 transition-colors max-w-xs ${
+            citation.is_competitor ? 'border-red-200 bg-red-50/30' : ''
+          }`}
           onClick={() => window.open(citation.url, '_blank', 'noopener,noreferrer')}
         >
           <div className="flex items-start gap-2">
@@ -108,8 +125,20 @@ function CitationChip({ citation }: { citation: Citation }) {
               {getSourceIcon()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate">
-                {citation.domain}
+              <div className="flex items-center gap-1">
+                <div className="font-medium text-sm truncate">
+                  {getDisplayName()}
+                </div>
+                {citation.is_competitor && (
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <AlertTriangle className="h-3 w-3 text-red-500 flex-shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Competitor source</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {citation.title && (
                 <div className="text-xs text-muted-foreground truncate">
@@ -130,10 +159,26 @@ function CitationChip({ citation }: { citation: Citation }) {
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-sm">
         <div className="space-y-1">
-          <div className="font-medium">{citation.title || citation.domain}</div>
+          <div className="font-medium">{citation.title || getDisplayName()}</div>
+          <div className="text-xs text-muted-foreground">
+            Domain: {citation.domain}
+          </div>
           <div className="text-xs text-muted-foreground break-all">
             {citation.url}
           </div>
+          {citation.resolved_brand && (
+            <div className="text-xs">
+              Brand: {citation.resolved_brand.brand} 
+              {citation.resolved_brand.type !== 'known' && (
+                <span className="text-muted-foreground"> ({citation.resolved_brand.type})</span>
+              )}
+            </div>
+          )}
+          {citation.is_competitor && (
+            <div className="text-xs text-red-600">
+              ⚠ Competitor source
+            </div>
+          )}
           {citation.brand_mention !== 'unknown' && (
             <div className="text-xs">
               Brand mention confidence: {Math.round(citation.brand_mention_confidence * 100)}%
