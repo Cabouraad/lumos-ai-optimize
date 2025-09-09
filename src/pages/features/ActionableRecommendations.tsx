@@ -382,56 +382,6 @@ const ActionableRecommendations = () => {
         </div>
       </section>
 
-      {/* Customer Example */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto max-w-4xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">
-              Real Results from Our Recommendations
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              See how our actionable recommendations transformed one client's AI search performance
-            </p>
-          </div>
-          
-          <Card className="p-8 bg-primary/5">
-            <div className="grid md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-semibold text-foreground mb-4">The Challenge</h3>
-                <p className="text-muted-foreground mb-4">
-                  TechFlow Solutions, a B2B software company, was invisible in AI search results despite having excellent products and strong traditional SEO.
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-2">
-                  <li>• 0% visibility in ChatGPT responses</li>
-                  <li>• Competitors dominated industry queries</li>
-                  <li>• No clear optimization strategy</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="text-xl font-semibold text-foreground mb-4">The Results</h3>
-                <p className="text-muted-foreground mb-4">
-                  After implementing our top 5 recommendations over 60 days, TechFlow saw dramatic improvements:
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-2">
-                  <li>• <span className="text-primary font-semibold">67% visibility increase</span> across all AI platforms</li>
-                  <li>• <span className="text-primary font-semibold">40% more qualified leads</span> from AI search traffic</li>
-                  <li>• <span className="text-primary font-semibold">Now appears in 8/10</span> relevant industry queries</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="mt-8 pt-8 border-t">
-              <blockquote className="text-lg text-muted-foreground italic text-center">
-                "The recommendations were incredibly specific and actionable. We went from invisible to industry leader in AI search results in just two months."
-              </blockquote>
-              <p className="text-center mt-4 text-sm text-muted-foreground">
-                — Sarah Chen, Marketing Director, TechFlow Solutions
-              </p>
-            </div>
-          </Card>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-16 px-4 bg-muted/30">
