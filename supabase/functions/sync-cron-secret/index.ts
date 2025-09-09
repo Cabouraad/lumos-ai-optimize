@@ -50,6 +50,8 @@ serve(async (req) => {
       }, {
         onConflict: 'key'
       });
+      
+    console.log('Upserting cron secret, length:', cronSecret?.length || 0);
 
     if (error) {
       console.error('Failed to sync cron secret:', error);

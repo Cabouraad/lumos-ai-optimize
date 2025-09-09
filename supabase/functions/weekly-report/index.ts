@@ -132,6 +132,21 @@ Deno.serve(async (req) => {
     // Scheduled run: process all organizations
     console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
     
+    // Log scheduler run start
+    const { data: schedulerRun, error: logError } = await supabase
+      .from('scheduler_runs')
+      .insert({
+        run_key: 'weekly-pdf-' + new Date().toISOString().split('T')[0],
+        function_name: 'weekly-report',
+        status: 'running'
+      })
+      .select()
+      .single();
+
+    if (logError) {
+      console.error('[WEEKLY-REPORT] Failed to log scheduler run start:', logError);
+    }
+    
     const { data: orgs, error: orgsError } = await supabase
       .from('organizations')
       .select('id')
@@ -263,6 +278,23 @@ Deno.serve(async (req) => {
       
       console.log(`[WEEKLY-REPORT] Scheduled run completed: ${successCount} successful, ${errorCount} errors`);
       
+      // Update scheduler run log with completion
+      if (schedulerRun) {
+        await supabase
+          .from('scheduler_runs')
+          .update({
+            status: successCount > 0 ? 'completed' : 'failed',
+            completed_at: new Date().toISOString(),
+            result: {
+              week_key: weekKey,
+              total_orgs: targetOrgIds.length,
+              successful: successCount,
+              errors: errorCount
+            }
+          })
+          .eq('id', schedulerRun.id);
+      }
+      
       return new Response(
         JSON.stringify({
           ok: true,
@@ -286,6 +318,19 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('[WEEKLY-REPORT] Unexpected error:', error);
+    
+    // Update scheduler run log with error
+    if (schedulerRun) {
+      await supabase
+        .from('scheduler_runs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_message: error.message
+        })
+        .eq('id', schedulerRun.id);
+    }
+    
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

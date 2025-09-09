@@ -36,6 +36,21 @@ serve(async (req) => {
   try {
     logStep('Weekly report scheduler started');
 
+    // Log scheduler run start
+    const { data: schedulerRun, error: logError } = await supabase
+      .from('scheduler_runs')
+      .insert({
+        run_key: 'weekly-csv-' + new Date().toISOString().split('T')[0],
+        function_name: 'weekly-report-scheduler',
+        status: 'running'
+      })
+      .select()
+      .single();
+
+    if (logError) {
+      logStep('Failed to log scheduler run start', { error: logError.message });
+    }
+
     // Calculate last week's dates (Monday to Sunday)
     const now = new Date();
     const lastMonday = new Date(now);
@@ -167,6 +182,24 @@ serve(async (req) => {
       reportsFailed
     });
 
+    // Update scheduler run log with completion
+    if (schedulerRun) {
+      await supabase
+        .from('scheduler_runs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          result: {
+            totalOrgs: uniqueOrgIds.length,
+            reportsGenerated,
+            reportsSkipped,
+            reportsFailed,
+            weekProcessed: `${weekStart} to ${weekEnd}`
+          }
+        })
+        .eq('id', schedulerRun.id);
+    }
+
     return new Response(JSON.stringify({
       success: true,
       summary: {
@@ -182,6 +215,18 @@ serve(async (req) => {
 
   } catch (error) {
     logStep('Error in weekly scheduler', { error: error.message });
+    
+    // Update scheduler run log with error
+    if (schedulerRun) {
+      await supabase
+        .from('scheduler_runs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_message: error.message
+        })
+        .eq('id', schedulerRun.id);
+    }
     
     return new Response(JSON.stringify({
       success: false,
