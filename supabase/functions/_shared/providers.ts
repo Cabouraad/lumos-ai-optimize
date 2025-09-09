@@ -7,6 +7,7 @@ export type BrandExtraction = {
   responseText: string;
   tokenIn: number; 
   tokenOut: number; 
+  citations?: CitationsData;
 };
 
 export type BusinessContextExtraction = {
@@ -57,6 +58,9 @@ export async function extractBrandsOpenAI(promptText: string, apiKey: string): P
   const data = await response.json();
   const content = data.choices[0].message.content;
   const usage = data.usage || {};
+  
+  // Extract citations from OpenAI response (text-only)
+  const citations = extractOpenAICitations(content);
 
   try {
     // Try to extract JSON from the end of the response
@@ -81,13 +85,15 @@ export async function extractBrandsOpenAI(promptText: string, apiKey: string): P
       responseText: content,
       tokenIn: usage.prompt_tokens || 0,
       tokenOut: usage.completion_tokens || 0,
+      citations
     };
   } catch (parseError) {
     return { 
       brands: extractBrandsFromText(content), 
       responseText: content,
       tokenIn: usage.prompt_tokens || 0,
-      tokenOut: usage.completion_tokens || 0
+      tokenOut: usage.completion_tokens || 0,
+      citations
     };
   }
 }
@@ -123,7 +129,9 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
                 role: 'user',
                 content: promptText + '\n\nAfter your response, include a JSON object with a single key "brands" containing an array of brand or company names you mentioned.'
               }
-            ]
+            ],
+            return_citations: true,
+            return_related_questions: false
           }),
         });
 
@@ -147,6 +155,9 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
         const data = await response.json();
         const content = data.choices[0]?.message?.content || '';
         const usage = data.usage || {};
+        
+        // Extract citations from Perplexity response
+        const citations = extractPerplexityCitations(data, content);
 
         try {
           // Try to extract JSON from the end of the response
@@ -171,6 +182,7 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
             responseText: content,
             tokenIn: usage.prompt_tokens || 0,
             tokenOut: usage.completion_tokens || 0,
+            citations
           };
           
         } catch (parseError) {
@@ -178,7 +190,8 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
             brands: extractBrandsFromText(content), 
             responseText: content,
             tokenIn: usage.prompt_tokens || 0,
-            tokenOut: usage.completion_tokens || 0
+            tokenOut: usage.completion_tokens || 0,
+            citations
           };
         }
         

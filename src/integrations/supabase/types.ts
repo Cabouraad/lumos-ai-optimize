@@ -538,6 +538,7 @@ export type Database = {
       prompt_provider_responses: {
         Row: {
           brands_json: Json
+          citations_json: Json | null
           competitors_count: number
           competitors_json: Json
           error: string | null
@@ -559,6 +560,7 @@ export type Database = {
         }
         Insert: {
           brands_json?: Json
+          citations_json?: Json | null
           competitors_count?: number
           competitors_json?: Json
           error?: string | null
@@ -580,6 +582,7 @@ export type Database = {
         }
         Update: {
           brands_json?: Json
+          citations_json?: Json | null
           competitors_count?: number
           competitors_json?: Json
           error?: string | null

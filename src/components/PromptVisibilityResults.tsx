@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Eye, Trophy, Users, FileText, Bug, AlertCircle, RefreshCw } from 'lucide-react';
 import { CompetitorChipList } from './CompetitorChip';
+import { CitationsDisplay } from './CitationsDisplay';
 import { useToast } from '@/hooks/use-toast';
 import { useOrgBrands } from '@/hooks/useOrgBrands';
 import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
@@ -29,6 +30,12 @@ interface ProviderResponse {
   token_in: number;
   token_out: number;
   metadata: any;
+  citations_json?: {
+    provider: string;
+    citations: any[];
+    collected_at: string;
+    ruleset_version: string;
+  } | null;
 }
 
 interface PromptVisibilityResultsProps {
@@ -69,7 +76,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           return;
         }
 
-        setResults((data as ProviderResponse[]) || []);
+        setResults((data as unknown as ProviderResponse[]) || []);
       } else {
         // Get latest results per provider with all detected competitors
         const { data, error } = await supabase
@@ -81,7 +88,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           return;
         }
 
-        setResults((data as ProviderResponse[]) || []);
+        setResults((data as unknown as ProviderResponse[]) || []);
       }
     } catch (error) {
       console.error('Error fetching results:', error);
@@ -406,6 +413,17 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                       skipCatalogValidation={true}
                     />
                   </div>
+
+                  {/* Citations */}
+                  {result.citations_json && result.citations_json.citations && (
+                    <div className="mt-4 pt-4 border-t">
+                      <CitationsDisplay 
+                        citations={result.citations_json.citations}
+                        provider={result.provider}
+                        isCompact={true}
+                      />
+                    </div>
+                  )}
 
                   {/* Raw AI Response */}
                   {result.raw_ai_response && (

@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
+import { extractPerplexityCitations, extractOpenAICitations } from '../_shared/citations-enhanced.ts';
 import { getUserOrgId } from '../_shared/auth.ts';
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts';
 import { PromptUsageTracker } from '../_shared/usage-tracker.ts';
@@ -167,7 +168,7 @@ serve(async (req) => {
           .select()
           .single();
 
-        // Also store normalized provider response used by the UI
+        // Store normalized provider response used by the UI
         const providerModel = provider.name === 'openai' 
           ? 'gpt-4o-mini' 
           : provider.name === 'perplexity' 
@@ -195,7 +196,8 @@ serve(async (req) => {
               metadata: { 
                 analysis_method: 'enhanced_v2',
                 detection_metadata: detectionResult.metadata
-              }
+              },
+              citations_json: response.citations || null
             });
         if (pprError) {
           console.error('Failed to insert prompt_provider_responses:', pprError);
@@ -280,7 +282,8 @@ async function executeOpenAI(promptText: string) {
     return {
       text: result.responseText,
       tokenIn: result.tokenIn,
-      tokenOut: result.tokenOut
+      tokenOut: result.tokenOut,
+      citations: null
     };
   }
 
@@ -304,10 +307,16 @@ async function executeOpenAI(promptText: string) {
   if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
 
   const data = await response.json();
+  const responseText = data.choices[0].message.content;
+  
+  // Extract citations from OpenAI response (text-only)
+  const citations = extractOpenAICitations(responseText);
+  
   return {
-    text: data.choices[0].message.content,
+    text: responseText,
     tokenIn: data.usage?.prompt_tokens || 0,
-    tokenOut: data.usage?.completion_tokens || 0
+    tokenOut: data.usage?.completion_tokens || 0,
+    citations
   };
 }
 

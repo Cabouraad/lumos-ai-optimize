@@ -1,5 +1,8 @@
 project_id = "cgocsffxqyhojtyzniyz"
 
+[functions.citation-mention]
+verify_jwt = false
+
 # TODO: Security audit completed - All verify_jwt=false functions have proper internal auth:
 # - daily-batch-trigger: Validates cron secret against database
 # - daily-scheduler-deprecated: Legacy function (consider removal)  

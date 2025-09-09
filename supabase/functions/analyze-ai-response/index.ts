@@ -62,7 +62,7 @@ serve(async (req) => {
 
     const userOrgId = userData.org_id;
 
-    const { promptId, providerId, responseText, citations, brands } = await req.json();
+const { promptId, providerId, responseText, citations, brands } = await req.json();
 
     if (!promptId || !providerId || !responseText) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
@@ -131,39 +131,58 @@ serve(async (req) => {
     orgBrandProminence: analysis.org_brand_prominence, 
     competitors: analysis.competitors_json.length,
     score: analysis.score,
-    method: analysis.metadata.analysis_method
+    method: analysis.metadata.analysis_method,
+    citations: citations ? citations.citations?.length || 0 : 0
   });
 
-  // Store results in database using comprehensive analysis
-  const { data: promptRunData, error: promptRunError } = await supabase
-    .from('prompt_runs')
-    .insert({
-      prompt_id: promptId,
-      org_id: userOrgId,
-      run_at: new Date().toISOString(),
-      visibility_score: analysis.score,
-      org_brand_present: analysis.org_brand_present,
-      org_brand_prominence: analysis.org_brand_prominence,
-      competitors_count: analysis.competitors_json.length,
-      metadata: {
-        analysis_method: analysis.metadata.analysis_method,
-        confidence_score: analysis.metadata.confidence_score,
+  // Store results in prompt_provider_responses using upsert function
+  const { data: responseId, error: responseError } = await supabase.rpc(
+    'upsert_prompt_provider_response',
+    {
+      p_prompt_id: promptId,
+      p_provider: providerId,
+      p_org_id: userOrgId,
+      p_score: analysis.score,
+      p_org_brand_present: analysis.org_brand_present,
+      p_org_brand_prominence: analysis.org_brand_prominence,
+      p_competitors_count: analysis.competitors_json.length,
+      p_brands_json: analysis.brands_json,
+      p_competitors_json: analysis.competitors_json,
+      p_metadata: {
+        ...analysis.metadata,
         response_length: responseText.length,
-        catalog_competitors: analysis.metadata.catalog_competitors,
-        global_competitors: analysis.metadata.global_competitors,
-        discovered_competitors: analysis.metadata.discovered_competitors,
-        ...brands && { input_brands: brands }
-      }
-    })
-    .select()
-    .single();
+        ...(brands && { input_brands: brands })
+      },
+      p_raw_ai_response: responseText,
+      p_status: 'success'
+    }
+  );
 
-  if (promptRunError) {
-    console.error('❌ Error storing prompt run:', promptRunError);
+  if (responseError) {
+    console.error('❌ Error storing response:', responseError);
     return new Response(
-      JSON.stringify({ error: 'Failed to store prompt run data' }),
+      JSON.stringify({ error: 'Failed to store response data' }),
       { status: 500, headers: corsHeaders }
     );
+  }
+
+  let citationsStoredId = null;
+
+  // Store citations if provided
+  if (citations && citations.citations && citations.citations.length > 0) {
+    console.log(`📎 Storing ${citations.citations.length} citations`);
+    
+    const { error: citationError } = await supabase
+      .from('prompt_provider_responses')
+      .update({ citations_json: citations })
+      .eq('id', responseId);
+
+    if (citationError) {
+      console.error('❌ Error storing citations:', citationError);
+    } else {
+      citationsStoredId = responseId;
+      console.log('✅ Citations stored successfully');
+    }
   }
 
   // Store visibility results with comprehensive data
@@ -202,6 +221,27 @@ serve(async (req) => {
       p_brand_name: brandName,
       p_score: Math.round(analysis.score)
     });
+  }
+
+  // Trigger citation analysis in background if citations were stored
+  if (citationsStoredId && citations?.citations?.some((c: any) => c.brand_mention === 'unknown')) {
+    console.log('🚀 Triggering background citation analysis');
+    
+    // Use background task to avoid blocking the response
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    if (cronSecret) {
+      // Call citation-mention worker asynchronously
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/citation-mention`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cronSecret}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ response_id: citationsStoredId })
+      }).catch(error => {
+        console.error('Background citation analysis failed:', error);
+      });
+    }
   }
 
   console.log('✅ Comprehensive analysis complete, results stored');
