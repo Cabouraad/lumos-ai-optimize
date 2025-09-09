@@ -15,6 +15,9 @@ const LLMsText = lazy(() => import("./pages/LLMsText"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Features = lazy(() => import("./pages/Features"));
+const BrandVisibility = lazy(() => import("./pages/features/BrandVisibility"));
+const CompetitiveAnalysis = lazy(() => import("./pages/features/CompetitiveAnalysis"));
+const ActionableRecommendations = lazy(() => import("./pages/features/ActionableRecommendations"));
 const Resources = lazy(() => import("./pages/Resources"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const TrialSuccess = lazy(() => import("./pages/TrialSuccess"));
@@ -36,6 +39,9 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/features" element={<Features />} />
+            <Route path="/features/brand-visibility" element={<BrandVisibility />} />
+            <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
+            <Route path="/features/actionable-recommendations" element={<ActionableRecommendations />} />
             <Route path="/resources" element={<Resources />} />
             <Route path="/resources/:slug" element={<BlogPost />} />
             <Route path="/trial-success" element={<TrialSuccess />} />

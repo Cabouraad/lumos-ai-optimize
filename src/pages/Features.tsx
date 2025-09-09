@@ -70,7 +70,7 @@ const Features = () => {
                   Real-time tracking of your brand's presence across all major AI search platforms. Know exactly when and how you appear in AI responses.
                 </p>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 mb-6">
                   <div className="flex items-start gap-3">
                     <Eye className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
@@ -103,6 +103,23 @@ const Features = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Visibility Impact */}
+                <div className="border-t pt-6 mb-6">
+                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    How This Helps You Get Found
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Businesses tracking their brand visibility see 47% improvement in AI search presence within 90 days. Understanding where you currently appear is the first step to optimization success.
+                  </p>
+                </div>
+
+                <Button asChild className="w-full">
+                  <Link to="/features/brand-visibility">
+                    Learn More <ArrowRight className="ml-2 w-4 h-4" />
+                  </Link>
+                </Button>
               </Card>
             </div>
 
@@ -115,7 +132,7 @@ const Features = () => {
                   See exactly where competitors dominate AI search results and identify untapped opportunities to outrank them.
                 </p>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 mb-6">
                   <div className="flex items-start gap-3">
                     <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
@@ -148,6 +165,23 @@ const Features = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Competitive Impact */}
+                <div className="border-t pt-6 mb-6">
+                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    How This Helps You Get Found
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Strategic competitive analysis helps businesses gain market share 3x faster. Identify exactly where competitors outrank you and discover untapped opportunities.
+                  </p>
+                </div>
+
+                <Button asChild className="w-full">
+                  <Link to="/features/competitive-analysis">
+                    Learn More <ArrowRight className="ml-2 w-4 h-4" />
+                  </Link>
+                </Button>
               </Card>
             </div>
 
@@ -160,7 +194,7 @@ const Features = () => {
                   Skip the guesswork. Get specific, prioritized actions you can implement today to improve your AI search rankings.
                 </p>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 mb-6">
                   <div className="flex items-start gap-3">
                     <Lightbulb className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
@@ -193,6 +227,23 @@ const Features = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Recommendations Impact */}
+                <div className="border-t pt-6 mb-6">
+                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    How This Helps You Get Found
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Data-driven recommendations deliver results 5x faster than generic optimization. Get specific, prioritized actions backed by successful case studies.
+                  </p>
+                </div>
+
+                <Button asChild className="w-full">
+                  <Link to="/features/actionable-recommendations">
+                    Learn More <ArrowRight className="ml-2 w-4 h-4" />
+                  </Link>
+                </Button>
               </Card>
             </div>
           </div>
