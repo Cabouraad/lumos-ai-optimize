@@ -20,8 +20,8 @@ export const blogPosts: BlogPost[] = [
     keywords: "AI search optimization, ChatGPT SEO, Claude search, Perplexity optimization, AI visibility tracking, brand mentions AI",
     category: "AI Search",
     tags: ["AI SEO", "Brand Visibility", "Search Optimization"],
-    publishedAt: "2024-01-15T10:00:00Z",
-    updatedAt: "2024-01-15T10:00:00Z",
+    publishedAt: "2024-03-15T10:00:00Z",
+    updatedAt: "2024-03-15T10:00:00Z",
     readTime: 8,
     featured: true,
     content: `
@@ -129,8 +129,8 @@ AI search is not a trend—it's the future of information discovery. Brands that
     keywords: "AI visibility tools, brand monitoring software, AI search tracking, ChatGPT monitoring, competitor analysis tools",
     category: "Tools & Software",  
     tags: ["Tool Selection", "AI Monitoring", "ROI"],
-    publishedAt: "2024-01-10T14:30:00Z",
-    updatedAt: "2024-01-10T14:30:00Z", 
+    publishedAt: "2024-02-08T14:30:00Z",
+    updatedAt: "2024-02-08T14:30:00Z",
     readTime: 6,
     content: `
 # How to Choose the Right AI Visibility Tracking Tools in 2024
@@ -300,8 +300,8 @@ The best AI visibility tool for your business is the one that **delivers actiona
     keywords: "AI search best practices, brand visibility strategies, ChatGPT optimization, AI SEO tactics, competitor analysis AI search",
     category: "Strategy",
     tags: ["Best Practices", "Strategy", "Case Studies"],
-    publishedAt: "2024-01-05T16:45:00Z", 
-    updatedAt: "2024-01-05T16:45:00Z",
+    publishedAt: "2024-01-22T16:45:00Z", 
+    updatedAt: "2024-01-22T16:45:00Z",
     readTime: 10,
     content: `
 # AI Search Industry Best Practices: What Leading Brands Do Differently
