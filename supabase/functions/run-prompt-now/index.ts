@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
-import { extractPerplexityCitations, extractOpenAICitations } from '../_shared/citations-enhanced.ts';
+import { extractPerplexityCitations, extractOpenAICitations, extractGeminiCitations } from '../_shared/citations-enhanced.ts';
 import { getUserOrgId } from '../_shared/auth.ts';
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts';
 import { PromptUsageTracker } from '../_shared/usage-tracker.ts';
@@ -329,7 +329,8 @@ async function executePerplexity(promptText: string) {
     return {
       text: result.responseText,
       tokenIn: result.tokenIn,
-      tokenOut: result.tokenOut
+      tokenOut: result.tokenOut,
+      citations: null
     };
   }
 
@@ -353,10 +354,16 @@ async function executePerplexity(promptText: string) {
   if (!response.ok) throw new Error(`Perplexity API error: ${response.status}`);
 
   const data = await response.json();
+  const responseText = data.choices[0].message.content;
+  
+  // Extract citations from Perplexity response
+  const citationsData = extractPerplexityCitations(data, responseText);
+  
   return {
-    text: data.choices[0].message.content,
+    text: responseText,
     tokenIn: 0,
-    tokenOut: 0
+    tokenOut: 0,
+    citations: citationsData
   };
 }
 
@@ -450,10 +457,14 @@ async function executeGemini(promptText: string) {
       
       console.log(`[Gemini] Success - Content length: ${content.length}, Tokens in: ${usage.promptTokenCount || 0}, Tokens out: ${usage.candidatesTokenCount || 0}`);
       
+      // Extract citations from Gemini response
+      const citationsData = extractGeminiCitations(data, content);
+      
       return {
         text: content,
         tokenIn: usage.promptTokenCount || 0,
-        tokenOut: usage.candidatesTokenCount || 0
+        tokenOut: usage.candidatesTokenCount || 0,
+        citations: citationsData
       };
       
     } catch (error: any) {

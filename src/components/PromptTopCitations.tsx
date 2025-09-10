@@ -36,11 +36,33 @@ export function PromptTopCitations({ promptId, limit = 5 }: PromptTopCitationsPr
         }
 
         if (!cancelled && responses) {
+          console.log('[PromptTopCitations] Processing responses:', responses.length);
+          
           // Aggregate and dedupe citations
           const citationMap = new Map<string, Citation & { score: number }>();
 
-          responses.forEach((response) => {
-            const citations = (response.citations_json as unknown as Citation[]) || [];
+          responses.forEach((response, idx) => {
+            console.log(`[PromptTopCitations] Response ${idx}:`, {
+              provider: response.provider,
+              citations_json_type: typeof response.citations_json,
+              citations_json_structure: response.citations_json ? Object.keys(response.citations_json) : 'null'
+            });
+            
+            let citations: Citation[] = [];
+            
+            // Handle different citation storage formats
+            if (response.citations_json) {
+              if (Array.isArray(response.citations_json)) {
+                // Direct array of citations
+                citations = response.citations_json;
+              } else if (response.citations_json.citations && Array.isArray(response.citations_json.citations)) {
+                // CitationsData format with .citations property
+                citations = response.citations_json.citations;
+              }
+            }
+            
+            console.log(`[PromptTopCitations] Extracted ${citations.length} citations from response ${idx}`);
+            
             citations.forEach((citation) => {
               const key = citation.url;
               const existing = citationMap.get(key);
