@@ -733,6 +733,60 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Top Recommendations */}
+          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 bg-accent/10 rounded-lg">
+                  <Lightbulb className="h-5 w-5 text-accent" />
+                </div>
+                <span>Top Recommendations</span>
+              </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/recommendations')}
+                className="hover-lift"
+              >
+                View All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {recommendations.length > 0 ? (
+                <div className="space-y-4">
+                  {recommendations.map((rec) => (
+                    <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300 hover-lift group">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              rec.type === 'content' 
+                                ? 'border-primary text-primary bg-primary/10' 
+                                : rec.type === 'social' 
+                                ? 'border-accent text-accent bg-accent/10'
+                                : 'border-secondary text-secondary bg-secondary/10'
+                            }`}
+                          >
+                            {rec.type === 'content' ? 'Content' : rec.type === 'social' ? 'Social' : rec.type}
+                          </Badge>
+                        </div>
+                      </div>
+                      <h4 className="font-medium text-foreground mb-2 group-hover:text-primary transition-colors">{rec.title}</h4>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{rec.rationale}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No high-impact recommendations available</p>
+                  <p className="text-sm text-muted-foreground mt-2">Check back after running prompts</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Latest Weekly Report */}
           {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
             <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
@@ -800,60 +854,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           )}
-
-          {/* Top Recommendations */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <Lightbulb className="h-5 w-5 text-accent" />
-                </div>
-                <span>Top Recommendations</span>
-              </CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/recommendations')}
-                className="hover-lift"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {recommendations.length > 0 ? (
-                <div className="space-y-4">
-                  {recommendations.map((rec) => (
-                    <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300 hover-lift group">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              rec.type === 'content' 
-                                ? 'border-primary text-primary bg-primary/10' 
-                                : rec.type === 'social' 
-                                ? 'border-accent text-accent bg-accent/10'
-                                : 'border-secondary text-secondary bg-secondary/10'
-                            }`}
-                          >
-                            {rec.type === 'content' ? 'Content' : rec.type === 'social' ? 'Social' : rec.type}
-                          </Badge>
-                        </div>
-                      </div>
-                      <h4 className="font-medium text-foreground mb-2 group-hover:text-primary transition-colors">{rec.title}</h4>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{rec.rationale}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No high-impact recommendations available</p>
-                  <p className="text-sm text-muted-foreground mt-2">Check back after running prompts</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Diagnostic Panel for E2E Testing */}
           {user?.email === 'abouraa.chri@gmail.com' && (
