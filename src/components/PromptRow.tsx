@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ProviderResponseCard } from './ProviderResponseCard';
-import { PromptCompetitors } from './PromptCompetitors';
+import { PromptTopCitations } from './PromptTopCitations';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { 
   Calendar, 
@@ -244,7 +244,7 @@ export function PromptRow({
                     ) : (
                       <>
                         <ChevronRight className="h-3 w-3 mr-1" />
-                        Show Provider Results & Competitors
+                        Show Provider Results & Citations
                       </>
                     )}
                   </Button>
@@ -277,9 +277,9 @@ export function PromptRow({
               </div>
             )}
 
-                  {/* Competitors Section */}
+                  {/* Citations Section */}
                   <div className="border-t border-border/50 pt-4">
-                    <PromptCompetitors promptId={prompt.id} />
+                    <PromptTopCitations promptId={prompt.id} />
                   </div>
                 </CollapsibleContent>
               </Collapsible>

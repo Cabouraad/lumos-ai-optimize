@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ProviderResponseCard } from './ProviderResponseCard';
-import { PromptCompetitors } from './PromptCompetitors';
+import { PromptTopCitations } from './PromptTopCitations';
 import { 
   Calendar, 
   BarChart3, 
@@ -232,9 +232,9 @@ export function CondensedPromptRow({
                     </div>
                   )}
 
-                  {/* Competitors Section - compact */}
+                  {/* Citations Section - compact */}
                   <div className="border-t border-border/30 pt-3">
-                    <PromptCompetitors promptId={prompt.id} />
+                    <PromptTopCitations promptId={prompt.id} />
                   </div>
                 </CollapsibleContent>
               </Collapsible>
