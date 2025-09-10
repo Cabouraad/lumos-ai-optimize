@@ -2,10 +2,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route } from "react-router-dom";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { Suspense, lazy } from "react";
+import Health from "@/components/Health";
 
 // Lazy load all page components to reduce initial bundle size
 const Index = lazy(() => import("./pages/Index"));
-const Health = lazy(() => import("./components/Health"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
