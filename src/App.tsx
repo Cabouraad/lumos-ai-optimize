@@ -5,6 +5,7 @@ import { Suspense, lazy } from "react";
 
 // Lazy load all page components to reduce initial bundle size
 const Index = lazy(() => import("./pages/Index"));
+const Health = lazy(() => import("./components/Health"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -33,9 +34,10 @@ import { isFeatureEnabled } from '@/lib/config/feature-flags';
 const App = () => (
   <TooltipProvider>
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-      <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/health" element={<Health />} />
+          <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/features" element={<Features />} />
