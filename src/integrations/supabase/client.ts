@@ -2,21 +2,41 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Environment configuration - no fallbacks for security
+// Environment configuration - with graceful fallback for missing env vars
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing required Supabase environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY must be set');
-}
+// Create a no-op client when environment variables are missing
+const createNoOpClient = () => ({
+  auth: {
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: null }, unsubscribe: () => {} }),
+    signOut: () => Promise.resolve({ error: null }),
+    signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Backend not configured') }),
+    signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Backend not configured') }),
+  },
+  functions: {
+    invoke: () => Promise.resolve({ data: null, error: new Error('Backend not configured') }),
+  },
+  from: () => ({
+    select: () => ({ data: null, error: new Error('Backend not configured') }),
+    insert: () => ({ data: null, error: new Error('Backend not configured') }),
+    update: () => ({ data: null, error: new Error('Backend not configured') }),
+    delete: () => ({ data: null, error: new Error('Backend not configured') }),
+    upsert: () => ({ data: null, error: new Error('Backend not configured') }),
+  }),
+  rpc: () => Promise.resolve({ data: null, error: new Error('Backend not configured') }),
+});
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+export const supabase = (!supabaseUrl || !supabaseKey) 
+  ? createNoOpClient() as any
+  : createClient<Database>(supabaseUrl, supabaseKey, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
