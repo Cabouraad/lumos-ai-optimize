@@ -40,6 +40,7 @@ export function getStrictCorsHeaders(requestOrigin?: string | null): Record<stri
                        requestOrigin?.includes('sandbox.lovable.dev') ||
                        requestOrigin?.includes('lovable.app') ||
                        requestOrigin?.includes('lovable.dev') ||
+                       requestOrigin?.includes('lovableproject.com') ||
                        requestOrigin?.includes('127.0.0.1');
   
   let origin = '*'; // Default permissive for development
