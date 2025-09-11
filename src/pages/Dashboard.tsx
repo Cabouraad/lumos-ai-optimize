@@ -733,19 +733,19 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Top Recommendations */}
+          {/* Top Optimizations */}
           <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <div className="p-2 bg-accent/10 rounded-lg">
                   <Lightbulb className="h-5 w-5 text-accent" />
                 </div>
-                <span>Top Recommendations</span>
+                <span>Top Optimizations</span>
               </CardTitle>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => navigate('/recommendations')}
+                onClick={() => navigate('/optimizations')}
                 className="hover-lift"
               >
                 View All
