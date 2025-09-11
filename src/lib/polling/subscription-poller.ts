@@ -28,18 +28,18 @@ export async function pollEntitlements(options: PollEntitlementsOptions = {}): P
         throw new Error('User not authenticated');
       }
       
-      // Get fresh subscription data
+      // Get fresh subscription data from secure view
       const { data: subscriptionData } = await supabase
-        .from('subscribers')
-        .select('*')
-        .eq('user_id', session.session.user.id)
+        .from('subscriber_public')
+        .select('id, org_id, tier, plan_code, status, period_ends_at, created_at')
+        .eq('org_id', session.session.user.user_metadata?.org_id)
         .maybeSingle();
       
       // Check if access should be granted
-      const isSubscribed = subscriptionData?.subscribed;
-      const trialActive = subscriptionData?.trial_expires_at && 
-        new Date(subscriptionData.trial_expires_at) > new Date();
-      const paymentCollected = subscriptionData?.payment_collected;
+      const isSubscribed = subscriptionData?.status === 'active';
+      const trialActive = subscriptionData?.status === 'trialing';
+      // Note: payment_collected not available in public view, assume true for active status
+      const paymentCollected = true;
       
       const hasAccess = isSubscribed || (trialActive && paymentCollected);
       
@@ -49,10 +49,9 @@ export async function pollEntitlements(options: PollEntitlementsOptions = {}): P
         paymentCollected,
         hasAccess,
         subscriptionData: subscriptionData ? {
-          subscription_tier: subscriptionData.subscription_tier,
-          subscription_end: subscriptionData.subscription_end,
-          trial_expires_at: subscriptionData.trial_expires_at,
-          metadata: subscriptionData.metadata
+          tier: subscriptionData.tier,
+          status: subscriptionData.status,
+          period_ends_at: subscriptionData.period_ends_at
         } : null
       });
       

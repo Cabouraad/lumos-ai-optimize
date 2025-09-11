@@ -1012,35 +1012,22 @@ export type Database = {
       subscriber_public: {
         Row: {
           created_at: string | null
-          current_period_end: string | null
-          payment_collected: boolean | null
-          plan: string | null
+          id: string | null
+          org_id: string | null
+          period_ends_at: string | null
+          plan_code: string | null
           status: string | null
-          trial_expires_at: string | null
-          updated_at: string | null
-          user_id: string | null
+          tier: string | null
         }
-        Insert: {
-          created_at?: string | null
-          current_period_end?: string | null
-          payment_collected?: boolean | null
-          plan?: string | null
-          status?: never
-          trial_expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          current_period_end?: string | null
-          payment_collected?: boolean | null
-          plan?: string | null
-          status?: never
-          trial_expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
