@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { usePasswordStrength } from '@/hooks/usePasswordStrength';
+import { PasswordStrengthMeter } from '@/components/ui/password-strength';
 
 export default function Auth() {
   const { user } = useAuth();
@@ -16,6 +18,12 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  
+  // Password strength analysis for sign-up
+  const { strength: passwordStrength, loading: strengthLoading } = usePasswordStrength(
+    isSignUp ? password : ''
+  );
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -102,7 +110,7 @@ export default function Auth() {
             </TabsList>
             
             <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form onSubmit={handleSignIn} className="space-y-4" onFocus={() => setIsSignUp(false)}>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -155,7 +163,7 @@ export default function Auth() {
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-4" onFocus={() => setIsSignUp(true)}>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
@@ -176,6 +184,15 @@ export default function Auth() {
                     required
                     minLength={6}
                   />
+                  
+                  {/* Password strength indicator */}
+                  {isSignUp && password.length > 0 && (
+                    <PasswordStrengthMeter 
+                      strength={passwordStrength}
+                      loading={strengthLoading}
+                      className="mt-2"
+                    />
+                  )}
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creating account...' : 'Sign Up'}

@@ -1,26 +1,110 @@
 # Security Documentation
 
-## Subscription Data Security
+## Overview
+This document outlines security best practices and configurations for the Llumos platform.
 
-### Overview
-The `public.subscribers` table is RLS-protected and not directly readable from browser clients for security reasons.
+## Password Security
 
-### Browser Access
-- Browser must query `public.subscriber_public` (non-sensitive shape)
-- This view exposes only: `id`, `org_id`, `tier`, `plan_code`, `status`, `period_ends_at`, `created_at`
-- Sensitive data like `email`, `stripe_customer_id`, `stripe_subscription_id` are NOT exposed to browsers
+### Client-Side Password Strength
+The application includes real-time password strength analysis that:
+- Uses zxcvbn library for intelligent password scoring
+- Checks against Have I Been Pwned database for compromised passwords
+- Provides user-friendly feedback and suggestions
+- Does not block sign-up, only shows warnings
 
-### Per-org Isolation
-- Per-org isolation enforced via `users.org_id` relationship
-- Users can only see subscription data for their own organization
-- RLS policies ensure proper access control
+### Server-Side Password Protection (Supabase Configuration)
 
-### Server Access
-- Server jobs use service role and can access full subscriber data
-- Edge functions with `SUPABASE_SERVICE_ROLE_KEY` have full access to `public.subscribers`
-- Webhooks, reports, and audit functions operate on the base table
+To enable maximum password security in production:
 
-### Important Notes
-- All writes/updates to `public.subscribers` must be done in server code only
-- Browser clients cannot modify subscription data directly
-- If any client component needs sensitive fields, refactor the fetch into an Edge Function and return only what's necessary
+1. **Navigate to Supabase Dashboard**
+   - Go to your project dashboard
+   - Navigate to **Authentication** → **Passwords**
+
+2. **Enable Password Protection Features**
+   - ✅ **Block compromised passwords**: Prevents users from using passwords found in data breaches
+   - ✅ **Minimum password length**: Set to 12 characters minimum
+   - ✅ **Password strength validation**: Requires strong passwords
+
+3. **Verification Steps**
+   ```bash
+   # Run this to verify settings are applied
+   npm run test:e2e -- tests/e2e/security.rls.spec.ts
+   ```
+
+### Implementation Details
+
+The password strength system is non-blocking by design:
+- **Client warnings only**: Users see strength indicators and breach warnings
+- **No API blocking**: Sign-up proceeds regardless of client analysis
+- **Privacy-preserving**: Uses k-anonymity for breach checking (only sends first 5 chars of SHA-1 hash)
+
+## Row-Level Security (RLS)
+
+### Business Data Protection
+- **Prompts**: Only authenticated users in the same organization can read/write
+- **Recommendations**: Strict per-organization isolation
+- **Subscribers**: Per-organization access with service role override for system operations
+
+### Testing RLS Policies
+```bash
+# Verify anonymous users cannot access business data
+npm run test:e2e -- tests/e2e/security.rls.spec.ts
+```
+
+## Database Security
+
+### Extensions Management
+- Relocatable extensions moved to dedicated `extensions` schema
+- Public schema write access restricted
+- Service operations remain unaffected
+
+### Access Patterns
+- **Client applications**: Use RLS-protected tables through authenticated requests
+- **Service operations**: Use service role to bypass RLS for system tasks
+- **Anonymous access**: Blocked for all business-critical tables
+
+## Monitoring and Maintenance
+
+### Regular Security Checks
+- Monthly Supabase linter runs
+- Database patch application review
+- Authentication settings verification
+- RLS policy effectiveness testing
+
+### Incident Response
+1. Monitor authentication logs for unusual patterns
+2. Review database access patterns regularly
+3. Apply security patches promptly
+4. Test RLS policies after any schema changes
+
+## Security Headers and CORS
+
+Edge functions implement secure CORS policies:
+```typescript
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+```
+
+## Best Practices
+
+1. **Authentication**
+   - Use strong, unique passwords (enforced client-side + server-side)
+   - Enable 2FA when available
+   - Regular session cleanup
+
+2. **Database Access**
+   - Always use parameterized queries
+   - Leverage RLS for all business data
+   - Regular backup verification
+
+3. **API Security**
+   - Rate limiting on sensitive endpoints
+   - Input validation and sanitization
+   - Proper error handling without information leakage
+
+4. **Infrastructure**
+   - Keep dependencies updated
+   - Monitor for security advisories
+   - Regular security audits

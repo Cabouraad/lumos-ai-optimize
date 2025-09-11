@@ -1,0 +1,51 @@
+name: Monthly Security Reminder
+on:
+  schedule:
+    - cron: "0 15 1 * *" # 15:00 UTC on the 1st of each month
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open reminder issue
+        uses: actions-ecosystem/action-create-issue@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Monthly security check: Supabase patches & Auth password protections"
+          labels: security, maintenance
+          body: |
+            ## Monthly Security Maintenance Checklist
+            
+            Please complete the following security maintenance tasks:
+            
+            ### Database & Infrastructure
+            - [ ] Review Supabase DB health → apply available patches
+            - [ ] Verify extension schema isolation remains intact
+            - [ ] Check for any new security advisories
+            
+            ### Authentication Security
+            - [ ] Confirm Auth → Passwords → "Block compromised passwords" is enabled
+            - [ ] Verify minimum password length is set to 12+ characters
+            - [ ] Review authentication logs for unusual patterns
+            
+            ### Testing & Validation
+            - [ ] Re-run e2e security tests: `npm run test:e2e -- tests/e2e/security.rls.spec.ts`
+            - [ ] Verify org isolation: `npm run test:e2e -- tests/e2e/org-isolation.spec.ts`
+            - [ ] Run security linter: `npm run security:scan`
+            
+            ### Documentation
+            - [ ] Update maintenance log with any changes made
+            - [ ] Review and update security documentation if needed
+            
+            ### Resources
+            - [Maintenance Guide](./docs/maintenance.md)
+            - [Security Documentation](./docs/security.md)
+            - [Supabase Dashboard](https://supabase.com/dashboard/projects)
+            
+            ---
+            
+            **Due Date:** End of month
+            **Assignee:** Please assign to the appropriate team member
+            
+            Close this issue once all checklist items are complete.
