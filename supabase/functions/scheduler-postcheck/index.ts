@@ -90,32 +90,43 @@ serve(async (req) => {
 
     logStep('Postcheck authorized', { isManualCall });
 
-    // 1. Find all organizations with active prompts
-    const { data: orgsWithPrompts, error: orgsError } = await supabase
-      .from('organizations')
+    // Check for repair mode
+    const url = new URL(req.url);
+    const repairMode = url.searchParams.get('repair') === 'true';
+    
+    // 1. Find ALL active prompts across all organizations for prompt-level tracking
+    const { data: activePrompts, error: promptsError } = await supabase
+      .from('prompts')
       .select(`
         id,
-        name,
-        prompts!inner(id)
+        text,
+        org_id,
+        organizations!inner(id, name, domain)
       `)
-      .eq('prompts.active', true);
+      .eq('active', true);
 
-    if (orgsError) {
-      throw new Error(`Failed to fetch organizations: ${orgsError.message}`);
+    if (promptsError) {
+      throw new Error(`Failed to fetch active prompts: ${promptsError.message}`);
     }
 
-    const orgIds = orgsWithPrompts?.map(org => org.id) || [];
-    logStep('Organizations with active prompts found', { count: orgIds.length });
+    const totalActivePrompts = activePrompts?.length || 0;
+    const orgIds = [...new Set(activePrompts?.map(p => p.org_id) || [])];
+    
+    logStep('Active prompts found across all organizations', { 
+      totalPrompts: totalActivePrompts, 
+      organizations: orgIds.length 
+    });
 
-    if (orgIds.length === 0) {
+    if (totalActivePrompts === 0) {
       const result = {
         success: true,
         action: 'postcheck_completed',
         runId,
         todayKey,
-        message: 'No organizations with active prompts found',
-        coverage: { expected: 0, found: 0, missing: 0 },
-        summary: { totalOrgs: 0, jobsFound: 0, gaps: 0, healingAttempted: 0 }
+        message: 'No active prompts found across all organizations',
+        promptCoverage: { expectedActivePrompts: 0, promptsRunToday: 0, coveragePercent: 100 },
+        orgCoverage: { expected: 0, found: 0, missing: 0 },
+        summary: { totalOrgs: 0, totalPrompts: 0, jobsFound: 0, gaps: 0, healingAttempted: 0 }
       };
 
       // Update scheduler run
@@ -135,7 +146,37 @@ serve(async (req) => {
       });
     }
 
-    // 2. Check for completed batch jobs for today for each org
+    // 2. Check PROMPT-LEVEL coverage for today
+    const { data: todayResponses, error: responsesError } = await supabase
+      .from('prompt_provider_responses')
+      .select('prompt_id, provider, org_id, status')
+      .in('org_id', orgIds)
+      .gte('run_at', `${todayKey}T00:00:00`)
+      .lt('run_at', `${todayKey}T23:59:59`)
+      .eq('status', 'success');
+
+    if (responsesError) {
+      throw new Error(`Failed to fetch today's responses: ${responsesError.message}`);
+    }
+
+    // Calculate prompt-level coverage
+    const promptsRunToday = new Set(todayResponses?.map(r => r.prompt_id) || []).size;
+    const promptCoveragePercent = totalActivePrompts > 0 ? Math.round((promptsRunToday / totalActivePrompts) * 100) : 100;
+    
+    // Find missing prompts (per organization)
+    const promptsRunTodaySet = new Set(todayResponses?.map(r => r.prompt_id) || []);
+    const missingPrompts = activePrompts?.filter(p => !promptsRunTodaySet.has(p.id)) || [];
+    const missingPromptsByOrg = missingPrompts.reduce((acc, prompt) => {
+      if (!acc[prompt.org_id]) acc[prompt.org_id] = [];
+      acc[prompt.org_id].push({
+        id: prompt.id,
+        text: prompt.text.substring(0, 80) + (prompt.text.length > 80 ? '...' : ''),
+        org_name: prompt.organizations.name
+      });
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // 3. Check organization-level batch job completion 
     const { data: todayJobs, error: jobsError } = await supabase
       .from('batch_jobs')
       .select('org_id, status, completed_at, total_tasks, completed_tasks, failed_tasks')
@@ -153,18 +194,27 @@ serve(async (req) => {
 
     const missingOrgs = orgIds.filter(orgId => !completedOrgIds.has(orgId));
     
-    logStep('Coverage analysis', {
+    logStep('Comprehensive coverage analysis', {
+      expectedPrompts: totalActivePrompts,
+      promptsRunToday,
+      promptCoveragePercent,
       expectedOrgs: orgIds.length,
       orgsWithCompletedJobs: completedOrgIds.size,
-      missingOrgs: missingOrgs.length
+      missingOrgs: missingOrgs.length,
+      missingPromptsCount: missingPrompts.length
     });
 
-    // 3. Optional self-healing: trigger batch processing for missing orgs
+    // 4. Optional self-healing: trigger batch processing for missing orgs
     let healingAttempted = 0;
     const healingResults = [];
 
-    if (missingOrgs.length > 0) {
-      logStep('Attempting self-healing for missing organizations', { count: missingOrgs.length });
+    // Only attempt healing if repair mode is enabled and we have significant coverage gaps
+    if (repairMode && (missingOrgs.length > 0 || promptCoveragePercent < 95)) {
+      logStep('Repair mode enabled - attempting self-healing', { 
+        missingOrgs: missingOrgs.length,
+        promptCoverage: promptCoveragePercent,
+        totalMissingPrompts: missingPrompts.length
+      });
 
       for (const orgId of missingOrgs) {
         try {
@@ -180,8 +230,9 @@ serve(async (req) => {
               body: {
                 action: 'create',
                 orgId,
-                correlationId: `healing-${runId}`,
-                healedBy: 'postcheck'
+                correlationId: `repair-${runId}`,
+                healedBy: 'postcheck-repair',
+                source: 'scheduler-postcheck-repair'
               },
               headers: {
                 'x-cron-secret': cronSecretData.value
@@ -189,22 +240,29 @@ serve(async (req) => {
             });
 
             if (healingResponse.error) {
-              logStep('Healing failed for org', { orgId, error: healingResponse.error.message });
+              logStep('Repair failed for org', { orgId, error: healingResponse.error.message });
               healingResults.push({ orgId, success: false, error: healingResponse.error.message });
             } else {
-              logStep('Healing triggered for org', { orgId, jobId: healingResponse.data?.batchJobId });
+              logStep('Repair triggered for org', { orgId, jobId: healingResponse.data?.batchJobId });
               healingResults.push({ orgId, success: true, jobId: healingResponse.data?.batchJobId });
               healingAttempted++;
             }
           }
         } catch (healingError) {
-          logStep('Healing exception for org', { orgId, error: healingError.message });
+          logStep('Repair exception for org', { orgId, error: healingError.message });
           healingResults.push({ orgId, success: false, error: healingError.message });
         }
       }
+    } else if (missingOrgs.length > 0 || promptCoveragePercent < 95) {
+      logStep('Coverage gaps detected but repair mode not enabled', {
+        repairMode,
+        missingOrgs: missingOrgs.length,
+        promptCoverage: promptCoveragePercent,
+        hint: 'Add ?repair=true to enable automatic healing'
+      });
     }
 
-    // 4. Aggregate metrics
+    // 5. Aggregate comprehensive metrics
     const jobMetrics = todayJobs?.reduce((acc, job) => {
       acc.totalJobs++;
       acc.totalTasks += job.total_tasks || 0;
@@ -226,29 +284,54 @@ serve(async (req) => {
       failedTasks: 0
     };
 
+    // Enhanced result with prompt-level tracking
     const result = {
       success: true,
       action: 'postcheck_completed',
       runId,
       todayKey,
-      coverage: {
+      repairMode,
+      
+      // NEW: Prompt-level coverage tracking
+      promptCoverage: {
+        expectedActivePrompts: totalActivePrompts,
+        promptsRunToday,
+        coveragePercent: promptCoveragePercent,
+        missingPromptsCount: missingPrompts.length,
+        missingPromptsByOrg: Object.keys(missingPromptsByOrg).length > 0 ? missingPromptsByOrg : undefined
+      },
+      
+      // EXISTING: Organization-level coverage
+      orgCoverage: {
         expected: orgIds.length,
         found: completedOrgIds.size,
         missing: missingOrgs.length,
-        missingOrgIds: missingOrgs
+        missingOrgIds: missingOrgs.length > 0 ? missingOrgs : undefined
       },
+      
+      // Job metrics
       metrics: jobMetrics,
+      
+      // Healing/repair results
       healing: {
         attempted: healingAttempted,
-        results: healingResults
+        results: healingResults.length > 0 ? healingResults : undefined
       },
+      
+      // Summary for quick assessment
       summary: {
         totalOrgs: orgIds.length,
+        totalPrompts: totalActivePrompts,
         jobsFound: completedOrgIds.size,
+        promptsRun: promptsRunToday,
+        orgCoveragePercent: orgIds.length > 0 ? Math.round((completedOrgIds.size / orgIds.length) * 100) : 100,
+        promptCoveragePercent,
         gaps: missingOrgs.length,
+        missingPrompts: missingPrompts.length,
         healingAttempted,
-        successRate: orgIds.length > 0 ? Math.round((completedOrgIds.size / orgIds.length) * 100) : 100
+        overallHealth: promptCoveragePercent >= 95 && (orgIds.length === 0 || completedOrgIds.size >= orgIds.length * 0.95) ? 'HEALTHY' : 'NEEDS_ATTENTION'
       },
+      
       timestamp: new Date().toISOString()
     };
 
@@ -266,9 +349,17 @@ serve(async (req) => {
         .eq('id', schedulerRun.id);
     }
 
-    // Alert if coverage is poor (< 95%)
-    if (result.summary.successRate < 95) {
-      console.warn(`🚨 COVERAGE ALERT: Only ${result.summary.successRate}% of organizations processed today (${completedOrgIds.size}/${orgIds.length})`);
+    // Enhanced coverage alerts
+    if (result.summary.overallHealth === 'NEEDS_ATTENTION') {
+      console.warn(`🚨 COVERAGE ALERT: System needs attention`);
+      console.warn(`   Org Coverage: ${result.summary.orgCoveragePercent}% (${completedOrgIds.size}/${orgIds.length})`);
+      console.warn(`   Prompt Coverage: ${promptCoveragePercent}% (${promptsRunToday}/${totalActivePrompts})`);
+      console.warn(`   Missing Prompts: ${missingPrompts.length}`);
+      if (!repairMode && (missingOrgs.length > 0 || promptCoveragePercent < 95)) {
+        console.warn(`   💡 Suggestion: Run with ?repair=true to attempt automatic healing`);
+      }
+    } else {
+      console.log(`✅ COVERAGE HEALTHY: ${promptCoveragePercent}% prompts run, ${result.summary.orgCoveragePercent}% orgs completed`);
     }
 
     return new Response(JSON.stringify(result), {
