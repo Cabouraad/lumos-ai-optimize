@@ -1114,6 +1114,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_current_org_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_current_user_org_id: {
         Args: Record<PropertyKey, never>
         Returns: string

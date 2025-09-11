@@ -61,6 +61,29 @@ WHERE n.nspname = 'public';
 - Enhanced password validation prevents use of known compromised passwords
 - Improved overall database security posture
 
+## RLS Lockdown Implementation
+
+### Prompts and Recommendations Security
+- **Before**: prompts and recommendations tables were publicly readable
+- **After**: Full RLS enforcement with org-based isolation  
+- **Impact**: Anonymous users can no longer access business data; authenticated users only see rows for their own organization
+
+### Subscribers Hardening  
+- **Before**: Weak RLS policies on subscribers table
+- **After**: Strict per-user isolation using auth.uid() + user_id relationship
+- **Impact**: Enhanced data isolation while preserving existing UI functionality
+
+### Implementation Details
+- Added `get_current_org_id()` security definer function for clean org resolution
+- Implemented comprehensive CRUD policies for prompts and recommendations
+- Added performance indexes on org_id columns
+- Server jobs remain unchanged and functional
+
+### Testing
+- Anonymous access tests verify 401/403 responses for business tables
+- Org isolation tests confirm users only see their organization's data
+- Existing functionality preserved for browser clients
+
 ## Future Recommendations
 
 1. **Regular Security Audits**: Run `supabase db lint` monthly to catch new security issues
@@ -79,6 +102,6 @@ ALTER EXTENSION [extension_name] SET SCHEMA public;
 **Important**: Only perform rollback if critical functionality is broken. Address root cause instead.
 
 ---
-**Last Updated**: 2025-01-02  
-**Next Review**: 2025-02-01  
-**Status**: ⚠️ Partially Complete - Dashboard actions pending
+**Last Updated**: 2025-01-11  
+**Next Review**: 2025-02-11  
+**Status**: ✅ RLS lockdown complete - Extensions and password protection still pending
