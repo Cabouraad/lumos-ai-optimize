@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('anon cannot read business tables', async ({ request }) => {
-  const endpoints = ['prompts','recommendations','subscribers'];
+  const endpoints = ['prompts','recommendations','subscribers','subscriber_public'];
   for (const t of endpoints) {
     const res = await request.get(`/rest/v1/${t}?select=id`);
     expect([401,403]).toContain(res.status());
