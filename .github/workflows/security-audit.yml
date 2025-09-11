@@ -1,0 +1,17 @@
+name: DB Security Audit
+on:
+  push:
+  pull_request:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Run DB security audit
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }} # set in repo secrets
+        run: npm run security:audit

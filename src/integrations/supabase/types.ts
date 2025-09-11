@@ -1287,6 +1287,18 @@ export type Database = {
         Args: { p_job_id: string }
         Returns: Json
       }
+      run_security_audit: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          details: string
+          fix_hint: string
+          issue: string
+          item_kind: string
+          object_name: string
+          schema_name: string
+          severity: string
+        }[]
+      }
       test_reco_insert: {
         Args: { p_org_id: string; p_test_title?: string }
         Returns: string
