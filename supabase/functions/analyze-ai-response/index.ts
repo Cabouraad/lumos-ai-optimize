@@ -87,6 +87,39 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
       throw new Error('Failed to fetch prompt');
     }
 
+// Extract citations first if not provided
+  let extractedCitations = citations;
+  if (!extractedCitations && responseText) {
+    console.log('📎 Extracting citations from response text...');
+    
+    const { extractPerplexityCitations, extractGeminiCitations, extractOpenAICitations } = 
+      await import('../_shared/citations-enhanced.ts');
+    
+    try {
+      switch (providerId) {
+        case 'perplexity':
+          extractedCitations = extractPerplexityCitations({}, responseText);
+          break;
+        case 'gemini':
+          extractedCitations = extractGeminiCitations({}, responseText);
+          break;
+        case 'openai':
+        default:
+          extractedCitations = extractOpenAICitations(responseText);
+          break;
+      }
+      
+      if (extractedCitations?.citations?.length > 0) {
+        console.log(`✅ Extracted ${extractedCitations.citations.length} citations from ${providerId} response`);
+      } else {
+        console.log(`⚠️ No citations extracted from ${providerId} response`);
+      }
+    } catch (error) {
+      console.error('❌ Citation extraction failed:', error);
+      extractedCitations = null;
+    }
+  }
+
 // Use comprehensive brand response analyzer
   console.log('🔍 Starting comprehensive brand analysis...');
   
@@ -168,13 +201,13 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
 
   let citationsStoredId = null;
 
-  // Store citations if provided
-  if (citations && citations.citations && citations.citations.length > 0) {
-    console.log(`📎 Storing ${citations.citations.length} citations`);
+  // Store citations if extracted or provided
+  if (extractedCitations && extractedCitations.citations && extractedCitations.citations.length > 0) {
+    console.log(`📎 Storing ${extractedCitations.citations.length} citations`);
     
     const { error: citationError } = await supabase
       .from('prompt_provider_responses')
-      .update({ citations_json: citations })
+      .update({ citations_json: extractedCitations })
       .eq('id', responseId);
 
     if (citationError) {
@@ -183,6 +216,8 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
       citationsStoredId = responseId;
       console.log('✅ Citations stored successfully');
     }
+  } else {
+    console.log('ℹ️ No citations to store');
   }
 
   // Store visibility results with comprehensive data
@@ -224,7 +259,7 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
   }
 
   // Trigger citation analysis in background if citations were stored
-  if (citationsStoredId && citations?.citations?.some((c: any) => c.brand_mention === 'unknown')) {
+  if (citationsStoredId && extractedCitations?.citations?.some((c: any) => c.brand_mention === 'unknown')) {
     console.log('🚀 Triggering background citation analysis');
     
     // Use background task to avoid blocking the response

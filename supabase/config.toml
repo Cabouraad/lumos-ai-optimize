@@ -144,6 +144,12 @@ verify_jwt = false
 [functions.manual-daily-run]
 verify_jwt = false
 
+[functions.debug-response-data]
+verify_jwt = true
+
+[functions.test-analysis-fixes]
+verify_jwt = true
+
 [functions.backfill-weekly-reports]
 verify_jwt = true
 
