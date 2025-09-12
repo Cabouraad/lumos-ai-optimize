@@ -323,8 +323,15 @@ export default function Dashboard() {
         return;
       }
 
-      // Take top 5 competitors
-      setCompetitors((data || []).slice(0, 5));
+      // Map competitor_name to name for UI compatibility and take top 5
+      const mappedCompetitors = (data || [])
+        .slice(0, 5)
+        .map((competitor: any) => ({
+          ...competitor,
+          name: competitor.competitor_name || competitor.name
+        }));
+      
+      setCompetitors(mappedCompetitors);
     } catch (error) {
       console.error('Error loading competitors:', error);
       setCompetitors([]);
