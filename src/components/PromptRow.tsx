@@ -132,53 +132,65 @@ export function PromptRow({
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
-      <CardHeader className="pb-4">
-        <div className="flex items-start gap-4">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-3">
           {/* Selection checkbox */}
-          <div className="pt-1">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={onSelect}
-              className="transition-smooth"
-            />
-          </div>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelect}
+            className="transition-smooth"
+          />
 
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            {/* Prompt text and basic info */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1 pr-4">
-                <p className="text-sm font-medium leading-relaxed line-clamp-2 mb-2">
-                  {prompt.text}
-                </p>
-                
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>Created {format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    <BarChart3 className="h-3 w-3" />
-                    <span>{performance.totalRuns} runs (7d)</span>
-                  </div>
-
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs px-2 py-0.5 ${prompt.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}
-                  >
-                    {prompt.active ? 'Active' : 'Paused'}
-                  </Badge>
+            {/* Prompt text */}
+            <p className="text-sm font-medium leading-tight line-clamp-2 mb-2">
+              {prompt.text}
+            </p>
+            
+            {/* Condensed info row */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>{format(new Date(prompt.created_at), 'MMM d')}</span>
                 </div>
+                
+                <div className="flex items-center gap-1">
+                  <BarChart3 className="h-3 w-3" />
+                  <span>{performance.totalRuns} runs</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  <span>{performance.avgScore.toFixed(1)}</span>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <Target className="h-3 w-3" />
+                  <span className="text-success">{performance.brandVisible}</span>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  <span className="text-warning">{performance.competitorCount}</span>
+                </div>
+
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs px-1.5 py-0 ${prompt.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}
+                >
+                  {prompt.active ? 'Active' : 'Paused'}
+                </Badge>
               </div>
 
-              {/* Actions only */}
+              {/* Actions */}
               <div className="flex items-center gap-1">
                 <Button
                   onClick={handleToggleActive}
                   variant="outline"
                   size="sm"
-                  className="h-8 px-3"
+                  className="h-6 w-6 p-0"
                 >
                   {prompt.active ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                 </Button>
@@ -187,43 +199,10 @@ export function PromptRow({
                   onClick={handleDelete}
                   variant="outline"
                   size="sm"
-                  className="h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
-              </div>
-            </div>
-
-            {/* 7-Day Performance Summary */}
-            <div className="grid grid-cols-3 gap-4 p-3 bg-muted/30 rounded-lg mb-3">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <TrendingUp className="h-3 w-3" />
-                  <span>Avg Score</span>
-                </div>
-                <div className="text-lg font-semibold">
-                  {performance.avgScore.toFixed(1)}
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <Target className="h-3 w-3" />
-                  <span>Brand Visible</span>
-                </div>
-                <div className="text-lg font-semibold text-success">
-                  {performance.brandVisible}
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <Users className="h-3 w-3" />
-                  <span>Competitors</span>
-                </div>
-                <div className="text-lg font-semibold text-warning">
-                  {performance.competitorCount}
-                </div>
               </div>
             </div>
 
@@ -234,7 +213,7 @@ export function PromptRow({
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-7"
+                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-5 mt-2"
                   >
                     {isExpanded ? (
                       <>
@@ -250,35 +229,35 @@ export function PromptRow({
                   </Button>
                 </CollapsibleTrigger>
 
-                <CollapsibleContent className="space-y-4 mt-4">
-            {/* Provider Response Cards */}
-            {promptDetails?.providers && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-muted-foreground border-b border-border/50 pb-2">
-                  Provider Results
-                </h4>
-                <div className="grid gap-3">
-                  {Object.entries(promptDetails.providers)
-                    .filter(([provider, response]: [string, any]) => {
-                      // Filter providers based on subscription tier
-                      const { limits } = useSubscriptionGate();
-                      const allowedProviders = limits.allowedProviders || [];
-                      return response && allowedProviders.includes(provider);
-                    })
-                    .map(([provider, response]: [string, any]) => (
-                      <ProviderResponseCard
-                        key={provider}
-                        provider={provider as "openai" | "gemini" | "perplexity"}
-                        response={response}
-                        promptText={prompt.text}
-                      />
-                    ))}
-                </div>
-              </div>
-            )}
+                <CollapsibleContent className="space-y-4 mt-3">
+                  {/* Provider Response Cards */}
+                  {promptDetails?.providers && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground border-b border-border/50 pb-1">
+                        Provider Results
+                      </h4>
+                      <div className="grid gap-2">
+                        {Object.entries(promptDetails.providers)
+                          .filter(([provider, response]: [string, any]) => {
+                            // Filter providers based on subscription tier
+                            const { limits } = useSubscriptionGate();
+                            const allowedProviders = limits.allowedProviders || [];
+                            return response && allowedProviders.includes(provider);
+                          })
+                          .map(([provider, response]: [string, any]) => (
+                            <ProviderResponseCard
+                              key={provider}
+                              provider={provider as "openai" | "gemini" | "perplexity"}
+                              response={response}
+                              promptText={prompt.text}
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Citations Section */}
-                  <div className="border-t border-border/50 pt-4">
+                  <div className="border-t border-border/50 pt-3">
                     <PromptTopCitations promptId={prompt.id} />
                   </div>
                 </CollapsibleContent>
@@ -286,7 +265,7 @@ export function PromptRow({
             )}
           </div>
         </div>
-      </CardHeader>
+      </CardContent>
     </Card>
   );
 }
