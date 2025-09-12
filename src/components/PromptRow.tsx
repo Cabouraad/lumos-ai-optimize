@@ -132,65 +132,51 @@ export function PromptRow({
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
-      <CardContent className="p-3">
-        <div className="flex items-center gap-3">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
           {/* Selection checkbox */}
           <Checkbox
             checked={isSelected}
             onCheckedChange={onSelect}
-            className="transition-smooth"
+            className="transition-smooth mt-0.5"
           />
 
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            {/* Prompt text */}
-            <p className="text-sm font-medium leading-tight line-clamp-2 mb-2">
-              {prompt.text}
-            </p>
-            
-            {/* Condensed info row */}
-            <div className="flex items-center justify-between">
-              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>{format(new Date(prompt.created_at), 'MMM d')}</span>
-                </div>
+            {/* Prompt text and basic info */}
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium leading-relaxed line-clamp-2 mb-2">
+                  {prompt.text}
+                </p>
                 
-                <div className="flex items-center gap-1">
-                  <BarChart3 className="h-3 w-3" />
-                  <span>{performance.totalRuns} runs</span>
-                </div>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>Created {format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    <BarChart3 className="h-3 w-3" />
+                    <span>{performance.totalRuns} runs (7d)</span>
+                  </div>
 
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  <span>{performance.avgScore.toFixed(1)}</span>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs px-2 py-0.5 ${prompt.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}
+                  >
+                    {prompt.active ? 'Active' : 'Paused'}
+                  </Badge>
                 </div>
-                
-                <div className="flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  <span className="text-success">{performance.brandVisible}</span>
-                </div>
-                
-                <div className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  <span className="text-warning">{performance.competitorCount}</span>
-                </div>
-
-                <Badge 
-                  variant="outline" 
-                  className={`text-xs px-1.5 py-0 ${prompt.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}
-                >
-                  {prompt.active ? 'Active' : 'Paused'}
-                </Badge>
               </div>
 
-              {/* Actions */}
+              {/* Actions only */}
               <div className="flex items-center gap-1">
                 <Button
                   onClick={handleToggleActive}
                   variant="outline"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-7 px-2"
                 >
                   {prompt.active ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                 </Button>
@@ -199,10 +185,43 @@ export function PromptRow({
                   onClick={handleDelete}
                   variant="outline"
                   size="sm"
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
+              </div>
+            </div>
+
+            {/* 7-Day Performance Summary - Compact Grid */}
+            <div className="grid grid-cols-3 gap-3 p-2.5 bg-muted/30 rounded-lg mb-2">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                  <TrendingUp className="h-3 w-3" />
+                  <span>Avg Score</span>
+                </div>
+                <div className="text-base font-semibold">
+                  {performance.avgScore.toFixed(1)}
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                  <Target className="h-3 w-3" />
+                  <span>Brand Visible</span>
+                </div>
+                <div className="text-base font-semibold text-success">
+                  {performance.brandVisible}
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                  <Users className="h-3 w-3" />
+                  <span>Competitors</span>
+                </div>
+                <div className="text-base font-semibold text-warning">
+                  {performance.competitorCount}
+                </div>
               </div>
             </div>
 
@@ -213,7 +232,7 @@ export function PromptRow({
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-5 mt-2"
+                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-6"
                   >
                     {isExpanded ? (
                       <>
