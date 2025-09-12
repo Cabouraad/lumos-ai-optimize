@@ -9,27 +9,70 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Hardened cron job configurations with safe JSON
+// Enhanced cron job configurations with safe JSON formatting and dual timezone triggers
 const CRON_JOBS = [
   {
     jobname: 'daily-batch-trigger-est',
-    schedule: '0 8 * * *', // 8 AM EST = 3 AM during EDT transition
-    command: `SELECT net.http_post(url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger', headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')), body := jsonb_build_object('triggered_by', 'pg_cron_est', 'timestamp', now()::text)) as request_id;`
+    schedule: '0 8 * * *', // 8 AM UTC = 3 AM EST (winter)
+    command: `SELECT net.http_post(
+      url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')
+      ),
+      body := jsonb_build_object(
+        'triggered_by', 'pg_cron_est',
+        'schedule_type', 'standard_est',
+        'timestamp', now()::text
+      )
+    ) as request_id;`
   },
   {
-    jobname: 'daily-batch-trigger-edt', 
-    schedule: '0 7 * * *', // 7 AM EDT = 3 AM during EDT
-    command: `SELECT net.http_post(url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger', headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')), body := jsonb_build_object('triggered_by', 'pg_cron_edt', 'timestamp', now()::text)) as request_id;`
+    jobname: 'daily-batch-trigger-edt',
+    schedule: '0 7 * * *', // 7 AM UTC = 3 AM EDT (summer)
+    command: `SELECT net.http_post(
+      url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')
+      ),
+      body := jsonb_build_object(
+        'triggered_by', 'pg_cron_edt',
+        'schedule_type', 'daylight_edt',
+        'timestamp', now()::text
+      )
+    ) as request_id;`
   },
   {
     jobname: 'batch-reconciler-every-5min',
     schedule: '*/5 * * * *', // Every 5 minutes
-    command: `SELECT net.http_post(url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/batch-reconciler', headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')), body := jsonb_build_object('triggered_by', 'pg_cron_reconciler', 'timestamp', now()::text)) as request_id;`
+    command: `SELECT net.http_post(
+      url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/batch-reconciler',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')
+      ),
+      body := jsonb_build_object(
+        'triggered_by', 'pg_cron_reconciler',
+        'timestamp', now()::text
+      )
+    ) as request_id;`
   },
   {
-    jobname: 'scheduler-postcheck-hourly',
-    schedule: '0 * * * *', // Every hour
-    command: `SELECT net.http_post(url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/scheduler-postcheck', headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')), body := jsonb_build_object('triggered_by', 'pg_cron_postcheck', 'timestamp', now()::text)) as request_id;`
+    jobname: 'scheduler-postcheck-repair',
+    schedule: '0 * * * *', // Every hour on the hour
+    command: `SELECT net.http_post(
+      url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/scheduler-postcheck?repair=true',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')
+      ),
+      body := jsonb_build_object(
+        'triggered_by', 'pg_cron_postcheck_repair',
+        'repair_mode', true,
+        'timestamp', now()::text
+      )
+    ) as request_id;`
   }
 ];
 
@@ -89,28 +132,44 @@ serve(async (req) => {
 
       case 'cleanup':
         // Remove all existing cron jobs to start fresh
-        const { data: existingJobs } = await supabase
-          .from('cron.job')
-          .select('jobid, jobname');
+        const { data: existingJobs } = await supabase.rpc('get_cron_jobs_status');
 
         let removedJobs = 0;
-        if (existingJobs) {
+        const removalResults = [];
+
+        if (existingJobs && existingJobs.length > 0) {
+          console.log(`🧹 Found ${existingJobs.length} existing cron jobs to remove`);
+          
           for (const job of existingJobs) {
             try {
-              await supabase.rpc('cron_unschedule', { job_name: job.jobname });
-              removedJobs++;
-              console.log(`✅ Removed job: ${job.jobname}`);
+              const { error: unscheduleError } = await supabase.rpc('cron_unschedule', { 
+                job_name: job.jobname 
+              });
+              
+              if (unscheduleError) {
+                console.warn(`⚠️ Could not remove job ${job.jobname}:`, unscheduleError.message);
+                removalResults.push({ job: job.jobname, success: false, error: unscheduleError.message });
+              } else {
+                removedJobs++;
+                console.log(`✅ Removed job: ${job.jobname} (ID: ${job.jobid})`);
+                removalResults.push({ job: job.jobname, success: true, jobid: job.jobid });
+              }
             } catch (err) {
-              console.warn(`⚠️ Could not remove job ${job.jobname}:`, err);
+              console.warn(`💥 Exception removing job ${job.jobname}:`, err);
+              removalResults.push({ job: job.jobname, success: false, error: err.message });
             }
           }
+        } else {
+          console.log('🧹 No existing cron jobs found to remove');
         }
 
         return new Response(JSON.stringify({
           success: true,
           action: 'cleanup',
           removedJobs,
-          message: `Removed ${removedJobs} existing cron jobs`
+          totalJobs: existingJobs?.length || 0,
+          results: removalResults,
+          message: `Successfully removed ${removedJobs}/${existingJobs?.length || 0} cron jobs`
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

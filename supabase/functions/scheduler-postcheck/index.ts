@@ -204,35 +204,63 @@ serve(async (req) => {
       missingPromptsCount: missingPrompts.length
     });
 
-    // 4. Optional self-healing: trigger batch processing for missing orgs
+    // 4. Enhanced self-healing: trigger batch processing for missing orgs
     let healingAttempted = 0;
     const healingResults = [];
 
-    // Only attempt healing if repair mode is enabled and we have significant coverage gaps
+    // Only attempt healing if repair mode is enabled and we have coverage gaps
     if (repairMode && (missingOrgs.length > 0 || promptCoveragePercent < 95)) {
       logStep('Repair mode enabled - attempting self-healing', { 
         missingOrgs: missingOrgs.length,
         promptCoverage: promptCoveragePercent,
-        totalMissingPrompts: missingPrompts.length
+        totalMissingPrompts: missingPrompts.length,
+        repairThreshold: '95% coverage'
       });
 
-      for (const orgId of missingOrgs) {
-        try {
-          // Get the CRON secret for healing calls
-          const { data: cronSecretData } = await supabase
-            .from('app_settings')
-            .select('value')
-            .eq('key', 'cron_secret')
-            .single();
+      // Get the CRON secret once for all healing calls
+      const { data: cronSecretData } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'cron_secret')
+        .single();
 
-          if (cronSecretData?.value) {
+      if (!cronSecretData?.value) {
+        logStep('Cannot perform healing - missing cron secret');
+        healingResults.push({ error: 'Missing cron secret for healing operations' });
+      } else {
+        // Process missing organizations with enhanced error handling
+        for (const orgId of missingOrgs) {
+          try {
+            // Check if healing is needed (avoid duplicate healing)
+            const { data: recentHealingJobs } = await supabase
+              .from('batch_jobs')
+              .select('id, status, created_at')
+              .eq('org_id', orgId)
+              .gte('created_at', `${todayKey}T00:00:00`)
+              .eq('metadata->source', 'scheduler-postcheck-repair');
+
+            const hasRecentHealingJob = recentHealingJobs?.some(job => 
+              job.status === 'processing' || 
+              (job.status === 'completed' && new Date(job.created_at) > new Date(Date.now() - 60 * 60 * 1000))
+            );
+
+            if (hasRecentHealingJob) {
+              logStep('Skipping healing for org - recent job exists', { orgId });
+              healingResults.push({ orgId, success: true, action: 'skipped', reason: 'Recent healing job exists' });
+              continue;
+            }
+
             const healingResponse = await supabase.functions.invoke('robust-batch-processor', {
               body: {
                 action: 'create',
                 orgId,
                 correlationId: `repair-${runId}`,
                 healedBy: 'postcheck-repair',
-                source: 'scheduler-postcheck-repair'
+                source: 'scheduler-postcheck-repair',
+                repairContext: {
+                  todayKey,
+                  missingPrompts: missingPromptsByOrg[orgId]?.length || 0
+                }
               },
               headers: {
                 'x-cron-secret': cronSecretData.value
@@ -244,13 +272,23 @@ serve(async (req) => {
               healingResults.push({ orgId, success: false, error: healingResponse.error.message });
             } else {
               logStep('Repair triggered for org', { orgId, jobId: healingResponse.data?.batchJobId });
-              healingResults.push({ orgId, success: true, jobId: healingResponse.data?.batchJobId });
+              healingResults.push({ 
+                orgId, 
+                success: true, 
+                jobId: healingResponse.data?.batchJobId,
+                action: healingResponse.data?.action
+              });
               healingAttempted++;
             }
+          } catch (healingError) {
+            logStep('Repair exception for org', { orgId, error: healingError.message });
+            healingResults.push({ orgId, success: false, error: healingError.message });
           }
-        } catch (healingError) {
-          logStep('Repair exception for org', { orgId, error: healingError.message });
-          healingResults.push({ orgId, success: false, error: healingError.message });
+
+          // Small delay to avoid overwhelming the system
+          if (missingOrgs.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
       }
     } else if (missingOrgs.length > 0 || promptCoveragePercent < 95) {
@@ -258,7 +296,13 @@ serve(async (req) => {
         repairMode,
         missingOrgs: missingOrgs.length,
         promptCoverage: promptCoveragePercent,
-        hint: 'Add ?repair=true to enable automatic healing'
+        hint: 'Add ?repair=true to enable automatic healing',
+        coverageThreshold: 95
+      });
+    } else {
+      logStep('No healing required - coverage is satisfactory', {
+        orgCoverage: Math.round((completedOrgIds.size / orgIds.length) * 100),
+        promptCoverage: promptCoveragePercent
       });
     }
 

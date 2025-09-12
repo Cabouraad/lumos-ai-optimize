@@ -155,32 +155,34 @@ serve(async (req) => {
       console.log('✅ Within execution window');
     }
 
-    // Use the standardized RPC function for duplicate prevention
-    const { data: runCheck, error: runCheckError } = await supabase
-      .rpc('try_mark_daily_run', { p_today_key: todayKey });
+    // FIRST: Check if already ran today WITHOUT marking (read-only check)
+    const { data: currentState, error: stateError } = await supabase
+      .from('scheduler_state')
+      .select('last_daily_run_key, last_daily_run_at')
+      .eq('id', 'global')
+      .single();
 
-    if (runCheckError) {
-      console.error('Error checking/updating scheduler state:', runCheckError);
+    if (stateError && stateError.code !== 'PGRST116') {
+      console.error('Error checking scheduler state:', stateError);
       await supabase.from('scheduler_runs').update({
         status: 'failed',
-        error_message: `Failed to mark daily run: ${runCheckError.message}`,
+        error_message: `Failed to check scheduler state: ${stateError.message}`,
         completed_at: new Date().toISOString()
       }).eq('id', runId);
-      throw runCheckError;
+      throw stateError;
     }
 
-    console.log('Daily run check result:', runCheck);
-
-    // If we didn't update (already ran today), skip
-    if (!runCheck.updated) {
-      console.log(`Daily batch already ran for ${todayKey} (previous: ${runCheck.previous_key})`);
+    // If already ran today, skip (unless force flag is set)
+    if (currentState?.last_daily_run_key === todayKey && !requestBody.force) {
+      console.log(`Daily batch already ran for ${todayKey} (at: ${currentState.last_daily_run_at})`);
       
       await supabase.from('scheduler_runs').update({
         status: 'completed',
         result: { 
           message: 'Daily batch already completed today',
           date: todayKey,
-          previousRun: runCheck.previous_key,
+          previousRun: currentState.last_daily_run_key,
+          previousRunAt: currentState.last_daily_run_at,
           skipped: true,
           currentTime: currentTime.toISOString()
         },
@@ -191,7 +193,8 @@ serve(async (req) => {
         success: true, 
         message: 'Daily batch already completed today',
         date: todayKey,
-        previousRun: runCheck.previous_key,
+        previousRun: currentState.last_daily_run_key,
+        previousRunAt: currentState.last_daily_run_at,
         skipped: true,
         currentTime: currentTime.toISOString()
       }), {
@@ -249,6 +252,32 @@ serve(async (req) => {
     let successfulJobs = 0;
     const orgResults: any[] = [];
 
+    // Helper function to call batch processor with timeout
+    const invokeBatchProcessorWithTimeout = async (orgId: string, cronSecret: string, attempt: number) => {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Batch processor invocation timed out after 30 seconds'));
+        }, 30000);
+
+        supabase.functions.invoke('robust-batch-processor', {
+          body: { 
+            action: 'create',
+            orgId, 
+            source: 'daily-batch-trigger',
+            attempt,
+            replace: false
+          },
+          headers: { 'x-cron-secret': cronSecret }
+        }).then(result => {
+          clearTimeout(timeout);
+          resolve(result);
+        }).catch(error => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+    };
+
     // Trigger batch processor for each org
     for (const org of orgs) {
       try {
@@ -256,35 +285,26 @@ serve(async (req) => {
         
         let batchSuccess = false;
         let attempts = 0;
-        let data: any = null; // Declare data in outer scope
+        let data: any = null;
         const maxAttempts = 2;
         
         while (!batchSuccess && attempts < maxAttempts) {
           attempts++;
           
           try {
-            const batchResult = await supabase.functions.invoke('robust-batch-processor', {
-              body: { 
-                action: 'create',
-                orgId: org.id, 
-                source: 'daily-batch-trigger',
-                attempt: attempts,
-                replace: false
-              },
-              headers: { 'x-cron-secret': cronSecret! }
-            });
+            const batchResult = await invokeBatchProcessorWithTimeout(org.id, cronSecret!, attempts);
 
             if (batchResult.error) {
               console.error(`Attempt ${attempts} failed for org ${org.id}:`, batchResult.error);
               if (attempts < maxAttempts) {
-                console.log(`Retrying in 30 seconds...`);
-                await new Promise(resolve => setTimeout(resolve, 30000));
+                console.log(`Retrying in 5 seconds...`);
+                await new Promise(resolve => setTimeout(resolve, 5000));
                 continue;
               }
               throw batchResult.error;
             }
             
-            data = batchResult.data; // Assign to outer scope variable
+            data = batchResult.data;
             
             // Handle in_progress responses - background resumption is automatic
             if (data?.action === 'in_progress') {
@@ -311,7 +331,8 @@ serve(async (req) => {
             orgName: org.name,
             success: true,
             attempts: attempts,
-            result: data // Include the batch result for observability
+            batchJobId: data?.batchJobId,
+            action: data?.action
           });
         } else {
           orgResults.push({
@@ -331,7 +352,7 @@ serve(async (req) => {
       } catch (orgError) {
         console.error(`Error processing org ${org.id}:`, orgError);
         totalBatchJobs++;
-          orgResults.push({
+        orgResults.push({
           orgId: org.id,
           orgName: org.name,
           success: false,
@@ -340,22 +361,52 @@ serve(async (req) => {
       }
     }
 
+    // ONLY mark daily run as completed AFTER all organizations are processed successfully
+    let runCheck = null;
+    if (successfulJobs === totalBatchJobs) {
+      // All organizations processed successfully - mark day as completed
+      const { data: markResult, error: markError } = await supabase
+        .rpc('try_mark_daily_run', { p_today_key: todayKey });
+
+      if (markError) {
+        console.error('Failed to mark daily run after successful processing:', markError);
+        // Continue anyway - organizations were processed successfully
+      } else {
+        runCheck = markResult;
+        console.log('✅ Daily run marked as completed after successful processing');
+      }
+    } else {
+      // Partial failure - do NOT mark the day as completed to allow retry
+      console.warn(`⚠️ Partial failure: ${successfulJobs}/${totalBatchJobs} organizations processed successfully`);
+      console.warn('Day NOT marked as completed - allowing future retry attempts');
+    }
+
+    const isFullSuccess = successfulJobs === totalBatchJobs;
     const result = {
-      success: true,
+      success: isFullSuccess,
       date: todayKey,
       currentTime: currentTime.toISOString(),
       totalOrgs: totalBatchJobs,
       successfulJobs,
-      message: `Triggered batch processing for ${successfulJobs}/${totalBatchJobs} organizations`,
+      failedJobs: totalBatchJobs - successfulJobs,
+      message: isFullSuccess 
+        ? `Successfully triggered batch processing for all ${successfulJobs} organizations` 
+        : `Partial success: ${successfulJobs}/${totalBatchJobs} organizations processed`,
       orgResults,
-      runCheck
+      runCheck,
+      dayMarkedCompleted: !!runCheck,
+      coverage: {
+        percent: totalBatchJobs > 0 ? Math.round((successfulJobs / totalBatchJobs) * 100) : 100,
+        successful: successfulJobs,
+        total: totalBatchJobs
+      }
     };
 
-    console.log(`Daily batch trigger completed:`, result);
+    console.log(`Daily batch trigger ${isFullSuccess ? 'completed successfully' : 'completed with partial failures'}:`, result);
 
-    // Log successful completion
+    // Log completion with appropriate status
     await supabase.from('scheduler_runs').update({
-      status: 'completed',
+      status: isFullSuccess ? 'completed' : 'failed_partial',
       result: result,
       completed_at: new Date().toISOString()
     }).eq('id', runId);
@@ -367,18 +418,27 @@ serve(async (req) => {
   } catch (error) {
     console.error('Daily batch trigger error:', error);
     
-    // Log the failure
+    // Log the failure with enhanced context
     await supabase.from('scheduler_runs').update({
       status: 'failed',
-      error_message: error.message,
+      error_message: error.message || 'Unknown error',
+      result: {
+        success: false,
+        error: error.message || 'Unknown error',
+        date: todayKey,
+        currentTime: currentTime.toISOString(),
+        context: 'Exception in main execution loop',
+        dayMarkedCompleted: false
+      },
       completed_at: new Date().toISOString()
     }).eq('id', runId);
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
+      error: error.message || 'Unknown error',
       date: todayKey,
-      currentTime: currentTime.toISOString()
+      currentTime: currentTime.toISOString(),
+      context: 'Exception in main execution loop'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
