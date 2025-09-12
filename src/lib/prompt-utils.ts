@@ -9,12 +9,12 @@ export const getPromptCategory = (text: string) => {
 export const getCategoryColor = (category: string) => {
   switch (category) {
     case 'Brand Visibility':
-      return 'bg-primary/10 text-primary border-primary/20';
+      return 'bg-primary text-primary-foreground border-primary shadow-sm';
     case 'Competitor Monitoring':
-      return 'bg-warning/10 text-warning border-warning/20';
+      return 'bg-warning text-warning-foreground border-warning shadow-sm';
     case 'Content Optimization':
-      return 'bg-accent/10 text-accent-foreground border-accent/20';
+      return 'bg-accent text-accent-foreground border-accent shadow-sm';
     default:
-      return 'bg-muted text-muted-foreground border-border';
+      return 'bg-secondary text-secondary-foreground border-secondary shadow-sm';
   }
 };
