@@ -18,6 +18,7 @@ import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptSuggestions } from '@/components/PromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
+import { getPromptCategory } from '@/lib/prompt-utils';
 import { AlertCircle } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
@@ -64,13 +65,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
   });
 };
 
-const getPromptCategory = (text: string) => {
-  const lowerText = text.toLowerCase();
-  if (lowerText.includes('brand') || lowerText.includes('company')) return 'Brand Visibility';
-  if (lowerText.includes('competitor') || lowerText.includes('vs') || lowerText.includes('alternative')) return 'Competitor Monitoring';
-  if (lowerText.includes('content') || lowerText.includes('blog') || lowerText.includes('article')) return 'Content Optimization';
-  return 'Brand Visibility'; // Default category
-};
+// Categorization function moved to /lib/prompt-utils.ts
 
 export default function Prompts() {
   const { orgData, user } = useAuth();

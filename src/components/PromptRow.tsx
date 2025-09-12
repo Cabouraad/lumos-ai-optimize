@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ProviderResponseCard } from './ProviderResponseCard';
 import { PromptTopCitations } from './PromptTopCitations';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { getPromptCategory, getCategoryColor } from '@/lib/prompt-utils';
 import { 
   Calendar, 
   BarChart3, 
@@ -19,7 +20,8 @@ import {
   Play,
   TrendingUp,
   Target,
-  Users
+  Users,
+  Tag
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -129,6 +131,7 @@ export function PromptRow({
   };
 
   const performance = calculate7DayPerformance();
+  const category = getPromptCategory(prompt.text);
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
@@ -170,8 +173,16 @@ export function PromptRow({
                 </div>
               </div>
 
-              {/* Actions only */}
-              <div className="flex items-center gap-1">
+              {/* Category and Actions */}
+              <div className="flex items-center gap-2">
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs px-2 py-1 ${getCategoryColor(category)}`}
+                >
+                  <Tag className="h-3 w-3 mr-1" />
+                  {category}
+                </Badge>
+                
                 <Button
                   onClick={handleToggleActive}
                   variant="outline"
