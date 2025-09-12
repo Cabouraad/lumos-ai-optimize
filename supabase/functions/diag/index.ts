@@ -5,7 +5,7 @@ import { getStrictCorsHeaders } from "../_shared/cors.ts";
 serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
   const allowList = (Deno.env.get("APP_ORIGINS") ?? Deno.env.get("APP_ORIGIN") ?? "")
-    .split(",").map(s=>s.trim()).filter(Boolean);
+    .split(",").map(s => s.trim()).filter(Boolean);
   const allowed = allowList.includes(origin);
   
   const headers = {
