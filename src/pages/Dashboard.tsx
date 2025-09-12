@@ -128,9 +128,9 @@ export default function Dashboard() {
       // Calculate competitor presence rates
       competitors.forEach((competitor, index) => {
         const competitorResponses = dayResponses.filter((response: any) => {
-          if (!response.detected_brands) return false;
-          const brands = Array.isArray(response.detected_brands) ? response.detected_brands : [response.detected_brands];
-          return brands.some((brand: string) => 
+          if (!response.competitors_json) return false;
+          const competitors = Array.isArray(response.competitors_json) ? response.competitors_json : [response.competitors_json];
+          return competitors.some((brand: string) => 
             brand && brand.toLowerCase().trim() === competitor.name.toLowerCase().trim()
           );
         });
@@ -302,12 +302,12 @@ export default function Dashboard() {
         const competitorMap = new Map();
         if (dashboardData?.responses) {
           dashboardData.responses.forEach((response: any) => {
-            if (response.detected_brands) {
-              const brands = Array.isArray(response.detected_brands) ? response.detected_brands : [response.detected_brands];
-              brands.forEach((brand: string) => {
-                if (brand && brand.trim() && !response.org_brand_present) {
-                  const existing = competitorMap.get(brand);
-                  competitorMap.set(brand, (existing || 0) + 1);
+            if (response.competitors_json) {
+              const competitors = Array.isArray(response.competitors_json) ? response.competitors_json : [response.competitors_json];
+              competitors.forEach((competitor: string) => {
+                if (competitor && competitor.trim() && !response.org_brand_present) {
+                  const existing = competitorMap.get(competitor);
+                  competitorMap.set(competitor, (existing || 0) + 1);
                 }
               });
             }
