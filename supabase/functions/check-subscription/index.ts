@@ -273,11 +273,11 @@ if (customers.data.length === 0) {
         // Handle both monthly and yearly prices
         const monthlyAmount = price.recurring?.interval === 'year' ? Math.round(amount / 12) : amount;
         
-        if (monthlyAmount >= 19900) {
+        if (monthlyAmount >= 25000) {
           subscriptionTier = "pro";
-        } else if (monthlyAmount >= 6900) {
+        } else if (monthlyAmount >= 8900) {
           subscriptionTier = "growth";
-        } else if (monthlyAmount >= 2900) {
+        } else if (monthlyAmount >= 3900) {
           subscriptionTier = "starter";
         } else {
           subscriptionTier = "starter"; // Default fallback

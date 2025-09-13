@@ -4,16 +4,16 @@ describe('Pricing Alignment', () => {
   it('should ensure Stripe prices match pricing page', () => {
     // Pricing page prices (in dollars)
     const pricingPageTiers = {
-      starter: { monthly: 29, yearly: 290 },
-      growth: { monthly: 69, yearly: 690 },
-      pro: { monthly: 199, yearly: 1990 }
+      starter: { monthly: 39, yearly: 390 },
+      growth: { monthly: 89, yearly: 890 },
+      pro: { monthly: 250, yearly: 2500 }
     };
 
     // Stripe prices (in cents) - these should match the pricing page
     const stripePrices = {
-      starter: { monthly: 2900, yearly: 29000 },
-      growth: { monthly: 6900, yearly: 69000 },
-      pro: { monthly: 19900, yearly: 199000 }
+      starter: { monthly: 3900, yearly: 39000 },
+      growth: { monthly: 8900, yearly: 89000 },
+      pro: { monthly: 25000, yearly: 250000 }
     };
 
     // Convert pricing page prices to cents and compare

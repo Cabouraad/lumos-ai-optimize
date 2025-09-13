@@ -9,9 +9,9 @@ interface RequestBody {
 }
 
 const TIER_PRICES = {
-  starter: { monthly: 2900, yearly: 29000 }, // $29/mo, $290/year
-  growth: { monthly: 6900, yearly: 69000 }, // $69/mo, $690/year  
-  pro: { monthly: 19900, yearly: 199000 }, // $199/mo, $1990/year
+  starter: { monthly: 3900, yearly: 39000 }, // $39/mo, $390/year
+  growth: { monthly: 8900, yearly: 89000 }, // $89/mo, $890/year  
+  pro: { monthly: 25000, yearly: 250000 }, // $250/mo, $2500/year
 };
 
 const generateIdempotencyKey = (userId: string, intent: string): string => {

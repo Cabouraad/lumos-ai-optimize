@@ -75,8 +75,8 @@ export default function Pricing() {
       tier: 'starter' as const,
       title: 'Starter',
       description: 'Perfect for getting started with AI search visibility tracking',
-      monthlyPrice: 29,
-      yearlyPrice: 290,
+      monthlyPrice: 39,
+      yearlyPrice: 390,
       features: [
         'Up to 25 prompts to track daily',
         '2 AI providers (OpenAI + Perplexity)',
@@ -95,8 +95,8 @@ export default function Pricing() {
       tier: 'growth' as const,
       title: 'Growth',
       description: 'Best for businesses serious about AI search optimization',
-      monthlyPrice: 69,
-      yearlyPrice: 690,
+      monthlyPrice: 89,
+      yearlyPrice: 890,
       features: [
         'Up to 100 prompts to track daily',
         '3 AI providers (OpenAI, Perplexity, Gemini)',
@@ -115,8 +115,8 @@ export default function Pricing() {
       tier: 'pro' as const,
       title: 'Pro',
       description: 'For enterprises and agencies managing multiple brands',
-      monthlyPrice: 199,
-      yearlyPrice: 1990,
+      monthlyPrice: 250,
+      yearlyPrice: 2500,
       features: [
         'Up to 300 prompts to track daily',
         '3 AI providers (OpenAI, Perplexity, Gemini)',
