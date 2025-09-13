@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Check, X } from 'lucide-react';
 import { EdgeFunctionClient } from "@/lib/edge-functions/client";
+import { EnhancedEdgeFunctionClient } from "@/lib/edge-functions/enhanced-client";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useToast } from '@/hooks/use-toast';
@@ -104,7 +105,7 @@ export function PricingCard({
       const functionName = tier === 'starter' ? 'create-trial-checkout' : 'create-checkout';
       const body = tier === 'starter' ? {} : { tier, billingCycle };
       
-      const { data, error } = await EdgeFunctionClient.invoke(functionName, {
+      const { data, error } = await EnhancedEdgeFunctionClient.invoke(functionName, {
         body,
       });
 

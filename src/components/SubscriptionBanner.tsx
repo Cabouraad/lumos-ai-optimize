@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { Zap, CreditCard } from 'lucide-react';
-import { EdgeFunctionClient } from '@/lib/edge-functions/client';
+import { EnhancedEdgeFunctionClient } from '@/lib/edge-functions/enhanced-client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
@@ -37,7 +37,7 @@ export function SubscriptionBanner() {
       }
 
       // Default: start standard trial checkout
-      const { data, error } = await EdgeFunctionClient.createTrialCheckout();
+      const { data, error } = await EnhancedEdgeFunctionClient.invoke('create-trial-checkout');
       if (error) throw error;
       if (data?.url) {
         window.location.href = data.url;

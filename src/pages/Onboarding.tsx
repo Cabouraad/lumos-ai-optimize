@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
+import { EnhancedEdgeFunctionClient } from '@/lib/edge-functions/enhanced-client';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +99,7 @@ export default function Onboarding() {
       const functionName = selectedPlan === 'starter' ? 'create-trial-checkout' : 'create-checkout';
       const body = selectedPlan === 'starter' ? {} : { tier: selectedPlan, billingCycle };
       
-      const { data, error } = await supabase.functions.invoke(functionName, {
+      const { data, error } = await EnhancedEdgeFunctionClient.invoke(functionName, {
         body,
       });
 
@@ -318,8 +319,8 @@ export default function Onboarding() {
       tier: 'starter' as const,
       title: 'Starter',
       description: 'Perfect for getting started',
-      monthlyPrice: 19,
-      yearlyPrice: 190,
+      monthlyPrice: 39,
+      yearlyPrice: 390,
       features: [
         '10 prompts/day',
         '2 AI providers',
@@ -335,8 +336,8 @@ export default function Onboarding() {
       tier: 'growth' as const,
       title: 'Growth',
       description: 'Best for growing businesses',
-      monthlyPrice: 69,
-      yearlyPrice: 690,
+      monthlyPrice: 89,
+      yearlyPrice: 890,
       features: [
         '50 prompts/day',
         '3 AI providers',
@@ -352,8 +353,8 @@ export default function Onboarding() {
       tier: 'pro' as const,
       title: 'Pro',
       description: 'For enterprises & agencies',
-      monthlyPrice: 199,
-      yearlyPrice: 1990,
+      monthlyPrice: 250,
+      yearlyPrice: 2500,
       features: [
         '200 prompts/day',
         '3 AI providers',
