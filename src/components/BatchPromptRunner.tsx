@@ -8,6 +8,8 @@ import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Setting
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
+import { EnhancedEdgeFunctionClient } from '@/lib/edge-functions/enhanced-client';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 interface BatchJob {
   id: string;
@@ -236,53 +238,31 @@ export function BatchPromptRunner() {
     }
   };
 
-  // Robust invoke with retry mechanism
+  // Enhanced invoke with comprehensive error handling and resilience
   const robustInvoke = async (functionName: string, options: any, retries = 2): Promise<any> => {
-    console.log(`🔄 Attempting to invoke ${functionName}:`, {
+    const correlationId = crypto.randomUUID();
+    console.log(`🔄 [${correlationId}] Invoking ${functionName}:`, {
       hasAuth: !!options.headers?.authorization || !!options.body?.auth,
       bodyKeys: Object.keys(options.body || {}),
-      attempt: 1
+      correlationId
     });
     
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const result = await supabase.functions.invoke(functionName, options);
-        
-        if (result.error) {
-          console.error(`❌ ${functionName} returned error:`, result.error);
-          throw new Error(result.error.message || `${functionName} failed`);
-        }
-        
-        console.log(`✅ ${functionName} success:`, result.data?.action || 'success');
-        return result;
-      } catch (error: any) {
-        console.error(`❌ ${functionName} attempt ${attempt + 1} error:`, {
-          message: error.message,
-          name: error.name,
-          stack: error.stack?.split('\n')[0],
-          attempt: attempt + 1,
-          maxAttempts: retries + 1
-        });
-        
-        const isNetworkError = error.message?.includes('Failed to fetch') || 
-                              error.message?.includes('network') ||
-                              error.message?.includes('NetworkError') ||
-                              error.name === 'TypeError' && error.message?.includes('fetch');
-        
-        if (isNetworkError && attempt < retries) {
-          const backoffMs = 1000 * (attempt + 1);
-          console.log(`🔄 Network error on attempt ${attempt + 1}, retrying in ${backoffMs}ms...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
-          continue;
-        }
-        
-        // Enhance error message for network issues
-        if (isNetworkError) {
-          throw new Error(`Connection to ${functionName} failed. Please check your internet connection and try again. (${error.message})`);
-        }
-        
-        throw error;
+    try {
+      const result = await EnhancedEdgeFunctionClient.invoke(functionName, {
+        ...options,
+        retries,
+        correlationId
+      });
+      
+      if (result.error) {
+        throw result.error;
       }
+      
+      console.log(`✅ [${correlationId}] ${functionName} success:`, result.data?.action || 'success');
+      return result;
+    } catch (error: any) {
+      console.error(`❌ [${correlationId}] ${functionName} failed:`, error.message);
+      throw error;
     }
   };
 
@@ -612,6 +592,7 @@ export function BatchPromptRunner() {
             Robust Batch Processor
           </CardTitle>
           <div className="flex items-center gap-2">
+            <ConnectionStatus />
             <Button
               onClick={runReconciler}
               disabled={isReconciling}

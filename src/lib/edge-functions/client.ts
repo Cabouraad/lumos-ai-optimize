@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { validateEnvironment, getEnvironmentErrorMessage } from "@/lib/environment/validator";
 
 /**
  * Enhanced edge function client with proper logging and error handling
@@ -16,6 +17,19 @@ export class EdgeFunctionClient {
     } = {}
   ): Promise<{ data: T | null; error: any }> {
     try {
+      // Environment validation
+      const envStatus = validateEnvironment();
+      if (!envStatus.isValid) {
+        const error = new Error(getEnvironmentErrorMessage(envStatus));
+        console.error('❌ Environment validation failed:', error.message);
+        toast({
+          title: "Configuration Error",
+          description: "Please check your environment setup and try again.",
+          variant: "destructive",
+        });
+        return { data: null, error };
+      }
+
       // Get current session for logging
       const { data: { session } } = await supabase.auth.getSession();
       
