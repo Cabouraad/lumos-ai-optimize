@@ -247,18 +247,28 @@ export default function Reports() {
     try {
       setGenerating(true);
       
+      // Check if user is authenticated first
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        showToast({
+          title: "Authentication required",
+          description: "Please sign in to generate reports.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Call the edge function with proper authentication
+      // supabase.functions.invoke automatically handles authentication
       const { data, error } = await supabase.functions.invoke('weekly-report', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
+        body: {} // Empty body for POST request
       });
 
       if (error) {
         console.error('Error generating PDF report:', error);
         showToast({
           title: "Generation failed",
-          description: error.message || "Failed to generate PDF report",
+          description: error.message || "Failed to send a request to the Edge Function",
           variant: "destructive",
         });
         return;

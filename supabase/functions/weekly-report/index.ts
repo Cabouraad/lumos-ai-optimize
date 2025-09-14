@@ -111,10 +111,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client with service role for database operations
+    // Initialize Supabase clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Anon client for user authentication validation
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
 
     // Authentication handling: Support both CRON_SECRET and user JWT
     const authHeader = req.headers.get('Authorization');
@@ -126,12 +132,14 @@ Deno.serve(async (req) => {
     
     if (!isScheduledRun) {
       // Check for user JWT authentication
-      if (authHeader?.startsWith('Bearer ') && authHeader !== `Bearer ${cronSecret}`) {
+      if (authHeader?.startsWith('Bearer ')) {
         const jwt = authHeader.replace('Bearer ', '');
-        const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+        
+        // Use anon client to validate the JWT token
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(jwt);
         
         if (authError || !user) {
-          console.log('[WEEKLY-REPORT] Invalid user authentication');
+          console.log('[WEEKLY-REPORT] Invalid user authentication:', authError?.message);
           return new Response(
             JSON.stringify({ error: 'Authentication required' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
