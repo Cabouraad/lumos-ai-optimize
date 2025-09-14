@@ -51,10 +51,26 @@ serve(async (req) => {
       throw new Error('Could not get user organization');
     }
 
-    // Get organization details
+    // First, check if localization is enabled for this org
+    const { data: orgSettings, error: settingsError } = await supabase
+      .from('organizations')
+      .select('enable_localized_prompts')
+      .eq('id', userData.org_id)
+      .single();
+
+    if (settingsError || !orgSettings) {
+      console.error('Organization settings error:', settingsError);
+      throw new Error('Could not get organization settings');
+    }
+
+    // Get organization details - conditionally include location fields
+    const locationFields = orgSettings.enable_localized_prompts 
+      ? ', business_city, business_state, business_country' 
+      : '';
+    
     const { data: orgData, error: orgError } = await supabase
       .from('organizations')
-      .select('name, business_description, products_services, keywords, target_audience, domain, business_city, business_state, business_country, enable_localized_prompts')
+      .select(`name, business_description, products_services, keywords, target_audience, domain, enable_localized_prompts${locationFields}`)
       .eq('id', userData.org_id)
       .single();
 
@@ -94,9 +110,12 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Add location context if available and localization is enabled
+    // Add location context and instructions based on localization setting
     let locationInstructions = '';
     let locationContext = '';
+    
+    console.log(`Localization enabled for org ${userData.org_id}: ${orgData.enable_localized_prompts}`);
+    
     if (orgData.enable_localized_prompts && (orgData.business_city || orgData.business_state)) {
       const locationParts = [];
       if (orgData.business_city) locationParts.push(orgData.business_city);
@@ -118,7 +137,22 @@ Examples of localized prompts:
 - "where to find [solution] in ${locationParts.join(' ')}"
 
 Make sure localized prompts sound natural and are relevant to the business type.`;
+        
+        console.log(`Generated localized prompts for location: ${location}`);
       }
+    } else {
+      locationInstructions = `
+LOCALIZATION DISABLED: This business has NOT enabled localized prompts. Do NOT include any location-specific terms, city names, state names, or geographic references in any of the generated prompts. Keep all prompts generic and location-neutral.
+
+Examples of what to AVOID:
+- "best [service] in [city]"
+- "top [industry] companies in [state]" 
+- "[service type] near [location]"
+- Any mention of specific cities, states, or regions
+
+Generate only generic, location-neutral prompts that could apply to businesses anywhere.`;
+      
+      console.log(`Generating non-localized prompts for org ${userData.org_id}`);
     }
 
     const systemPrompt = `You are an expert at generating natural search prompts that real users would type into AI assistants like ChatGPT, Claude, or Perplexity when looking for business solutions.
