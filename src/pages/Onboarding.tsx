@@ -13,8 +13,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { PricingCard } from '@/components/PricingCard';
-import { Info } from 'lucide-react';
+import { Info, LogOut } from 'lucide-react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
+import { signOutWithCleanup } from '@/lib/auth-cleanup';
 
 export default function Onboarding() {
   const { user, orgData, subscriptionData } = useAuth();
@@ -304,6 +305,14 @@ export default function Onboarding() {
     setAutoFillLoading(false);
   };
 
+  const handleSignOut = () => {
+    if (confirm('Are you sure you want to sign out? This will cancel the onboarding process.')) {
+      // Clear any temporary onboarding data
+      sessionStorage.removeItem('onboarding-data');
+      signOutWithCleanup();
+    }
+  };
+
   const handleFinishOnboarding = () => {
     toast({
       title: "Welcome to Llumos!",
@@ -374,10 +383,23 @@ export default function Onboarding() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-2xl">
           <CardHeader>
-            <CardTitle>Business Context & Keywords</CardTitle>
-            <CardDescription>
-              This information is required to generate relevant AI prompt suggestions. Complete this step before selecting your plan.
-            </CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Business Context & Keywords</CardTitle>
+                <CardDescription>
+                  This information is required to generate relevant AI prompt suggestions. Complete this step before selecting your plan.
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4 mr-1" />
+                Sign Out
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-dashed">
@@ -490,6 +512,18 @@ export default function Onboarding() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex-1"></div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4 mr-1" />
+                Sign Out
+              </Button>
+            </div>
             <CardTitle className="text-green-600">🎉 Setup Complete!</CardTitle>
             <CardDescription>
               Your Llumos account is ready to help you track and improve your AI search visibility.
@@ -530,10 +564,23 @@ export default function Onboarding() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Welcome to Llumos</CardTitle>
-            <CardDescription>
-              Let's set up your organization to start optimizing your AI search visibility.
-            </CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Welcome to Llumos</CardTitle>
+                <CardDescription>
+                  Let's set up your organization to start optimizing your AI search visibility.
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4 mr-1" />
+                Sign Out
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(2); }} className="space-y-4">
@@ -597,6 +644,17 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-6xl">
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4 mr-1" />
+            Sign Out
+          </Button>
+        </div>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-4">Choose Your Plan</h1>
           <p className="text-lg text-muted-foreground mb-6">
