@@ -46,6 +46,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [csvLoading, setCsvLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   
   const [activeTab, setActiveTab] = useState('pdf-reports');
 
@@ -242,6 +243,72 @@ export default function Reports() {
     });
   };
 
+  const generatePdfReport = async () => {
+    try {
+      setGenerating(true);
+      
+      const { data, error } = await supabase.functions.invoke('weekly-report', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+
+      if (error) {
+        console.error('Error generating PDF report:', error);
+        showToast({
+          title: "Generation failed",
+          description: error.message || "Failed to generate PDF report",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Report generation started",
+        description: "Your PDF report is being generated. Refresh in a few moments to see it.",
+      });
+      
+      // Refresh reports after a short delay
+      setTimeout(() => {
+        loadReports();
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      showToast({
+        title: "Generation failed",
+        description: "Failed to generate PDF report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generateCsvReport = async () => {
+    try {
+      setGenerating(true);
+      
+      // CSV reports are generated via the scheduler, but we can trigger it manually
+      // Note: This requires the weekly-report-scheduler to be accessible to users
+      showToast({
+        title: "CSV Generation",
+        description: "CSV reports are currently generated automatically. Please check back on Monday after 8:10 AM UTC.",
+      });
+      
+    } catch (error) {
+      console.error('Error generating CSV report:', error);
+      showToast({
+        title: "Generation failed", 
+        description: "Failed to generate CSV report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   if (!accessGate.hasAccess) {
     return (
       <Layout>
@@ -278,7 +345,7 @@ export default function Reports() {
               }}
               variant="outline"
               size="sm"
-              disabled={loading || csvLoading}
+              disabled={loading || csvLoading || generating}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh All
@@ -355,13 +422,21 @@ export default function Reports() {
                       ))}
                     </div>
                   ) : reports.length === 0 ? (
-                    // Empty state
+                    // Empty state with manual generation option
                     <div className="text-center py-12">
                       <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No PDF reports yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        Reports are generated automatically every Monday.
+                        Reports are generated automatically every Monday at 8:00 AM UTC.
                       </p>
+                      <Button
+                        onClick={generatePdfReport}
+                        disabled={loading || generating}
+                        variant="outline"
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Generate Report Now
+                      </Button>
                     </div>
                   ) : (
                     // Reports table
@@ -432,13 +507,21 @@ export default function Reports() {
                       ))}
                     </div>
                   ) : csvReports.length === 0 ? (
-                    // Empty state
+                    // Empty state with manual generation option
                     <div className="text-center py-12">
                       <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No CSV reports yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        CSV reports are generated automatically every Monday.
+                        CSV reports are generated automatically every Monday at 8:10 AM UTC.
                       </p>
+                      <Button
+                        onClick={generateCsvReport}
+                        disabled={csvLoading || generating}
+                        variant="outline"
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Generate CSV Now
+                      </Button>
                     </div>
                   ) : (
                     // CSV reports list

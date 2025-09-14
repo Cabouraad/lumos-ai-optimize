@@ -51,12 +51,17 @@ serve(async (req) => {
       logStep('Failed to log scheduler run start', { error: logError.message });
     }
 
-    // Calculate last week's dates (Monday to Sunday)
+    // Calculate last complete week's dates (Monday to Sunday) - matching PDF function logic
     const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    // Calculate days to subtract to get to last Monday
+    const daysToLastMonday = currentDay === 0 ? 7 : currentDay; // If Sunday, go back 7 days
     const lastMonday = new Date(now);
-    lastMonday.setDate(now.getDate() - now.getDay() - 6); // Go to last Monday
+    lastMonday.setDate(now.getDate() - daysToLastMonday - 7); // Go to previous week's Monday
     lastMonday.setHours(0, 0, 0, 0);
     
+    // Calculate last Sunday (end of week)
     const lastSunday = new Date(lastMonday);
     lastSunday.setDate(lastMonday.getDate() + 6);
     lastSunday.setHours(23, 59, 59, 999);

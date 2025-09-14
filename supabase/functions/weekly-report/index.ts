@@ -116,52 +116,100 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authentication handling: CRON_SECRET required for all requests
+    // Authentication handling: Support both CRON_SECRET and user JWT
     const authHeader = req.headers.get('Authorization');
     const cronSecret = Deno.env.get('CRON_SECRET');
     const isScheduledRun = authHeader === `Bearer ${cronSecret}` && cronSecret;
-
+    
+    let authenticatedUser = null;
+    let isUserRequest = false;
+    
     if (!isScheduledRun) {
-      console.log('[WEEKLY-REPORT] Unauthorized request - CRON_SECRET required');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized. Reports are generated automatically.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Check for user JWT authentication
+      if (authHeader?.startsWith('Bearer ') && authHeader !== `Bearer ${cronSecret}`) {
+        const jwt = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+        
+        if (authError || !user) {
+          console.log('[WEEKLY-REPORT] Invalid user authentication');
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        authenticatedUser = user;
+        isUserRequest = true;
+      } else {
+        console.log('[WEEKLY-REPORT] No valid authentication provided');
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    // Scheduled run: process all organizations
-    console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
+    let schedulerRun = null;
+    let targetOrgIds: string[] = [];
     
-    // Log scheduler run start
-    const { data: schedulerRun, error: logError } = await supabase
-      .from('scheduler_runs')
-      .insert({
-        run_key: 'weekly-pdf-' + new Date().toISOString().split('T')[0],
-        function_name: 'weekly-report',
-        status: 'running'
-      })
-      .select()
-      .single();
+    if (isScheduledRun) {
+      // Scheduled run: process all organizations
+      console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
+      
+      // Log scheduler run start
+      const { data: runData, error: logError } = await supabase
+        .from('scheduler_runs')
+        .insert({
+          run_key: 'weekly-pdf-' + new Date().toISOString().split('T')[0],
+          function_name: 'weekly-report',
+          status: 'running'
+        })
+        .select()
+        .single();
 
-    if (logError) {
-      console.error('[WEEKLY-REPORT] Failed to log scheduler run start:', logError);
+      if (logError) {
+        console.error('[WEEKLY-REPORT] Failed to log scheduler run start:', logError);
+      } else {
+        schedulerRun = runData;
+      }
+      
+      const { data: orgs, error: orgsError } = await supabase
+        .from('organizations')
+        .select('id')
+        .order('created_at');
+
+      if (orgsError) {
+        console.error('[WEEKLY-REPORT] Error fetching organizations:', orgsError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch organizations' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      targetOrgIds = orgs?.map(org => org.id) || [];
+      console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
+    } else if (isUserRequest && authenticatedUser) {
+      // User request: process only user's organization
+      console.log(`[WEEKLY-REPORT] Processing user request for user ${authenticatedUser.id}`);
+      
+      // Get user's organization
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', authenticatedUser.id)
+        .single();
+
+      if (userError || !userData?.org_id) {
+        console.error('[WEEKLY-REPORT] Error fetching user organization:', userError);
+        return new Response(
+          JSON.stringify({ error: 'User organization not found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      targetOrgIds = [userData.org_id];
+      console.log(`[WEEKLY-REPORT] Processing organization ${userData.org_id} for user request`);
     }
-    
-    const { data: orgs, error: orgsError } = await supabase
-      .from('organizations')
-      .select('id')
-      .order('created_at');
-
-    if (orgsError) {
-      console.error('[WEEKLY-REPORT] Error fetching organizations:', orgsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch organizations' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const targetOrgIds = orgs?.map(org => org.id) || [];
-    console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
 
     if (req.method === 'POST') {
       // Handle POST request - generate new report(s)
@@ -298,7 +346,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           ok: true,
-          scheduled_run: true,
+          scheduled_run: isScheduledRun,
+          user_request: isUserRequest,
           week_key: weekKey,
           total_orgs: targetOrgIds.length,
           successful: successCount,
