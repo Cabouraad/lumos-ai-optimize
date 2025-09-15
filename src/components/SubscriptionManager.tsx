@@ -17,11 +17,19 @@ export function SubscriptionManager() {
   const handleManageSubscription = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('customer-portal');
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('customer-portal', {
+        body: { requestType: 'createSession' }
+      });
+      
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to create customer portal session');
+      }
       
       if (data?.url) {
         window.open(data.url, '_blank');
+      } else {
+        throw new Error('No portal URL received');
       }
     } catch (error: any) {
       console.error('Customer portal error:', error);
