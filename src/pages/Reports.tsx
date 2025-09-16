@@ -135,7 +135,8 @@ export default function Reports() {
       });
 
       if (error) {
-        if (error.message?.includes('plan_denied')) {
+        // Check for plan denial in both error message and response data
+        if (error.message?.includes('plan_denied') || data?.code === 'plan_denied') {
           showToast({
             title: "Access Denied",
             description: "Upgrade to Growth or Pro plan to download reports.",

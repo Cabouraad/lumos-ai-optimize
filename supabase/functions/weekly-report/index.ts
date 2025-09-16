@@ -16,24 +16,37 @@ interface WeekBoundaries {
 }
 
 /**
- * Calculate ISO week boundaries for the most recent complete week
+ * Calculate ISO week boundaries for the most recent complete week (Monday to Sunday)
  */
 function getLastCompleteWeek(): WeekBoundaries {
   const now = new Date();
   const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
   
-  // Calculate days to subtract to get to last Monday
-  const daysToLastMonday = currentDay === 0 ? 7 : currentDay; // If Sunday, go back 7 days
-  const lastMonday = new Date(now);
-  lastMonday.setDate(now.getDate() - daysToLastMonday - 7); // Go to previous week's Monday
-  lastMonday.setHours(0, 0, 0, 0);
+  // Calculate the most recent complete week (Monday to Sunday)
+  // If today is Sunday (0), the most recent complete week ended yesterday
+  // If today is Monday (1), the most recent complete week ended yesterday  
+  // If today is Tuesday (2), the most recent complete week ended last Sunday, etc.
   
-  // Calculate last Sunday (end of week)
-  const lastSunday = new Date(lastMonday);
-  lastSunday.setDate(lastMonday.getDate() + 6);
+  let daysToLastSunday: number;
+  if (currentDay === 0) {
+    // Today is Sunday, so yesterday was the end of the most recent complete week
+    daysToLastSunday = 1;
+  } else {
+    // For Mon(1) through Sat(6), calculate days back to last Sunday
+    daysToLastSunday = currentDay;
+  }
+  
+  // Get the end of the most recent complete week (last Sunday at 23:59:59)
+  const lastSunday = new Date(now);
+  lastSunday.setDate(now.getDate() - daysToLastSunday);
   lastSunday.setHours(23, 59, 59, 999);
   
-  // Generate ISO week key (YYYY-Www)
+  // Get the start of that week (Monday at 00:00:00)
+  const lastMonday = new Date(lastSunday);
+  lastMonday.setDate(lastSunday.getDate() - 6);
+  lastMonday.setHours(0, 0, 0, 0);
+  
+  // Generate ISO week key using the Monday date
   const year = lastMonday.getFullYear();
   const weekNumber = getISOWeek(lastMonday);
   const weekKey = `${year}-W${weekNumber.toString().padStart(2, '0')}`;

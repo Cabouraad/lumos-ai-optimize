@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getStrictCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = getStrictCorsHeaders();
+// CORS headers will be computed per request
 
 // Helper logging function
 const logStep = (step: string, details?: any) => {
@@ -11,6 +11,10 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  // Compute CORS headers for this specific request
+  const requestOrigin = req.headers.get('origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -183,9 +187,17 @@ serve(async (req) => {
 
     // 5) Generate signed download URL
     const expiresIn = 300; // 5 minutes TTL
+    
+    // Normalize storage path: remove 'reports/' prefix if present since storage bucket is 'reports'
+    const normalizedPath = report.storage_path.startsWith('reports/') 
+      ? report.storage_path.substring('reports/'.length)
+      : report.storage_path;
+    
+    logStep("Generating signed URL", { originalPath: report.storage_path, normalizedPath });
+    
     const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
       .from('reports')
-      .createSignedUrl(report.storage_path, expiresIn);
+      .createSignedUrl(normalizedPath, expiresIn);
 
     if (signedUrlError || !signedUrlData) {
       logStep("Failed to generate signed URL", { error: signedUrlError?.message });
