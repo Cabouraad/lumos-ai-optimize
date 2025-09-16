@@ -34,12 +34,6 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Initialize regular client for user authentication
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
     // 1) Verify JWT authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -50,11 +44,27 @@ serve(async (req) => {
       });
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    // Initialize client with proper authentication headers
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    );
+
+    // Get authenticated user
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !userData.user) {
-      logStep("Invalid token", { error: userError?.message });
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+      logStep("Authentication failed", { 
+        error: userError?.message,
+        hasAuthHeader: !!authHeader
+      });
+      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
