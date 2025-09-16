@@ -106,8 +106,7 @@ export async function collectWeeklyData(
       competitors_count,
       competitors_json,
       brands_json,
-      run_at,
-      prompts!inner(id, text)
+      run_at
     `)
     .eq('org_id', orgId)
     .gte('run_at', periodStart)
@@ -115,8 +114,30 @@ export async function collectWeeklyData(
     .eq('status', 'success');
 
   if (responsesError) {
+    console.error(`[COLLECT] Failed to fetch current week responses:`, responsesError);
     throw new Error(`Failed to fetch current week responses: ${responsesError.message}`);
   }
+
+  console.log(`[COLLECT] Fetched ${currentWeekResponses?.length || 0} responses for current week`);
+
+  // 1a. Get all prompts for the organization to join with responses
+  const { data: orgPrompts, error: promptsError } = await supabase
+    .from('prompts')
+    .select('id, text')
+    .eq('org_id', orgId);
+
+  if (promptsError) {
+    console.error(`[COLLECT] Failed to fetch org prompts:`, promptsError);
+    throw new Error(`Failed to fetch org prompts: ${promptsError.message}`);
+  }
+
+  // Create a map of prompt_id -> prompt_text for efficient lookups
+  const promptsMap = new Map();
+  orgPrompts?.forEach(prompt => {
+    promptsMap.set(prompt.id, prompt.text);
+  });
+
+  console.log(`[COLLECT] Fetched ${orgPrompts?.length || 0} prompts for organization`);
 
   // 2. Get prior week responses for delta calculations
   const { data: priorWeekResponses } = await supabase
@@ -162,10 +183,18 @@ export async function collectWeeklyData(
   const promptMap = new Map();
   currentWeekResponses?.forEach(response => {
     const promptId = response.prompt_id;
+    const promptText = promptsMap.get(promptId);
+    
+    // Skip responses for prompts we couldn't find (shouldn't happen but safety check)
+    if (!promptText) {
+      console.warn(`[COLLECT] Warning: Could not find prompt text for prompt_id ${promptId}`);
+      return;
+    }
+    
     if (!promptMap.has(promptId)) {
       promptMap.set(promptId, {
         id: promptId,
-        text: response.prompts.text,
+        text: promptText,
         responses: [],
         brandPresentCount: 0,
       });
