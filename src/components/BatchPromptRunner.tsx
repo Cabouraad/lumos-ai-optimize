@@ -655,43 +655,6 @@ export function BatchPromptRunner() {
             </Button>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Circuit Breaker Status */}
-        {Object.keys(circuitBreakerStatus).length > 0 && (
-          <Alert>
-            <Shield className="h-4 w-4" />
-            <AlertDescription>
-              <div className="space-y-2">
-                <div className="font-medium">Circuit Breaker Status:</div>
-                {Object.entries(circuitBreakerStatus).map(([functionName, state]: [string, any]) => (
-                  <div key={functionName} className="flex items-center justify-between">
-                    <span className="text-sm">{functionName}:</span>
-                    <div className="flex items-center gap-2">
-                      {state.state === 'OPEN' ? (
-                        <>
-                          <Badge variant="destructive" className="text-xs">Circuit Open</Badge>
-                          <Button
-                            onClick={() => resetCircuitBreaker(functionName)}
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                          >
-                            Reset
-                          </Button>
-                        </>
-                      ) : state.state === 'HALF_OPEN' ? (
-                        <Badge variant="secondary" className="text-xs">Testing</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">Healthy</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
         
         {/* Preflight Warning */}
         {showPreflightWarning && preflightData && (
@@ -715,19 +678,12 @@ export function BatchPromptRunner() {
           </Alert>
         )}
 
-        {/* Error Alert */}
+        {/* Error Display */}
         {lastError && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <div>
-              <strong>Error:</strong> {lastError}
-              {lastError.includes('No provider API keys') && (
-                <div className="mt-1 text-xs">
-                  Go to <Settings className="h-3 w-3 inline mx-1" /> Settings to configure your provider API keys.
-                </div>
-              )}
-            </div>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{lastError}</AlertDescription>
+          </Alert>
         )}
         
         {currentJob && currentJob.status === 'processing' && (
@@ -893,8 +849,6 @@ export function BatchPromptRunner() {
             <p className="text-sm">Click "Start Batch Processing" to run all active prompts across enabled providers with robust error handling and automatic recovery.</p>
           </div>
         )}
-      </CardContent>
-    </Card>
       </CardContent>
     </Card>
   );
