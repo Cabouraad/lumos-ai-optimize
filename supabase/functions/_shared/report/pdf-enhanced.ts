@@ -1,28 +1,42 @@
 /**
- * Enhanced PDF report generation with professional styling and charts
- * Creates polished, multi-page weekly visibility reports
+ * Professional Weekly Visibility Report PDF Generator
+ * Creates polished, multi-page reports with consistent branding and insights
  */
 
 import { PDFDocument, rgb, StandardFonts, PageSizes } from 'https://cdn.skypack.dev/pdf-lib@1.17.1';
 import { WeeklyReportData } from './collect.ts';
+
+// Convert HSL to RGB for PDF-lib compatibility
+function hslToRgb(h: number, s: number, l: number) {
+  h /= 360; s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  return rgb(f(0), f(8), f(4));
+}
 
 export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Enhanced color palette
+  // Brand-consistent color palette from design system
   const colors = {
-    primary: rgb(0.2, 0.4, 0.8),        // Blue
-    primaryLight: rgb(0.4, 0.6, 0.9),   // Light blue
-    secondary: rgb(0.5, 0.5, 0.5),      // Gray
-    success: rgb(0.2, 0.7, 0.3),        // Green
-    warning: rgb(0.9, 0.6, 0.2),        // Orange
-    danger: rgb(0.8, 0.2, 0.2),         // Red
-    text: rgb(0.2, 0.2, 0.2),           // Dark gray
-    lightBg: rgb(0.98, 0.98, 1.0),      // Very light blue
+    primary: hslToRgb(217, 91, 60),          // Vibrant Blue
+    primaryLight: hslToRgb(217, 91, 75),     // Light Blue  
+    secondary: hslToRgb(262, 83, 58),        // Elegant Purple
+    accent: hslToRgb(174, 84, 50),           // Vibrant Teal
+    success: hslToRgb(142, 76, 36),          // Green
+    warning: hslToRgb(38, 92, 50),           // Orange
+    danger: hslToRgb(0, 84, 60),             // Red
+    text: hslToRgb(222, 84, 5),              // Dark gray
+    lightBg: hslToRgb(217, 91, 96),          // Very light blue
     white: rgb(1, 1, 1),
-    border: rgb(0.9, 0.9, 0.9)          // Light gray border
+    border: hslToRgb(214, 32, 91),           // Light gray border
+    cardBg: hslToRgb(0, 0, 100),             // White card background
+    shadowLight: rgb(0.96, 0.96, 0.98)      // Light shadow
   };
 
   // Page dimensions (A4)
@@ -73,53 +87,72 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   }
 
   function drawCard(page: any, x: number, y: number, width: number, height: number, title: string, value: string, delta?: number, subtitle?: string) {
-    // Card background
+    // Card shadow effect (drawn first)
+    page.drawRectangle({
+      x: x + 3,
+      y: y - height - 3,
+      width,
+      height,
+      color: colors.shadowLight,
+    });
+
+    // Card background with gradient effect
     page.drawRectangle({
       x,
       y: y - height,
       width,
       height,
-      color: colors.white,
+      color: colors.cardBg,
       borderColor: colors.border,
-      borderWidth: 1,
+      borderWidth: 1.5,
     });
 
-    // Card shadow effect
+    // Subtle accent line at top
     page.drawRectangle({
-      x: x + 2,
-      y: y - height - 2,
+      x,
+      y: y - 4,
       width,
-      height,
-      color: rgb(0.95, 0.95, 0.95),
+      height: 4,
+      color: colors.primary,
     });
 
     // Title
     page.drawText(title, {
-      x: x + 15,
-      y: y - 25,
-      size: 10,
+      x: x + 20,
+      y: y - 30,
+      size: 11,
       font: helveticaFont,
       color: colors.secondary,
     });
 
     // Main value
     page.drawText(value, {
-      x: x + 15,
-      y: y - 50,
-      size: 24,
+      x: x + 20,
+      y: y - 55,
+      size: 28,
       font: helveticaBold,
       color: colors.primary,
     });
 
-    // Delta with arrow
+    // Delta with styled arrow and background
     if (delta !== undefined) {
-      const deltaText = delta >= 0 ? `↑ +${delta.toFixed(1)}` : `↓ ${delta.toFixed(1)}`;
+      const deltaText = delta >= 0 ? `↗ +${delta.toFixed(1)}` : `↘ ${delta.toFixed(1)}`;
       const deltaColor = delta >= 0 ? colors.success : colors.danger;
+      const deltaBgColor = delta >= 0 ? hslToRgb(142, 76, 95) : hslToRgb(0, 84, 95);
+      
+      // Delta background
+      page.drawRectangle({
+        x: x + 15,
+        y: y - 85,
+        width: 80,
+        height: 20,
+        color: deltaBgColor,
+      });
       
       page.drawText(deltaText, {
-        x: x + 15,
-        y: y - 75,
-        size: 12,
+        x: x + 20,
+        y: y - 80,
+        size: 11,
         font: helveticaBold,
         color: deltaColor,
       });
@@ -128,11 +161,11 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     // Subtitle
     if (subtitle) {
       page.drawText(subtitle, {
-        x: x + 15,
-        y: y - 90,
-        size: 8,
+        x: x + 20,
+        y: y - 105,
+        size: 9,
         font: helveticaFont,
-        color: colors.secondary,
+        color: colors.text,
       });
     }
   }
@@ -335,85 +368,113 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     return boxHeight;
   }
 
-  // PAGE 1: Cover Page
+  // PAGE 1: Cover Page with Logo, Org, Big Metrics, and Highlights
   const coverPage = pdfDoc.addPage([pageWidth, pageHeight]);
   
-  // Logo/Brand area (placeholder)
+  // Enhanced Logo/Brand Section
+  const logoSize = 80;
+  // Modern logo design with gradient effect
   coverPage.drawRectangle({
     x: margin,
-    y: pageHeight - 120,
-    width: 60,
-    height: 60,
+    y: pageHeight - 130,
+    width: logoSize,
+    height: logoSize,
     color: colors.primary,
   });
   
-  coverPage.drawText('LOGO', {
-    x: margin + 15,
+  // Logo accent overlay
+  coverPage.drawRectangle({
+    x: margin + 10,
+    y: pageHeight - 120,
+    width: logoSize - 20,
+    height: logoSize - 20,
+    color: colors.accent,
+  });
+  
+  // Brand text overlay
+  coverPage.drawText('L', {
+    x: margin + 35,
     y: pageHeight - 95,
-    size: 14,
+    size: 24,
     font: helveticaBold,
     color: colors.white,
   });
 
-  // Main title
-  coverPage.drawText('Weekly Brand Visibility Report', {
-    x: margin + 80,
-    y: pageHeight - 80,
-    size: 28,
+  // Company branding
+  coverPage.drawText('LUMOS AI', {
+    x: margin + logoSize + 20,
+    y: pageHeight - 70,
+    size: 16,
     font: helveticaBold,
     color: colors.primary,
   });
 
-  // Organization and period
-  coverPage.drawText(dto.header.orgName, {
-    x: margin + 80,
-    y: pageHeight - 110,
-    size: 18,
+  // Main title with enhanced typography
+  coverPage.drawText('Weekly Brand Visibility Report', {
+    x: margin + logoSize + 20,
+    y: pageHeight - 95,
+    size: 32,
     font: helveticaBold,
     color: colors.text,
   });
 
-  const periodText = `${dto.header.periodStart} to ${dto.header.periodEnd}`;
-  coverPage.drawText(periodText, {
-    x: margin + 80,
-    y: pageHeight - 135,
-    size: 14,
-    font: helveticaFont,
+  // Organization and period
+  coverPage.drawText(dto.header.orgName, {
+    x: margin + logoSize + 20,
+    y: pageHeight - 125,
+    size: 20,
+    font: helveticaBold,
     color: colors.secondary,
   });
 
-  // Executive summary card
-  const summaryY = pageHeight - 220;
-  drawCard(coverPage, margin, summaryY, contentWidth, 150, 
-    'Executive Summary', 
+  const periodText = `${dto.header.periodStart} to ${dto.header.periodEnd}`;
+  coverPage.drawText(periodText, {
+    x: margin + logoSize + 20,
+    y: pageHeight - 145,
+    size: 14,
+    font: helveticaFont,
+    color: colors.text,
+  });
+
+  // Executive Summary - Large featured metric
+  const summaryY = pageHeight - 200;
+  drawCard(coverPage, margin, summaryY, contentWidth, 120, 
+    'Executive Summary - Brand Visibility Score', 
     `${dto.kpis.avgVisibilityScore}/10`,
     dto.kpis.deltaVsPriorWeek?.avgVisibilityScore,
-    `Brand visibility score across ${dto.kpis.totalRuns} responses`
+    `Based on ${dto.kpis.totalRuns} AI responses analyzed this week`
   );
 
-  // Key metrics cards
+  // Key Metrics Cards Row
   const cardWidth = (contentWidth - 40) / 3;
-  const cardY = summaryY - 180;
+  const cardY = summaryY - 150;
   
-  drawCard(coverPage, margin, cardY, cardWidth, 80,
+  drawCard(coverPage, margin, cardY, cardWidth, 100,
     'Brand Present Rate',
     `${dto.kpis.brandPresentRate}%`,
-    dto.kpis.deltaVsPriorWeek?.brandPresentRate
+    dto.kpis.deltaVsPriorWeek?.brandPresentRate,
+    'Responses mentioning brand'
   );
 
-  drawCard(coverPage, margin + cardWidth + 20, cardY, cardWidth, 80,
+  drawCard(coverPage, margin + cardWidth + 20, cardY, cardWidth, 100,
     'Active Prompts',
     `${dto.prompts.totalActive}`,
     undefined,
     'categories analyzed'
   );
 
-  drawCard(coverPage, margin + 2 * (cardWidth + 20), cardY, cardWidth, 80,
-    'Competitors',
+  drawCard(coverPage, margin + 2 * (cardWidth + 20), cardY, cardWidth, 100,
+    'Competitors Detected',
     `${dto.competitors.totalDetected}`,
     undefined,
     `${dto.competitors.newThisWeek.length} new this week`
   );
+
+  // Highlights Box on Cover Page (per wireframe)
+  if (dto.insights.highlights.length > 0) {
+    const highlightsY = cardY - 120;
+    const highlightsHeight = drawHighlightsBox(coverPage, margin, highlightsY, contentWidth, dto.insights.highlights);
+  }
 
   // PAGE 2: KPI Dashboard
   const kpiPage = pdfDoc.addPage([pageWidth, pageHeight]);
