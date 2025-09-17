@@ -5,7 +5,12 @@
 
 import { PDFDocument, rgb, StandardFonts } from 'https://cdn.skypack.dev/pdf-lib@1.17.1';
 
-export interface WeeklyReportDTO {
+// Re-export the enhanced PDF renderer and use the same interface
+export { renderReportPDF } from './pdf-enhanced.ts';
+export type WeeklyReportDTO = any; // Temporarily use any to avoid interface conflicts
+
+// Legacy interface for backwards compatibility
+export interface LegacyWeeklyReportDTO {
   header: {
     orgId: string;
     periodStart: string;
@@ -68,7 +73,8 @@ export interface WeeklyReportDTO {
   };
 }
 
-export async function renderReportPDF(dto: WeeklyReportDTO): Promise<Uint8Array> {
+// Legacy renderer - keeping the old implementation intact for now
+async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

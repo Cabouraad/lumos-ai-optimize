@@ -6,6 +6,7 @@
 export interface WeeklyReportData {
   header: {
     orgId: string;
+    orgName: string;
     periodStart: string;
     periodEnd: string;
     generatedAt: string;
@@ -20,38 +21,87 @@ export interface WeeklyReportData {
       totalRuns: number;
       brandPresentRate: number;
     };
+    trendProjection: {
+      brandPresenceNext4Weeks: number;
+      confidenceLevel: 'high' | 'medium' | 'low';
+    };
+  };
+  historicalTrend: {
+    weeklyScores: Array<{
+      weekStart: string;
+      avgScore: number;
+      brandPresentRate: number;
+      totalRuns: number;
+    }>;
   };
   prompts: {
     totalActive: number;
+    categories: {
+      crm: Array<{
+        id: string;
+        text: string;
+        avgScore: number;
+        totalRuns: number;
+        brandPresentRate: number;
+      }>;
+      competitorTools: Array<{
+        id: string;
+        text: string;
+        avgScore: number;
+        totalRuns: number;
+        brandPresentRate: number;
+      }>;
+      aiFeatures: Array<{
+        id: string;
+        text: string;
+        avgScore: number;
+        totalRuns: number;
+        brandPresentRate: number;
+      }>;
+      other: Array<{
+        id: string;
+        text: string;
+        avgScore: number;
+        totalRuns: number;
+        brandPresentRate: number;
+      }>;
+    };
     topPerformers: Array<{
       id: string;
       text: string;
       avgScore: number;
       totalRuns: number;
       brandPresentRate: number;
-    }>;
-    poorPerformers: Array<{
-      id: string;
-      text: string;
-      avgScore: number;
-      totalRuns: number;
-      brandPresentRate: number;
+      category: string;
     }>;
     zeroPresence: Array<{
       id: string;
       text: string;
       totalRuns: number;
+      category: string;
     }>;
   };
   competitors: {
     totalDetected: number;
+    newThisWeek: Array<{
+      name: string;
+      appearances: number;
+      sharePercent: number;
+    }>;
     topCompetitors: Array<{
       name: string;
       appearances: number;
       sharePercent: number;
       deltaVsPriorWeek?: number;
+      isNew: boolean;
     }>;
     avgCompetitorsPerResponse: number;
+    byProvider: Array<{
+      provider: string;
+      totalMentions: number;
+      uniqueCompetitors: number;
+      avgScore: number;
+    }>;
   };
   recommendations: {
     totalCount: number;
@@ -63,6 +113,7 @@ export interface WeeklyReportData {
       title: string;
       status: string;
     }>;
+    fallbackMessage?: string;
   };
   volume: {
     totalResponsesAnalyzed: number;
@@ -70,6 +121,7 @@ export interface WeeklyReportData {
       provider: string;
       responseCount: number;
       avgScore: number;
+      brandMentions: number;
     }>;
     dailyBreakdown: Array<{
       date: string;
@@ -77,6 +129,80 @@ export interface WeeklyReportData {
       avgScore: number;
     }>;
   };
+  insights: {
+    highlights: string[];
+    keyFindings: string[];
+    recommendations: string[];
+  };
+}
+
+function categorizePrompt(text: string): string {
+  const lowerText = text.toLowerCase();
+  
+  // CRM-related keywords
+  if (lowerText.includes('crm') || lowerText.includes('salesforce') || lowerText.includes('hubspot') || 
+      lowerText.includes('customer relationship') || lowerText.includes('pipeline') || lowerText.includes('leads')) {
+    return 'crm';
+  }
+  
+  // Competitor analysis tools
+  if (lowerText.includes('competitor') || lowerText.includes('analysis tool') || lowerText.includes('market research') ||
+      lowerText.includes('competitive analysis') || lowerText.includes('business intelligence')) {
+    return 'competitorTools';
+  }
+  
+  // AI features
+  if (lowerText.includes('ai') || lowerText.includes('artificial intelligence') || lowerText.includes('machine learning') ||
+      lowerText.includes('automation') || lowerText.includes('chatbot') || lowerText.includes('nlp')) {
+    return 'aiFeatures';
+  }
+  
+  return 'other';
+}
+
+function generateInsights(data: any): { highlights: string[]; keyFindings: string[]; recommendations: string[] } {
+  const highlights = [];
+  const keyFindings = [];
+  const recommendations = [];
+  
+  // Generate highlights based on data
+  if (data.kpis.avgVisibilityScore >= 7) {
+    highlights.push(`Excellent brand visibility with ${data.kpis.avgVisibilityScore.toFixed(1)}/10 average score`);
+  } else if (data.kpis.avgVisibilityScore >= 5) {
+    highlights.push(`Good brand visibility at ${data.kpis.avgVisibilityScore.toFixed(1)}/10 average score`);
+  } else {
+    highlights.push(`Brand visibility needs improvement at ${data.kpis.avgVisibilityScore.toFixed(1)}/10 average score`);
+  }
+  
+  if (data.kpis.deltaVsPriorWeek?.avgVisibilityScore > 0) {
+    highlights.push(`Visibility improved by ${data.kpis.deltaVsPriorWeek.avgVisibilityScore.toFixed(1)} points vs last week`);
+  } else if (data.kpis.deltaVsPriorWeek?.avgVisibilityScore < 0) {
+    highlights.push(`Visibility declined by ${Math.abs(data.kpis.deltaVsPriorWeek.avgVisibilityScore).toFixed(1)} points vs last week`);
+  }
+  
+  if (data.competitors.newThisWeek?.length > 0) {
+    highlights.push(`${data.competitors.newThisWeek.length} new competitors detected this week`);
+  }
+  
+  // Key findings
+  keyFindings.push(`Brand present in ${data.kpis.brandPresentRate.toFixed(1)}% of responses`);
+  keyFindings.push(`Average of ${data.kpis.avgCompetitors.toFixed(1)} competitors per response`);
+  keyFindings.push(`${data.volume.providersUsed.length} AI providers analyzed`);
+  
+  // Recommendations
+  if (data.prompts.zeroPresence.length > 0) {
+    recommendations.push(`Review ${data.prompts.zeroPresence.length} prompts with zero brand presence`);
+  }
+  
+  if (data.kpis.avgVisibilityScore < 6) {
+    recommendations.push('Focus on improving prompt effectiveness to increase brand visibility');
+  }
+  
+  if (data.competitors.newThisWeek?.length > 0) {
+    recommendations.push('Monitor new competitors and adjust positioning strategy');
+  }
+  
+  return { highlights, keyFindings, recommendations };
 }
 
 export async function collectWeeklyData(
@@ -92,10 +218,22 @@ export async function collectWeeklyData(
   const priorWeekEnd = new Date(endDate);
   priorWeekEnd.setDate(endDate.getDate() - 7);
 
-  console.log(`[COLLECT] Starting data collection for org ${orgId}, period ${periodStart} to ${periodEnd}`);
+  console.log(`[COLLECT] Starting enhanced data collection for org ${orgId}, period ${periodStart} to ${periodEnd}`);
 
-  // 1. Get all prompt responses for the current week
-  const { data: currentWeekResponses, error: responsesError } = await supabase
+  // Get organization name
+  const { data: orgData } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', orgId)
+    .single();
+  
+  const orgName = orgData?.name || 'Organization';
+
+  // 1. Get historical data for trend analysis (last 4 weeks including current)
+  const fourWeeksAgo = new Date(startDate);
+  fourWeeksAgo.setDate(startDate.getDate() - 21); // 3 weeks before current week
+  
+  const { data: historicalResponses, error: historicalError } = await supabase
     .from('prompt_provider_responses')
     .select(`
       id,
@@ -109,16 +247,44 @@ export async function collectWeeklyData(
       run_at
     `)
     .eq('org_id', orgId)
-    .gte('run_at', periodStart)
+    .gte('run_at', fourWeeksAgo.toISOString())
     .lt('run_at', periodEnd)
-    .eq('status', 'success');
+    .eq('status', 'success')
+    .order('run_at');
 
-  if (responsesError) {
-    console.error(`[COLLECT] Failed to fetch current week responses:`, responsesError);
-    throw new Error(`Failed to fetch current week responses: ${responsesError.message}`);
+  if (historicalError) {
+    console.error(`[COLLECT] Failed to fetch historical responses:`, historicalError);
+    throw new Error(`Failed to fetch historical responses: ${historicalError.message}`);
   }
 
-  console.log(`[COLLECT] Fetched ${currentWeekResponses?.length || 0} responses for current week`);
+  // Separate current week and prior week data
+  const currentWeekResponses = historicalResponses?.filter(r => 
+    r.run_at >= periodStart && r.run_at < periodEnd
+  ) || [];
+  
+  const priorWeekResponses = historicalResponses?.filter(r => 
+    r.run_at >= priorWeekStart.toISOString() && r.run_at < priorWeekEnd.toISOString()
+  ) || [];
+
+  // Get all responses for the 2 weeks before prior week (for new competitor detection)
+  const twoWeeksBeforePrior = new Date(priorWeekStart);
+  twoWeeksBeforePrior.setDate(priorWeekStart.getDate() - 14);
+  const historicalCompetitorResponses = historicalResponses?.filter(r => 
+    r.run_at >= twoWeeksBeforePrior.toISOString() && r.run_at < priorWeekStart.toISOString()
+  ) || [];
+
+  console.log(`[COLLECT] Historical data: ${historicalResponses?.length || 0} total, ${currentWeekResponses.length} current week, ${priorWeekResponses.length} prior week`);
+
+  // 1a. Get all prompt responses for the current week (existing code)
+  const { error: responsesError } = await supabase
+    .from('prompt_provider_responses')
+    .select('id')
+    .limit(1);
+
+  if (responsesError) {
+    console.error(`[COLLECT] Database connection test failed:`, responsesError);
+    throw new Error(`Database connection failed: ${responsesError.message}`);
+  }
 
   // 1a. Get all prompts for the organization to join with responses
   const { data: orgPrompts, error: promptsError } = await supabase
@@ -139,19 +305,31 @@ export async function collectWeeklyData(
 
   console.log(`[COLLECT] Fetched ${orgPrompts?.length || 0} prompts for organization`);
 
-  // 2. Get prior week responses for delta calculations
-  const { data: priorWeekResponses } = await supabase
-    .from('prompt_provider_responses')
-    .select(`
-      score,
-      org_brand_present,
-      competitors_count,
-      run_at
-    `)
-    .eq('org_id', orgId)
-    .gte('run_at', priorWeekStart.toISOString())
-    .lt('run_at', priorWeekEnd.toISOString())
-    .eq('status', 'success');
+  // 2. Build historical trend data (4 weeks)
+  const weeklyTrends = [];
+  for (let weekOffset = 3; weekOffset >= 0; weekOffset--) {
+    const weekStart = new Date(startDate);
+    weekStart.setDate(startDate.getDate() - (weekOffset * 7));
+    const weekEnd = new Date(endDate);
+    weekEnd.setDate(endDate.getDate() - (weekOffset * 7));
+    
+    const weekResponses = historicalResponses?.filter(r => 
+      r.run_at >= weekStart.toISOString() && r.run_at < weekEnd.toISOString()
+    ) || [];
+    
+    const weekAvgScore = weekResponses.length > 0 
+      ? weekResponses.reduce((sum, r) => sum + (r.score || 0), 0) / weekResponses.length 
+      : 0;
+    const weekBrandPresent = weekResponses.filter(r => r.org_brand_present).length;
+    const weekBrandPresentRate = weekResponses.length > 0 ? (weekBrandPresent / weekResponses.length) * 100 : 0;
+    
+    weeklyTrends.push({
+      weekStart: weekStart.toISOString().split('T')[0],
+      avgScore: Math.round(weekAvgScore * 10) / 10,
+      brandPresentRate: Math.round(weekBrandPresentRate * 10) / 10,
+      totalRuns: weekResponses.length
+    });
+  }
 
   // 3. Calculate KPIs for current week
   const totalRuns = currentWeekResponses?.length || 0;
@@ -179,13 +357,12 @@ export async function collectWeeklyData(
     };
   }
 
-  // 5. Aggregate prompt-level data
+  // 5. Aggregate prompt-level data with categorization
   const promptMap = new Map();
   currentWeekResponses?.forEach(response => {
     const promptId = response.prompt_id;
     const promptText = promptsMap.get(promptId);
     
-    // Skip responses for prompts we couldn't find (shouldn't happen but safety check)
     if (!promptText) {
       console.warn(`[COLLECT] Warning: Could not find prompt text for prompt_id ${promptId}`);
       return;
@@ -195,6 +372,7 @@ export async function collectWeeklyData(
       promptMap.set(promptId, {
         id: promptId,
         text: promptText,
+        category: categorizePrompt(promptText),
         responses: [],
         brandPresentCount: 0,
       });
@@ -207,28 +385,48 @@ export async function collectWeeklyData(
     }
   });
 
-  // Calculate prompt metrics and sort
+  // Calculate prompt metrics with categories
   const promptMetrics = Array.from(promptMap.values()).map(prompt => {
     const scores = prompt.responses.map(r => r.score);
     return {
       id: prompt.id,
       text: prompt.text,
+      category: prompt.category,
       avgScore: scores.reduce((a, b) => a + b, 0) / scores.length,
       totalRuns: prompt.responses.length,
       brandPresentRate: (prompt.brandPresentCount / prompt.responses.length) * 100,
     };
   });
 
+  // Group by categories
+  const categories = {
+    crm: promptMetrics.filter(p => p.category === 'crm'),
+    competitorTools: promptMetrics.filter(p => p.category === 'competitorTools'),
+    aiFeatures: promptMetrics.filter(p => p.category === 'aiFeatures'),
+    other: promptMetrics.filter(p => p.category === 'other')
+  };
+
   const sortedByScore = [...promptMetrics].sort((a, b) => b.avgScore - a.avgScore);
-  const topPerformers = sortedByScore.slice(0, 5);
-  const poorPerformers = sortedByScore.slice(-3).reverse();
+  const topPerformers = sortedByScore.slice(0, 5).map(p => ({
+    id: p.id,
+    text: p.text,
+    avgScore: p.avgScore,
+    totalRuns: p.totalRuns,
+    brandPresentRate: p.brandPresentRate,
+    category: p.category
+  }));
+  
   const zeroPresence = promptMetrics
     .filter(p => p.brandPresentRate === 0)
     .slice(0, 5)
-    .map(p => ({ id: p.id, text: p.text, totalRuns: p.totalRuns }));
+    .map(p => ({ id: p.id, text: p.text, totalRuns: p.totalRuns, category: p.category }));
 
-  // 6. Analyze competitors
+  // 6. Enhanced competitor analysis with new competitor detection
   const competitorCounts = new Map();
+  const priorCompetitorCounts = new Map();
+  const historicalCompetitorCounts = new Map();
+  
+  // Current week competitors
   currentWeekResponses?.forEach(response => {
     if (response.competitors_json && Array.isArray(response.competitors_json)) {
       response.competitors_json.forEach((competitor: string) => {
@@ -238,15 +436,85 @@ export async function collectWeeklyData(
     }
   });
 
+  // Prior week competitors
+  priorWeekResponses?.forEach(response => {
+    if (response.competitors_json && Array.isArray(response.competitors_json)) {
+      response.competitors_json.forEach((competitor: string) => {
+        const count = priorCompetitorCounts.get(competitor) || 0;
+        priorCompetitorCounts.set(competitor, count + 1);
+      });
+    }
+  });
+
+  // Historical competitors (2 weeks before prior)
+  historicalCompetitorResponses?.forEach(response => {
+    if (response.competitors_json && Array.isArray(response.competitors_json)) {
+      response.competitors_json.forEach((competitor: string) => {
+        const count = historicalCompetitorCounts.get(competitor) || 0;
+        historicalCompetitorCounts.set(competitor, count + 1);
+      });
+    }
+  });
+
+  // Identify new competitors (appeared this week but not in prior 2 weeks)
+  const newCompetitors = [];
+  for (const [competitor, count] of competitorCounts.entries()) {
+    if (!priorCompetitorCounts.has(competitor) && !historicalCompetitorCounts.has(competitor)) {
+      newCompetitors.push({
+        name: competitor,
+        appearances: count,
+        sharePercent: (count / Math.max(1, Array.from(competitorCounts.values()).reduce((a, b) => a + b, 0))) * 100
+      });
+    }
+  }
+
   const totalCompetitorAppearances = Array.from(competitorCounts.values()).reduce((a, b) => a + b, 0);
   const topCompetitors = Array.from(competitorCounts.entries())
-    .map(([name, appearances]) => ({
-      name,
-      appearances,
-      sharePercent: totalCompetitorAppearances > 0 ? (appearances / totalCompetitorAppearances) * 100 : 0,
-    }))
+    .map(([name, appearances]) => {
+      const priorAppearances = priorCompetitorCounts.get(name) || 0;
+      const isNew = !priorCompetitorCounts.has(name) && !historicalCompetitorCounts.has(name);
+      return {
+        name,
+        appearances,
+        sharePercent: totalCompetitorAppearances > 0 ? (appearances / totalCompetitorAppearances) * 100 : 0,
+        deltaVsPriorWeek: appearances - priorAppearances,
+        isNew
+      };
+    })
     .sort((a, b) => b.appearances - a.appearances)
     .slice(0, 10);
+
+  // Competitor analysis by provider
+  const providerCompetitorMap = new Map();
+  currentWeekResponses?.forEach(response => {
+    const provider = response.provider;
+    if (!providerCompetitorMap.has(provider)) {
+      providerCompetitorMap.set(provider, {
+        totalMentions: 0,
+        uniqueCompetitors: new Set(),
+        totalScore: 0,
+        responseCount: 0
+      });
+    }
+    
+    const providerData = providerCompetitorMap.get(provider);
+    providerData.responseCount++;
+    providerData.totalScore += response.score || 0;
+    
+    if (response.competitors_json && Array.isArray(response.competitors_json)) {
+      response.competitors_json.forEach((competitor: string) => {
+        providerData.totalMentions++;
+        providerData.uniqueCompetitors.add(competitor);
+      });
+    }
+  });
+
+  const competitorsByProvider = Array.from(providerCompetitorMap.entries()).map(([provider, data]) => ({
+    provider,
+    totalMentions: data.totalMentions,
+    uniqueCompetitors: data.uniqueCompetitors.size,
+    avgScore: data.responseCount > 0 ? data.totalScore / data.responseCount : 0
+  }));
 
   // 7. Get recommendations data
   const { data: recommendations } = await supabase
@@ -270,23 +538,53 @@ export async function collectWeeklyData(
     status: reco.status,
   })) || [];
 
-  // 8. Calculate provider metrics
+  // 8. Enhanced provider metrics with brand mention tracking
   const providerCounts = new Map();
   currentWeekResponses?.forEach(response => {
     const provider = response.provider;
     if (!providerCounts.has(provider)) {
-      providerCounts.set(provider, { count: 0, totalScore: 0 });
+      providerCounts.set(provider, { 
+        count: 0, 
+        totalScore: 0, 
+        brandMentions: 0 
+      });
     }
     const data = providerCounts.get(provider);
     data.count++;
     data.totalScore += response.score || 0;
+    if (response.org_brand_present) {
+      data.brandMentions++;
+    }
   });
 
   const providersUsed = Array.from(providerCounts.entries()).map(([provider, data]) => ({
     provider,
     responseCount: data.count,
     avgScore: data.count > 0 ? data.totalScore / data.count : 0,
+    brandMentions: data.brandMentions
   }));
+
+  // Calculate trend projection for brand presence
+  const recentTrends = weeklyTrends.slice(-2); // Last 2 weeks
+  let trendProjection = {
+    brandPresenceNext4Weeks: 0,
+    confidenceLevel: 'low' as 'high' | 'medium' | 'low'
+  };
+  
+  if (recentTrends.length >= 2) {
+    const trendSlope = recentTrends[1].brandPresentRate - recentTrends[0].brandPresentRate;
+    trendProjection.brandPresenceNext4Weeks = Math.max(0, Math.min(100, 
+      recentTrends[1].brandPresentRate + (trendSlope * 4)
+    ));
+    
+    // Determine confidence based on data consistency
+    const totalResponses = recentTrends.reduce((sum, week) => sum + week.totalRuns, 0);
+    if (totalResponses > 50) {
+      trendProjection.confidenceLevel = 'high';
+    } else if (totalResponses > 20) {
+      trendProjection.confidenceLevel = 'medium';
+    }
+  }
 
   // 9. Daily breakdown
   const dailyMap = new Map();
@@ -308,11 +606,19 @@ export async function collectWeeklyData(
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  console.log(`[COLLECT] Data collection completed. Processed ${totalRuns} responses, ${promptMetrics.length} prompts`);
+  console.log(`[COLLECT] Enhanced data collection completed. Processed ${totalRuns} responses, ${promptMetrics.length} prompts, ${newCompetitors.length} new competitors`);
+
+  // Generate insights
+  const insights = generateInsights({
+    kpis: { avgVisibilityScore: avgScore, brandPresentRate, deltaVsPriorWeek },
+    competitors: { newThisWeek: newCompetitors },
+    prompts: { zeroPresence }
+  });
 
   return {
     header: {
       orgId,
+      orgName,
       periodStart,
       periodEnd,
       generatedAt: new Date().toISOString(),
@@ -323,15 +629,47 @@ export async function collectWeeklyData(
       brandPresentRate: Math.round(brandPresentRate * 10) / 10,
       avgCompetitors: Math.round(avgCompetitors * 10) / 10,
       deltaVsPriorWeek,
+      trendProjection: {
+        brandPresenceNext4Weeks: Math.round(trendProjection.brandPresenceNext4Weeks * 10) / 10,
+        confidenceLevel: trendProjection.confidenceLevel
+      }
+    },
+    historicalTrend: {
+      weeklyScores: weeklyTrends
     },
     prompts: {
       totalActive: promptMetrics.length,
+      categories: {
+        crm: categories.crm.map(p => ({
+          id: p.id,
+          text: p.text,
+          avgScore: Math.round(p.avgScore * 10) / 10,
+          totalRuns: p.totalRuns,
+          brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
+        })),
+        competitorTools: categories.competitorTools.map(p => ({
+          id: p.id,
+          text: p.text,
+          avgScore: Math.round(p.avgScore * 10) / 10,
+          totalRuns: p.totalRuns,
+          brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
+        })),
+        aiFeatures: categories.aiFeatures.map(p => ({
+          id: p.id,
+          text: p.text,
+          avgScore: Math.round(p.avgScore * 10) / 10,
+          totalRuns: p.totalRuns,
+          brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
+        })),
+        other: categories.other.map(p => ({
+          id: p.id,
+          text: p.text,
+          avgScore: Math.round(p.avgScore * 10) / 10,
+          totalRuns: p.totalRuns,
+          brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
+        }))
+      },
       topPerformers: topPerformers.map(p => ({
-        ...p,
-        avgScore: Math.round(p.avgScore * 10) / 10,
-        brandPresentRate: Math.round(p.brandPresentRate * 10) / 10,
-      })),
-      poorPerformers: poorPerformers.map(p => ({
         ...p,
         avgScore: Math.round(p.avgScore * 10) / 10,
         brandPresentRate: Math.round(p.brandPresentRate * 10) / 10,
@@ -340,17 +678,27 @@ export async function collectWeeklyData(
     },
     competitors: {
       totalDetected: competitorCounts.size,
+      newThisWeek: newCompetitors.map(c => ({
+        ...c,
+        sharePercent: Math.round(c.sharePercent * 10) / 10
+      })),
       topCompetitors: topCompetitors.map(c => ({
         ...c,
         sharePercent: Math.round(c.sharePercent * 10) / 10,
       })),
       avgCompetitorsPerResponse: Math.round(avgCompetitors * 10) / 10,
+      byProvider: competitorsByProvider.map(p => ({
+        ...p,
+        avgScore: Math.round(p.avgScore * 10) / 10
+      }))
     },
     recommendations: {
       totalCount: recommendations?.length || 0,
       byType: recosByType,
       byStatus: recosByStatus,
       highlights: recoHighlights,
+      fallbackMessage: recommendations?.length === 0 ? 
+        "No urgent fixes needed—keep up the good performance!" : undefined
     },
     volume: {
       totalResponsesAnalyzed: totalRuns,
@@ -363,5 +711,6 @@ export async function collectWeeklyData(
         avgScore: Math.round(d.avgScore * 10) / 10,
       })),
     },
+    insights
   };
 }
