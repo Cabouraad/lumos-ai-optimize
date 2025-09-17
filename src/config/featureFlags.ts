@@ -22,6 +22,12 @@ export interface OptimizationFeatureFlags {
   FEATURE_BACKEND_QUOTA_ENFORCE: boolean;
   FEATURE_STRICT_AUTH_VALIDATION: boolean;
   FEATURE_RATE_LIMITING: boolean;
+
+  // Phase 2 Ultra-Safe Features
+  FEATURE_DATA_FETCH_CACHE: boolean;
+  FEATURE_ONBOARDING_PROGRESS_TRACKER: boolean;
+  FEATURE_SUBSCRIPTION_STATE_OBSERVER: boolean;
+  FEATURE_ENHANCED_ERROR_RESPONSES: boolean;
 }
 
 const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
@@ -36,6 +42,12 @@ const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
   FEATURE_BACKEND_QUOTA_ENFORCE: true, // ENABLED for security
   FEATURE_STRICT_AUTH_VALIDATION: true, // ENABLED for security
   FEATURE_RATE_LIMITING: true, // ENABLED for security
+
+  // Phase 2 Ultra-Safe Features - OFF by default for gradual rollout
+  FEATURE_DATA_FETCH_CACHE: false,
+  FEATURE_ONBOARDING_PROGRESS_TRACKER: false,
+  FEATURE_SUBSCRIPTION_STATE_OBSERVER: false,
+  FEATURE_ENHANCED_ERROR_RESPONSES: false,
 };
 
 // Override flags from environment in development only
@@ -54,6 +66,12 @@ const getOptimizationFeatureFlags = (): OptimizationFeatureFlags => {
       FEATURE_BACKEND_QUOTA_ENFORCE: import.meta.env.VITE_FEATURE_BACKEND_QUOTA_ENFORCE !== 'false', // Default ON
       FEATURE_STRICT_AUTH_VALIDATION: import.meta.env.VITE_FEATURE_STRICT_AUTH_VALIDATION !== 'false', // Default ON
       FEATURE_RATE_LIMITING: import.meta.env.VITE_FEATURE_RATE_LIMITING !== 'false', // Default ON
+
+      // Phase 2 Ultra-Safe Features
+      FEATURE_DATA_FETCH_CACHE: import.meta.env.VITE_FEATURE_DATA_FETCH_CACHE === 'true',
+      FEATURE_ONBOARDING_PROGRESS_TRACKER: import.meta.env.VITE_FEATURE_ONBOARDING_PROGRESS_TRACKER === 'true',
+      FEATURE_SUBSCRIPTION_STATE_OBSERVER: import.meta.env.VITE_FEATURE_SUBSCRIPTION_STATE_OBSERVER === 'true',
+      FEATURE_ENHANCED_ERROR_RESPONSES: import.meta.env.VITE_FEATURE_ENHANCED_ERROR_RESPONSES === 'true',
     };
   }
   

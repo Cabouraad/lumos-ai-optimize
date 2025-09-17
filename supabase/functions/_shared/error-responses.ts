@@ -131,24 +131,76 @@ export function getHttpStatusFromErrorCode(code: ErrorCode): number {
 }
 
 /**
- * Create a standardized Response object with proper CORS headers
+ * Enhanced error response with backward compatibility for edge functions
+ * 
+ * SAFETY: Preserves all existing error response formats while adding new features.
+ * Edge functions can gradually migrate to use enhanced responses.
  */
-export function createStandardResponse(
-  responseData: StandardResponse,
-  corsHeaders: Record<string, string>
+
+import { corsHeaders } from './cors';
+
+export function createEnhancedErrorResponse(
+  code: string,
+  message: string,
+  details?: any,
+  correlationId?: string,
+  statusCode: number = 500
 ): Response {
-  const status = responseData.success 
-    ? 200 
-    : getHttpStatusFromErrorCode(responseData.error.code as ErrorCode);
+  const response = {
+    // New standardized format
+    success: false,
+    error: {
+      code,
+      message,
+      details,
+      correlationId,
+      retryable: isRetryableErrorCode(code)
+    },
+    timestamp: new Date().toISOString(),
     
-  return new Response(
-    JSON.stringify(responseData),
-    {
-      status,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+    // Legacy format for backward compatibility
+    error_code: code,
+    error_message: message,
+    user_message: getUserFriendlyMessage(code),
+  };
+
+  console.error(`[EdgeFunction] Enhanced Error [${correlationId}]:`, {
+    code,
+    message,
+    statusCode,
+    details
+  });
+
+  return new Response(JSON.stringify(response), {
+    status: statusCode,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...(correlationId && { 'X-Correlation-ID': correlationId })
+    },
+  });
+}
+
+function isRetryableErrorCode(code: string): boolean {
+  const retryableCodes = [
+    'DATABASE_ERROR',
+    'EXTERNAL_API_ERROR', 
+    'TIMEOUT',
+    'RATE_LIMITED',
+    'INTERNAL_ERROR'
+  ];
+  return retryableCodes.includes(code);
+}
+
+function getUserFriendlyMessage(code: string): string {
+  const friendlyMessages: Record<string, string> = {
+    'AUTH_REQUIRED': 'Please sign in to continue',
+    'SUBSCRIPTION_REQUIRED': 'This feature requires a subscription',
+    'QUOTA_EXCEEDED': 'Usage limit reached for your plan',
+    'INVALID_INPUT': 'Please check your input and try again',
+    'RATE_LIMITED': 'Too many requests, please wait a moment',
+    'INTERNAL_ERROR': 'Something went wrong, please try again'
+  };
+  
+  return friendlyMessages[code] || 'An error occurred, please try again';
 }
