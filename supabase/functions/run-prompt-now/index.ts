@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
@@ -7,6 +6,13 @@ import { getUserOrgId } from '../_shared/auth.ts';
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts';
 import { PromptUsageTracker } from '../_shared/usage-tracker.ts';
 import { getOrgSubscriptionTier, filterAllowedProviders, auditProviderFilter } from '../_shared/provider-policy.ts';
+import { getStrictCorsHeaders } from '../_shared/cors.ts';
+import { 
+  createStandardResponse, 
+  createSuccessResponse, 
+  createErrorResponse, 
+  ErrorCode 
+} from '../_shared/error-responses.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -16,6 +22,9 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  const correlationId = crypto.randomUUID();
+  const corsHeaders = getStrictCorsHeaders(req.headers.get('origin'), correlationId);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -249,25 +258,34 @@ serve(async (req) => {
       await usageTracker.persistUsage();
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
+    return createStandardResponse(
+      createSuccessResponse({
         message: `Prompt executed successfully on ${allowedProviders.length}/${providerNames.length} providers (tier: ${subscriptionTier})`,
         totalRuns,
         successfulRuns,
         allowedProviders: allowedProviders.length,
         blockedProviders: blockedProviders.length,
-        subscriptionTier,
-        timestamp: new Date().toISOString()
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        subscriptionTier
+      }, correlationId),
+      corsHeaders
     );
 
   } catch (error: any) {
     console.error('Run prompt error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    
+    // Determine appropriate error code
+    let errorCode = ErrorCode.INTERNAL_ERROR;
+    if (error.message?.includes('Authentication')) {
+      errorCode = ErrorCode.AUTH_REQUIRED;
+    } else if (error.message?.includes('No enabled providers') || error.message?.includes('No providers allowed')) {
+      errorCode = ErrorCode.SUBSCRIPTION_REQUIRED;
+    } else if (error.message?.includes('Missing promptId') || error.message?.includes('Prompt not found')) {
+      errorCode = ErrorCode.INVALID_INPUT;
+    }
+    
+    return createStandardResponse(
+      createErrorResponse(errorCode, error.message, { stack: error.stack?.split('\n')[0] }, correlationId),
+      corsHeaders
     );
   }
 });

@@ -34,7 +34,7 @@ const ALLOWED_ORIGINS = getAllowedOrigins();
 /**
  * Get CORS headers for a specific origin (strict mode)
  */
-export function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, string> {
+export function getStrictCorsHeaders(requestOrigin?: string | null, correlationId?: string): Record<string, string> {
   // For development environments (localhost, sandbox, and Lovable preview URLs), be more permissive
   const isDevelopment = requestOrigin?.includes('localhost') || 
                        requestOrigin?.includes('sandbox.lovable.dev') ||
@@ -60,11 +60,16 @@ export function getStrictCorsHeaders(requestOrigin?: string | null): Record<stri
 
   const headers: Record<string, string> = {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret, x-supabase-api-version',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret, x-supabase-api-version, x-correlation-id',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
     'Vary': 'Origin', // Always include Vary header
   };
+
+  // Add correlation ID if provided
+  if (correlationId) {
+    headers['X-Correlation-ID'] = correlationId;
+  }
 
   // Only add credentials header when not using wildcard origin
   if (allowCredentials) {

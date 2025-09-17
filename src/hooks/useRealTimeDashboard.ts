@@ -6,11 +6,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { dashboardFetcher, UnifiedDashboardResponse } from '@/lib/data/unified-rpc-fetcher';
 import { useToast } from '@/hooks/use-toast';
+import { AdaptivePoller } from '@/lib/polling/adaptive-poller';
 
 export interface UseRealTimeDashboardOptions {
-  autoRefreshInterval?: number; // milliseconds
+  autoRefreshInterval?: number; // milliseconds (used as max interval)
   enableAutoRefresh?: boolean;
   onError?: (error: Error) => void;
+  enableAdaptivePolling?: boolean;
 }
 
 export interface UseRealTimeDashboardResult {
@@ -27,6 +29,7 @@ export function useRealTimeDashboard(
   const {
     autoRefreshInterval = 60000, // 1 minute default
     enableAutoRefresh = true,
+    enableAdaptivePolling = true,
     onError
   } = options;
 
@@ -40,6 +43,8 @@ export function useRealTimeDashboard(
   const fetchInProgressRef = useRef(false);
   const lastVisibilityFetchRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const adaptivePollerRef = useRef<AdaptivePoller | null>(null);
+  const pollerUnsubscribeRef = useRef<(() => void) | null>(null);
 
   console.log('[Dashboard] Hook initialized:', { autoRefreshInterval, enableAutoRefresh });
 
@@ -98,32 +103,66 @@ export function useRealTimeDashboard(
     fetchData(false);
   }, [fetchData]);
 
-  // Auto-refresh interval
+  // Auto-refresh interval with adaptive polling
   useEffect(() => {
-    if (!enableAutoRefresh || autoRefreshInterval <= 0) {
+    if (!enableAutoRefresh) {
       console.log('[Dashboard] Auto-refresh disabled');
       return;
     }
 
-    console.log('[Dashboard] Setting up auto-refresh:', autoRefreshInterval);
-    intervalRef.current = setInterval(() => {
-      // Only auto-refresh if not currently loading and no fetch in progress
-      if (!loading && !fetchInProgressRef.current) {
-        console.log('[Dashboard] Auto-refresh triggered');
-        fetchData(false);
-      } else {
-        console.log('[Dashboard] Auto-refresh skipped, already loading');
-      }
-    }, autoRefreshInterval);
+    if (enableAdaptivePolling) {
+      // Use adaptive poller
+      console.log('[Dashboard] Setting up adaptive polling');
+      adaptivePollerRef.current = new AdaptivePoller({
+        minInterval: 30000, // 30 seconds
+        maxInterval: autoRefreshInterval,
+        backoffMultiplier: 1.5,
+        activityThreshold: 300000, // 5 minutes
+        changeDetection: true
+      });
+
+      pollerUnsubscribeRef.current = adaptivePollerRef.current.subscribe(async () => {
+        if (!loading && !fetchInProgressRef.current) {
+          console.log('[Dashboard] Adaptive poll triggered');
+          return fetchData(false);
+        }
+        console.log('[Dashboard] Adaptive poll skipped, already loading');
+        return Promise.resolve();
+      });
+
+    } else {
+      // Use traditional interval polling
+      console.log('[Dashboard] Setting up traditional polling:', autoRefreshInterval);
+      intervalRef.current = setInterval(() => {
+        if (!loading && !fetchInProgressRef.current) {
+          console.log('[Dashboard] Traditional poll triggered');
+          fetchData(false);
+        } else {
+          console.log('[Dashboard] Traditional poll skipped, already loading');
+        }
+      }, autoRefreshInterval);
+    }
 
     return () => {
+      // Cleanup adaptive poller
+      if (pollerUnsubscribeRef.current) {
+        pollerUnsubscribeRef.current();
+        pollerUnsubscribeRef.current = null;
+      }
+      if (adaptivePollerRef.current) {
+        adaptivePollerRef.current.pause();
+        adaptivePollerRef.current = null;
+      }
+
+      // Cleanup traditional interval
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
-        console.log('[Dashboard] Auto-refresh cleared');
       }
+      
+      console.log('[Dashboard] Auto-refresh cleared');
     };
-  }, [enableAutoRefresh, autoRefreshInterval, fetchData]);
+  }, [enableAutoRefresh, enableAdaptivePolling, autoRefreshInterval, fetchData, loading]);
 
   // Subscribe to real-time updates (removed to prevent double updates)
 
