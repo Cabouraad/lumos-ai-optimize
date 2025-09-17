@@ -160,6 +160,60 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_jobs_archive: {
+        Row: {
+          archived_at: string
+          archived_reason: string
+          cancellation_requested: boolean
+          completed_at: string | null
+          completed_tasks: number
+          created_at: string
+          failed_tasks: number
+          id: string
+          last_heartbeat: string | null
+          metadata: Json | null
+          org_id: string
+          runner_id: string | null
+          started_at: string | null
+          status: string
+          total_tasks: number
+        }
+        Insert: {
+          archived_at?: string
+          archived_reason?: string
+          cancellation_requested?: boolean
+          completed_at?: string | null
+          completed_tasks?: number
+          created_at: string
+          failed_tasks?: number
+          id: string
+          last_heartbeat?: string | null
+          metadata?: Json | null
+          org_id: string
+          runner_id?: string | null
+          started_at?: string | null
+          status: string
+          total_tasks?: number
+        }
+        Update: {
+          archived_at?: string
+          archived_reason?: string
+          cancellation_requested?: boolean
+          completed_at?: string | null
+          completed_tasks?: number
+          created_at?: string
+          failed_tasks?: number
+          id?: string
+          last_heartbeat?: string | null
+          metadata?: Json | null
+          org_id?: string
+          runner_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+        }
+        Relationships: []
+      }
       batch_tasks: {
         Row: {
           attempts: number
@@ -209,6 +263,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      batch_tasks_archive: {
+        Row: {
+          archived_at: string
+          archived_reason: string
+          attempts: number
+          batch_job_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          prompt_id: string
+          provider: string
+          result: Json | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          archived_at?: string
+          archived_reason?: string
+          attempts?: number
+          batch_job_id: string
+          completed_at?: string | null
+          created_at: string
+          error_message?: string | null
+          id: string
+          prompt_id: string
+          provider: string
+          result?: Json | null
+          started_at?: string | null
+          status: string
+        }
+        Update: {
+          archived_at?: string
+          archived_reason?: string
+          attempts?: number
+          batch_job_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          prompt_id?: string
+          provider?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       brand_candidates: {
         Row: {
@@ -1053,6 +1155,10 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      clean_old_batch_jobs: {
+        Args: { days_old?: number; dry_run?: boolean }
+        Returns: Json
+      }
       cleanup_old_scheduler_runs: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1084,6 +1190,10 @@ export type Database = {
       generate_week_key: {
         Args: { input_date: string }
         Returns: string
+      }
+      get_batch_cleanup_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_brand_candidates_for_org: {
         Args: Record<PropertyKey, never>
@@ -1196,8 +1306,8 @@ export type Database = {
         Args: { p_days?: number; p_prompt_id: string } | { p_prompt_id: string }
         Returns: {
           competitor_name: string
+          mentions: number
           share: number
-          total_mentions: number
         }[]
       }
       get_prompt_visibility_7d: {
