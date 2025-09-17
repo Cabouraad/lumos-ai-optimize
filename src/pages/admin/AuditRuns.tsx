@@ -5,10 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Layout } from '@/components/Layout';
-import { ChevronDown, ChevronRight, Play, Download, ExternalLink, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, Download, ExternalLink, Clock, CheckCircle, XCircle, Settings } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { BatchProcessorAdmin } from '@/components/admin/BatchProcessorAdmin';
 
 interface AuditRun {
   id: string;
@@ -209,16 +211,42 @@ export default function AuditRuns() {
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Automated Audit Runs</h1>
+            <h1 className="text-3xl font-bold">Admin Console</h1>
             <p className="text-muted-foreground mt-2">
-              View and manage automated end-to-end audit runs
+              System monitoring and management tools
             </p>
           </div>
-          <Button onClick={runAuditNow} disabled={running}>
-            <Play className="w-4 h-4 mr-2" />
-            {running ? 'Running...' : 'Run Now'}
-          </Button>
         </div>
+
+        <Tabs defaultValue="batch-processor" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="batch-processor" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Batch Processor
+            </TabsTrigger>
+            <TabsTrigger value="audit-runs" className="flex items-center gap-2">
+              <Play className="w-4 h-4" />
+              Audit Runs
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="batch-processor" className="space-y-6">
+            <BatchProcessorAdmin />
+          </TabsContent>
+
+          <TabsContent value="audit-runs" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold">Automated Audit Runs</h2>
+                <p className="text-muted-foreground mt-2">
+                  View and manage automated end-to-end audit runs
+                </p>
+              </div>
+              <Button onClick={runAuditNow} disabled={running}>
+                <Play className="w-4 h-4 mr-2" />
+                {running ? 'Running...' : 'Run Now'}
+              </Button>
+            </div>
 
         <Card>
           <CardHeader>
@@ -347,6 +375,8 @@ export default function AuditRuns() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

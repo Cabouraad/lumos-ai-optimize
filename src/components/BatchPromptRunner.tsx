@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings, AlertTriangle, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
@@ -47,6 +47,7 @@ export function BatchPromptRunner() {
   const [isDriverRunning, setIsDriverRunning] = useState(false);
   const [preflightData, setPreflightData] = useState<any>(null);
   const [showPreflightWarning, setShowPreflightWarning] = useState(false);
+  const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<Record<string, any>>({});
 
   // Auto-reconcile on mount to fix any stuck jobs immediately
   useEffect(() => {
@@ -66,6 +67,7 @@ export function BatchPromptRunner() {
     autoReconcile();
     loadRecentJobs();
     runPreflight();
+    loadCircuitBreakerStatus();
   }, []);
 
   // Client-side driver loop to keep batch processing alive
@@ -263,6 +265,23 @@ export function BatchPromptRunner() {
     } catch (error: any) {
       console.error(`❌ [${correlationId}] ${functionName} failed:`, error.message);
       throw error;
+    }
+  };
+
+  // Load circuit breaker status
+  const loadCircuitBreakerStatus = () => {
+    const status = EnhancedEdgeFunctionClient.getCircuitBreakerStatus();
+    setCircuitBreakerStatus(status);
+  };
+
+  // Reset circuit breaker for a specific function
+  const resetCircuitBreaker = async (functionName: string) => {
+    try {
+      EnhancedEdgeFunctionClient.resetCircuitBreaker(functionName);
+      toast.success(`Circuit breaker reset for ${functionName}`);
+      loadCircuitBreakerStatus();
+    } catch (error: any) {
+      toast.error(`Failed to reset circuit breaker: ${error.message}`);
     }
   };
 
@@ -636,6 +655,43 @@ export function BatchPromptRunner() {
             </Button>
           </div>
         </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Circuit Breaker Status */}
+        {Object.keys(circuitBreakerStatus).length > 0 && (
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <div className="font-medium">Circuit Breaker Status:</div>
+                {Object.entries(circuitBreakerStatus).map(([functionName, state]: [string, any]) => (
+                  <div key={functionName} className="flex items-center justify-between">
+                    <span className="text-sm">{functionName}:</span>
+                    <div className="flex items-center gap-2">
+                      {state.state === 'OPEN' ? (
+                        <>
+                          <Badge variant="destructive" className="text-xs">Circuit Open</Badge>
+                          <Button
+                            onClick={() => resetCircuitBreaker(functionName)}
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                          >
+                            Reset
+                          </Button>
+                        </>
+                      ) : state.state === 'HALF_OPEN' ? (
+                        <Badge variant="secondary" className="text-xs">Testing</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">Healthy</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         
         {/* Preflight Warning */}
         {showPreflightWarning && preflightData && (
@@ -837,6 +893,8 @@ export function BatchPromptRunner() {
             <p className="text-sm">Click "Start Batch Processing" to run all active prompts across enabled providers with robust error handling and automatic recovery.</p>
           </div>
         )}
+      </CardContent>
+    </Card>
       </CardContent>
     </Card>
   );
