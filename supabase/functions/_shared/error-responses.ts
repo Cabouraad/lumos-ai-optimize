@@ -137,7 +137,7 @@ export function getHttpStatusFromErrorCode(code: ErrorCode): number {
  * Edge functions can gradually migrate to use enhanced responses.
  */
 
-import { corsHeaders } from './cors';
+import { corsHeaders } from './cors.ts';
 
 export function createEnhancedErrorResponse(
   code: string,
