@@ -130,50 +130,113 @@ export default function Reports() {
     try {
       setDownloadingId(reportId);
       
-      const { data, error } = await supabase.functions.invoke('reports-sign', {
-        body: { reportId }
-      });
+      // First attempt: Use reports-sign function with retry
+      let signedUrlAttempts = 0;
+      const maxSignedUrlAttempts = 2;
+      let signedUrlData = null;
+      let signedUrlError = null;
 
-      if (error) {
-        // Check for plan denial in both error message and response data
-        if (error.message?.includes('plan_denied') || data?.code === 'plan_denied') {
-          showToast({
-            title: "Access Denied",
-            description: "Upgrade to Growth or Pro plan to download reports.",
-            variant: "destructive",
-          });
-          return;
-        }
+      while (signedUrlAttempts < maxSignedUrlAttempts) {
+        signedUrlAttempts++;
         
-        console.error('Error generating download URL:', error);
+        const { data, error } = await supabase.functions.invoke('reports-sign', {
+          body: { reportId }
+        });
+
+        if (error) {
+          // Check for plan denial in both error message and response data
+          if (error.message?.includes('plan_denied') || data?.code === 'plan_denied') {
+            showToast({
+              title: "Access Denied",
+              description: "Upgrade to Growth or Pro plan to download reports.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          console.warn(`reports-sign attempt ${signedUrlAttempts} failed:`, error);
+          signedUrlError = error;
+          
+          if (signedUrlAttempts < maxSignedUrlAttempts) {
+            // Wait 1 second before retry
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+        } else if (data?.signedUrl) {
+          signedUrlData = data;
+          break;
+        }
+      }
+
+      // If signed URL approach worked, use it
+      if (signedUrlData?.signedUrl) {
+        const link = document.createElement('a');
+        link.href = signedUrlData.signedUrl;
+        link.download = `report-${reportId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
         showToast({
-          title: "Download failed",
-          description: error.message || "Failed to generate download link",
-          variant: "destructive",
+          title: "Success",
+          description: "Report download started.",
         });
         return;
       }
 
-      if (data?.url) {
-        // Open download in new tab
-        window.open(data.url, '_blank');
-        showToast({
-          title: "Download started",
-          description: "Your report is being downloaded.",
-        });
-      } else {
-        showToast({
-          title: "Download failed",
-          description: "Failed to generate download link",
-          variant: "destructive",
-        });
+      // Fallback: Direct storage download with user's JWT
+      console.log('Falling back to direct storage download...');
+      
+      // Get report details first
+      const { data: reportData, error: reportError } = await supabase
+        .from('reports')
+        .select('storage_path')
+        .eq('id', reportId)
+        .single();
+
+      if (reportError || !reportData) {
+        throw new Error(`Could not find report: ${reportError?.message}`);
       }
+
+      // Normalize storage path
+      const normalizedPath = reportData.storage_path.startsWith('reports/') 
+        ? reportData.storage_path.substring('reports/'.length)
+        : reportData.storage_path;
+
+      // Download directly from storage using user's JWT
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('reports')
+        .download(normalizedPath);
+
+      if (downloadError || !fileData) {
+        throw new Error(`Storage download failed: ${downloadError?.message}`);
+      }
+
+      // Create blob URL and download
+      const blob = new Blob([fileData], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `report-${reportId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up blob URL
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      
+      showToast({
+        title: "Success",
+        description: "Report download started (fallback method).",
+      });
+
     } catch (error) {
       console.error('Error downloading report:', error);
       showToast({
-        title: "Download failed",
-        description: "Failed to download report. Please try again.",
-        variant: "destructive",
+        title: "Download Failed", 
+        description: "Could not download the report. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setDownloadingId(null);

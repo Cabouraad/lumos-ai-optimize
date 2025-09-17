@@ -55,13 +55,23 @@ export function getStrictCorsHeaders(requestOrigin?: string | null): Record<stri
     origin = requestOrigin;
   }
 
-  return {
+  // CRITICAL: Cannot set credentials=true with wildcard origin
+  const allowCredentials = origin !== '*';
+
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret, x-supabase-api-version',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+    'Vary': 'Origin', // Always include Vary header
   };
+
+  // Only add credentials header when not using wildcard origin
+  if (allowCredentials) {
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  return headers;
 }
 
 /**

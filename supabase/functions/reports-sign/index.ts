@@ -15,6 +15,8 @@ serve(async (req) => {
   const requestOrigin = req.headers.get('origin');
   const corsHeaders = getStrictCorsHeaders(requestOrigin);
   
+  logStep("CORS configuration", { requestOrigin, corsHeaders });
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
