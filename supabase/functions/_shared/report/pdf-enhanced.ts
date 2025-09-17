@@ -1,42 +1,39 @@
 /**
  * Professional Weekly Visibility Report PDF Generator
  * Creates polished, multi-page reports with consistent branding and insights
+ * Brand Style Guide: Primary Blue, Secondary Green, Accent Orange
  */
 
 import { PDFDocument, rgb, StandardFonts, PageSizes } from 'https://cdn.skypack.dev/pdf-lib@1.17.1';
 import { WeeklyReportData } from './collect.ts';
 
-// Convert HSL to RGB for PDF-lib compatibility
-function hslToRgb(h: number, s: number, l: number) {
-  h /= 360; s /= 100; l /= 100;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const k = (n + h * 12) % 12;
-    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-  };
-  return rgb(f(0), f(8), f(4));
+// Convert hex colors to RGB for PDF-lib compatibility
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? rgb(
+    parseInt(result[1], 16) / 255,
+    parseInt(result[2], 16) / 255,
+    parseInt(result[3], 16) / 255
+  ) : rgb(0, 0, 0);
 }
 
 export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const courierBold = await pdfDoc.embedFont(StandardFonts.CourierBold); // For KPI numbers (Roboto Mono alternative)
 
-  // Brand-consistent color palette from design system
+  // Brand Style Guide Color Palette
   const colors = {
-    primary: hslToRgb(217, 91, 60),          // Vibrant Blue
-    primaryLight: hslToRgb(217, 91, 75),     // Light Blue  
-    secondary: hslToRgb(262, 83, 58),        // Elegant Purple
-    accent: hslToRgb(174, 84, 50),           // Vibrant Teal
-    success: hslToRgb(142, 76, 36),          // Green
-    warning: hslToRgb(38, 92, 50),           // Orange
-    danger: hslToRgb(0, 84, 60),             // Red
-    text: hslToRgb(222, 84, 5),              // Dark gray
-    lightBg: hslToRgb(217, 91, 96),          // Very light blue
+    primaryBlue: hexToRgb('#1E3A8A'),        // Headers/titles
+    secondaryGreen: hexToRgb('#10B981'),     // Positive trends
+    accentOrange: hexToRgb('#F97316'),       // Negative trends/risks
+    neutralDark: hexToRgb('#111827'),        // Body text
+    neutralGray: hexToRgb('#6B7280'),        // Labels/borders
+    backgroundLight: hexToRgb('#F9FAFB'),    // Card backgrounds
     white: rgb(1, 1, 1),
-    border: hslToRgb(214, 32, 91),           // Light gray border
-    cardBg: hslToRgb(0, 0, 100),             // White card background
-    shadowLight: rgb(0.96, 0.96, 0.98)      // Light shadow
+    shadow: rgb(0.9, 0.9, 0.95),            // Card shadows
+    watermark: rgb(0.95, 0.95, 0.98)        // Faint watermark
   };
 
   // Page dimensions (A4)
@@ -45,206 +42,257 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   const margin = 50;
   const contentWidth = pageWidth - 2 * margin;
 
-  // Helper functions
-  function addHeader(page: any, title: string, pageNumber: number) {
-    // Organization name and logo area
-    page.drawText(dto.header.orgName, {
-      x: margin,
-      y: pageHeight - 30,
-      size: 12,
+  // Brand watermark function
+  function addWatermark(page: any) {
+    // Faint "LUMOS AI" watermark in center
+    page.drawText('LUMOS AI', {
+      x: pageWidth / 2 - 60,
+      y: pageHeight / 2,
+      size: 48,
       font: helveticaBold,
-      color: colors.primary,
+      color: colors.watermark,
+      rotate: { angle: Math.PI / 6, x: pageWidth / 2, y: pageHeight / 2 }
     });
-
-    // Page title
-    page.drawText(title, {
-      x: margin,
-      y: pageHeight - 60,
-      size: 20,
-      font: helveticaBold,
-      color: colors.text,
-    });
-
-    // Page number and date
-    const footerText = `Page ${pageNumber} • Generated ${new Date(dto.header.generatedAt).toLocaleDateString()}`;
-    page.drawText(footerText, {
-      x: pageWidth - 200,
-      y: pageHeight - 30,
-      size: 8,
-      font: helveticaFont,
-      color: colors.secondary,
-    });
-
-    // Header line
-    page.drawLine({
-      start: { x: margin, y: pageHeight - 75 },
-      end: { x: pageWidth - margin, y: pageHeight - 75 },
-      thickness: 1,
-      color: colors.border,
-    });
-
-    return pageHeight - 100; // Return starting Y position for content
   }
 
-  function drawCard(page: any, x: number, y: number, width: number, height: number, title: string, value: string, delta?: number, subtitle?: string) {
-    // Card shadow effect (drawn first)
+  // Enhanced header with brand styling
+  function addBrandedHeader(page: any, title: string, pageNumber: number) {
+    // Header background bar
     page.drawRectangle({
-      x: x + 3,
-      y: y - height - 3,
-      width,
-      height,
-      color: colors.shadowLight,
+      x: 0,
+      y: pageHeight - 50,
+      width: pageWidth,
+      height: 50,
+      color: colors.backgroundLight,
     });
 
-    // Card background with gradient effect
+    // Logo placeholder (top-left)
+    page.drawRectangle({
+      x: margin,
+      y: pageHeight - 45,
+      width: 40,
+      height: 40,
+      color: colors.primaryBlue,
+    });
+    
+    page.drawText('L', {
+      x: margin + 15,
+      y: pageHeight - 30,
+      size: 16,
+      font: helveticaBold,
+      color: colors.white,
+    });
+
+    // Organization name (brand styling)
+    page.drawText(dto.header.orgName, {
+      x: margin + 50,
+      y: pageHeight - 30,
+      size: 14,
+      font: helveticaBold,
+      color: colors.primaryBlue,
+    });
+
+    // Page title (Headers: 20-24pt, Primary Blue)
+    page.drawText(title, {
+      x: margin,
+      y: pageHeight - 80,
+      size: 22,
+      font: helveticaBold,
+      color: colors.primaryBlue,
+    });
+
+    // Footer with page number and timestamp
+    const footerText = `Page ${pageNumber}`;
+    const timestampText = `Generated ${new Date(dto.header.generatedAt).toLocaleDateString()}`;
+    
+    page.drawText(footerText, {
+      x: margin,
+      y: 30,
+      size: 10,
+      font: helveticaFont,
+      color: colors.neutralGray,
+    });
+    
+    page.drawText(timestampText, {
+      x: pageWidth - margin - 120,
+      y: 30,
+      size: 10,
+      font: helveticaFont,
+      color: colors.neutralGray,
+    });
+
+    // Add watermark to every page
+    addWatermark(page);
+
+    return pageHeight - 110; // Return starting Y position for content
+  }
+
+  // Brand-styled metric cards
+  function drawBrandedCard(page: any, x: number, y: number, width: number, height: number, title: string, value: string, delta?: number, subtitle?: string) {
+    // Card shadow (brand styling)
+    page.drawRectangle({
+      x: x + 4,
+      y: y - height - 4,
+      width,
+      height,
+      color: colors.shadow,
+    });
+
+    // Card background (white with rounded corners effect)
     page.drawRectangle({
       x,
       y: y - height,
       width,
       height,
-      color: colors.cardBg,
-      borderColor: colors.border,
-      borderWidth: 1.5,
+      color: colors.white,
+      borderColor: colors.neutralGray,
+      borderWidth: 1,
     });
 
-    // Subtle accent line at top
+    // Brand accent stripe (left side)
     page.drawRectangle({
       x,
-      y: y - 4,
-      width,
-      height: 4,
-      color: colors.primary,
+      y: y - 6,
+      width: 4,
+      height: 6,
+      color: colors.primaryBlue,
     });
 
-    // Title
+    // Title (Body: Inter Regular equivalent, 11-12pt, Neutral Dark)
     page.drawText(title, {
-      x: x + 20,
-      y: y - 30,
+      x: x + 16, // 16px padding as per style guide
+      y: y - 25,
       size: 11,
       font: helveticaFont,
-      color: colors.secondary,
+      color: colors.neutralGray,
     });
 
-    // Main value
+    // KPI value (KPI Numbers: 28-36pt, large and bold)
     page.drawText(value, {
-      x: x + 20,
+      x: x + 16,
       y: y - 55,
-      size: 28,
-      font: helveticaBold,
-      color: colors.primary,
+      size: 32,
+      font: courierBold, // Roboto Mono alternative
+      color: colors.neutralDark,
     });
 
-    // Delta with styled arrow and background
+    // Delta with brand colors (12pt, green ↑ positive, orange ↓ negative)
     if (delta !== undefined) {
-      const deltaText = delta >= 0 ? `↗ +${delta.toFixed(1)}` : `↘ ${delta.toFixed(1)}`;
-      const deltaColor = delta >= 0 ? colors.success : colors.danger;
-      const deltaBgColor = delta >= 0 ? hslToRgb(142, 76, 95) : hslToRgb(0, 84, 95);
+      const isPositive = delta >= 0;
+      const deltaText = isPositive ? `↗ +${delta.toFixed(1)}` : `↘ ${delta.toFixed(1)}`;
+      const deltaColor = isPositive ? colors.secondaryGreen : colors.accentOrange;
+      const deltaBgColor = isPositive ? 
+        rgb(colors.secondaryGreen.red * 0.1, colors.secondaryGreen.green * 0.1 + 0.9, colors.secondaryGreen.blue * 0.1 + 0.9) :
+        rgb(colors.accentOrange.red * 0.1 + 0.9, colors.accentOrange.green * 0.1 + 0.9, colors.accentOrange.blue * 0.1);
       
-      // Delta background
+      // Delta background pill
       page.drawRectangle({
-        x: x + 15,
+        x: x + 12,
         y: y - 85,
-        width: 80,
-        height: 20,
+        width: 85,
+        height: 22,
         color: deltaBgColor,
       });
       
       page.drawText(deltaText, {
-        x: x + 20,
+        x: x + 16,
         y: y - 80,
-        size: 11,
+        size: 12, // 12pt as per style guide
         font: helveticaBold,
         color: deltaColor,
       });
     }
 
-    // Subtitle
+    // Subtitle (Body text styling)
     if (subtitle) {
       page.drawText(subtitle, {
-        x: x + 20,
+        x: x + 16,
         y: y - 105,
-        size: 9,
+        size: 10,
         font: helveticaFont,
-        color: colors.text,
+        color: colors.neutralGray,
       });
     }
   }
 
-  function drawLineChart(page: any, x: number, y: number, width: number, height: number, data: Array<{weekStart: string, avgScore: number}>, title: string) {
-    // Chart background
+  function drawBrandedLineChart(page: any, x: number, y: number, width: number, height: number, data: Array<{weekStart: string, avgScore: number}>, title: string) {
+    // Chart background (brand styling)
     page.drawRectangle({
       x,
       y: y - height,
       width,
       height,
-      color: colors.lightBg,
-      borderColor: colors.border,
+      color: colors.backgroundLight,
+      borderColor: colors.neutralGray,
       borderWidth: 1,
     });
 
-    // Chart title
+    // Chart title (Headers: Primary Blue)
     page.drawText(title, {
-      x: x + 10,
-      y: y - 20,
-      size: 12,
+      x: x + 16,
+      y: y - 25,
+      size: 14,
       font: helveticaBold,
-      color: colors.text,
+      color: colors.primaryBlue,
     });
 
     if (data.length < 2) return;
 
     const chartArea = {
-      x: x + 40,
-      y: y - height + 40,
-      width: width - 60,
-      height: height - 60
+      x: x + 50,
+      y: y - height + 50,
+      width: width - 70,
+      height: height - 70
     };
 
     const maxScore = Math.max(...data.map(d => d.avgScore), 10);
     const minScore = Math.min(...data.map(d => d.avgScore), 0);
     const scoreRange = maxScore - minScore || 1;
 
-    // Draw grid lines
+    // Grid lines (neutral gray)
     for (let i = 0; i <= 4; i++) {
       const gridY = chartArea.y + (chartArea.height * i / 4);
       page.drawLine({
         start: { x: chartArea.x, y: gridY },
         end: { x: chartArea.x + chartArea.width, y: gridY },
         thickness: 0.5,
-        color: colors.border,
+        color: colors.neutralGray,
       });
 
       // Y-axis labels
       const labelValue = minScore + (scoreRange * (4 - i) / 4);
       page.drawText(labelValue.toFixed(1), {
-        x: chartArea.x - 30,
+        x: chartArea.x - 35,
         y: gridY - 4,
-        size: 8,
+        size: 9,
         font: helveticaFont,
-        color: colors.secondary,
+        color: colors.neutralGray,
       });
     }
 
-    // Draw data line
+    // Data line (Primary Blue for main trend)
     for (let i = 0; i < data.length - 1; i++) {
       const x1 = chartArea.x + (chartArea.width * i / (data.length - 1));
       const y1 = chartArea.y + (chartArea.height * (data[i].avgScore - minScore) / scoreRange);
       const x2 = chartArea.x + (chartArea.width * (i + 1) / (data.length - 1));
       const y2 = chartArea.y + (chartArea.height * (data[i + 1].avgScore - minScore) / scoreRange);
 
+      // Determine line color based on trend
+      const trendColor = data[i + 1].avgScore >= data[i].avgScore ? colors.secondaryGreen : colors.accentOrange;
+      
       page.drawLine({
         start: { x: x1, y: y1 },
         end: { x: x2, y: y2 },
-        thickness: 2,
-        color: colors.primary,
+        thickness: 3,
+        color: trendColor,
       });
 
       // Data points
       page.drawCircle({
         x: x1,
         y: y1,
-        size: 3,
-        color: colors.primary,
+        size: 4,
+        color: colors.primaryBlue,
       });
     }
 
@@ -257,223 +305,222 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       page.drawCircle({
         x: lastX,
         y: lastY,
-        size: 3,
-        color: colors.primary,
+        size: 4,
+        color: colors.primaryBlue,
       });
     }
   }
 
-  function drawBarChart(page: any, x: number, y: number, width: number, height: number, data: Array<{name: string, value: number}>, title: string) {
-    // Chart background
+  function drawBrandedBarChart(page: any, x: number, y: number, width: number, height: number, data: Array<{name: string, value: number}>, title: string) {
+    // Chart background (brand styling)
     page.drawRectangle({
       x,
       y: y - height,
       width,
       height,
-      color: colors.lightBg,
-      borderColor: colors.border,
+      color: colors.backgroundLight,
+      borderColor: colors.neutralGray,
       borderWidth: 1,
     });
 
-    // Chart title
+    // Chart title (Headers: Primary Blue)
     page.drawText(title, {
-      x: x + 10,
-      y: y - 20,
-      size: 12,
+      x: x + 16,
+      y: y - 25,
+      size: 14,
       font: helveticaBold,
-      color: colors.text,
+      color: colors.primaryBlue,
     });
 
     if (data.length === 0) return;
 
     const chartArea = {
-      x: x + 10,
-      y: y - height + 30,
-      width: width - 20,
-      height: height - 50
+      x: x + 16,
+      y: y - height + 40,
+      width: width - 32,
+      height: height - 60
     };
 
     const maxValue = Math.max(...data.map(d => d.value), 1);
-    const barWidth = Math.min(30, chartArea.width / data.length - 5);
+    const barWidth = Math.min(35, chartArea.width / data.length - 8);
 
     data.slice(0, 10).forEach((item, index) => {
       const barHeight = (item.value / maxValue) * chartArea.height;
       const barX = chartArea.x + (index * (chartArea.width / Math.min(data.length, 10)));
       const barY = chartArea.y;
 
-      // Bar
+      // Bar gradient effect (Primary Blue to Secondary Green based on performance)
+      const barColor = item.value > (maxValue * 0.7) ? colors.secondaryGreen : 
+                      item.value > (maxValue * 0.4) ? colors.primaryBlue : colors.accentOrange;
+
       page.drawRectangle({
         x: barX,
         y: barY,
         width: barWidth,
         height: barHeight,
-        color: colors.primary,
+        color: barColor,
       });
 
-      // Value label on top
+      // Value label on top (brand styling)
       page.drawText(item.value.toFixed(1) + '%', {
-        x: barX,
-        y: barY + barHeight + 5,
-        size: 8,
-        font: helveticaFont,
-        color: colors.text,
+        x: barX + 2,
+        y: barY + barHeight + 8,
+        size: 9,
+        font: helveticaBold,
+        color: colors.neutralDark,
       });
 
-      // Name label (rotated)
-      const truncatedName = item.name.length > 8 ? item.name.substring(0, 8) + '...' : item.name;
+      // Name label (brand styling)
+      const truncatedName = item.name.length > 10 ? item.name.substring(0, 10) + '...' : item.name;
       page.drawText(truncatedName, {
         x: barX,
-        y: barY - 15,
-        size: 7,
+        y: barY - 20,
+        size: 8,
         font: helveticaFont,
-        color: colors.secondary,
+        color: colors.neutralGray,
       });
     });
   }
 
-  function drawHighlightsBox(page: any, x: number, y: number, width: number, highlights: string[]) {
-    const boxHeight = 40 + (highlights.length * 18);
+  function drawBrandedHighlightsBox(page: any, x: number, y: number, width: number, highlights: string[]) {
+    const boxHeight = 60 + (highlights.length * 20);
     
-    // Box background
+    // Callout box background (light gray background as per style guide)
     page.drawRectangle({
       x,
       y: y - boxHeight,
       width,
       height: boxHeight,
-      color: colors.lightBg,
-      borderColor: colors.primary,
-      borderWidth: 2,
+      color: colors.backgroundLight,
+      borderColor: colors.neutralGray,
+      borderWidth: 1,
     });
 
-    // Title
+    // Left brand stripe (brand color)
+    page.drawRectangle({
+      x,
+      y: y - boxHeight,
+      width: 6,
+      height: boxHeight,
+      color: colors.primaryBlue,
+    });
+
+    // Title with icon (Headers: Primary Blue)
     page.drawText('📊 Key Highlights', {
-      x: x + 15,
-      y: y - 25,
-      size: 14,
+      x: x + 20,
+      y: y - 30,
+      size: 16,
       font: helveticaBold,
-      color: colors.primary,
+      color: colors.primaryBlue,
     });
 
-    // Highlights
+    // Highlights (Body: 11-12pt, Neutral Dark)
     highlights.slice(0, 4).forEach((highlight, index) => {
       page.drawText(`• ${highlight}`, {
-        x: x + 15,
-        y: y - 50 - (index * 18),
-        size: 10,
+        x: x + 20,
+        y: y - 55 - (index * 20),
+        size: 11,
         font: helveticaFont,
-        color: colors.text,
+        color: colors.neutralDark,
       });
     });
 
     return boxHeight;
   }
 
-  // PAGE 1: Cover Page with Logo, Org, Big Metrics, and Highlights
+  // PAGE 1: Cover Page with Brand Header Bar, Logo, Big Metrics, and Highlights
   const coverPage = pdfDoc.addPage([pageWidth, pageHeight]);
   
-  // Enhanced Logo/Brand Section
-  const logoSize = 80;
-  // Modern logo design with gradient effect
+  // Brand header bar with logo (top-left as per style guide)
+  page.drawRectangle({
+    x: 0,
+    y: pageHeight - 80,
+    width: pageWidth,
+    height: 80,
+    color: colors.primaryBlue,
+  });
+
+  // Logo (top-left cover page)
   coverPage.drawRectangle({
     x: margin,
-    y: pageHeight - 130,
-    width: logoSize,
-    height: logoSize,
-    color: colors.primary,
+    y: pageHeight - 70,
+    width: 60,
+    height: 60,
+    color: colors.white,
   });
   
-  // Logo accent overlay
-  coverPage.drawRectangle({
-    x: margin + 10,
-    y: pageHeight - 120,
-    width: logoSize - 20,
-    height: logoSize - 20,
-    color: colors.accent,
-  });
-  
-  // Brand text overlay
   coverPage.drawText('L', {
-    x: margin + 35,
-    y: pageHeight - 95,
+    x: margin + 25,
+    y: pageHeight - 45,
+    size: 20,
+    font: helveticaBold,
+    color: colors.primaryBlue,
+  });
+
+  // Title and org (Headers: 20-24pt, Primary Blue becomes white on dark bg)
+  coverPage.drawText('Weekly Brand Visibility Report', {
+    x: margin + 80,
+    y: pageHeight - 35,
     size: 24,
     font: helveticaBold,
     color: colors.white,
   });
 
-  // Company branding
-  coverPage.drawText('LUMOS AI', {
-    x: margin + logoSize + 20,
-    y: pageHeight - 70,
+  coverPage.drawText(dto.header.orgName, {
+    x: margin + 80,
+    y: pageHeight - 55,
     size: 16,
     font: helveticaBold,
-    color: colors.primary,
-  });
-
-  // Main title with enhanced typography
-  coverPage.drawText('Weekly Brand Visibility Report', {
-    x: margin + logoSize + 20,
-    y: pageHeight - 95,
-    size: 32,
-    font: helveticaBold,
-    color: colors.text,
-  });
-
-  // Organization and period
-  coverPage.drawText(dto.header.orgName, {
-    x: margin + logoSize + 20,
-    y: pageHeight - 125,
-    size: 20,
-    font: helveticaBold,
-    color: colors.secondary,
+    color: colors.backgroundLight,
   });
 
   const periodText = `${dto.header.periodStart} to ${dto.header.periodEnd}`;
   coverPage.drawText(periodText, {
-    x: margin + logoSize + 20,
-    y: pageHeight - 145,
-    size: 14,
+    x: margin + 80,
+    y: pageHeight - 70,
+    size: 12,
     font: helveticaFont,
-    color: colors.text,
+    color: colors.backgroundLight,
   });
 
-  // Executive Summary - Large featured metric
-  const summaryY = pageHeight - 200;
-  drawCard(coverPage, margin, summaryY, contentWidth, 120, 
+  // Executive Summary Card - Large featured metric
+  const summaryY = pageHeight - 120;
+  drawBrandedCard(coverPage, margin, summaryY, contentWidth, 140, 
     'Executive Summary - Brand Visibility Score', 
     `${dto.kpis.avgVisibilityScore}/10`,
     dto.kpis.deltaVsPriorWeek?.avgVisibilityScore,
     `Based on ${dto.kpis.totalRuns} AI responses analyzed this week`
   );
 
-  // Key Metrics Cards Row
+  // Key Metrics Cards Row (brand styling)
   const cardWidth = (contentWidth - 40) / 3;
-  const cardY = summaryY - 150;
+  const cardY = summaryY - 170;
   
-  drawCard(coverPage, margin, cardY, cardWidth, 100,
+  drawBrandedCard(coverPage, margin, cardY, cardWidth, 120,
     'Brand Present Rate',
     `${dto.kpis.brandPresentRate}%`,
     dto.kpis.deltaVsPriorWeek?.brandPresentRate,
     'Responses mentioning brand'
   );
 
-  drawCard(coverPage, margin + cardWidth + 20, cardY, cardWidth, 100,
+  drawBrandedCard(coverPage, margin + cardWidth + 20, cardY, cardWidth, 120,
     'Active Prompts',
     `${dto.prompts.totalActive}`,
     undefined,
     'categories analyzed'
   );
 
-  drawCard(coverPage, margin + 2 * (cardWidth + 20), cardY, cardWidth, 100,
+  drawBrandedCard(coverPage, margin + 2 * (cardWidth + 20), cardY, cardWidth, 120,
     'Competitors Detected',
     `${dto.competitors.totalDetected}`,
     undefined,
     `${dto.competitors.newThisWeek.length} new this week`
   );
 
-  // Highlights Box on Cover Page (per wireframe)
+  // Highlights Box (brand callout styling)
   if (dto.insights.highlights.length > 0) {
-    const highlightsY = cardY - 120;
-    const highlightsHeight = drawHighlightsBox(coverPage, margin, highlightsY, contentWidth, dto.insights.highlights);
+    const highlightsY = cardY - 140;
+    drawBrandedHighlightsBox(coverPage, margin, highlightsY, contentWidth, dto.insights.highlights);
   }
 
   // PAGE 2: KPI Dashboard
