@@ -13,8 +13,7 @@ import {
   XCircle,
   PlayCircle,
   Settings,
-  Database,
-  Trash2
+  Database
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnhancedEdgeFunctionClient } from '@/lib/edge-functions/enhanced-client';
@@ -31,19 +30,33 @@ interface SchedulerState {
   last_daily_run_at?: string;
 }
 
+interface CleanupStatus {
+  current: {
+    total_jobs: number;
+    failed_jobs: number;
+    cancelled_jobs: number;
+    old_failed_jobs: number;
+  };
+  archived: {
+    archived_jobs: number;
+    archived_tasks: number;
+  };
+  cleanup_recommended: boolean;
+}
+
 export function BatchProcessorAdmin() {
   const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<Record<string, CircuitBreakerState>>({});
   const [schedulerState, setSchedulerState] = useState<SchedulerState | null>(null);
+  const [cleanupStatus, setCleanupStatus] = useState<CleanupStatus | null>(null);
   const [isResetting, setIsResetting] = useState<string | null>(null);
   const [isForcingBatch, setIsForcingBatch] = useState(false);
   const [isCheckingScheduler, setIsCheckingScheduler] = useState(false);
+  const [isRunningCleanup, setIsRunningCleanup] = useState(false);
   const [executionWindowInfo, setExecutionWindowInfo] = useState<{
     currentTime: string;
     inWindow: boolean;
     nextWindow: string;
   } | null>(null);
-  const [cleanupStatus, setCleanupStatus] = useState<any>(null);
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   useEffect(() => {
     loadSystemStatus();
@@ -69,11 +82,16 @@ export function BatchProcessorAdmin() {
       console.error('Failed to load scheduler state:', error);
     }
 
+    // Get cleanup status
+    try {
+      const { data } = await supabase.rpc('get_batch_cleanup_status');
+      setCleanupStatus(data);
+    } catch (error) {
+      console.error('Failed to load cleanup status:', error);
+    }
+
     // Calculate execution window info
     updateExecutionWindowInfo();
-
-    // Get cleanup status
-    loadCleanupStatus();
   };
 
   const updateExecutionWindowInfo = () => {
@@ -166,36 +184,30 @@ export function BatchProcessorAdmin() {
     }
   };
 
-  const loadCleanupStatus = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_batch_cleanup_status');
-      if (error) throw error;
-      setCleanupStatus(data);
-    } catch (error) {
-      console.error('Failed to load cleanup status:', error);
-    }
-  };
-
-  const runCleanup = async (dryRun = false) => {
-    setIsCleaningUp(true);
+  const runCleanup = async (dryRun: boolean = false) => {
+    setIsRunningCleanup(true);
     try {
       const { data, error } = await supabase.rpc('clean_old_batch_jobs', {
         days_old: 7,
         dry_run: dryRun
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       if (dryRun) {
-        toast.info(`Dry run: Would archive ${data.jobs_to_archive} jobs and ${data.tasks_to_archive} tasks`);
+        toast.info(`Cleanup preview: Would archive ${data.jobs_to_archive} jobs and ${data.tasks_to_archive} tasks`);
       } else {
-        toast.success(`Successfully archived ${data.jobs_archived} jobs and ${data.tasks_archived} tasks`);
-        loadCleanupStatus(); // Refresh status
+        toast.success(`Cleanup completed: Archived ${data.jobs_archived} jobs and ${data.tasks_archived} tasks`);
+        loadSystemStatus(); // Refresh status after cleanup
       }
+      
+      console.log('Cleanup result:', data);
     } catch (error: any) {
       toast.error(`Cleanup failed: ${error.message}`);
     } finally {
-      setIsCleaningUp(false);
+      setIsRunningCleanup(false);
     }
   };
 
@@ -382,71 +394,89 @@ export function BatchProcessorAdmin() {
         </CardContent>
       </Card>
 
-      {/* Database Cleanup */}
+      {/* Database Cleanup Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Database className="w-5 h-5 mr-2" />
-            Database Cleanup
+            Database Cleanup Status
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {cleanupStatus && (
-            <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-              <div className="space-y-1">
-                <div className="text-sm font-medium">Current Jobs</div>
-                <div className="text-xs text-muted-foreground">
-                  Total: {cleanupStatus.current?.total_jobs || 0} | 
-                  Failed: {cleanupStatus.current?.failed_jobs || 0} | 
-                  Cancelled: {cleanupStatus.current?.cancelled_jobs || 0}
+          {cleanupStatus ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Current Jobs</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs">Total:</span>
+                    <Badge variant="outline">{cleanupStatus.current.total_jobs}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs">Failed:</span>
+                    <Badge variant="outline">{cleanupStatus.current.failed_jobs}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs">Old Failed (&gt;7d):</span>
+                    <Badge className={cleanupStatus.current.old_failed_jobs > 0 ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}>
+                      {cleanupStatus.current.old_failed_jobs}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="text-xs text-red-600">
-                  Old Failed: {cleanupStatus.current?.old_failed_jobs || 0}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Archived</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs">Jobs:</span>
+                    <Badge variant="outline">{cleanupStatus.archived.archived_jobs}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs">Tasks:</span>
+                    <Badge variant="outline">{cleanupStatus.archived.archived_tasks}</Badge>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-1">
-                <div className="text-sm font-medium">Archived</div>
-                <div className="text-xs text-muted-foreground">
-                  Jobs: {cleanupStatus.archived?.archived_jobs || 0} | 
-                  Tasks: {cleanupStatus.archived?.archived_tasks || 0}
-                </div>
-              </div>
-            </div>
-          )}
 
-          <div className="flex space-x-2">
-            <Button
-              onClick={() => runCleanup(true)}
-              disabled={isCleaningUp}
-              variant="outline"
-              size="sm"
-            >
-              {isCleaningUp ? 'Checking...' : 'Preview Cleanup'}
-            </Button>
-            <Button
-              onClick={() => runCleanup(false)}
-              disabled={isCleaningUp || !cleanupStatus?.cleanup_recommended}
-              variant="outline"
-              size="sm"
-              className={cleanupStatus?.cleanup_recommended ? 'text-orange-600 border-orange-200' : ''}
-            >
-              {isCleaningUp ? (
-                'Cleaning...'
-              ) : (
-                <>
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Archive Old Jobs
-                </>
+              {cleanupStatus.cleanup_recommended && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    There are {cleanupStatus.current.old_failed_jobs} old failed jobs that can be cleaned up to improve database performance.
+                  </AlertDescription>
+                </Alert>
               )}
-            </Button>
-          </div>
 
-          <Alert>
-            <Database className="h-4 w-4" />
-            <AlertDescription>
-              This safely archives failed/cancelled batch jobs older than 7 days to improve system performance.
-            </AlertDescription>
-          </Alert>
+              <Separator />
+
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => runCleanup(true)}
+                  disabled={isRunningCleanup}
+                  variant="outline"
+                  size="sm"
+                >
+                  {isRunningCleanup ? (
+                    <>Checking...</>
+                  ) : (
+                    <>Preview Cleanup</>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => runCleanup(false)}
+                  disabled={isRunningCleanup || !cleanupStatus.cleanup_recommended}
+                  variant="outline"
+                  size="sm"
+                >
+                  {isRunningCleanup ? (
+                    <>Running...</>
+                  ) : (
+                    <>Run Cleanup</>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground">Loading cleanup status...</p>
+          )}
         </CardContent>
       </Card>
 
