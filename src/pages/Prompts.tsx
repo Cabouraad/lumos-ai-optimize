@@ -19,6 +19,7 @@ import { PromptSuggestions } from '@/components/PromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 import { getPromptCategory } from '@/lib/prompt-utils';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { AlertCircle } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
