@@ -54,7 +54,6 @@ export function PromptList({
   onAddPrompt,
 }: PromptListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterProvider, setFilterProvider] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [selectedPrompts, setSelectedPrompts] = useState<Set<string>>(new Set());
@@ -70,16 +69,6 @@ export function PromptList({
       // Search filter
       const searchMatch = prompt.text.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Provider filter - check if prompt has responses from selected provider
-      const providerMatch = filterProvider === 'all' || (() => {
-        const promptDetails = providerData.find(pd => pd.promptId === prompt.id);
-        if (!promptDetails || !promptDetails.responses) return false;
-        
-        return promptDetails.responses.some((response: any) => 
-          response.provider === filterProvider && response.success
-        );
-      })();
-      
       // Status filter
       const statusMatch = filterStatus === 'all' || 
                          (filterStatus === 'active' && prompt.active) ||
@@ -91,9 +80,9 @@ export function PromptList({
         return promptCategory === filterCategory;
       })();
 
-      return searchMatch && providerMatch && statusMatch && categoryMatch;
+      return searchMatch && statusMatch && categoryMatch;
     });
-  }, [prompts, searchQuery, filterProvider, filterStatus, filterCategory, providerData]);
+  }, [prompts, searchQuery, filterStatus, filterCategory]);
 
   // Paginated prompts
   const paginatedPrompts = useMemo(() => {
@@ -112,7 +101,7 @@ export function PromptList({
   useEffect(() => {
     setSelectedPrompts(new Set());
     setCurrentPage(1);
-  }, [searchQuery, filterProvider, filterStatus, filterCategory]);
+  }, [searchQuery, filterStatus, filterCategory]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -206,18 +195,6 @@ export function PromptList({
 
               {/* Filters */}
               <div className="flex gap-3">
-                <Select value={filterProvider} onValueChange={setFilterProvider}>
-                  <SelectTrigger className="w-36 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
-                    <SelectValue placeholder="Provider" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card/95 backdrop-blur-sm border-border/50">
-                    <SelectItem value="all">All Providers</SelectItem>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="perplexity">Perplexity</SelectItem>
-                    <SelectItem value="gemini">Gemini</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-32 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
                     <SelectValue placeholder="Status" />
@@ -409,16 +386,16 @@ export function PromptList({
                 <Search className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-semibold gradient-primary bg-clip-text text-transparent mb-2">
-                {searchQuery || filterProvider !== 'all' || filterStatus !== 'all' || filterCategory !== 'all'
+                {searchQuery || filterStatus !== 'all' || filterCategory !== 'all'
                   ? 'No prompts match your filters'
                   : 'No prompts yet'}
               </h3>
               <p className="text-muted-foreground mb-6">
-                {searchQuery || filterProvider !== 'all' || filterStatus !== 'all' || filterCategory !== 'all'
+                {searchQuery || filterStatus !== 'all' || filterCategory !== 'all'
                   ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
                   : 'Get started by creating your first prompt to monitor brand visibility in AI search results.'}
               </p>
-              {(!searchQuery && filterProvider === 'all' && filterStatus === 'all' && filterCategory === 'all') && (
+              {(!searchQuery && filterStatus === 'all' && filterCategory === 'all') && (
                 <Button onClick={onAddPrompt} className="hover-lift shadow-glow transition-smooth">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Your First Prompt
