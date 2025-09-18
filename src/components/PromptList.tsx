@@ -19,6 +19,7 @@ import {
   X,
   Loader2
 } from 'lucide-react';
+import { getPromptCategory } from '@/lib/prompt-utils';
 
 interface PromptWithStats {
   id: string;
@@ -69,20 +70,30 @@ export function PromptList({
       // Search filter
       const searchMatch = prompt.text.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Provider filter (always match since we don't have provider details in the simple interface)
-      const providerMatch = filterProvider === 'all' || true;
+      // Provider filter - check if prompt has responses from selected provider
+      const providerMatch = filterProvider === 'all' || (() => {
+        const promptDetails = providerData.find(pd => pd.promptId === prompt.id);
+        if (!promptDetails || !promptDetails.responses) return false;
+        
+        return promptDetails.responses.some((response: any) => 
+          response.provider === filterProvider && response.success
+        );
+      })();
       
       // Status filter
       const statusMatch = filterStatus === 'all' || 
                          (filterStatus === 'active' && prompt.active) ||
                          (filterStatus === 'paused' && !prompt.active);
       
-      // Category filter (always match since we don't have categories in the simple interface)
-      const categoryMatch = filterCategory === 'all' || true;
+      // Category filter - use getPromptCategory function to determine category
+      const categoryMatch = filterCategory === 'all' || (() => {
+        const promptCategory = getPromptCategory(prompt.text);
+        return promptCategory === filterCategory;
+      })();
 
       return searchMatch && providerMatch && statusMatch && categoryMatch;
     });
-  }, [prompts, searchQuery, filterProvider, filterStatus, filterCategory]);
+  }, [prompts, searchQuery, filterProvider, filterStatus, filterCategory, providerData]);
 
   // Paginated prompts
   const paginatedPrompts = useMemo(() => {
