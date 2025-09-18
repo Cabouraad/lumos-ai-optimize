@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
-import { DiagnosticPanel } from '@/components/DiagnosticPanel';
+import { AdminDiagnosticPanel } from '@/components/AdminDiagnosticPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -862,10 +862,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Diagnostic Panel for E2E Testing */}
-          {user?.email === 'abouraa.chri@gmail.com' && (
-            <DiagnosticPanel />
-          )}
+          {/* Diagnostic Panel for Admin Users */}
+          <AdminDiagnosticPanel />
         </div>
       </div>
     </Layout>

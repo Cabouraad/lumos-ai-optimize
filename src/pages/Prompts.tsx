@@ -479,11 +479,9 @@ export default function Prompts() {
   // Transform data for the PromptList component
   const transformedPrompts = transformPromptData(rawPrompts, providerData);
 
-  // Check if user is test user for debug tools access
-  const isTestUser = user?.email === 'abouraa.chri@gmail.com';
-  
-  // Check if user is admin for global batch processing
-  const isAdmin = user?.email === 'abouraa.chri@gmail.com' || user?.email === 'amirdt22@gmail.com';
+  // Use role-based admin access
+  const { isAdmin } = useAdminAccess();
+  const isTestUser = isAdmin;
 
   // Check app access first
   const appAccess = hasAccessToApp();

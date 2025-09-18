@@ -2,15 +2,25 @@ import React from 'react';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 import { DomainResolverDiagnostics } from '@/components/admin/DomainResolverDiagnostics';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 
 export default function DebugTools() {
-  const { user } = useAuth();
+  const { isAdmin, isLoading } = useAdminAccess();
 
-  // Restrict access to only the admin email
-  if (!user || user.email !== 'abouraa.chri@gmail.com') {
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="ml-2">Checking access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive">
