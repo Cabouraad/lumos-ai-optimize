@@ -376,9 +376,9 @@ export default function FreeChecker() {
               <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Shield className="h-6 w-6 text-secondary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Enterprise Security</h3>
+              <h3 className="text-lg font-semibold mb-2">Data Protection</h3>
               <p className="text-muted-foreground text-sm">
-                SOC 2 compliant with enterprise-grade data protection
+                Industry-standard security with encrypted data handling
               </p>
             </div>
 
@@ -427,7 +427,6 @@ export default function FreeChecker() {
             <div>
               <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="/about" className="hover:text-foreground transition-colors">About</a></li>
                 <li><a href="/contact" className="hover:text-foreground transition-colors">Contact</a></li>
                 <li><a href="/resources" className="hover:text-foreground transition-colors">Resources</a></li>
               </ul>
@@ -438,7 +437,6 @@ export default function FreeChecker() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
                 <li><a href="/terms" className="hover:text-foreground transition-colors">Terms of Service</a></li>
-                <li><a href="/security" className="hover:text-foreground transition-colors">Security</a></li>
               </ul>
             </div>
           </div>
