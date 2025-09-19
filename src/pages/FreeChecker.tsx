@@ -94,7 +94,7 @@ export default function FreeChecker() {
           </h1>
           
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Get instant insights into your brand's visibility across ChatGPT, Gemini, Perplexity, and Claude. 
+            Get instant insights into your brand's visibility across ChatGPT, Gemini, and Perplexity. 
             See what your customers find when they ask AI about your industry.
           </p>
 
@@ -145,7 +145,7 @@ export default function FreeChecker() {
               </div>
               <h3 className="text-xl font-display font-semibold mb-2">1. AI Query Analysis</h3>
               <p className="text-muted-foreground">
-                We run 5 industry-specific prompts across ChatGPT, Gemini, Perplexity, and Claude
+                We run 5 industry-specific prompts across ChatGPT, Gemini, and Perplexity
               </p>
             </div>
 
@@ -216,9 +216,9 @@ export default function FreeChecker() {
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-muted-foreground"></div>
-                        Claude
+                        Average
                       </span>
-                      <span className="font-mono font-bold">5.9/10</span>
+                      <span className="font-mono font-bold">7.1/10</span>
                     </div>
                   </div>
                 </div>
@@ -236,7 +236,7 @@ export default function FreeChecker() {
                     </div>
                     <div className="flex items-start gap-3">
                       <Clock className="h-5 w-5 text-accent mt-0.5" />
-                      <p className="text-sm">Opportunity to improve positioning in AI responses</p>
+                      <p className="text-sm">Opportunities to improve positioning across all platforms</p>
                     </div>
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export default function FreeChecker() {
               Get Your Free AI Visibility Report
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Enter your details below and we'll analyze your brand across all major AI platforms
+              Enter your details below and we'll analyze your brand across the major AI platforms
             </p>
 
             <Card className="p-8">
