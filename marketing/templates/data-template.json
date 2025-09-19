@@ -1,0 +1,82 @@
+{
+  "template_version": "1.0",
+  "dimensions": {
+    "primary": {
+      "width": 1600,
+      "height": 900
+    },
+    "social": {
+      "width": 1200,
+      "height": 627
+    }
+  },
+  "week_data": {
+    "week_range": "March 15-21, 2024",
+    "report_date": "2024-03-21",
+    "total_queries": 12547,
+    "platforms_analyzed": ["ChatGPT", "Gemini", "Perplexity", "Claude"]
+  },
+  "brands": [
+    {
+      "rank": 1,
+      "emoji": "🥇",
+      "name": "OpenAI",
+      "percentage": "45.2%",
+      "change": "+12.5%",
+      "trend": "up",
+      "change_numeric": 12.5,
+      "color": "#10B981"
+    },
+    {
+      "rank": 2,
+      "emoji": "🥈", 
+      "name": "Google",
+      "percentage": "38.7%",
+      "change": "-3.2%",
+      "trend": "down",
+      "change_numeric": -3.2,
+      "color": "#F97316"
+    },
+    {
+      "rank": 3,
+      "emoji": "🥉",
+      "name": "Microsoft", 
+      "percentage": "28.1%",
+      "change": "+5.8%",
+      "trend": "up",
+      "change_numeric": 5.8,
+      "color": "#10B981"
+    },
+    {
+      "rank": 4,
+      "emoji": "📈",
+      "name": "Anthropic",
+      "percentage": "22.4%", 
+      "change": "+2.1%",
+      "trend": "up",
+      "change_numeric": 2.1,
+      "color": "#10B981"
+    },
+    {
+      "rank": 5,
+      "emoji": "📊",
+      "name": "Meta",
+      "percentage": "18.9%",
+      "change": "-1.7%", 
+      "trend": "down",
+      "change_numeric": -1.7,
+      "color": "#F97316"
+    }
+  ],
+  "insights": [
+    "AI model updates drove 15% increase in OpenAI mentions across all platforms",
+    "B2B SaaS queries dominated this week's search volume with 23% growth", 
+    "Enterprise solutions saw highest engagement rates in AI responses"
+  ],
+  "metadata": {
+    "created_by": "Llumos AI Visibility Index",
+    "template_type": "weekly_ranking",
+    "export_formats": ["PNG", "JPG", "PDF"],
+    "social_optimized": true
+  }
+}
