@@ -60,7 +60,7 @@ const Index = () => {
           {/* Debug: Confirm deployment version */}
           <div className="text-xs text-muted-foreground/50 mb-2">v2.1.0 - GitHub Sync Active</div>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Monitor and increase your brand visibility across AI-powered search engines like ChatGPT, Claude, and Perplexity. Simple, focused, and 80% less expensive than enterprise alternatives.
+            Monitor and increase your brand visibility across AI-powered search engines like ChatGPT, Gemini, Perplexity, and Google AI Overviews. Simple, focused, and 80% less expensive than enterprise alternatives.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button size="lg" asChild className="text-lg px-8 py-6">
@@ -144,7 +144,7 @@ const Index = () => {
               <Target className="w-12 h-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-3">Brand Visibility Monitoring</h3>
               <p className="text-muted-foreground">
-                Track how your brand appears across ChatGPT, Claude, Perplexity and other AI search engines with clear, actionable metrics.
+                Track how your brand appears across ChatGPT, Gemini, Perplexity, Google AI Overviews and other AI search engines with clear, actionable metrics.
               </p>
             </Card>
             

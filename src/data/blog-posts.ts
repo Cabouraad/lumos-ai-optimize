@@ -75,7 +75,7 @@ Instead of writing random blog posts, create comprehensive resources around your
 ### Step 4: Start Monitoring Your AI Presence
 Begin tracking how AI assistants mention your brand (or don't mention it) when responding to relevant queries. This becomes your new "ranking" system.
 
-**Simple start:** Test 10 relevant queries across ChatGPT, Claude, and Perplexity. Note when you appear and when you don't.
+**Simple start:** Test 10 relevant queries across ChatGPT, Gemini, Perplexity, and Google AI Overviews. Note when you appear and when you don't.
 
 ## The New Measurement Paradigm
 
@@ -105,7 +105,7 @@ AI responses are conversational. Content that's overly formal or corporate often
 
 Understanding your AI search performance shouldn't require manual testing of dozens of queries across multiple platforms. Llumos automatically tracks your brand mentions across ChatGPT, Claude, and Perplexity, showing you exactly when you appear in AI responses and when you don't.
 
-Our platform monitors your competitors too, so you can see who's winning in AI search for your target topics and why. Instead of guessing what's working, you get clear data on your AI visibility trends and actionable insights to improve your performance.
+Our platform monitors your competitors too, so you can see who's winning in AI search for your target topics and why. Instead of guessing what's working, you get clear data on your AI visibility trends and actionable insights to improve your performance across all 4 major platforms: ChatGPT, Gemini, Perplexity, and Google AI Overviews.
 
 Ready to see where your brand stands in AI search? [Start your free trial](/auth) and get your first AI visibility report in minutes.
 
@@ -220,7 +220,7 @@ Legitimate AI visibility tools focus on measurement and insights, not manipulati
 ### Limited Platform Coverage
 The AI landscape is evolving rapidly. Tools that only track one or two platforms will quickly become obsolete as new AI search engines emerge.
 
-**Minimum requirement:** Coverage of at least ChatGPT, Claude, and Perplexity, with a roadmap for adding new platforms as they gain adoption.
+### Minimum requirement: Coverage of at least ChatGPT, Gemini, Perplexity, and Google AI Overviews, with a roadmap for adding new platforms as they gain adoption.
 
 ### No API or Integration Options
 If you can't connect the tool to your existing marketing stack, you'll end up with data silos that reduce its strategic value.
@@ -231,7 +231,7 @@ If you can't connect the tool to your existing marketing stack, you'll end up wi
 
 ### Week 1: Baseline Assessment
 - Define 10-15 core queries that represent how your ideal customers ask about your product category
-- Manually test these queries across ChatGPT, Claude, and Perplexity to establish a baseline
+- Manually test these queries across ChatGPT, Gemini, Perplexity, and Google AI Overviews to establish a baseline
 - Document current mention frequency, context, and competitor performance
 
 ### Week 2: Tool Evaluation
@@ -253,7 +253,7 @@ If you can't connect the tool to your existing marketing stack, you'll end up wi
 
 Instead of manually testing queries across multiple platforms or wrestling with complex enterprise tools, Llumos provides straightforward AI visibility monitoring that actually gets used.
 
-Our platform automatically tracks your brand mentions across ChatGPT, Claude, and Perplexity, with clear reporting on when you appear, how you're positioned, and how you compare to competitors. You get actionable insights without the complexity of enterprise tools or the limitations of basic monitoring services.
+Our platform automatically tracks your brand mentions across ChatGPT, Gemini, Perplexity, and Google AI Overviews, with clear reporting on when you appear, how you're positioned, and how you compare to competitors. You get actionable insights without the complexity of enterprise tools or the limitations of basic monitoring services.
 
 Ready to stop guessing about your AI search performance? [Start your free trial](/auth) and see your first AI visibility report today.
 

@@ -13,7 +13,7 @@ Hi [Name],
 
 Thanks for requesting your AI Visibility Report. I've attached your personalized analysis, but first, let me share something that might surprise you...
 
-**73% of B2B professionals now use AI platforms like ChatGPT, Gemini, and Perplexity for research before making purchases.**
+**73% of B2B professionals now use AI platforms like ChatGPT, Gemini, Perplexity, and Google AI Overviews for research before making purchases.**
 
 That means your potential customers are asking AI:
 • "What's the best [your category] software?"

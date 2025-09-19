@@ -37,12 +37,12 @@
 
 #### Product Description
 ```
-Llumos helps B2B marketing teams track and optimize their brand's visibility across AI platforms like ChatGPT, Gemini, and Perplexity.
+Llumos helps B2B brands track and optimize their brand's visibility across AI platforms like ChatGPT, Gemini, Perplexity, and Google AI Overviews.
 
 With 73% of professionals using AI for research, traditional SEO isn't enough. You need to know what AI platforms say about your brand vs competitors.
 
 Key features:
-🔍 Real-time AI mention monitoring across 50+ platforms
+🔍 Real-time AI mention monitoring across 4 major platforms  
 📊 Competitive analysis showing how you rank vs competitors  
 💡 Actionable recommendations to improve AI search visibility
 📈 Weekly reports tracking brand visibility trends
@@ -50,7 +50,7 @@ Key features:
 
 Perfect for marketing teams, growth hackers, and brand managers who want to dominate the shift from Google to AI search.
 
-Start your free trial and see exactly what ChatGPT, Gemini, and Perplexity say about your brand.
+Start your free trial and see exactly what ChatGPT, Gemini, Perplexity, and Google AI Overviews say about your brand.
 ```
 
 #### Maker Comment
@@ -176,7 +176,7 @@ Here's the story behind Llumos and why AI search optimization matters:
 
 4/ That's a massive opportunity for early movers
 
-5/ So we built Llumos - track and optimize your brand's visibility across ChatGPT, Gemini, and Perplexity
+5/ So we built Llumos - track and optimize your brand's visibility across ChatGPT, Gemini, Perplexity, and Google AI Overviews
 
 6/ In 6 months, we've helped 500+ brands increase AI-sourced leads by 300%
 

@@ -6,10 +6,10 @@
 **Track Your Brand's AI Search Visibility Before Your Competitors Do**
 
 ### Subheadline
-Monitor how ChatGPT, Gemini, and Perplexity mention your brand. Get actionable insights to dominate AI search results and capture more customers.
+Monitor how ChatGPT, Gemini, Perplexity, and Google AI Overviews mention your brand. Get actionable insights to dominate AI search results and capture more customers.
 
 ### Value Props (3 bullets)
-- **Real-time AI Monitoring**: Track 50+ AI platforms for brand mentions and competitor analysis
+- **Real-time AI Monitoring**: Track 4 major AI platforms (ChatGPT, Gemini, Perplexity, Google AI Overviews) for brand mentions and competitor analysis
 - **Actionable Recommendations**: Get specific tactics to improve your AI search visibility score
 - **Competitive Intelligence**: See exactly how competitors rank in AI responses vs. your brand
 
@@ -35,7 +35,7 @@ Monitor how ChatGPT, Gemini, and Perplexity mention your brand. Get actionable i
 
 ### Features
 1. **AI Visibility Monitoring**
-   - Track brand mentions across ChatGPT, Gemini, Perplexity
+   - Track brand mentions across ChatGPT, Gemini, Perplexity, Google AI Overviews
    - Monitor 1000+ industry-specific prompts daily
    - Real-time alerts when visibility changes
 
@@ -88,7 +88,7 @@ Plans starting at $49/month. 14-day free trial. No credit card required.
 **See How Your Brand Ranks in AI Search**
 
 ### Subheadline
-Get your free AI Visibility Report in 60 seconds. See exactly what ChatGPT, Gemini, and Perplexity say about your brand vs. competitors.
+Get your free AI Visibility Report in 60 seconds. See exactly what ChatGPT, Gemini, Perplexity, and Google AI Overviews say about your brand vs. competitors.
 
 ### CTA Button
 **Get Free AI Visibility Report →**
@@ -102,5 +102,5 @@ Get your free AI Visibility Report in 60 seconds. See exactly what ChatGPT, Gemi
 ## Meta Tags
 
 **Title**: AI Search Optimization Platform | Track Brand Visibility in ChatGPT, Gemini & Perplexity | Llumos
-**Description**: Monitor your brand's visibility across AI search platforms. Get actionable insights to dominate ChatGPT, Gemini, and Perplexity results. Start free trial.
+**Description**: Monitor your brand's visibility across AI search platforms. Get actionable insights to dominate ChatGPT, Gemini, Perplexity, and Google AI Overviews results. Start free trial.
 **Keywords**: AI search optimization, ChatGPT SEO, brand visibility monitoring, AI marketing tools, competitive intelligence

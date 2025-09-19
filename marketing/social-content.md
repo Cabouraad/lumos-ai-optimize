@@ -6,7 +6,7 @@
 ```
 📊 73% of B2B buyers now use AI for research before making purchases.
 
-But here's what's shocking: Most brands have ZERO visibility into what ChatGPT, Gemini, and Perplexity say about them.
+But here's what's shocking: Most brands have ZERO visibility into what ChatGPT, Gemini, Perplexity, and Google AI Overviews say about them.
 
 Your competitors could be dominating AI search results while you're invisible.
 
@@ -32,7 +32,7 @@ THE PROBLEM:
 • Sales team struggling with "cold" leads
 
 THE STRATEGY:
-✅ Tracked AI visibility across 500+ industry prompts daily
+✅ Tracked AI visibility across 500+ industry prompts daily (ChatGPT, Gemini, Perplexity, Google AI Overviews)
 ✅ Identified content gaps AI platforms needed
 ✅ Optimized existing content for AI discoverability
 ✅ Monitored competitive positioning in real-time
@@ -138,7 +138,7 @@ Are you visible in their results? 🤔
 Tweet 2:
 Plot twist: The best SEO strategy for 2024 isn't targeting Google.
 
-It's optimizing for ChatGPT, Gemini, and Perplexity.
+It's optimizing for ChatGPT, Gemini, Perplexity, and Google AI Overviews.
 
 AI search is the new battleground. 🎯
 

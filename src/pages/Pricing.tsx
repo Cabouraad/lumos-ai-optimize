@@ -99,7 +99,7 @@ export default function Pricing() {
       yearlyPrice: 890,
       features: [
         'Up to 100 prompts to track daily',
-        '3 AI providers (OpenAI, Perplexity, Gemini)',
+        '4 AI providers (OpenAI, Perplexity, Gemini, Google AI Overviews)',
         'Advanced visibility scoring',
         'Competitor analysis & tracking',
         'AI-powered visibility optimizations',
@@ -119,7 +119,7 @@ export default function Pricing() {
       yearlyPrice: 2500,
       features: [
         'Up to 300 prompts to track daily',
-        '3 AI providers (OpenAI, Perplexity, Gemini)',
+        '4 AI providers (OpenAI, Perplexity, Gemini, Google AI Overviews)',
         'Advanced visibility scoring',
         'Comprehensive competitor analysis',
         'AI-powered visibility optimizations',
@@ -236,7 +236,7 @@ export default function Pricing() {
                 <CardTitle className="text-lg">What AI providers do you support?</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>We currently support OpenAI (ChatGPT), Perplexity AI, and Google Gemini. Starter plans include 2 providers, while Growth and Pro plans include all 3 providers.</p>
+                <p>We currently support OpenAI (ChatGPT), Perplexity AI, Google Gemini, and Google AI Overviews. Starter plans include 2 providers, Growth plans include 3 providers, and Pro plans include all 4 providers including Google AI Overviews.</p>
               </CardContent>
             </Card>
 

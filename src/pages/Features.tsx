@@ -75,7 +75,7 @@ const Features = () => {
                     <Eye className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <h4 className="font-medium text-foreground">Multi-Platform Coverage</h4>
-                      <p className="text-sm text-muted-foreground">Monitor ChatGPT, Gemini, Perplexity, and more</p>
+                      <p className="text-sm text-muted-foreground">Monitor ChatGPT, Gemini, Perplexity, Google AI Overviews, and more</p>
                     </div>
                   </div>
                   
@@ -258,11 +258,11 @@ const Features = () => {
               Complete AI Platform Coverage
             </h2>
             <p className="text-xl text-muted-foreground">
-              Monitor your brand across all major AI search platforms in one unified dashboard
+              Monitor your brand across all 4 major AI search platforms in one unified dashboard
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="p-6 text-center">
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                 <Search className="w-6 h-6 text-primary" />
@@ -285,6 +285,14 @@ const Features = () => {
               </div>
               <h3 className="font-semibold text-foreground mb-1">Perplexity</h3>
               <p className="text-sm text-muted-foreground">AI-powered search engine</p>
+            </Card>
+            
+            <Card className="p-6 text-center">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <Search className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-1">Google AI Overviews</h3>
+              <p className="text-sm text-muted-foreground">Google's enhanced search results</p>
             </Card>
           </div>
         </div>
