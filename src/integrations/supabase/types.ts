@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -499,6 +499,39 @@ export type Database = {
           flag_name?: string
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      free_checker_leads: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          domain: string
+          email: string
+          id: string
+          metadata: Json | null
+          processed: boolean
+          results_sent: boolean
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          domain: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          processed?: boolean
+          results_sent?: boolean
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          domain?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          processed?: boolean
+          results_sent?: boolean
         }
         Relationships: []
       }
@@ -1306,8 +1339,8 @@ export type Database = {
         Args: { p_days?: number; p_prompt_id: string } | { p_prompt_id: string }
         Returns: {
           competitor_name: string
-          mentions: number
           share: number
+          total_mentions: number
         }[]
       }
       get_prompt_visibility_7d: {
