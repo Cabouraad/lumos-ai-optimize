@@ -104,7 +104,7 @@ export default function FreeChecker() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <p className="text-sm text-muted-foreground">
-              ✓ No credit card required • ✓ Results in 5 minutes
+              ✓ No credit card required • ✓ Instant analysis
             </p>
           </div>
 
