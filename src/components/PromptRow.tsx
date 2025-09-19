@@ -277,7 +277,7 @@ export function PromptRow({
                           .map(([provider, response]: [string, any]) => (
                             <ProviderResponseCard
                               key={provider}
-                              provider={provider as "openai" | "gemini" | "perplexity"}
+                              provider={provider as "openai" | "gemini" | "perplexity" | "google_ai_overview"}
                               response={response}
                               promptText={prompt.text}
                             />

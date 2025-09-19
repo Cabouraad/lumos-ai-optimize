@@ -105,6 +105,7 @@ export interface UnifiedPromptData extends UnifiedDashboardData {
       openai: ProviderResponseData | null;
       gemini: ProviderResponseData | null;
       perplexity: ProviderResponseData | null;
+      google_ai_overview: ProviderResponseData | null;
     };
     overallScore: number;
     lastRunAt: string | null;
@@ -477,6 +478,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         openai: promptResponses.find(r => r.provider === 'openai') as ProviderResponseData || null,
         gemini: promptResponses.find(r => r.provider === 'gemini') as ProviderResponseData || null,
         perplexity: promptResponses.find(r => r.provider === 'perplexity') as ProviderResponseData || null,
+        google_ai_overview: promptResponses.find(r => r.provider === 'google_ai_overview') as ProviderResponseData || null,
       };
 
       // Calculate overall score

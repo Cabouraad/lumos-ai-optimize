@@ -14,7 +14,7 @@ import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
 import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
 
 interface ProviderResponseCardProps {
-  provider: 'openai' | 'gemini' | 'perplexity';
+  provider: 'openai' | 'gemini' | 'perplexity' | 'google_ai_overview';
   response: ProviderResponseData | null;
   promptText: string;
 }
@@ -22,7 +22,8 @@ interface ProviderResponseCardProps {
 const PROVIDER_CONFIG = {
   openai: { name: 'OpenAI', color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
   gemini: { name: 'Gemini', color: 'bg-purple-50 border-purple-200 text-purple-700' },
-  perplexity: { name: 'Perplexity', color: 'bg-blue-50 border-blue-200 text-blue-700' }
+  perplexity: { name: 'Perplexity', color: 'bg-blue-50 border-blue-200 text-blue-700' },
+  google_ai_overview: { name: 'Google AI Overview', color: 'bg-orange-50 border-orange-200 text-orange-700' }
 };
 
 export function ProviderResponseCard({ provider, response, promptText }: ProviderResponseCardProps) {

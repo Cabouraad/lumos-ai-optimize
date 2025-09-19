@@ -3,13 +3,13 @@
  * This is a duplicate of the client-side version for edge functions
  */
 
-export type ProviderName = 'openai' | 'perplexity' | 'gemini';
+export type ProviderName = 'openai' | 'perplexity' | 'gemini' | 'google_ai_overview';
 export type SubscriptionTier = 'starter' | 'growth' | 'pro' | 'free';
 
 const PROVIDER_TIER_POLICIES: Record<SubscriptionTier, ProviderName[]> = {
   starter: ['openai', 'perplexity'],
   growth: ['openai', 'perplexity', 'gemini'], 
-  pro: ['openai', 'perplexity', 'gemini'],
+  pro: ['openai', 'perplexity', 'gemini', 'google_ai_overview'],
   free: ['openai'] // Fallback for unsubscribed users
 };
 
