@@ -1,0 +1,167 @@
+{
+  "template_version": "1.0",
+  "format": "vertical_story",
+  "dimensions": {
+    "width": 1080,
+    "height": 1920,
+    "aspect_ratio": "9:16"
+  },
+  "platforms": {
+    "instagram_stories": {
+      "dimensions": "1080x1920",
+      "format": "PNG",
+      "dpi": 72,
+      "safe_area_margin": 60
+    },
+    "tiktok": {
+      "dimensions": "1080x1920", 
+      "format": "PNG",
+      "dpi": 72,
+      "video_option": "MP4"
+    },
+    "linkedin_stories": {
+      "dimensions": "1080x1920",
+      "format": "PNG", 
+      "dpi": 72
+    }
+  },
+  "week_data": {
+    "week_range": "March 15-21, 2024",
+    "report_date": "2024-03-21",
+    "total_queries": 12547,
+    "platforms_analyzed": ["ChatGPT", "Gemini", "Perplexity", "Claude"],
+    "growth_metric": "+8.2% overall visibility"
+  },
+  "brands": [
+    {
+      "rank": 1,
+      "emoji": "🥇",
+      "name": "OpenAI",
+      "percentage": "45.2%",
+      "change": "+12.5%",
+      "trend": "up",
+      "change_numeric": 12.5,
+      "color": "#10B981",
+      "arrow": "↗"
+    },
+    {
+      "rank": 2,
+      "emoji": "🥈", 
+      "name": "Google",
+      "percentage": "38.7%",
+      "change": "-3.2%",
+      "trend": "down",
+      "change_numeric": -3.2,
+      "color": "#F97316",
+      "arrow": "↘"
+    },
+    {
+      "rank": 3,
+      "emoji": "🥉",
+      "name": "Microsoft", 
+      "percentage": "28.1%",
+      "change": "+5.8%",
+      "trend": "up",
+      "change_numeric": 5.8,
+      "color": "#10B981",
+      "arrow": "↗"
+    },
+    {
+      "rank": 4,
+      "emoji": "📈",
+      "name": "Anthropic",
+      "percentage": "22.4%", 
+      "change": "+2.1%",
+      "trend": "up",
+      "change_numeric": 2.1,
+      "color": "#10B981",
+      "arrow": "↗"
+    },
+    {
+      "rank": 5,
+      "emoji": "📊",
+      "name": "Meta",
+      "percentage": "18.9%",
+      "change": "-1.7%", 
+      "trend": "down",
+      "change_numeric": -1.7,
+      "color": "#F97316",
+      "arrow": "↘"
+    }
+  ],
+  "key_trends": [
+    {
+      "bullet": "AI model updates drove mentions up 15% across platforms",
+      "category": "product_updates",
+      "impact": "high"
+    },
+    {
+      "bullet": "B2B SaaS queries grew 23% this week with enterprise focus",
+      "category": "market_shift", 
+      "impact": "medium"
+    },
+    {
+      "bullet": "ChatGPT dominance continues while Gemini loses ground",
+      "category": "competitive_landscape",
+      "impact": "high"
+    }
+  ],
+  "cta": {
+    "question": "Want to see YOUR brand's AI visibility?",
+    "button_text": "Try Llumos Free",
+    "url": "llumos.ai",
+    "tracking_params": "?utm_source=instagram&utm_medium=story&utm_campaign=ai_visibility_index"
+  },
+  "branding": {
+    "logo_placement": ["header", "footer"],
+    "primary_color": "#1E3A8A",
+    "accent_colors": ["#10B981", "#F97316"],
+    "font_primary": "Poppins",
+    "font_secondary": "Inter",
+    "font_mono": "Roboto Mono"
+  },
+  "content_variables": {
+    "editable_fields": [
+      "week_range",
+      "brand_names",
+      "percentages", 
+      "changes",
+      "trend_bullets",
+      "cta_question",
+      "cta_button_text"
+    ],
+    "locked_fields": [
+      "logo_placement",
+      "color_scheme",
+      "layout_structure",
+      "font_hierarchy"
+    ]
+  },
+  "export_settings": {
+    "default_format": "PNG",
+    "quality": "high", 
+    "compression": "optimized",
+    "background": "solid_white",
+    "transparent_option": false
+  },
+  "animation_options": {
+    "static": true,
+    "gif": {
+      "duration": "3s",
+      "effects": ["trend_arrows_bounce", "percentage_count_up"]
+    },
+    "video": {
+      "duration": "5s", 
+      "format": "MP4",
+      "effects": ["slide_in_brands", "highlight_trends", "cta_pulse"]
+    }
+  },
+  "metadata": {
+    "created_by": "Llumos Marketing",
+    "template_type": "story_infographic",
+    "update_frequency": "weekly",
+    "target_platforms": ["Instagram Stories", "TikTok", "LinkedIn Stories"],
+    "content_theme": "ai_visibility_index",
+    "brand_compliance": "approved"
+  }
+}

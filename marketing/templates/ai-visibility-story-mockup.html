@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Visibility Story - Vertical Infographic Template</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        .story-infographic {
+            width: 1080px;
+            height: 1920px;
+            background: #FFFFFF;
+            font-family: 'Inter', sans-serif;
+            position: relative;
+            border: 1px solid #E5E7EB;
+            overflow: hidden;
+        }
+        
+        /* Top Bar */
+        .top-bar {
+            background: hsl(220, 85%, 32%);
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo-placeholder {
+            width: 80px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        .title-section {
+            text-align: right;
+            flex: 1;
+            margin-left: 20px;
+        }
+        
+        .main-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 28px;
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+        }
+        
+        .week-range {
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 16px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+        
+        /* Main Body */
+        .main-body {
+            height: 1200px;
+            padding: 30px 20px;
+            background: hsl(210, 20%, 98%);
+        }
+        
+        /* Rankings */
+        .rankings {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .brand-row {
+            height: 120px;
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #E5E7EB;
+            position: relative;
+        }
+        
+        .brand-row:last-child {
+            border-bottom: none;
+        }
+        
+        .brand-row:nth-child(even) {
+            background: hsl(210, 20%, 99%);
+        }
+        
+        .rank-emoji {
+            font-size: 28px;
+            margin-right: 15px;
+            width: 35px;
+            text-align: center;
+        }
+        
+        .brand-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .brand-name {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 20px;
+            color: hsl(218, 27%, 26%);
+            line-height: 1.2;
+        }
+        
+        .brand-metrics {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .percentage {
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            font-size: 18px;
+            color: hsl(220, 85%, 32%);
+        }
+        
+        .change {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 400;
+            font-size: 14px;
+        }
+        
+        .change.positive {
+            color: hsl(158, 74%, 40%);
+        }
+        
+        .change.negative {
+            color: hsl(26, 91%, 53%);
+        }
+        
+        .trend-arrow {
+            font-size: 16px;
+        }
+        
+        /* Key Trends Box */
+        .trends-box {
+            background: white;
+            border: 2px solid hsl(158, 74%, 40%);
+            border-radius: 12px;
+            padding: 24px;
+            height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .trends-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .trends-icon {
+            font-size: 24px;
+        }
+        
+        .trends-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 18px;
+            color: hsl(218, 27%, 26%);
+        }
+        
+        .trends-list {
+            list-style: none;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .trends-list li {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: hsl(218, 11%, 45%);
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        .trends-list li::before {
+            content: "•";
+            color: hsl(158, 74%, 40%);
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+            font-size: 16px;
+        }
+        
+        /* Footer CTA */
+        .footer-cta {
+            background: hsl(220, 85%, 32%);
+            height: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px;
+            color: white;
+            text-align: center;
+            gap: 20px;
+        }
+        
+        .cta-question {
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.4;
+            max-width: 280px;
+        }
+        
+        .cta-button {
+            background: white;
+            color: hsl(220, 85%, 32%);
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 18px;
+            padding: 16px 32px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .cta-url {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+        
+        .footer-logo {
+            width: 60px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        
+        /* Responsive Preview */
+        .mobile-preview {
+            transform-origin: top left;
+            display: inline-block;
+        }
+        
+        @media (max-width: 1200px) {
+            .mobile-preview {
+                transform: scale(0.4);
+            }
+        }
+        
+        @media (max-width: 800px) {
+            .mobile-preview {
+                transform: scale(0.3);
+            }
+        }
+        
+        /* Animation Classes (Optional) */
+        .animate-entrance {
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .trend-arrow.animate {
+            animation: bounce 1s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+    </style>
+</head>
+<body style="background: #f3f4f6; padding: 20px; overflow-x: auto;">
+    <div class="mobile-preview">
+        <div class="story-infographic">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="logo-section">
+                    <div class="logo-placeholder">LOGO</div>
+                </div>
+                <div class="title-section">
+                    <div class="main-title">AI VISIBILITY<br>INDEX</div>
+                    <div class="week-range">Week: March 15-21, 2024</div>
+                </div>
+            </div>
+            
+            <!-- Main Body -->
+            <div class="main-body">
+                <!-- Rankings -->
+                <div class="rankings animate-entrance">
+                    <div class="brand-row">
+                        <div class="rank-emoji">🥇</div>
+                        <div class="brand-content">
+                            <div class="brand-name">OpenAI</div>
+                            <div class="brand-metrics">
+                                <div class="percentage">45.2%</div>
+                                <div class="change positive">
+                                    <span class="trend-arrow">↗</span>
+                                    <span>+12.5%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="brand-row">
+                        <div class="rank-emoji">🥈</div>
+                        <div class="brand-content">
+                            <div class="brand-name">Google</div>
+                            <div class="brand-metrics">
+                                <div class="percentage">38.7%</div>
+                                <div class="change negative">
+                                    <span class="trend-arrow">↘</span>
+                                    <span>-3.2%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="brand-row">
+                        <div class="rank-emoji">🥉</div>
+                        <div class="brand-content">
+                            <div class="brand-name">Microsoft</div>
+                            <div class="brand-metrics">
+                                <div class="percentage">28.1%</div>
+                                <div class="change positive">
+                                    <span class="trend-arrow">↗</span>
+                                    <span>+5.8%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="brand-row">
+                        <div class="rank-emoji">📈</div>
+                        <div class="brand-content">
+                            <div class="brand-name">Anthropic</div>
+                            <div class="brand-metrics">
+                                <div class="percentage">22.4%</div>
+                                <div class="change positive">
+                                    <span class="trend-arrow">↗</span>
+                                    <span>+2.1%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="brand-row">
+                        <div class="rank-emoji">📊</div>
+                        <div class="brand-content">
+                            <div class="brand-name">Meta</div>
+                            <div class="brand-metrics">
+                                <div class="percentage">18.9%</div>
+                                <div class="change negative">
+                                    <span class="trend-arrow">↘</span>
+                                    <span>-1.7%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Key Trends Box -->
+                <div class="trends-box animate-entrance">
+                    <div class="trends-header">
+                        <div class="trends-icon">🔥</div>
+                        <div class="trends-title">KEY TRENDS</div>
+                    </div>
+                    <ul class="trends-list">
+                        <li>AI model updates drove mentions up 15% across platforms</li>
+                        <li>B2B SaaS queries grew 23% this week with enterprise focus</li>
+                        <li>ChatGPT dominance continues while Gemini loses ground</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Footer CTA -->
+            <div class="footer-cta">
+                <div class="cta-question">Want to see YOUR brand's AI visibility?</div>
+                <a href="#" class="cta-button">Try Llumos Free</a>
+                <div class="cta-url">llumos.ai</div>
+                <div class="footer-logo">LLUMOS</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Optional: Add animation triggers
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('.animate-entrance');
+            elements.forEach((el, index) => {
+                el.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+    </script>
+</body>
+</html>
