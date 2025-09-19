@@ -28,6 +28,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const BypassTestPage = lazy(() => import("./pages/BypassTestPage"));
 const Labs = lazy(() => import("./pages/Labs"));
 const AuditRuns = lazy(() => import("./pages/admin/AuditRuns"));
+const FreeChecker = lazy(() => import("./pages/FreeChecker"));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/resources" element={<Resources />} />
             <Route path="/resources/:slug" element={<BlogPost />} />
             <Route path="/trial-success" element={<TrialSuccess />} />
+            <Route path="/free-checker" element={<FreeChecker />} />
             <Route path="/dashboard" element={
               <SubscriptionGate>
                 <Dashboard />
