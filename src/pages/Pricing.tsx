@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layout } from '@/components/Layout';
+import { Link } from 'react-router-dom';
 import { PricingCard } from '@/components/PricingCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 import { useToast } from '@/hooks/use-toast';
+import { Logo } from '@/components/Logo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -133,7 +135,24 @@ export default function Pricing() {
   ];
 
   return (
-    <Layout>
+    <div className="min-h-screen bg-gradient-bg">
+      {/* Standalone Header */}
+      <header className="border-b border-border/30 bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <Logo collapsed={false} />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Link to="/auth">
+              <Button variant="outline">Sign In</Button>
+            </Link>
+            <Link to="/auth">
+              <Button>Get Started</Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
@@ -304,6 +323,6 @@ export default function Pricing() {
           </DialogContent>
         </Dialog>
       </div>
-    </Layout>
+    </div>
   );
 }
