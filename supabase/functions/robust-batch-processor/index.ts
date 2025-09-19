@@ -122,10 +122,15 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
                     Deno.env.get('GOOGLE_GENAI_API_KEY') || 
                     Deno.env.get('GENAI_API_KEY') || '';
   
+  // Google AI Overviews configuration
+  const serpApiKey = Deno.env.get('SERPAPI_KEY') || '';
+  const enableGoogleAio = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
+  
   console.log('🔑 API Key Status:', {
     openai: openaiKey ? '✅ Available' : '❌ Missing',
     perplexity: perplexityKey ? '✅ Available' : '❌ Missing', 
     gemini: geminiKey ? '✅ Available' : '❌ Missing',
+    google_ai_overview: (enableGoogleAio && serpApiKey) ? '✅ Available' : '❌ Missing/Disabled',
     geminiKeySource: geminiKey ? (
       Deno.env.get('GEMINI_API_KEY') ? 'GEMINI_API_KEY' :
       Deno.env.get('GOOGLE_API_KEY') ? 'GOOGLE_API_KEY' :
@@ -197,6 +202,23 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
         }
       }),
       extractResponse: (data: any) => data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    },
+    google_ai_overview: {
+      apiKey: enableGoogleAio && serpApiKey ? serpApiKey : '', // Only include if enabled
+      baseURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-google-aio`,
+      model: 'serp-api',
+      buildRequest: (prompt: string) => ({
+        query: prompt,
+        gl: 'us',
+        hl: 'en'
+      }),
+      extractResponse: (data: any) => {
+        if (data?.summary) {
+          return data.summary;
+        }
+        console.log('⚠️ Google AIO: No summary in response:', JSON.stringify(data, null, 2));
+        return '';
+      }
     }
   };
 }
@@ -257,6 +279,12 @@ async function callProviderAPI(
       } else if (provider === 'gemini') {
         // Gemini uses API key as query parameter
         apiUrl += `?key=${config.apiKey}`;
+      } else if (provider === 'google_ai_overview') {
+        // Google AIO uses internal edge function with CRON authentication
+        const cronSecret = Deno.env.get('CRON_SECRET');
+        if (cronSecret) {
+          headers['Authorization'] = `Bearer ${cronSecret}`;
+        }
       }
 
       const response = await fetch(apiUrl, {

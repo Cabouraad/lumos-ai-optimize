@@ -31,6 +31,13 @@ export function ProviderLogo({ provider, enabled, size = 'md', showStatus = true
           bgColor: 'bg-purple-100',
           textColor: 'text-purple-900'
         };
+      case 'google_ai_overview':
+        return {
+          name: 'Google AIO',
+          logo: '🔎',
+          bgColor: 'bg-orange-100',
+          textColor: 'text-orange-900'
+        };
       default:
         return {
           name: name,

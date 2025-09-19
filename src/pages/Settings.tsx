@@ -5,6 +5,7 @@ import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
+import { GoogleAioSettings } from '@/components/GoogleAioSettings';
 
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
 import { Button } from '@/components/ui/button';
@@ -233,6 +234,9 @@ export default function Settings() {
             {!providers.length && <li className="text-sm text-muted-foreground">No providers found.</li>}
           </ul>
         </section>
+
+        {/* Google AI Overviews Integration */}
+        <GoogleAioSettings />
 
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Data Retention</h2>
