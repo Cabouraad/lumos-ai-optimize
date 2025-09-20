@@ -22,25 +22,33 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks: (id: string) => {
           // Split vendor libraries into separate chunks
-          'react-vendor': ['react', 'react-dom'],
-          'router-vendor': ['react-router-dom'],
-          'query-vendor': ['@tanstack/react-query'],
-          'supabase-vendor': ['@supabase/supabase-js'],
-          'ui-vendor': ['lucide-react', 'framer-motion'],
+          if (id.includes('react') || id.includes('react-dom')) {
+            return 'react-vendor';
+          }
+          if (id.includes('react-router-dom')) {
+            return 'router-vendor';
+          }
+          if (id.includes('@tanstack/react-query')) {
+            return 'query-vendor';
+          }
+          if (id.includes('@supabase/supabase-js')) {
+            return 'supabase-vendor';
+          }
+          if (id.includes('lucide-react') || id.includes('framer-motion')) {
+            return 'ui-vendor';
+          }
           // Split heavy components that aren't needed on landing page
-          'admin-features': [
-            './src/pages/admin/AuditRuns',
-            './src/components/admin/DomainResolverDiagnostics',
-            './src/pages/DebugTools'
-          ],
-          'dashboard-features': [
-            './src/pages/Dashboard',
-            './src/pages/Prompts', 
-            './src/pages/Reports',
-            './src/pages/Settings'
-          ]
+          if (id.includes('Dashboard') || 
+              id.includes('Prompts') || 
+              id.includes('Reports') || 
+              id.includes('Settings') ||
+              id.includes('AuditRuns') ||
+              id.includes('DebugTools') ||
+              id.includes('DomainResolverDiagnostics')) {
+            return 'dashboard-heavy';
+          }
         }
       }
     },
@@ -52,6 +60,9 @@ export default defineConfig(({ mode }) => ({
         drop_console: mode === 'production',
         drop_debugger: mode === 'production',
         pure_funcs: mode === 'production' ? ['console.log', 'console.info'] : []
+      },
+      mangle: {
+        safari10: true
       }
     }
   }
