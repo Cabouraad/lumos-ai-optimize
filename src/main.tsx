@@ -13,8 +13,8 @@ import './index.css';
 
 const queryClient = new QueryClient();
 
-// Use HashRouter for llumos.app to avoid SPA rewrite issues, BrowserRouter elsewhere
-const Router = window.location.host.includes('llumos.app') ? HashRouter : BrowserRouter;
+// Use HashRouter everywhere to avoid SPA rewrite issues on static hosts
+const Router = HashRouter;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

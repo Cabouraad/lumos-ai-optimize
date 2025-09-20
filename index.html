@@ -89,11 +89,12 @@
       }
     </style>
     
-    <!-- Preload critical application assets to reduce request chains -->
-    <link rel="modulepreload" href="/src/main.tsx">
-    <link rel="preload" href="/src/index.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/src/index.css"></noscript>
-    
+    <!-- Early error handler for pre-React failures -->
+    <script>
+      window.onerror = function(msg, url, line) {
+        document.body.innerHTML = '<div style="padding:20px;color:red;font-family:monospace;">Error: ' + msg + '</div>';
+      };
+    </script>
     
     <!-- Completely async font loading using JavaScript -->
     <script>
