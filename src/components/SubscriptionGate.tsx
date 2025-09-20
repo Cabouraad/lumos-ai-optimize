@@ -39,6 +39,17 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription]);
 
+  // Safety: Force subscription check if stuck in loading state for too long
+  useEffect(() => {
+    if (user && !loading && !subscriptionLoading && subscriptionData === null) {
+      const timer = setTimeout(() => {
+        console.log('SubscriptionGate: Safety timeout - forcing subscription check');
+        checkSubscription();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription]);
+
   // Show loading state for auth or subscription loading OR when subscriptionData is null
   if (loading || subscriptionLoading || (user && subscriptionData === null)) {
     return (

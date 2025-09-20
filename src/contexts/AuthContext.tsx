@@ -56,32 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Debounced subscription check with error recovery
-  const debouncedCheckSubscription = useCallback(async (delay = 500) => {
-    // Clear any pending subscription check
-    if (subscriptionCheckTimeoutRef.current) {
-      clearTimeout(subscriptionCheckTimeoutRef.current);
-    }
-
-    // Skip if we checked recently (within 30 seconds)
-    const now = Date.now();
-    if (now - lastSubscriptionCheckRef.current < 30000) {
-      devLog('Skipping subscription check - too recent');
-      return;
-    }
-
-    subscriptionCheckTimeoutRef.current = setTimeout(async () => {
-      await checkSubscriptionStatusWithRetry();
-    }, delay);
-  }, []);
-
   const checkSubscriptionStatusWithRetry = useCallback(async () => {
-    if (!session?.user) return;
+    // Re-fetch session if it appears to be null but we might have missed an update
+    let currentSession = session;
+    if (!currentSession?.user) {
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      currentSession = freshSession;
+      if (!currentSession?.user) {
+        devLog('No session available for subscription check');
+        return;
+      }
+    }
     
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
     
-    devLog('Starting subscription check', { email: session.user.email });
+    devLog('Starting subscription check', { email: currentSession.user.email });
     setSubscriptionLoading(true);
     lastSubscriptionCheckRef.current = Date.now();
 
@@ -153,6 +143,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSubscriptionLoading(false);
   }, [session, devLog]);
 
+  // Debounced subscription check with error recovery
+  const debouncedCheckSubscription = useCallback(async (delay = 500, force = false) => {
+    // Clear any pending subscription check
+    if (subscriptionCheckTimeoutRef.current) {
+      clearTimeout(subscriptionCheckTimeoutRef.current);
+    }
+
+    // Skip if we checked recently (within 30 seconds), unless forced or subscriptionData is null
+    const now = Date.now();
+    if (!force && subscriptionData !== null && now - lastSubscriptionCheckRef.current < 30000) {
+      devLog('Skipping subscription check - too recent');
+      return;
+    }
+
+    subscriptionCheckTimeoutRef.current = setTimeout(async () => {
+      await checkSubscriptionStatusWithRetry();
+    }, delay);
+  }, [checkSubscriptionStatusWithRetry, subscriptionData, devLog]);
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -210,10 +219,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        setUser(session?.user ?? null);
        if (!session) {
          setLoading(false);
-       } else {
-         // Initial subscription check with longer delay
-         debouncedCheckSubscription(1000);
-       }
+        } else {
+          // Initial subscription check with force flag to ensure it runs
+          debouncedCheckSubscription(1000, true);
+        }
      });
 
      return () => {
@@ -225,8 +234,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    }, [debouncedCheckSubscription, devLog]);
 
   const checkSubscription = useCallback(async () => {
-    await debouncedCheckSubscription(0); // Immediate check when called manually
-  }, [debouncedCheckSubscription]);
+    // Call directly to avoid debouncing races for manual checks
+    await checkSubscriptionStatusWithRetry();
+  }, [checkSubscriptionStatusWithRetry]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
