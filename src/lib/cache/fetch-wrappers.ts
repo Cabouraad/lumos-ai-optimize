@@ -110,11 +110,11 @@ export async function getCachedPromptResponses(
 
       // Original Supabase query
       const { data: responses } = await supabase
-        .from('llm_prompt_responses')
+        .from('prompt_provider_responses')
         .select(`
-          id, prompt_id, provider, response_text, score,
+          id, prompt_id, provider, raw_ai_response, score,
           run_at, org_brand_present, competitors_count,
-          error_message, created_at
+          error
         `)
         .eq('org_id', orgId)
         .order('run_at', { ascending: false });
@@ -128,11 +128,11 @@ export async function getCachedPromptResponses(
     async () => {
       // Fallback: Original query without caching
       const { data: responses } = await supabase
-        .from('llm_prompt_responses')
+        .from('prompt_provider_responses')
         .select(`
-          id, prompt_id, provider, response_text, score,
+          id, prompt_id, provider, raw_ai_response, score,
           run_at, org_brand_present, competitors_count,
-          error_message, created_at
+          error
         `)
         .eq('org_id', orgId)
         .order('run_at', { ascending: false });
@@ -150,18 +150,18 @@ export async function getCachedPromptResponses(
 async function fetchDashboardDataOriginal(orgId: string): Promise<UnifiedDashboardData> {
   // Get prompts
   const { data: prompts } = await supabase
-    .from('llm_prompts')
+    .from('prompts')
     .select('*')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
   // Get responses  
   const { data: responses } = await supabase
-    .from('llm_prompt_responses')
+    .from('prompt_provider_responses')
     .select(`
-      id, prompt_id, provider, response_text, score,
+      id, prompt_id, provider, raw_ai_response, score,
       run_at, org_brand_present, competitors_count,
-      error_message, created_at
+      error
     `)
     .eq('org_id', orgId)
     .order('run_at', { ascending: false });

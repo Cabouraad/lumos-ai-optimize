@@ -85,7 +85,7 @@ export function BatchProcessorAdmin() {
     // Get cleanup status
     try {
       const { data } = await supabase.rpc('get_batch_cleanup_status');
-      setCleanupStatus(data);
+      setCleanupStatus(data as unknown as CleanupStatus);
     } catch (error) {
       console.error('Failed to load cleanup status:', error);
     }
@@ -196,10 +196,11 @@ export function BatchProcessorAdmin() {
         throw error;
       }
 
+      const cleanupResult = data as any;
       if (dryRun) {
-        toast.info(`Cleanup preview: Would archive ${data.jobs_to_archive} jobs and ${data.tasks_to_archive} tasks`);
+        toast.info(`Cleanup preview: Would archive ${cleanupResult.jobs_to_archive} jobs and ${cleanupResult.tasks_to_archive} tasks`);
       } else {
-        toast.success(`Cleanup completed: Archived ${data.jobs_archived} jobs and ${data.tasks_archived} tasks`);
+        toast.success(`Cleanup completed: Archived ${cleanupResult.jobs_archived} jobs and ${cleanupResult.tasks_archived} tasks`);
         loadSystemStatus(); // Refresh status after cleanup
       }
       

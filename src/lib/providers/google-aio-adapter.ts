@@ -71,7 +71,8 @@ export async function isGoogleAioAvailable(): Promise<boolean> {
     });
 
     // 204 means disabled, 401 means auth issues, 200 means available
-    return !response.error && response.status !== 204;
+    // Check if the response is successful and doesn't contain an error indicating unavailability
+    return !response.error && response.data !== null;
     
   } catch {
     return false;

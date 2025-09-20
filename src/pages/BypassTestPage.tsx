@@ -109,7 +109,7 @@ export default function BypassTestPage() {
       console.log('Current subscription:', currentSub);
       
       // If there's no existing subscription, simulate one
-      if (!currentSub || (currentSub.metadata as any)?.source === 'bypass') {
+      if (!currentSub) {
         // Temporarily create a "paid" subscription to test guard
         const tempPaidSub = {
           user_id: user?.id,

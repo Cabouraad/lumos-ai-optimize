@@ -50,14 +50,20 @@ export function PromptTopCitations({ promptId, limit = 5 }: PromptTopCitationsPr
             
             let citations: Citation[] = [];
             
-            // Handle different citation storage formats
+            // Handle different citation storage formats with proper type casting
             if (response.citations_json) {
-              if (Array.isArray(response.citations_json)) {
-                // Direct array of citations
-                citations = response.citations_json;
-              } else if (response.citations_json.citations && Array.isArray(response.citations_json.citations)) {
-                // CitationsData format with .citations property
-                citations = response.citations_json.citations;
+              try {
+                const citationsData = response.citations_json as any;
+                if (Array.isArray(citationsData)) {
+                  // Direct array of citations
+                  citations = citationsData as Citation[];
+                } else if (citationsData.citations && Array.isArray(citationsData.citations)) {
+                  // CitationsData format with .citations property
+                  citations = citationsData.citations as Citation[];
+                }
+              } catch (error) {
+                console.warn('[PromptTopCitations] Failed to parse citations_json:', error);
+                citations = [];
               }
             }
             
