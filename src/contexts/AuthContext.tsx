@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
@@ -42,10 +42,121 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     metadata?: any; // Include metadata for bypass tracking
   } | null>(null);
 
+  // Debouncing and error recovery state
+  const subscriptionCheckTimeoutRef = useRef<NodeJS.Timeout>();
+  const retryAttemptsRef = useRef(0);
+  const lastSubscriptionCheckRef = useRef<number>(0);
+
+  // Development-only logging helper
+  const devLog = useCallback((message: string, data?: any) => {
+    if (import.meta.env.DEV) {
+      console.log(`[AuthContext] ${message}`, data || '');
+    }
+  }, []);
+
+  // Debounced subscription check with error recovery
+  const debouncedCheckSubscription = useCallback(async (delay = 500) => {
+    // Clear any pending subscription check
+    if (subscriptionCheckTimeoutRef.current) {
+      clearTimeout(subscriptionCheckTimeoutRef.current);
+    }
+
+    // Skip if we checked recently (within 30 seconds)
+    const now = Date.now();
+    if (now - lastSubscriptionCheckRef.current < 30000) {
+      devLog('Skipping subscription check - too recent');
+      return;
+    }
+
+    subscriptionCheckTimeoutRef.current = setTimeout(async () => {
+      await checkSubscriptionStatusWithRetry();
+    }, delay);
+  }, []);
+
+  const checkSubscriptionStatusWithRetry = useCallback(async () => {
+    if (!session?.user) return;
+    
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second base delay
+    
+    devLog('Starting subscription check', { email: session.user.email });
+    setSubscriptionLoading(true);
+    lastSubscriptionCheckRef.current = Date.now();
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const { data, error } = await EdgeFunctionClient.checkSubscription();
+
+        if (error) {
+          throw error;
+        }
+
+        setSubscriptionData({
+          subscribed: data.subscribed,
+          subscription_tier: data.subscription_tier,
+          subscription_end: data.subscription_end,
+          trial_expires_at: data.trial_expires_at,
+          trial_started_at: data.trial_started_at,
+          payment_collected: data.payment_collected,
+          requires_subscription: data.requires_subscription,
+          metadata: data.metadata,
+        });
+        
+        devLog('Subscription data updated via edge function', {
+          subscribed: data.subscribed,
+          subscription_tier: data.subscription_tier,
+        });
+        
+        retryAttemptsRef.current = 0; // Reset retry counter on success
+        break;
+      } catch (err) {
+        if (attempt === maxRetries) {
+          // Final attempt - try fallback
+          try {
+            const { data: rows, error: rpcError } = await supabase.rpc('get_user_subscription_status');
+            if (rpcError) throw rpcError;
+            
+            const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+            if (!row) return; // Keep previous state
+
+            const trialValid = !!row.trial_expires_at && new Date(row.trial_expires_at) > new Date();
+            const requires_subscription = !(row.subscribed || trialValid);
+
+            setSubscriptionData({
+              subscribed: !!row.subscribed,
+              subscription_tier: row.subscription_tier ?? null,
+              subscription_end: row.subscription_end ?? null,
+              trial_expires_at: row.trial_expires_at ?? undefined,
+              trial_started_at: undefined,
+              payment_collected: row.payment_collected ?? undefined,
+              requires_subscription,
+              metadata: undefined,
+            });
+            
+            devLog('Subscription data updated via fallback RPC');
+            break;
+          } catch (fallbackErr) {
+            console.error('All subscription check attempts failed:', fallbackErr);
+            // Keep previous state instead of nullifying
+          }
+        } else {
+          // Wait before retry with exponential backoff
+          const delay = baseDelay * Math.pow(2, attempt);
+          devLog(`Subscription check attempt ${attempt + 1} failed, retrying in ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    setSubscriptionLoading(false);
+  }, [session, devLog]);
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        devLog('Auth state change', { event, hasUser: !!session?.user });
+        
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -68,9 +179,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               setOrgData(data);
               
-               // Check subscription status immediately on auth state changes
-               if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                 await checkSubscriptionStatus();
+               // Only check subscription on initial sign-in, not on every token refresh
+               if (event === 'SIGNED_IN') {
+                 await debouncedCheckSubscription(100); // Quick initial check
+               } else if (event === 'TOKEN_REFRESHED') {
+                 await debouncedCheckSubscription(2000); // Slower refresh check
                }
                
                setLoading(false);
@@ -89,101 +202,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        }
      );
 
-     // Check for existing session and trigger immediate subscription check
-     supabase.auth.getSession().then(({ data: { session }, error }) => {
+     // Check for existing session and trigger initial subscription check
+     supabase.auth.getSession().then(({ data: { session } }) => {
        setSession(session);
        setUser(session?.user ?? null);
        if (!session) {
          setLoading(false);
        } else {
-         // Trigger immediate subscription check for existing session
-         checkSubscriptionStatus();
+         // Initial subscription check with longer delay
+         debouncedCheckSubscription(1000);
        }
      });
 
      return () => {
        subscription.unsubscribe();
+       if (subscriptionCheckTimeoutRef.current) {
+         clearTimeout(subscriptionCheckTimeoutRef.current);
+       }
      };
-   }, []);
+   }, [debouncedCheckSubscription, devLog]);
 
-  const checkSubscriptionStatus = async () => {
-    if (!session?.user) return;
-    
-    console.log('AuthContext: Starting subscription check for user:', session.user.email);
-    setSubscriptionLoading(true);
-    try {
-      // Always pass an explicit Authorization header to avoid limbo tokens
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      const { data, error } = await EdgeFunctionClient.checkSubscription();
-
-      if (error) {
-        console.error('Error checking subscription (edge function):', error);
-        throw error;
-      }
-
-      setSubscriptionData({
-        subscribed: data.subscribed,
-        subscription_tier: data.subscription_tier,
-        subscription_end: data.subscription_end,
-        trial_expires_at: data.trial_expires_at,
-        trial_started_at: data.trial_started_at,
-        payment_collected: data.payment_collected,
-        requires_subscription: data.requires_subscription,
-        metadata: data.metadata, // Capture metadata from edge function response
-      });
-      console.log('AuthContext: Subscription data updated via edge function:', {
-        subscribed: data.subscribed,
-        subscription_tier: data.subscription_tier,
-        requires_subscription: data.requires_subscription,
-      });
-    } catch (err) {
-      console.error('Exception checking subscription via edge function, falling back to DB RPC:', err);
-      // Fallback to DB (does not require Stripe; uses current subscribers record)
-      try {
-        const { data: rows, error: rpcError } = await supabase.rpc('get_user_subscription_status');
-        if (rpcError) {
-          console.error('RPC get_user_subscription_status error:', rpcError);
-          // Don't nullify subscription data on error - keep previous state
-          return;
-        }
-        const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-        if (!row) {
-          // Don't nullify subscription data if no row found - keep previous state
-          return;
-        }
-
-        const trialValid = !!row.trial_expires_at && new Date(row.trial_expires_at) > new Date();
-        const requires_subscription = !(row.subscribed || trialValid);
-
-        setSubscriptionData({
-          subscribed: !!row.subscribed,
-          subscription_tier: row.subscription_tier ?? null,
-          subscription_end: row.subscription_end ?? null,
-          trial_expires_at: row.trial_expires_at ?? undefined,
-          trial_started_at: undefined,
-          payment_collected: row.payment_collected ?? undefined,
-          requires_subscription,
-          metadata: undefined, // RPC fallback doesn't have metadata
-        });
-        console.log('AuthContext: Subscription data updated via fallback RPC:', {
-          subscribed: !!row.subscribed,
-          subscription_tier: row.subscription_tier,
-          requires_subscription,
-        });
-      } catch (fallbackErr) {
-        console.error('Fallback RPC subscription check failed:', fallbackErr);
-        // Don't nullify subscription data on fallback error - keep previous state
-      }
-    } finally {
-      setSubscriptionLoading(false);
-    }
-  };
-
-  const checkSubscription = async () => {
-    await checkSubscriptionStatus();
-  };
+  const checkSubscription = useCallback(async () => {
+    await debouncedCheckSubscription(0); // Immediate check when called manually
+  }, [debouncedCheckSubscription]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
