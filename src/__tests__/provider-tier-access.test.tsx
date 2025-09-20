@@ -87,7 +87,6 @@ describe('ProviderSelector Component', () => {
         hasRecommendations: false,
         hasCompetitorAnalysis: false,
         hasAdvancedScoring: false,
-        hasApiAccess: false,
         hasPrioritySupport: false,
         hasWhiteLabeling: false,
       }
@@ -122,7 +121,6 @@ describe('ProviderSelector Component', () => {
         hasRecommendations: true,
         hasCompetitorAnalysis: true,
         hasAdvancedScoring: true,
-        hasApiAccess: false,
         hasPrioritySupport: true,
         hasWhiteLabeling: false,
       }
@@ -153,7 +151,7 @@ describe('ProviderSelector Component', () => {
         hasRecommendations: false,
         hasCompetitorAnalysis: false,
         hasAdvancedScoring: false,
-        hasApiAccess: false,
+        
         hasPrioritySupport: false,
         hasWhiteLabeling: false,
       }

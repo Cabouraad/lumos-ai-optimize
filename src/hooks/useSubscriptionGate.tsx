@@ -20,7 +20,6 @@ export interface TierLimits {
   hasRecommendations: boolean;
   hasCompetitorAnalysis: boolean;
   hasAdvancedScoring: boolean;
-  hasApiAccess: boolean;
   hasPrioritySupport: boolean;
   hasWhiteLabeling: boolean;
 }
@@ -90,7 +89,6 @@ export function useSubscriptionGate() {
           hasRecommendations: false,
           hasCompetitorAnalysis: false,
           hasAdvancedScoring: false,
-          hasApiAccess: false,
           hasPrioritySupport: false,
           hasWhiteLabeling: false,
         };
@@ -102,7 +100,6 @@ export function useSubscriptionGate() {
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
-          hasApiAccess: false,
           hasPrioritySupport: true,
           hasWhiteLabeling: false,
         };
@@ -114,7 +111,6 @@ export function useSubscriptionGate() {
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
-          hasApiAccess: false,
           hasPrioritySupport: false,
           hasWhiteLabeling: false,
         };
@@ -126,7 +122,6 @@ export function useSubscriptionGate() {
           hasRecommendations: false,
           hasCompetitorAnalysis: false,
           hasAdvancedScoring: false,
-          hasApiAccess: false,
           hasPrioritySupport: false,
           hasWhiteLabeling: false,
         };
@@ -195,16 +190,6 @@ export function useSubscriptionGate() {
     };
   };
 
-  const canAccessApiFeatures = (): FeatureGate => {
-    if (limits.hasApiAccess) {
-      return { hasAccess: true };
-    }
-    return {
-      hasAccess: false,
-      reason: 'API access requires Pro plan',
-      upgradeRequired: true,
-    };
-  };
 
   const canCreatePrompts = (currentCount: number): FeatureGate => {
     // Check valid access first
@@ -255,7 +240,6 @@ export function useSubscriptionGate() {
     canAccessRecommendations,
     canAccessCompetitorAnalysis,
     canAccessAdvancedScoring,
-    canAccessApiFeatures,
     canCreatePrompts,
     hasAccessToApp,
   };

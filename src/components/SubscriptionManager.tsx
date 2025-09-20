@@ -177,12 +177,6 @@ export function SubscriptionManager() {
                   {limits.hasPrioritySupport ? 'Included' : 'Standard'}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-2 bg-muted rounded">
-                <span className="text-sm">API Access</span>
-                <Badge variant={limits.hasApiAccess ? "default" : "outline"}>
-                  {limits.hasApiAccess ? 'Included' : 'Not Available'}
-                </Badge>
-              </div>
             </div>
           </div>
         </div>

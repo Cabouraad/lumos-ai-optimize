@@ -370,7 +370,7 @@ export default function Onboarding() {
         'Advanced scoring',
         'Full competitor analysis',
         'AI recommendations',
-        'API access',
+        
         'White-label reports'
       ],
       limitations: []

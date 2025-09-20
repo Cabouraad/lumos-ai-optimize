@@ -233,7 +233,6 @@ describe('Subscription Gating Matrix - Extended Tests', () => {
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: false,
-          hasApiAccess: false,
           promptsPerDay: 100,
           providersPerPrompt: 3
         }
@@ -244,7 +243,7 @@ describe('Subscription Gating Matrix - Extended Tests', () => {
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
-          hasApiAccess: false,
+          
           promptsPerDay: 500,
           providersPerPrompt: 5
         }
@@ -255,7 +254,7 @@ describe('Subscription Gating Matrix - Extended Tests', () => {
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
           hasAdvancedScoring: true,
-          hasApiAccess: true,
+          
           promptsPerDay: 2000,
           providersPerPrompt: 10
         }
@@ -280,7 +279,7 @@ describe('Subscription Gating Matrix - Extended Tests', () => {
         expect(result.current.canAccessRecommendations().hasAccess).toBe(expectations.hasRecommendations);
         expect(result.current.canAccessCompetitorAnalysis().hasAccess).toBe(expectations.hasCompetitorAnalysis);
         expect(result.current.canAccessAdvancedScoring().hasAccess).toBe(expectations.hasAdvancedScoring);
-        expect(result.current.canAccessApiFeatures().hasAccess).toBe(expectations.hasApiAccess);
+        
         expect(result.current.limits.promptsPerDay).toBe(expectations.promptsPerDay);
         expect(result.current.limits.providersPerPrompt).toBe(expectations.providersPerPrompt);
       });
