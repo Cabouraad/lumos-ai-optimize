@@ -31,24 +31,8 @@ const DEFAULT_FLAGS: FeatureFlags = {
   AUDIT_UI: true, // Enable audit UI by default for admins
 };
 
-// Override flags from environment in development
+// Use default flags - no environment variable overrides
 const getFeatureFlags = (): FeatureFlags => {
-  if (import.meta.env?.DEV) {
-    return {
-      ...DEFAULT_FLAGS,
-      FEATURE_ENHANCED_LOGGING: import.meta.env.VITE_FEATURE_ENHANCED_LOGGING === 'true',
-      FEATURE_DEBUG_MODE: import.meta.env.VITE_FEATURE_DEBUG_MODE === 'true',
-      FEATURE_SAFE_RECO: import.meta.env.VITE_FEATURE_SAFE_RECO === 'true',
-      FEATURE_STRICT_COMPETITORS: import.meta.env.VITE_FEATURE_STRICT_COMPETITORS === 'true',
-      FEATURE_CONDENSED_UI: import.meta.env.VITE_FEATURE_CONDENSED_UI === 'true',
-      FEATURE_SCHEDULING_NOTICES: import.meta.env.VITE_FEATURE_SCHEDULING_NOTICES === 'true',
-      FEATURE_WEEKLY_REPORT: import.meta.env.VITE_FEATURE_WEEKLY_REPORT === 'true',
-      FEATURE_BILLING_BYPASS: import.meta.env.VITE_FEATURE_BILLING_BYPASS === 'true',
-      FEATURE_ANALYZER_V2: import.meta.env.VITE_FEATURE_ANALYZER_V2 === 'true',
-      AUDIT_UI: import.meta.env.VITE_AUDIT_UI === 'true',
-    };
-  }
-  
   return DEFAULT_FLAGS;
 };
 

@@ -17,24 +17,13 @@ export function validateEnvironment(): EnvironmentStatus {
   const errors: string[] = [];
   const warnings: string[] = [];
   
-  // Check Supabase URL
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!supabaseUrl) {
-    errors.push('VITE_SUPABASE_URL is not configured');
-  } else if (!supabaseUrl.startsWith('https://')) {
-    warnings.push('Supabase URL should use HTTPS');
-  }
+  // Use hardcoded Supabase configuration
+  const supabaseUrl = 'https://cgocsffxqyhojtyzniyz.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk';
   
-  // Check Supabase anon key
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!supabaseKey) {
-    errors.push('VITE_SUPABASE_PUBLISHABLE_KEY is not configured');
-  } else if (supabaseKey.length < 100) {
-    warnings.push('Supabase key appears to be invalid (too short)');
-  }
-  
+  // Configuration is valid since we have hardcoded values
   return {
-    isValid: errors.length === 0,
+    isValid: true,
     errors,
     warnings,
     supabaseUrl,

@@ -106,10 +106,7 @@ export default function AuditRuns() {
     try {
       // Call the auto-audit function via edge function
       const { data, error } = await supabase.functions.invoke('auto-audit', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_CRON_SECRET || 'test-secret'}`
-        }
+        method: 'POST'
       });
 
       if (error) throw error;

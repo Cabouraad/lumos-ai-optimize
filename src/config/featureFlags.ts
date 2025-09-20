@@ -50,31 +50,8 @@ const DEFAULT_OPTIMIZATION_FLAGS: OptimizationFeatureFlags = {
   FEATURE_ENHANCED_ERROR_RESPONSES: false,
 };
 
-// Override flags from environment in development only
+// Use default flags - no environment variable overrides
 const getOptimizationFeatureFlags = (): OptimizationFeatureFlags => {
-  if (import.meta.env?.DEV) {
-    return {
-      ...DEFAULT_OPTIMIZATION_FLAGS,
-      FEATURE_BULK_QUERIES: import.meta.env.VITE_FEATURE_BULK_QUERIES === 'true',
-      FEATURE_RESPONSE_CACHE: import.meta.env.VITE_FEATURE_RESPONSE_CACHE === 'true',
-      FEATURE_STRICT_COMPETITOR_DETECT: import.meta.env.VITE_FEATURE_STRICT_COMPETITOR_DETECT === 'true',
-      FEATURE_DETECTOR_SHADOW: import.meta.env.VITE_FEATURE_DETECTOR_SHADOW === 'true',
-      FEATURE_ANALYZER_V2: import.meta.env.VITE_FEATURE_ANALYZER_V2 === 'true',
-      FEATURE_LIGHT_UI: import.meta.env.VITE_FEATURE_LIGHT_UI === 'true',
-      FEATURE_A11Y: import.meta.env.VITE_FEATURE_A11Y === 'true',
-      FEATURE_TRIAL_GRACE: import.meta.env.VITE_FEATURE_TRIAL_GRACE === 'true',
-      FEATURE_BACKEND_QUOTA_ENFORCE: import.meta.env.VITE_FEATURE_BACKEND_QUOTA_ENFORCE !== 'false', // Default ON
-      FEATURE_STRICT_AUTH_VALIDATION: import.meta.env.VITE_FEATURE_STRICT_AUTH_VALIDATION !== 'false', // Default ON
-      FEATURE_RATE_LIMITING: import.meta.env.VITE_FEATURE_RATE_LIMITING !== 'false', // Default ON
-
-      // Phase 2 Ultra-Safe Features
-      FEATURE_DATA_FETCH_CACHE: import.meta.env.VITE_FEATURE_DATA_FETCH_CACHE === 'true',
-      FEATURE_ONBOARDING_PROGRESS_TRACKER: import.meta.env.VITE_FEATURE_ONBOARDING_PROGRESS_TRACKER === 'true',
-      FEATURE_SUBSCRIPTION_STATE_OBSERVER: import.meta.env.VITE_FEATURE_SUBSCRIPTION_STATE_OBSERVER === 'true',
-      FEATURE_ENHANCED_ERROR_RESPONSES: import.meta.env.VITE_FEATURE_ENHANCED_ERROR_RESPONSES === 'true',
-    };
-  }
-  
   return DEFAULT_OPTIMIZATION_FLAGS;
 };
 
@@ -86,9 +63,8 @@ export const isOptimizationFeatureEnabled = (flag: keyof OptimizationFeatureFlag
 
 // Logging helper for feature flag usage
 export const logFeatureFlagUsage = (flag: keyof OptimizationFeatureFlags, context: string) => {
-  if (import.meta.env?.DEV) {
-    console.log(`🚩 Feature flag ${flag} checked in ${context}:`, optimizationFlags[flag]);
-  }
+  // Simplified logging without environment checks
+  console.log(`🚩 Feature flag ${flag} checked in ${context}:`, optimizationFlags[flag]);
 };
 
 // Feature flag guard helper
