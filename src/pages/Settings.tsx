@@ -6,11 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
 import { GoogleAioSettings } from '@/components/GoogleAioSettings';
-
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
+import { getAllowedProviders, type ProviderName, type SubscriptionTier } from '@/lib/providers/tier-policy';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -19,6 +20,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orgData, setOrgData] = useState<any>(null);
+  const [providers, setProviders] = useState<any[]>([]);
   const [retention, setRetention] = useState('30');
   const [deleting, setDeleting] = useState(false);
 
@@ -46,6 +48,14 @@ export default function Settings() {
 
       if (orgErr) throw new Error(`Failed to load organization: ${orgErr.message}`);
 
+      // Load providers
+      const { data: providersData, error: provErr } = await supabase
+        .from("llm_providers")
+        .select("name, enabled")
+        .order("name");
+
+      if (provErr) throw new Error(`Failed to load providers: ${provErr.message}`);
+
       // Load retention setting
       const { data: retentionData } = await supabase
         .from("recommendations")
@@ -55,6 +65,7 @@ export default function Settings() {
         .maybeSingle();
 
       setOrgData(org);
+      setProviders(providersData || []);
       setRetention(retentionData?.rationale || '30');
       setError(null);
     } catch (err: any) {
@@ -162,6 +173,58 @@ export default function Settings() {
         <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Domain Security Status</h2>
           <DomainEnforcementDemo />
+        </section>
+
+        {/* LLM Providers */}
+        <section className="rounded-xl border p-4">
+          <h2 className="font-medium mb-3">LLM Providers</h2>
+          <div className="space-y-3">
+            {/* Show all providers with tier information */}
+            {['openai', 'perplexity', 'gemini', 'google_ai_overview'].map((providerName) => {
+              const provider = providers.find(p => p.name === providerName);
+              const isEnabled = provider?.enabled ?? false;
+              
+              // Determine which tier this provider requires
+              const tierRequirements = {
+                'openai': 'All tiers',
+                'perplexity': 'Starter+',
+                'gemini': 'Growth+',
+                'google_ai_overview': 'Pro only'
+              };
+              
+              const currentTier = orgData?.plan_tier || 'starter';
+              const allowedProviders = getAllowedProviders(currentTier as SubscriptionTier);
+              const isAllowedForCurrentTier = allowedProviders.includes(providerName as ProviderName);
+              
+              return (
+                <div key={providerName} className="flex items-center justify-between border rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm capitalize font-medium">
+                      {providerName === 'google_ai_overview' ? 'Google AI Overviews' : providerName}
+                    </span>
+                    <Badge variant={isAllowedForCurrentTier ? "default" : "secondary"} className="text-xs">
+                      {tierRequirements[providerName as keyof typeof tierRequirements]}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${isEnabled ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {isEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    {!isAllowedForCurrentTier && (
+                      <Badge variant="outline" className="text-xs">
+                        Upgrade Required
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {providers.length === 0 && (
+              <div className="text-sm text-muted-foreground p-3 border rounded-lg">
+                No providers configured in database.
+              </div>
+            )}
+          </div>
         </section>
 
 
