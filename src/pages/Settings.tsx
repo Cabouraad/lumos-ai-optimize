@@ -19,7 +19,6 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orgData, setOrgData] = useState<any>(null);
-  const [providers, setProviders] = useState<any[]>([]);
   const [retention, setRetention] = useState('30');
   const [deleting, setDeleting] = useState(false);
 
@@ -47,14 +46,6 @@ export default function Settings() {
 
       if (orgErr) throw new Error(`Failed to load organization: ${orgErr.message}`);
 
-      // Load providers
-      const { data: providersData, error: provErr } = await supabase
-        .from("llm_providers")
-        .select("name, enabled")
-        .order("name");
-
-      if (provErr) throw new Error(`Failed to load providers: ${provErr.message}`);
-
       // Load retention setting
       const { data: retentionData } = await supabase
         .from("recommendations")
@@ -64,7 +55,6 @@ export default function Settings() {
         .maybeSingle();
 
       setOrgData(org);
-      setProviders(providersData || []);
       setRetention(retentionData?.rationale || '30');
       setError(null);
     } catch (err: any) {
@@ -222,18 +212,6 @@ export default function Settings() {
           </div>
         </section>
 
-        <section className="rounded-xl border p-4">
-          <h2 className="font-medium mb-3">LLM Providers</h2>
-          <ul className="space-y-2">
-            {providers.map(p => (
-              <li key={p.name} className="flex items-center justify-between border rounded-lg p-2">
-                <span className="text-sm capitalize">{p.name}</span>
-                <span className="text-sm">{p.enabled ? "Enabled" : "Disabled"}</span>
-              </li>
-            ))}
-            {!providers.length && <li className="text-sm text-muted-foreground">No providers found.</li>}
-          </ul>
-        </section>
 
         {/* Google AI Overviews Integration */}
         <GoogleAioSettings />
