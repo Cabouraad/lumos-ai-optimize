@@ -23,10 +23,8 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id: string) => {
-          // Split vendor libraries into separate chunks
-          if (id.includes('react') || id.includes('react-dom')) {
-            return 'react-vendor';
-          }
+          // Keep React core in main bundle to avoid createContext timing issues
+          // Only split non-core React libraries
           if (id.includes('react-router-dom')) {
             return 'router-vendor';
           }

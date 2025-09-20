@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
+import { createSafeContext, withContextRetry } from './SafeContexts';
 
 interface AuthContextType {
   user: User | null;
@@ -23,7 +24,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create safe context with validation
+const { Context: AuthContext, Provider: AuthContextProvider, useContext: useAuthContext } = createSafeContext<AuthContextType>('AuthContext');
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -231,16 +233,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscriptionLoading, orgData, subscriptionData, checkSubscription, signOut }}>
+    <AuthContextProvider value={{ user, session, loading, subscriptionLoading, orgData, subscriptionData, checkSubscription, signOut }}>
       {children}
-    </AuthContext.Provider>
+    </AuthContextProvider>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+// Export the safe hook with retry logic
+export const useAuth = withContextRetry(useAuthContext, 'AuthContext');

@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
+import { createSafeContext, withContextRetry } from './SafeContexts';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -8,7 +9,8 @@ interface ThemeContextType {
   actualTheme: 'light' | 'dark';
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+// Create safe context with validation
+const { Context: ThemeContext, Provider: ThemeContextProvider, useContext: useThemeContext } = createSafeContext<ThemeContextType>('ThemeContext');
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -61,16 +63,11 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
   }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, actualTheme }}>
+    <ThemeContextProvider value={{ theme, setTheme, actualTheme }}>
       {children}
-    </ThemeContext.Provider>
+    </ThemeContextProvider>
   );
 }
 
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-}
+// Export the safe hook with retry logic
+export const useTheme = withContextRetry(useThemeContext, 'ThemeContext');
