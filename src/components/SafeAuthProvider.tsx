@@ -1,4 +1,6 @@
-import React, { Component, ReactNode } from 'react';
+import * as React from 'react';
+import { Component, ReactNode } from 'react';
+import { checkReactAvailability } from '@/lib/react-safety';
 
 interface Props {
   children: ReactNode;
@@ -83,9 +85,8 @@ class AuthErrorBoundary extends Component<Props, State> {
 
 // React availability checker
 const isReactReady = () => {
-  return typeof React !== 'undefined' && 
-         typeof React.createContext === 'function' &&
-         typeof React.useContext === 'function';
+  const { isReady } = checkReactAvailability();
+  return isReady;
 };
 
 interface SafeAuthProviderProps {

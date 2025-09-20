@@ -23,8 +23,12 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id: string) => {
-          // Keep React core in main bundle to avoid createContext timing issues
-          // Only split non-core React libraries
+          // Keep React core and JSX runtime together to avoid timing issues
+          if (id.includes('node_modules/react/') || 
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/@vitejs/plugin-react')) {
+            return 'react-vendor';
+          }
           if (id.includes('react-router-dom')) {
             return 'router-vendor';
           }

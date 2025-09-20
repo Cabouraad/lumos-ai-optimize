@@ -1,4 +1,5 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import * as React from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 
 // Safe context creation with validation
 export function createSafeContext<T>(displayName: string, defaultValue?: T) {
