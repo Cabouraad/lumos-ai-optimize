@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } | null>(null);
 
   // Debouncing and error recovery state
+  const mountedRef = useRef(true);
   const subscriptionCheckTimeoutRef = useRef<NodeJS.Timeout>();
   const retryAttemptsRef = useRef(0);
   const lastSubscriptionCheckRef = useRef<number>(0);
@@ -178,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkSubscriptionStatusWithRetry, subscriptionData, devLog]);
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
     
     // Initialize auth state - ALWAYS resolve ready, even on error
     const initializeAuth = async () => {
@@ -188,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         devLog('Attempting to get session');
         const { data, error } = await supabase.auth.getSession();
         
-        if (!mounted) {
+        if (!mountedRef.current) {
           devLog('Component unmounted during getSession');
           return;
         }
@@ -240,10 +241,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setOrgData(userData);
               }
               
-              // Initial subscription check with timeout
+              // Initial subscription check with timeout - call directly to decouple from debounced version
               try {
+                devLog('Starting direct subscription check for initialization');
                 await Promise.race([
-                  debouncedCheckSubscription(100, true),
+                  checkSubscriptionStatusWithRetry(),
                   new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Subscription check timeout')), 15000)
                   )
@@ -272,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('Auth initialization error:', err);
         devLog('Critical auth initialization error, failing gracefully', err);
         
-        if (!mounted) return;
+        if (!mountedRef.current) return;
         
         // Set safe defaults for all state
         setSession(null);
@@ -283,16 +285,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSubscriptionLoading(false);
       } finally {
         // CRITICAL: Always set ready to true, even on error
-        if (mounted) {
+        if (mountedRef.current) {
+          devLog('Setting ready=true after auth initialization');
           setReady(true);
-          devLog('Auth initialization complete - ready set to true', { ready: true });
-          
-          // Double-check that ready was actually set
-          setTimeout(() => {
-            if (mounted) {
-              devLog('Ready state verification after initialization');
-            }
-          }, 100);
+          devLog('Auth initialization complete - ready flag set', { ready: true });
         }
       }
     };
@@ -300,7 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mounted) return;
+        if (!mountedRef.current) return;
         
         devLog('Auth state change', { event, hasUser: !!session?.user });
         
@@ -310,6 +306,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           // Fetch user's org data on auth change
           setTimeout(async () => {
+            if (!mountedRef.current) return;
+            
             try {
               const { data, error } = await supabase
                 .from('users')
@@ -319,6 +317,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 `)
                 .eq('id', session.user.id)
                 .maybeSingle();
+              
+              if (!mountedRef.current) return;
               
               if (error) {
                 console.error('Error fetching org data:', error);
@@ -335,6 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               setLoading(false);
             } catch (err) {
+              if (!mountedRef.current) return;
               console.error('Exception in org data fetch:', err);
               setOrgData(null);
               setLoading(false);
@@ -354,8 +355,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Emergency fallback: If auth hasn't resolved after 15 seconds, force ready=true
     const emergencyTimeout = setTimeout(() => {
-      if (mounted && !ready) {
+      if (mountedRef.current && !ready) {
         console.warn('Auth initialization timeout - forcing ready=true to prevent infinite loading');
+        devLog('Emergency timeout triggered - forcing ready=true');
         setReady(true);
         setLoading(false);
         setSubscriptionLoading(false);
@@ -363,14 +365,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, 15000);
 
      return () => {
-       mounted = false;
+       mountedRef.current = false;
        subscription.unsubscribe();
        clearTimeout(emergencyTimeout);
        if (subscriptionCheckTimeoutRef.current) {
          clearTimeout(subscriptionCheckTimeoutRef.current);
        }
      };
-   }, [debouncedCheckSubscription, devLog, ready]);
+   }, []); // Empty dependency array to prevent re-running
 
   const checkSubscription = useCallback(async () => {
     // Call directly to avoid debouncing races for manual checks
