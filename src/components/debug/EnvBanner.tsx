@@ -6,7 +6,7 @@ export function EnvBanner() {
   const { missing } = getPublicEnv();
   const bootErr = getSupabaseBootError();
   if (!missing && !bootErr) return null;
-  const msg = bootErr || 'Supabase env missing. Set VITE_SUPABASE_API and VITE_SUPABASE_ANON_KEY.';
+  const msg = bootErr || 'Supabase env missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
   return (
     <div style={{
       position:'fixed', bottom:8, left:8, right:8, zIndex:9999,

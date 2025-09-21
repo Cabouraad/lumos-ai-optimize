@@ -10,13 +10,15 @@ export function getSupabaseBrowserClient() {
   try {
     const { url, anon } = getBrowserEnv();
     if (!url || !anon) {
-      throw new Error('Missing VITE_SUPABASE_API / VITE_SUPABASE_ANON_KEY');
+      _bootError = 'Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY';
+      console.error('Supabase environment validation failed: Missing required environment variables');
+      return supabase; // Return client anyway, will use defaults from integrations/supabase/client.ts
     }
     return supabase;
   } catch (error) {
     _bootError = (error as any)?.message || String(error);
     console.error('Supabase environment validation failed:', error);
-    throw error;
+    return supabase; // Don't throw, return client to prevent app freeze
   }
 }
 

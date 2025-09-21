@@ -3,7 +3,7 @@ export function getPublicEnv() {
   const isVite = typeof import.meta !== 'undefined' && !!(import.meta as any).env;
   const ve = isVite ? (import.meta as any).env : {};
 
-  const url = (ve?.VITE_SUPABASE_API as string) ||
+  const url = (ve?.VITE_SUPABASE_URL as string) ||
               (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
   const anon = (ve?.VITE_SUPABASE_ANON_KEY as string) ||
                (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined);
