@@ -12,8 +12,6 @@ import { EnvGate } from '@/components/EnvGate';
 import './index.css';
 import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
-import { SupabaseHealth } from '@/components/debug/SupabaseHealth';
-import { EnvBanner } from '@/components/debug/EnvBanner';
 import { AuthDebugger } from '@/components/debug/AuthDebugger';
 
 const queryClient = new QueryClient({
@@ -58,12 +56,10 @@ ReactDOM.createRoot(rootEl).render(
               <EnvGate />
               <SafeAuthProvider>
                 <AuthProvider>
-                  <QueryAuthBridge />
-                   <App />
-                   <AuthDebugger />
-                   <SupabaseHealth />
-                   <EnvBanner />
-                   <Toaster />
+                   <QueryAuthBridge />
+                    <App />
+                    <AuthDebugger />
+                    <Toaster />
                 </AuthProvider>
               </SafeAuthProvider>
             </ThemeProvider>
