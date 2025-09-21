@@ -12,6 +12,7 @@ import { EnvGate } from '@/components/EnvGate';
 import './index.css';
 import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
+import { SupabaseHealth } from '@/components/debug/SupabaseHealth';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +57,7 @@ ReactDOM.createRoot(rootEl).render(
               <SafeAuthProvider>
                 <AuthProvider>
                   <QueryAuthBridge />
+                  <SupabaseHealth />
                   <App />
                   <Toaster />
                 </AuthProvider>

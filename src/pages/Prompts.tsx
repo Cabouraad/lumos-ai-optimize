@@ -69,7 +69,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
 // Categorization function moved to /lib/prompt-utils.ts
 
 export default function Prompts() {
-  const { orgData, user } = useAuth();
+  const { orgData, user, ready } = useAuth();
   const { toast } = useToast();
   const { canCreatePrompts, hasAccessToApp } = useSubscriptionGate();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
@@ -93,6 +93,12 @@ export default function Prompts() {
   });
 
   useEffect(() => {
+    // Wait for auth to be ready before loading data
+    if (!ready) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     if (orgData?.organizations?.id) {
       loadPromptsData();
       loadSuggestedPrompts();
@@ -100,7 +106,7 @@ export default function Prompts() {
       // No auto-refresh to prevent constant page refreshes
       // Users can manually refresh using the "Refresh Data" button
     }
-  }, [orgData?.organizations?.id]);
+  }, [ready, user, orgData?.organizations?.id]);
 
   const loadSuggestedPrompts = async () => {
     try {
@@ -117,6 +123,13 @@ export default function Prompts() {
   const loadPromptsData = async (showToast = false) => {
     try {
       setLoading(true);
+
+      // Wait for auth to be ready before attempting to load data
+      if (!ready || !user) {
+        console.log('🔍 Debug: Auth not ready, skipping prompts data load', { ready, hasUser: !!user });
+        setError('Authentication required');
+        return;
+      }
 
       // Ensure org context is ready
       console.log('🔍 Debug: Loading prompts data with org context:', orgData?.organizations?.id);
@@ -167,7 +180,17 @@ export default function Prompts() {
         }
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to load prompts');
+      const errorMessage = err?.message || 'Failed to load prompts';
+      console.error('🔍 Debug: Prompts load error:', err);
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('Failed to fetch')) {
+        setError('Network error: Unable to connect to server. Please check your internet connection and try again.');
+      } else if (errorMessage.includes('CORS')) {
+        setError('CORS error: Cross-origin request blocked. Please check browser console for details.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
