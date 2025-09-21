@@ -53,8 +53,8 @@ export function BrandFixStatusAlert() {
       // Wait a moment for the cache to clear
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Refresh the page data
-      window.location.reload();
+      // Hide the alert after successful refresh
+      setFixStatus('none');
       
       toast.success('Data refreshed! Brand classifications have been updated.');
     } catch (error) {

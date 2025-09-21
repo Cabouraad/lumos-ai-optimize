@@ -131,6 +131,9 @@ serve(async (req) => {
           case 'gemini':
             response = await executeGemini(prompt.text);
             break;
+          case 'google_ai_overview':
+            response = await executeGoogleAio(prompt.text);
+            break;
           default:
             console.log(`Unknown provider: ${provider.name}`);
             continue;
@@ -182,7 +185,9 @@ serve(async (req) => {
           ? 'gpt-4o-mini' 
           : provider.name === 'perplexity' 
             ? 'sonar' 
-            : 'gemini-2.0-flash-lite';
+            : provider.name === 'google_ai_overview'
+              ? 'google-aio'
+              : 'gemini-2.0-flash-lite';
 
           const { error: pprError } = await supabase
             .from('prompt_provider_responses')
@@ -500,8 +505,82 @@ async function executeGemini(promptText: string) {
         console.log(`[Gemini] Waiting ${delay}ms before next retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
-    }
   }
+}
+
+// Google AI Overview execution function
+async function executeGoogleAio(promptText: string) {
+  console.log('[Google AIO] Starting execution');
+  
+  // Check if Google AIO is enabled
+  const isEnabled = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
+  if (!isEnabled) {
+    console.log('[Google AIO] Disabled via ENABLE_GOOGLE_AIO');
+    throw new Error('Google AI Overviews is disabled');
+  }
+
+  const apiKey = Deno.env.get('SERPAPI_KEY');
+  if (!apiKey) {
+    console.error('[Google AIO] SERPAPI_KEY not found');
+    throw new Error('SerpAPI key not configured for Google AI Overviews');
+  }
+
+  try {
+    const url = new URL('https://serpapi.com/search');
+    url.searchParams.set('api_key', apiKey);
+    url.searchParams.set('engine', 'google');
+    url.searchParams.set('q', promptText);
+    url.searchParams.set('gl', 'us');
+    url.searchParams.set('hl', 'en');
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Google AIO] API Error:', { status: response.status, error: errorText });
+      throw new Error(`SerpAPI error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const aiOverview = data.ai_overview;
+    
+    if (!aiOverview) {
+      console.log('[Google AIO] No AI Overview found in response');
+      return {
+        text: 'No AI Overview available for this query.',
+        tokenIn: 0,
+        tokenOut: 0,
+        citations: []
+      };
+    }
+
+    // Extract citations from the AI overview
+    const citations = (aiOverview.links || []).map((link: any) => ({
+      title: link.title || '',
+      link: link.link || '',
+      domain: link.link ? new URL(link.link).hostname : '',
+      source_provider: 'google_ai_overview'
+    }));
+
+    console.log(`[Google AIO] Success - Summary length: ${aiOverview.summary?.length || 0}, Citations: ${citations.length}`);
+
+    return {
+      text: aiOverview.summary || 'No summary available',
+      tokenIn: 0, // SerpAPI doesn't provide token counts
+      tokenOut: 0,
+      citations
+    };
+
+  } catch (error: any) {
+    console.error('[Google AIO] Execution failed:', error.message);
+    throw new Error(`Google AI Overview execution failed: ${error.message}`);
+  }
+}
 
   const finalError = lastError || new Error('Gemini API failed after all attempts');
   console.error('[Gemini] ALL ATTEMPTS FAILED:', finalError.message);

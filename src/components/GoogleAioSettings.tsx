@@ -23,7 +23,8 @@ export const GoogleAioSettings: React.FC = () => {
   const handleToggle = (enabled: boolean) => {
     if (!isAvailable) return;
     setIsEnabled(enabled);
-    // TODO: Implement per-org toggle logic
+    // Note: Google AIO is controlled by environment variables at the server level
+    // Individual org toggles can be implemented in future versions
   };
 
   if (isAvailable === null) {
@@ -57,7 +58,16 @@ export const GoogleAioSettings: React.FC = () => {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Google AI Overviews is not currently configured. Contact your administrator to enable this feature.
+              Google AI Overviews is not currently configured. The system requires SERPAPI_KEY and ENABLE_GOOGLE_AIO=true in the environment configuration.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {isAvailable && (
+          <Alert className="border-green-200 bg-green-50">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              Google AI Overviews is properly configured and available for Pro tier users.
             </AlertDescription>
           </Alert>
         )}

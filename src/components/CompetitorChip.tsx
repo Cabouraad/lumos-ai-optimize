@@ -246,10 +246,8 @@ export function CompetitorChip({
         });
       }
 
-      // Trigger a page reload to refresh data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Note: Component will be re-rendered when parent data refreshes
+      // No need for hard page reload
 
     } catch (error) {
       console.error('Error converting competitor:', error);
