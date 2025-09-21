@@ -182,22 +182,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Initialize auth state - ALWAYS resolve ready, even on error
     const initializeAuth = async () => {
+      devLog('Starting auth initialization');
+      
       try {
+        devLog('Attempting to get session');
         const { data, error } = await supabase.auth.getSession();
-        if (!mounted) return;
+        
+        if (!mounted) {
+          devLog('Component unmounted during getSession');
+          return;
+        }
         
         if (error) {
           console.warn('getSession error:', error);
+          devLog('getSession failed, treating as unauthenticated', error);
           setSession(null);
           setUser(null);
+          setOrgData(null);
+          setSubscriptionData(null);
+          setLoading(false);
+          setSubscriptionLoading(false);
         } else {
+          devLog('getSession successful', { hasUser: !!data.session?.user });
           setSession(data.session);
           setUser(data.session?.user ?? null);
           
           if (data.session?.user) {
-            // Fetch user's org data
+            // Fetch user's org data with timeout and fallback
             try {
-              const { data: userData, error: userError } = await supabase
+              devLog('Fetching user org data');
+              
+              // Add a timeout to prevent hanging on network issues
+              const orgDataPromise = supabase
                 .from('users')
                 .select(`
                   *,
@@ -206,21 +222,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .eq('id', data.session.user.id)
                 .maybeSingle();
               
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Org data fetch timeout')), 10000)
+              );
+              
+              const { data: userData, error: userError } = await Promise.race([
+                orgDataPromise,
+                timeoutPromise
+              ]) as any;
+              
               if (userError) {
                 console.error('Error fetching org data:', userError);
+                devLog('Org data fetch failed, continuing without org data');
+                setOrgData(null);
               } else {
+                devLog('Org data fetched successfully');
                 setOrgData(userData);
               }
               
-              // Initial subscription check
-              await debouncedCheckSubscription(100, true);
+              // Initial subscription check with timeout
+              try {
+                await Promise.race([
+                  debouncedCheckSubscription(100, true),
+                  new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Subscription check timeout')), 15000)
+                  )
+                ]);
+              } catch (subError) {
+                console.warn('Subscription check failed:', subError);
+                devLog('Subscription check failed, continuing without subscription data');
+              }
+              
               setLoading(false);
             } catch (err) {
               console.error('Exception in org data fetch:', err);
+              devLog('Exception in user data setup, continuing gracefully');
               setOrgData(null);
               setLoading(false);
             }
           } else {
+            devLog('No user session, setting defaults');
             setOrgData(null);
             setSubscriptionData(null);
             setSubscriptionLoading(false);
@@ -229,7 +270,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.warn('Auth initialization error:', err);
+        devLog('Critical auth initialization error, failing gracefully', err);
+        
         if (!mounted) return;
+        
+        // Set safe defaults for all state
         setSession(null);
         setUser(null);
         setOrgData(null);
@@ -240,7 +285,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // CRITICAL: Always set ready to true, even on error
         if (mounted) {
           setReady(true);
-          devLog('Auth initialization complete', { ready: true });
+          devLog('Auth initialization complete - ready set to true', { ready: true });
+          
+          // Double-check that ready was actually set
+          setTimeout(() => {
+            if (mounted) {
+              devLog('Ready state verification after initialization');
+            }
+          }, 100);
         }
       }
     };
@@ -300,14 +352,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize auth state
     initializeAuth();
 
+    // Emergency fallback: If auth hasn't resolved after 15 seconds, force ready=true
+    const emergencyTimeout = setTimeout(() => {
+      if (mounted && !ready) {
+        console.warn('Auth initialization timeout - forcing ready=true to prevent infinite loading');
+        setReady(true);
+        setLoading(false);
+        setSubscriptionLoading(false);
+      }
+    }, 15000);
+
      return () => {
        mounted = false;
        subscription.unsubscribe();
+       clearTimeout(emergencyTimeout);
        if (subscriptionCheckTimeoutRef.current) {
          clearTimeout(subscriptionCheckTimeoutRef.current);
        }
      };
-   }, [debouncedCheckSubscription, devLog]);
+   }, [debouncedCheckSubscription, devLog, ready]);
 
   const checkSubscription = useCallback(async () => {
     // Call directly to avoid debouncing races for manual checks

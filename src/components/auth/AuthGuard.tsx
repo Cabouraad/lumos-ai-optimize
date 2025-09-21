@@ -8,7 +8,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { ready, user } = useAuth();
+  const { ready, user, loading } = useAuth();
   const location = useLocation();
   const pathname = location.pathname;
 
@@ -17,11 +17,24 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return <>{children}</>;
   }
 
-  // Show loading while auth is initializing
+  // Show loading while auth is initializing with timeout fallback
   if (!ready) {
+    // Add timeout fallback - if auth hasn't resolved after 30 seconds, something is wrong
+    setTimeout(() => {
+      if (!ready) {
+        console.warn('Auth guard timeout - auth may be stuck. Check network connectivity.');
+      }
+    }, 30000);
+
     return (
       <div className="w-full h-[60vh] grid place-items-center text-muted-foreground">
-        Loading…
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <div>Loading authentication...</div>
+          <div className="text-xs text-gray-500 max-w-md text-center">
+            If this takes more than a few seconds, check your network connection and browser console for errors.
+          </div>
+        </div>
       </div>
     );
   }

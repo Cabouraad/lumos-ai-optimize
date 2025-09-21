@@ -1,17 +1,58 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { getSupabaseBootError } from '@/lib/supabase/browser';
 import { getPublicEnv } from '@/lib/env/browserEnv';
 
 export function EnvBanner() {
   const { missing } = getPublicEnv();
   const bootErr = getSupabaseBootError();
-  if (!missing && !bootErr) return null;
-  const msg = bootErr || 'Supabase env missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  const [networkStatus, setNetworkStatus] = useState<'unknown' | 'checking' | 'failed' | 'ok'>('unknown');
+
+  // Test basic network connectivity to distinguish env vs network issues
+  useEffect(() => {
+    if (missing || bootErr) return;
+    
+    setNetworkStatus('checking');
+    
+    // Test basic network connectivity with a simple request
+    fetch('https://cgocsffxqyhojtyzniyz.supabase.co/rest/v1/', {
+      method: 'HEAD',
+      mode: 'no-cors' // Bypass CORS for basic connectivity test
+    }).then(() => {
+      setNetworkStatus('ok');
+    }).catch(() => {
+      setNetworkStatus('failed');
+    });
+  }, [missing, bootErr]);
+
+  // Don't show banner if everything is OK
+  if (!missing && !bootErr && networkStatus === 'ok') return null;
+
+  let msg = '';
+  let bgColor = '#B91C1C'; // default red
+  
+  if (missing) {
+    msg = 'Supabase environment missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Lovable Secrets.';
+  } else if (bootErr) {
+    if (bootErr.includes('Missing VITE_SUPABASE')) {
+      msg = `Environment configuration error: ${bootErr}. Add missing secrets in Lovable.`;
+    } else {
+      msg = `Supabase initialization error: ${bootErr}`;
+    }
+  } else if (networkStatus === 'failed') {
+    msg = 'Network connectivity issue detected. Cannot reach Supabase servers. Check your internet connection and firewall settings.';
+    bgColor = '#D97706'; // orange for network issues
+  } else if (networkStatus === 'checking') {
+    msg = 'Testing network connectivity to Supabase...';
+    bgColor = '#2563EB'; // blue for checking
+  }
+
   return (
     <div style={{
       position:'fixed', bottom:8, left:8, right:8, zIndex:9999,
-      background:'#B91C1C', color:'#fff', padding:'10px 12px',
-      borderRadius:8, fontSize:12, boxShadow:'0 2px 10px rgba(0,0,0,.2)'
+      background: bgColor, color:'#fff', padding:'10px 12px',
+      borderRadius:8, fontSize:12, boxShadow:'0 2px 10px rgba(0,0,0,.2)',
+      maxWidth: '100%', wordWrap: 'break-word'
     }}>
       {msg}
     </div>

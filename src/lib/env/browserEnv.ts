@@ -15,7 +15,7 @@ export function getPublicEnv() {
     url, 
     anon, 
     missing,
-    debugHealth: `${debug}` === 'true',
+    debugHealth: `${debug}` === 'true' || (isVite && ve?.DEV), // Enable debug in development by default
     isProd: isVite ? !ve?.DEV : (typeof process !== 'undefined' ? process.env.NODE_ENV === 'production' : true)
   };
 }
