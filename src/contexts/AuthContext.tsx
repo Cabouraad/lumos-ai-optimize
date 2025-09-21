@@ -7,7 +7,8 @@ import { createSafeContext } from './SafeContexts';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  loading: boolean;
+  loading: boolean; // legacy loading for org/subscription fetches
+  ready?: boolean;   // initial auth session resolved (authenticated or not)
   subscriptionLoading: boolean;
   orgData: any | null;
   subscriptionData: {
@@ -29,6 +30,7 @@ const defaultAuthState: AuthContextType = {
   user: null,
   session: null,
   loading: true,
+  ready: false,
   subscriptionLoading: true,
   orgData: null,
   subscriptionData: null,
@@ -43,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [orgData, setOrgData] = useState<any | null>(null);
   const [subscriptionData, setSubscriptionData] = useState<{
@@ -221,6 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
            setSubscriptionData(null);
            setSubscriptionLoading(false);
            setLoading(false);
+           // In case getSession lags, ensure ready is true when we know auth is anon
+           setReady(true);
          }
        }
      );
@@ -235,6 +240,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Initial subscription check with force flag to ensure it runs
           debouncedCheckSubscription(1000, true);
         }
+        // Mark auth as initialized regardless of session presence
+        setReady(true);
      });
 
      return () => {
@@ -255,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContextProvider value={{ user, session, loading, subscriptionLoading, orgData, subscriptionData, checkSubscription, signOut }}>
+    <AuthContextProvider value={{ user, session, loading, ready, subscriptionLoading, orgData, subscriptionData, checkSubscription, signOut }}>
       {children}
     </AuthContextProvider>
   );

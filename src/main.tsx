@@ -11,6 +11,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { EnvGate } from '@/components/EnvGate';
 import './index.css';
 import App from './App';
+import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,7 @@ ReactDOM.createRoot(rootEl).render(
               <EnvGate />
               <SafeAuthProvider>
                 <AuthProvider>
+                  <QueryAuthBridge />
                   <App />
                   <Toaster />
                 </AuthProvider>
