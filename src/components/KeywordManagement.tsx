@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Save, Sparkles, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from "@/lib/org/data";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,10 +28,14 @@ export function KeywordManagement() {
   const [saving, setSaving] = useState(false);
   const [autoFilling, setAutoFilling] = useState(false);
   const { toast } = useToast();
+  const { loading: authLoading, user, orgData } = useAuth();
 
   useEffect(() => {
+    // Wait for auth to be ready and org data to be available
+    if (authLoading) return;
+    if (!user || !orgData?.organizations?.id) return;
     loadKeywords();
-  }, []);
+  }, [authLoading, user, orgData?.organizations?.id]);
 
   const loadKeywords = async () => {
     try {
@@ -38,11 +43,16 @@ export function KeywordManagement() {
       const data = await getOrganizationKeywords();
       setKeywords(data);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load keywords",
-        variant: "destructive",
-      });
+      console.error('Failed to load keywords:', error);
+      
+      // Only show toast for real errors, not auth-not-ready states
+      if (!authLoading && user && orgData?.organizations?.id) {
+        toast({
+          title: "Error",
+          description: "Failed to load keywords",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }

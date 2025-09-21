@@ -108,6 +108,42 @@
 
   <body>
     <div id="root"></div>
+    
+    <!-- Auto-recovery for dynamic import chunk failures -->
+    <script>
+      (function() {
+        let reloadTriggered = false;
+        
+        // Handle script tag errors for chunk loading
+        window.addEventListener('error', function(event) {
+          if (reloadTriggered) return;
+          
+          const target = event.target;
+          if (target && target.tagName === 'SCRIPT' && target.src && target.src.includes('/assets/')) {
+            console.warn('Chunk load failed, reloading page:', target.src);
+            reloadTriggered = true;
+            setTimeout(() => window.location.reload(), 100);
+          }
+        });
+        
+        // Handle unhandled promise rejections from dynamic imports
+        window.addEventListener('unhandledrejection', function(event) {
+          if (reloadTriggered) return;
+          
+          const reason = event.reason;
+          if (reason && typeof reason === 'object' && reason.message) {
+            const message = reason.message.toLowerCase();
+            if (message.includes('failed to fetch dynamically imported module') || 
+                message.includes('importing a module script failed')) {
+              console.warn('Dynamic import failed, reloading page:', reason.message);
+              reloadTriggered = true;
+              setTimeout(() => window.location.reload(), 100);
+            }
+          }
+        });
+      })();
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route } from "react-router-dom";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
 
 // Lazy load all page components to reduce initial bundle size
@@ -34,7 +34,28 @@ const Terms = lazy(() => import("./pages/Terms"));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
-const App = () => (
+const App = () => {
+  // Prefetch Onboarding chunk when idle to prevent chunk load failures
+  useEffect(() => {
+    const prefetchOnboarding = () => {
+      try {
+        import("./pages/Onboarding");
+      } catch (error) {
+        // Silently ignore prefetch errors
+      }
+    };
+
+    // Use requestIdleCallback if available, otherwise use setTimeout
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(prefetchOnboarding);
+      } else {
+        setTimeout(prefetchOnboarding, 2000);
+      }
+    }
+  }, []);
+
+  return (
   <TooltipProvider>
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
         <Routes>
@@ -114,6 +135,7 @@ const App = () => (
           </Routes>
         </Suspense>
       </TooltipProvider>
-);
+  );
+};
 
 export default App;

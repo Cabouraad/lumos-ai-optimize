@@ -16,6 +16,7 @@ import {
   Zap,
   Award
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from '@/lib/org/data';
 import { useToast } from '@/hooks/use-toast';
 
@@ -44,6 +45,7 @@ export function PromptSuggestions({
   onGenerate
 }: PromptSuggestionsProps) {
   const { toast } = useToast();
+  const { loading: authLoading, user, orgData } = useAuth();
   const [orgSettings, setOrgSettings] = useState<OrganizationKeywords>({
     keywords: [],
     products_services: "",
@@ -58,8 +60,11 @@ export function PromptSuggestions({
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   useEffect(() => {
+    // Wait for auth to be ready and org data to be available
+    if (authLoading) return;
+    if (!user || !orgData?.organizations?.id) return;
     loadOrgSettings();
-  }, []);
+  }, [authLoading, user, orgData?.organizations?.id]);
 
   const loadOrgSettings = async () => {
     try {
@@ -68,6 +73,15 @@ export function PromptSuggestions({
       setOrgSettings(data);
     } catch (error) {
       console.error('Failed to load organization settings:', error);
+      
+      // Only show toast for real errors, not auth-not-ready states
+      if (!authLoading && user && orgData?.organizations?.id) {
+        toast({
+          title: "Error",
+          description: "Failed to load organization settings",
+          variant: "destructive",
+        });
+      }
     } finally {
       setSettingsLoading(false);
     }
