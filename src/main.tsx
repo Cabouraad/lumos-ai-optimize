@@ -17,24 +17,14 @@ import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
-      retry: (failureCount, error) => {
-        // Don't retry on 4xx errors (client errors)
-        if (error && typeof error === 'object' && 'status' in error) {
-          const status = (error as any).status;
-          if (status >= 400 && status < 500) return false;
-        }
-        // Retry up to 2 times for other errors
-        return failureCount < 2;
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      refetchOnWindowFocus: false, // Reduce unnecessary refetches
-      refetchOnReconnect: true, // Refetch when connection is restored
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: 1,
+      staleTime: 60_000,
+      gcTime: 10 * 60 * 1000,
     },
     mutations: {
-      retry: 1, // Retry mutations once on failure
-      retryDelay: 1000,
+      retry: 0,
     },
   },
 });

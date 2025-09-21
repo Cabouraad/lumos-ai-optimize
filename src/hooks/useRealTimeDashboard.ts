@@ -122,7 +122,7 @@ export function useRealTimeDashboard(
       });
 
       pollerUnsubscribeRef.current = adaptivePollerRef.current.subscribe(async () => {
-        if (!loading && !fetchInProgressRef.current) {
+        if (!fetchInProgressRef.current) {
           console.log('[Dashboard] Adaptive poll triggered');
           return fetchData(false);
         }
@@ -134,7 +134,7 @@ export function useRealTimeDashboard(
       // Use traditional interval polling
       console.log('[Dashboard] Setting up traditional polling:', autoRefreshInterval);
       intervalRef.current = setInterval(() => {
-        if (!loading && !fetchInProgressRef.current) {
+        if (!fetchInProgressRef.current) {
           console.log('[Dashboard] Traditional poll triggered');
           fetchData(false);
         } else {
@@ -162,7 +162,7 @@ export function useRealTimeDashboard(
       
       console.log('[Dashboard] Auto-refresh cleared');
     };
-  }, [enableAutoRefresh, enableAdaptivePolling, autoRefreshInterval, fetchData, loading]);
+  }, [enableAutoRefresh, enableAdaptivePolling, autoRefreshInterval, fetchData]);
 
   // Subscribe to real-time updates (removed to prevent double updates)
 
@@ -174,7 +174,7 @@ export function useRealTimeDashboard(
     }
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !loading && !fetchInProgressRef.current) {
+      if (document.visibilityState === 'visible' && !fetchInProgressRef.current) {
         const now = Date.now();
         // Throttle to once every 10 seconds to prevent conflicts
         if (now - lastVisibilityFetchRef.current > 10000) {
@@ -189,7 +189,7 @@ export function useRealTimeDashboard(
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [loading, fetchData, enableAdaptivePolling]);
+  }, [fetchData, enableAdaptivePolling]);
 
   return {
     data,
