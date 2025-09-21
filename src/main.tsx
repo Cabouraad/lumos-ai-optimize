@@ -57,8 +57,8 @@ ReactDOM.createRoot(rootEl).render(
               <SafeAuthProvider>
                 <AuthProvider>
                   <QueryAuthBridge />
-                  <SupabaseHealth />
                   <App />
+                  <SupabaseHealth />
                   <Toaster />
                 </AuthProvider>
               </SafeAuthProvider>

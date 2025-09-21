@@ -1,11 +1,11 @@
+import { getPublicEnv } from '@/lib/env/browserEnv';
+
 export function getBrowserEnv() {
-  // Support both Next.js and Vite environment variable formats
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const { url, anon } = getPublicEnv();
   
   if (!url || !anon) {
     throw new Error(
-      'Supabase browser env missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.'
+      'Supabase browser env missing. Set NEXT_PUBLIC_SUPABASE_URL & NEXT_PUBLIC_SUPABASE_ANON_KEY or VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY.'
     );
   }
   

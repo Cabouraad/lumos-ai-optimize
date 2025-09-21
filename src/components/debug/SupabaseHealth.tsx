@@ -1,45 +1,57 @@
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { getPublicEnv } from '@/lib/env/browserEnv';
 
-interface SupabaseHealthProps {
-  show?: boolean;
-}
-
-export function SupabaseHealth({ show = import.meta.env.DEV }: SupabaseHealthProps) {
+export function SupabaseHealth() {
+  const { debugHealth } = getPublicEnv();
   const [msg, setMsg] = useState<string | null>(null);
-  
+
   useEffect(() => {
-    if (!show) return;
+    if (!debugHealth) return;
     
     const checkHealth = async () => {
       try {
         const supabase = getSupabaseBrowserClient();
         const startTime = Date.now();
         
-        // Try a simple health check - get session (doesn't require auth)
-        const { error } = await supabase.auth.getSession();
+        // HEAD count ping against a lightweight table that exists in all envs
+        const { error, count } = await supabase
+          .from('prompts')
+          .select('id', { head: true, count: 'exact' })
+          .limit(1);
+
         const duration = Date.now() - startTime;
-        
+
         if (error) {
-          setMsg(`Supabase auth error: ${error.message}`);
+          // Common actionable hints:
+          // - 401/403 => auth/RLS/grants  
+          // - fetch failed => wrong URL / CORS / http vs https
+          let hint = '';
+          if (error.code === '401' || error.code === '403') {
+            hint = ' (auth/RLS issue)';
+          } else if (error.message?.includes('fetch')) {
+            hint = ' (network/CORS issue)';
+          }
+          setMsg(`Health: error ${error.code || ''} – ${error.message}${hint}`);
         } else {
-          setMsg(`Supabase healthy (${duration}ms)`);
+          setMsg(`Health: OK (${duration}ms, rows: ${count ?? 'n/a'})`);
         }
       } catch (e: any) {
-        const errorMsg = e?.message || String(e);
+        const errorMsg = (e?.message || e).toString();
+        let hint = '';
         if (errorMsg.includes('Failed to fetch')) {
-          setMsg('Health check failed: Network/CORS issue - check console');
-        } else {
-          setMsg(`Health check failed: ${errorMsg}`);
+          hint = ' – check network/CORS/URL';
+        } else if (errorMsg.includes('process is not defined')) {
+          hint = ' – env access issue';
         }
-        console.error('Supabase health check error:', e);
+        setMsg(`Health: fetch failed${hint} – ${errorMsg}`);
       }
     };
     
     checkHealth();
-  }, [show]);
-  
-  if (!show || !msg) return null;
+  }, [debugHealth]);
+
+  if (!debugHealth || !msg) return null;
   
   return (
     <div 
@@ -47,14 +59,15 @@ export function SupabaseHealth({ show = import.meta.env.DEV }: SupabaseHealthPro
         position: 'fixed',
         bottom: 8,
         right: 8,
+        background: 'rgba(17,24,39,.8)',
+        color: '#fff',
+        padding: '6px 10px',
+        borderRadius: 8,
         fontSize: 12,
-        opacity: 0.6,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        color: 'white',
-        padding: '4px 8px',
-        borderRadius: '4px',
         zIndex: 9999,
-        fontFamily: 'monospace'
+        fontFamily: 'monospace',
+        maxWidth: '300px',
+        wordWrap: 'break-word'
       }}
     >
       {msg}
