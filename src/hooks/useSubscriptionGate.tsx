@@ -51,12 +51,15 @@ export function useSubscriptionGate() {
     authLoading
   ]);
   
-  console.log('[SUBSCRIPTION_GATE]', {
-    originalTier: subscriptionData?.subscription_tier,
-    forcedTier: currentTier,
-    isBypassUser,
-    metadata: subscriptionData?.metadata
-  });
+  // Debug logging only in development to reduce production noise
+  if (import.meta.env.DEV) {
+    console.log('[SUBSCRIPTION_GATE]', {
+      originalTier: subscriptionData?.subscription_tier,
+      forcedTier: currentTier,
+      isBypassUser,
+      metadata: subscriptionData?.metadata
+    });
+  }
   
   // Trial status with feature flag protection
   const allowTrialGrace = optimizationFlags.FEATURE_TRIAL_GRACE;
@@ -217,6 +220,11 @@ export function useSubscriptionGate() {
   };
 
   const hasAccessToApp = (): FeatureGate => {
+    // If subscription is still loading, allow access to prevent flickering
+    if (authLoading) {
+      return { hasAccess: true };
+    }
+    
     if (!hasValidAccess) {
       return {
         hasAccess: false,

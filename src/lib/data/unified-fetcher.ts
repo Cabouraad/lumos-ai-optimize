@@ -571,7 +571,17 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
  */
 export function invalidateCache(keys?: string[]): void {
   if (keys) {
-    keys.forEach(key => advancedCache.invalidate(key));
+    keys.forEach(key => {
+      // Auto-wildcard keys that don't end with '*' to match org-scoped cache keys
+      const pattern = key.includes('*') ? key : `${key}*`;
+      
+      // Debug log in development to see what patterns are being used
+      if (import.meta.env.DEV) {
+        console.log(`[CACHE_INVALIDATE] Pattern: ${pattern}`);
+      }
+      
+      advancedCache.invalidate(pattern);
+    });
     
     // Emit cache invalidation events for other components
     keys.forEach(key => {
