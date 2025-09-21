@@ -166,13 +166,18 @@ export function useRealTimeDashboard(
 
   // Subscribe to real-time updates (removed to prevent double updates)
 
-  // Handle visibility change with throttling
+  // Handle visibility change with throttling (disabled when adaptive polling is enabled)
   useEffect(() => {
+    if (enableAdaptivePolling) {
+      console.log('[Dashboard] Visibility refresh disabled - using adaptive poller');
+      return;
+    }
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && !loading && !fetchInProgressRef.current) {
         const now = Date.now();
-        // Throttle to once every 5 seconds
-        if (now - lastVisibilityFetchRef.current > 5000) {
+        // Throttle to once every 10 seconds to prevent conflicts
+        if (now - lastVisibilityFetchRef.current > 10000) {
           console.log('[Dashboard] Tab visible, refreshing');
           lastVisibilityFetchRef.current = now;
           fetchData(false);
@@ -184,7 +189,7 @@ export function useRealTimeDashboard(
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [loading, fetchData]);
+  }, [loading, fetchData, enableAdaptivePolling]);
 
   return {
     data,

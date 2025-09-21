@@ -69,12 +69,21 @@ export class AdaptivePoller {
       this.pause();
     });
 
-    // Visibility change detection
+    // Visibility change detection with debounce
+    let visibilityTimeout: NodeJS.Timeout | null = null;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         this.onActivity();
-        // Immediate poll when becoming visible
-        this.executePoll();
+        
+        // Debounce visibility polling to prevent double-refreshes
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout);
+        }
+        
+        visibilityTimeout = setTimeout(() => {
+          console.log('[AdaptivePoller] Visibility poll after debounce');
+          this.executePoll();
+        }, 500); // 500ms debounce
       }
     });
 

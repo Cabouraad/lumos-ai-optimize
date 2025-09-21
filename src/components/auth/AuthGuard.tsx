@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublicRoute } from '@/lib/auth/publicRoutes';
@@ -12,20 +12,26 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const location = useLocation();
   const pathname = location.pathname;
 
+  // Timeout warning for stuck auth
+  useEffect(() => {
+    if (!ready) {
+      const timeoutId = setTimeout(() => {
+        if (!ready) {
+          console.warn('Auth guard timeout - auth may be stuck. Check network connectivity.');
+        }
+      }, 30000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [ready]);
+
   // Allow public routes to render without auth check
   if (isPublicRoute(pathname)) {
     return <>{children}</>;
   }
 
-  // Show loading while auth is initializing with timeout fallback
+  // Show loading while auth is initializing
   if (!ready) {
-    // Add timeout fallback - if auth hasn't resolved after 30 seconds, something is wrong
-    setTimeout(() => {
-      if (!ready) {
-        console.warn('Auth guard timeout - auth may be stuck. Check network connectivity.');
-      }
-    }, 30000);
-
     return (
       <div className="w-full h-[60vh] grid place-items-center text-muted-foreground">
         <div className="flex flex-col items-center gap-4">

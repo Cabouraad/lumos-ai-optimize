@@ -1,17 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function QueryAuthBridge() {
   const qc = useQueryClient();
-  const { session } = useAuth();
-  const { user } = useAuth();
+  const { session, user } = useAuth();
+  const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Invalidate queries whenever the session/user changes
-    // This covers SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
-    qc.invalidateQueries();
-  }, [qc, session?.access_token, user?.id]);
+    const currentUserId = user?.id || null;
+    const prevUserId = prevUserIdRef.current;
+
+    // Only invalidate on true user changes (login/logout), not token refreshes
+    if (currentUserId !== prevUserId) {
+      console.log('[QueryAuthBridge] User changed, invalidating queries:', { prevUserId, currentUserId });
+      qc.invalidateQueries();
+      prevUserIdRef.current = currentUserId;
+    }
+  }, [qc, user?.id]);
 
   return null;
 }
