@@ -16,11 +16,15 @@ export function createSafeContext<T>(displayName: string, defaultValue?: T) {
     );
   }
 
-  // Safe hook with better error messages
+  // Safe hook with better error messages and fallback handling
   function useSafeContext(): T {
     const context = useContext(Context);
     
+    // If context is undefined and we have a default, use it
     if (context === undefined) {
+      if (defaultValue !== undefined) {
+        return defaultValue;
+      }
       throw new Error(`use${displayName.replace('Context', '')} must be used within a ${displayName}Provider`);
     }
     

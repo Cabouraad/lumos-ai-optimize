@@ -24,8 +24,20 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-// Create safe context with validation
-const { Context: AuthContext, Provider: AuthContextProvider, useContext: useAuthContext } = createSafeContext<AuthContextType>('AuthContext');
+// Create a default loading state for auth context
+const defaultAuthState: AuthContextType = {
+  user: null,
+  session: null,
+  loading: true,
+  subscriptionLoading: true,
+  orgData: null,
+  subscriptionData: null,
+  checkSubscription: async () => {},
+  signOut: async () => {}
+};
+
+// Create safe context with validation and default loading state
+const { Context: AuthContext, Provider: AuthContextProvider, useContext: useAuthContext } = createSafeContext<AuthContextType>('AuthContext', defaultAuthState);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
