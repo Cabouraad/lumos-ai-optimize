@@ -30,24 +30,16 @@ export function DomainEnforcementDemo() {
   const loadDomainStatus = async () => {
     try {
       setLoading(true);
-      
-      // Get current user's organization
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('org_id')
-        .eq('id', user.user.id)
-        .single();
-
-      if (!userData?.org_id) return;
+      // Resolve organization via RPC to avoid auth race
+      const { data: orgId } = await supabase.rpc('get_current_user_org_id');
+      if (!orgId) return;
 
       // Get organization details
       const { data: orgData } = await supabase
         .from('organizations')
         .select('domain, verified_at')
-        .eq('id', userData.org_id)
+        .eq('id', orgId)
         .single();
 
       // Check feature flag
@@ -76,21 +68,13 @@ export function DomainEnforcementDemo() {
 
     try {
       setValidating(true);
-      
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('org_id')
-        .eq('id', user.user.id)
-        .single();
-
-      if (!userData?.org_id) return;
+      const { data: orgId } = await supabase.rpc('get_current_user_org_id');
+      if (!orgId) return;
 
       // Call validation function
       const { data, error } = await supabase.rpc('validate_domain_invitation', {
-        p_org_id: userData.org_id,
+        p_org_id: orgId,
         p_email: testEmail
       });
 

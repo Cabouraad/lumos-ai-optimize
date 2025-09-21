@@ -33,23 +33,15 @@ export default function DomainVerification() {
   const loadOrganization = async () => {
     try {
       setLoading(true);
-      
-      // Get current user's organization
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('org_id')
-        .eq('id', user.user.id)
-        .single();
-
-      if (!userData?.org_id) throw new Error('No organization found');
+      // Resolve organization via secure RPC (avoids auth race conditions)
+      const { data: orgId, error: orgIdErr } = await supabase.rpc('get_current_user_org_id');
+      if (orgIdErr || !orgId) throw new Error('No organization found');
 
       const { data: orgData, error } = await supabase
         .from('organizations')
         .select('id, domain, verification_token, verified_at, domain_verification_method')
-        .eq('id', userData.org_id)
+        .eq('id', orgId)
         .single();
 
       if (error) throw error;

@@ -23,9 +23,9 @@ export async function getOrgMembership() {
 
 /** Get current user's org ID or throw if not onboarded */
 export async function getOrgId(): Promise<string> {
-  const membership = await getOrgMembership();
-  if (!membership?.org_id) {
-    throw new Error("Onboarding incomplete: no org membership");
+  const { data, error } = await supabase.rpc('get_current_user_org_id');
+  if (error || !data) {
+    throw new Error('Onboarding incomplete: no org membership');
   }
-  return membership.org_id;
+  return data as string;
 }

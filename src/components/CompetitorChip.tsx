@@ -205,25 +205,10 @@ export function CompetitorChip({
   const handleConvertToBrand = async () => {
     try {
       setIsConverting(true);
-      
-      // Get current user's org ID
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) {
-        toast({
-          title: "Authentication Error",
-          description: "Please log in to perform this action",
-          variant: "destructive"
-        });
-        return;
-      }
 
-      const { data: userInfo } = await supabase
-        .from('users')
-        .select('org_id')
-        .eq('id', user.user.id)
-        .single();
-
-      if (!userInfo?.org_id) {
+      // Resolve org via RPC to avoid auth race conditions
+      const { data: orgId } = await supabase.rpc('get_current_user_org_id');
+      if (!orgId) {
         toast({
           title: "Organization Error",
           description: "Unable to determine your organization",
@@ -235,7 +220,7 @@ export function CompetitorChip({
       const { data, error } = await supabase.functions.invoke('convert-competitor-to-brand', {
         body: {
           competitorName: name,
-          orgId: userInfo.org_id
+          orgId
         }
       });
 
