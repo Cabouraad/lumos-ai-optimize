@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Bot, Search, Sparkles, Globe } from 'lucide-react';
 
 interface ProviderLogoProps {
   provider: string;
@@ -13,35 +14,35 @@ export function ProviderLogo({ provider, enabled, size = 'md', showStatus = true
       case 'openai':
         return {
           name: 'OpenAI',
-          logo: '🤖',
-          bgColor: 'bg-gray-100',
-          textColor: 'text-gray-900'
+          Icon: Bot,
+          bgColor: 'bg-green-100',
+          textColor: 'text-green-900'
         };
       case 'perplexity':
         return {
           name: 'Perplexity',
-          logo: '🔍',
+          Icon: Search,
           bgColor: 'bg-blue-100',
           textColor: 'text-blue-900'
         };
       case 'gemini':
         return {
           name: 'Gemini',
-          logo: '✨',
+          Icon: Sparkles,
           bgColor: 'bg-purple-100',
           textColor: 'text-purple-900'
         };
       case 'google_ai_overview':
         return {
           name: 'Google AIO',
-          logo: '🔎',
+          Icon: Globe,
           bgColor: 'bg-orange-100',
           textColor: 'text-orange-900'
         };
       default:
         return {
           name: name,
-          logo: '🔗',
+          Icon: Bot,
           bgColor: 'bg-gray-100',
           textColor: 'text-gray-900'
         };
@@ -76,7 +77,7 @@ export function ProviderLogo({ provider, enabled, size = 'md', showStatus = true
         shadow-sm
         border
       `}>
-        {config.logo}
+        <config.Icon size={size === 'sm' ? 16 : size === 'md' ? 20 : 24} />
       </div>
       
       <div className="flex flex-col">
