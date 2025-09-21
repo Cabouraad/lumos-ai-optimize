@@ -178,16 +178,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkSubscriptionStatusWithRetry, subscriptionData, devLog]);
 
   useEffect(() => {
-    // Set up auth state listener
+    let mounted = true;
+    
+    // Initialize auth state - ALWAYS resolve ready, even on error
+    const initializeAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+        
+        if (error) {
+          console.warn('getSession error:', error);
+          setSession(null);
+          setUser(null);
+        } else {
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          
+          if (data.session?.user) {
+            // Fetch user's org data
+            try {
+              const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select(`
+                  *,
+                  organizations (*)
+                `)
+                .eq('id', data.session.user.id)
+                .maybeSingle();
+              
+              if (userError) {
+                console.error('Error fetching org data:', userError);
+              } else {
+                setOrgData(userData);
+              }
+              
+              // Initial subscription check
+              await debouncedCheckSubscription(100, true);
+              setLoading(false);
+            } catch (err) {
+              console.error('Exception in org data fetch:', err);
+              setOrgData(null);
+              setLoading(false);
+            }
+          } else {
+            setOrgData(null);
+            setSubscriptionData(null);
+            setSubscriptionLoading(false);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.warn('Auth initialization error:', err);
+        if (!mounted) return;
+        setSession(null);
+        setUser(null);
+        setOrgData(null);
+        setSubscriptionData(null);
+        setLoading(false);
+        setSubscriptionLoading(false);
+      } finally {
+        // CRITICAL: Always set ready to true, even on error
+        if (mounted) {
+          setReady(true);
+          devLog('Auth initialization complete', { ready: true });
+        }
+      }
+    };
+
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         devLog('Auth state change', { event, hasUser: !!session?.user });
         
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user's org data
+          // Fetch user's org data on auth change
           setTimeout(async () => {
             try {
               const { data, error } = await supabase
@@ -205,46 +274,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               setOrgData(data);
               
-               // Only check subscription on initial sign-in, not on every token refresh
-               if (event === 'SIGNED_IN') {
-                 await debouncedCheckSubscription(100); // Quick initial check
-               } else if (event === 'TOKEN_REFRESHED') {
-                 await debouncedCheckSubscription(2000); // Slower refresh check
-               }
-               
-               setLoading(false);
-             } catch (err) {
-               console.error('Exception in org data fetch:', err);
-               setOrgData(null);
-               setLoading(false);
-             }
-           }, 0);
-         } else {
-           setOrgData(null);
-           setSubscriptionData(null);
-           setSubscriptionLoading(false);
-           setLoading(false);
-           // In case getSession lags, ensure ready is true when we know auth is anon
-           setReady(true);
-         }
-       }
-     );
-
-     // Check for existing session and trigger initial subscription check
-     supabase.auth.getSession().then(({ data: { session } }) => {
-       setSession(session);
-       setUser(session?.user ?? null);
-       if (!session) {
-         setLoading(false);
+              // Only check subscription on initial sign-in, not on every token refresh
+              if (event === 'SIGNED_IN') {
+                await debouncedCheckSubscription(100); // Quick initial check
+              } else if (event === 'TOKEN_REFRESHED') {
+                await debouncedCheckSubscription(2000); // Slower refresh check
+              }
+              
+              setLoading(false);
+            } catch (err) {
+              console.error('Exception in org data fetch:', err);
+              setOrgData(null);
+              setLoading(false);
+            }
+          }, 0);
         } else {
-          // Initial subscription check with force flag to ensure it runs
-          debouncedCheckSubscription(1000, true);
+          setOrgData(null);
+          setSubscriptionData(null);
+          setSubscriptionLoading(false);
+          setLoading(false);
         }
-        // Mark auth as initialized regardless of session presence
-        setReady(true);
-     });
+      }
+    );
+
+    // Initialize auth state
+    initializeAuth();
 
      return () => {
+       mounted = false;
        subscription.unsubscribe();
        if (subscriptionCheckTimeoutRef.current) {
          clearTimeout(subscriptionCheckTimeoutRef.current);

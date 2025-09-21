@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { getOrgId } from '@/lib/auth';
 
 interface OrgBrand {
@@ -11,10 +12,18 @@ export function useOrgBrands() {
   const [orgBrandVariants, setOrgBrandVariants] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { ready, user } = useAuth();
 
   useEffect(() => {
+    // Wait for auth to be ready and user to be authenticated
+    if (!ready) return;
+    if (!user) {
+      setOrgBrandVariants([]);
+      setLoading(false);
+      return;
+    }
     fetchOrgBrands();
-  }, []);
+  }, [ready, user]);
 
   const fetchOrgBrands = async () => {
     try {

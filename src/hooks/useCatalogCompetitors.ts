@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { getOrgId } from '@/lib/auth';
 
 interface CatalogCompetitor {
@@ -13,10 +14,18 @@ interface CatalogCompetitor {
 export function useCatalogCompetitors() {
   const [competitors, setCompetitors] = useState<CatalogCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
+  const { ready, user } = useAuth();
 
   useEffect(() => {
+    // Wait for auth to be ready and user to be authenticated
+    if (!ready) return;
+    if (!user) {
+      setCompetitors([]);
+      setLoading(false);
+      return;
+    }
     fetchCatalogCompetitors();
-  }, []);
+  }, [ready, user]);
 
   const fetchCatalogCompetitors = async () => {
     try {

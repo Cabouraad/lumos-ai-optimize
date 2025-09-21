@@ -1,6 +1,7 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route } from "react-router-dom";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
 
@@ -56,12 +57,13 @@ const App = () => {
   }, []);
 
   return (
-  <TooltipProvider>
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/health" element={<Health />} />
-          <Route path="/auth" element={<Auth />} />
+    <TooltipProvider>
+      <AuthGuard>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/health" element={<Health />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/features" element={<Features />} />
@@ -134,7 +136,8 @@ const App = () => {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
-      </TooltipProvider>
+      </AuthGuard>
+    </TooltipProvider>
   );
 };
 
