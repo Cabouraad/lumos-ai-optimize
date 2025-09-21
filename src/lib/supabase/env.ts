@@ -1,12 +1,10 @@
 import { getPublicEnv } from '@/lib/env/browserEnv';
 
 export function getBrowserEnv() {
-  const { url, anon } = getPublicEnv();
-  
-  if (!url || !anon) {
-    throw new Error(
-      'Supabase browser env missing. Set NEXT_PUBLIC_SUPABASE_URL & NEXT_PUBLIC_SUPABASE_ANON_KEY or VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY.'
-    );
+  const { url, anon, missing } = getPublicEnv();
+  if (missing) {
+    // return placeholders; caller will render a banner instead of crashing
+    return { url: '', anon: '' } as any;
   }
   
   if (!/^https:\/\//.test(url)) {

@@ -13,6 +13,7 @@ import './index.css';
 import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 import { SupabaseHealth } from '@/components/debug/SupabaseHealth';
+import { EnvBanner } from '@/components/debug/EnvBanner';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,7 @@ ReactDOM.createRoot(rootEl).render(
                   <QueryAuthBridge />
                   <App />
                   <SupabaseHealth />
+                  <EnvBanner />
                   <Toaster />
                 </AuthProvider>
               </SafeAuthProvider>
