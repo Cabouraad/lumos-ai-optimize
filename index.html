@@ -89,46 +89,7 @@
       }
     </style>
     
-    <!-- React preload and availability checker -->
-    <script>
-      // Global React availability checker
-      window.isReactReady = function() {
-        return typeof React !== 'undefined' && 
-               typeof React.createElement === 'function' &&
-               typeof React.forwardRef === 'function';
-      };
-      
-      // Early error handler with React context info
-      window.onerror = function(msg, url, line) {
-        console.error('Early error:', msg, 'React ready:', window.isReactReady());
-        if (msg.includes('forwardRef') || msg.includes('createContext')) {
-          document.body.innerHTML = '<div style="padding:20px;background:#fee;border:1px solid #f00;border-radius:8px;margin:20px;font-family:system-ui;">⚠️ React Loading Issue<br><small>Refreshing page...</small></div>';
-          setTimeout(() => window.location.reload(), 2000);
-        } else {
-          document.body.innerHTML = '<div style="padding:20px;color:red;font-family:monospace;">Error: ' + msg + '</div>';
-        }
-      };
-      
-      // Preload React chunks
-      window.preloadReactChunks = function() {
-        const preloadScript = (src) => {
-          const link = document.createElement('link');
-          link.rel = 'modulepreload';
-          link.href = src;
-          document.head.appendChild(link);
-        };
-        
-        // Preload critical React dependencies
-        try {
-          preloadScript('/src/main.tsx');
-        } catch (e) {
-          console.warn('Failed to preload React chunks:', e);
-        }
-      };
-      
-      // Initialize preloading
-      window.preloadReactChunks();
-    </script>
+    
     
     <!-- Completely async font loading using JavaScript -->
     <script>

@@ -15,45 +15,13 @@ export default defineConfig(({ mode }) => ({
     componentTagger(),
   ].filter(Boolean),
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: (id: string) => {
-          // Keep React core and JSX runtime together to avoid timing issues
-          if (id.includes('node_modules/react/') || 
-              id.includes('node_modules/react-dom/') ||
-              id.includes('node_modules/@vitejs/plugin-react')) {
-            return 'react-vendor';
-          }
-          if (id.includes('react-router-dom')) {
-            return 'router-vendor';
-          }
-          if (id.includes('@tanstack/react-query')) {
-            return 'query-vendor';
-          }
-          if (id.includes('@supabase/supabase-js')) {
-            return 'supabase-vendor';
-          }
-          if (id.includes('lucide-react') || id.includes('framer-motion')) {
-            return 'ui-vendor';
-          }
-          // Split heavy components that aren't needed on landing page
-          if (id.includes('Dashboard') || 
-              id.includes('Prompts') || 
-              id.includes('Reports') || 
-              id.includes('Settings') ||
-              id.includes('AuditRuns') ||
-              id.includes('DebugTools') ||
-              id.includes('DomainResolverDiagnostics')) {
-            return 'dashboard-heavy';
-          }
-        }
-      }
-    },
+    // Enable better tree shaking
     // Enable better tree shaking
     target: 'esnext',
     minify: 'terser',

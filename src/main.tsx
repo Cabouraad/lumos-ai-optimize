@@ -9,7 +9,6 @@ import { SafeAuthProvider } from './components/SafeAuthProvider';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { EnvGate } from '@/components/EnvGate';
-import { checkReactAvailability, waitForReact } from '@/lib/react-safety';
 import App from './App';
 import './index.css';
 
@@ -38,78 +37,31 @@ const queryClient = new QueryClient({
   },
 });
 
-// Use HashRouter everywhere to avoid SPA rewrite issues on static hosts
 const Router = HashRouter;
 
-// Safe app initialization with React availability check
-async function initializeApp() {
-  try {
-    // Check React availability first
-    const { isReady, missing } = checkReactAvailability();
-    
-    if (!isReady) {
-      console.warn('React not fully ready, waiting...', missing);
-      await waitForReact(10000); // Wait up to 10 seconds
-    }
-    
-    console.log('React is ready, initializing app');
-    
-    const root = document.getElementById('root');
-    if (!root) {
-      throw new Error('Root element not found');
-    }
-    
-    ReactDOM.createRoot(root).render(
-      <React.StrictMode>
-        <ErrorBoundary>
-          <HelmetProvider>
-            <Router>
-              <QueryClientProvider client={queryClient}>
-                <ThemeProvider defaultTheme="dark">
-                  <EnvGate />
-                  <SafeAuthProvider>
-                    <AuthProvider>
-                      <App />
-                      <Toaster />
-                    </AuthProvider>
-                  </SafeAuthProvider>
-                </ThemeProvider>
-              </QueryClientProvider>
-            </Router>
-          </HelmetProvider>
-        </ErrorBoundary>
-      </React.StrictMode>
-    );
-  } catch (error) {
-    console.error('Failed to initialize app:', error);
-    
-    // Show fallback UI
-    const root = document.getElementById("root");
-    if (root) {
-      root.innerHTML = `
-        <div style="padding: 20px; text-align: center; font-family: system-ui; background: #fee; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
-          <div style="max-width: 600px;">
-            <h2 style="color: #ef4444; margin-bottom: 16px;">Application Loading Error</h2>
-            <p style="color: #666; margin-bottom: 24px;">There was an issue loading the React application. This usually happens when React components aren't properly loaded.</p>
-            <button onclick="window.location.reload()" 
-                    style="padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-bottom: 20px;">
-              Reload Page
-            </button>
-            <details style="text-align: left;">
-              <summary style="cursor: pointer; color: #666; margin-bottom: 10px;">Technical Details</summary>
-              <pre style="background: #f3f4f6; padding: 10px; border-radius: 4px; font-size: 12px; overflow: auto; white-space: pre-wrap;">${String(error)}</pre>
-            </details>
-          </div>
-        </div>
-      `;
-    }
-  }
+const rootEl = document.getElementById('root');
+if (!rootEl) {
+  throw new Error('Root element not found');
 }
 
-// Initialize app when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-  // DOM is already ready, init immediately
-  initializeApp();
-}
+ReactDOM.createRoot(rootEl).render(
+  <React.StrictMode>
+    <ErrorBoundary>
+      <HelmetProvider>
+        <Router>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider defaultTheme="dark">
+              <EnvGate />
+              <SafeAuthProvider>
+                <AuthProvider>
+                  <App />
+                  <Toaster />
+                </AuthProvider>
+              </SafeAuthProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </Router>
+      </HelmetProvider>
+    </ErrorBoundary>
+  </React.StrictMode>
+);

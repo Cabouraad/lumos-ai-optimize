@@ -3,22 +3,12 @@ import { createContext, useContext, ReactNode } from 'react';
 
 // Safe context creation with validation
 export function createSafeContext<T>(displayName: string, defaultValue?: T) {
-  // Ensure React is available
-  if (typeof React === 'undefined' || typeof React.createContext !== 'function') {
-    throw new Error(`Failed to create ${displayName}: React is not properly loaded`);
-  }
-
+  // Standard context creation
   const Context = createContext<T | undefined>(defaultValue);
   Context.displayName = displayName;
 
   // Safe provider wrapper
   function SafeProvider({ children, value }: { children: ReactNode; value: T }) {
-    // Additional runtime check
-    if (!Context) {
-      console.error(`${displayName} context was not created properly`);
-      return <div>Context initialization error</div>;
-    }
-
     return (
       <Context.Provider value={value}>
         {children}
@@ -28,10 +18,6 @@ export function createSafeContext<T>(displayName: string, defaultValue?: T) {
 
   // Safe hook with better error messages
   function useSafeContext(): T {
-    if (typeof React === 'undefined' || typeof React.useContext !== 'function') {
-      throw new Error(`React hooks not available when accessing ${displayName}`);
-    }
-
     const context = useContext(Context);
     
     if (context === undefined) {

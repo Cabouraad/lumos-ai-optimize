@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Component, ReactNode } from 'react';
-import { checkReactAvailability } from '@/lib/react-safety';
+
 
 interface Props {
   children: ReactNode;
@@ -83,34 +83,13 @@ class AuthErrorBoundary extends Component<Props, State> {
   }
 }
 
-// React availability checker
-const isReactReady = () => {
-  const { isReady } = checkReactAvailability();
-  return isReady;
-};
 
 interface SafeAuthProviderProps {
   children: ReactNode;
   fallback?: ReactNode;
 }
 
-export function SafeAuthProvider({ children, fallback }: SafeAuthProviderProps) {
-  // Check if React is properly loaded
-  if (!isReactReady()) {
-    if (fallback) {
-      return <>{fallback}</>;
-    }
-    
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading authentication system...</p>
-        </div>
-      </div>
-    );
-  }
-
+export function SafeAuthProvider({ children }: SafeAuthProviderProps) {
   return (
     <AuthErrorBoundary>
       {children}
