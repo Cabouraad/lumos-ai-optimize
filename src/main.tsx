@@ -9,8 +9,8 @@ import { SafeAuthProvider } from './components/SafeAuthProvider';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { EnvGate } from '@/components/EnvGate';
-import App from './App';
 import './index.css';
+import App from './App';
 
 const queryClient = new QueryClient({
   defaultOptions: {

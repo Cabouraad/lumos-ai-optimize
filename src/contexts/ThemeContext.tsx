@@ -1,5 +1,5 @@
 import { useEffect, useState, ReactNode } from 'react';
-import { createSafeContext, withContextRetry } from './SafeContexts';
+import { createSafeContext } from './SafeContexts';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -69,5 +69,5 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
   );
 }
 
-// Export the safe hook with retry logic
-export const useTheme = withContextRetry(useThemeContext, 'ThemeContext');
+// Export the safe hook  
+export const useTheme = useThemeContext;

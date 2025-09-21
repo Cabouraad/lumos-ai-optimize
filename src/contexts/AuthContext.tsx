@@ -2,7 +2,7 @@ import { useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
-import { createSafeContext, withContextRetry } from './SafeContexts';
+import { createSafeContext } from './SafeContexts';
 
 interface AuthContextType {
   user: User | null;
@@ -249,5 +249,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Export the safe hook with retry logic
-export const useAuth = withContextRetry(useAuthContext, 'AuthContext');
+// Export the safe hook
+export const useAuth = useAuthContext;
