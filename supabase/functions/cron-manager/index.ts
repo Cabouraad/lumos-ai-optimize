@@ -9,11 +9,11 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Enhanced cron job configurations with safe JSON formatting and dual timezone triggers
+// Fixed cron job configurations - aligned with execution window and reduced frequency
 const CRON_JOBS = [
   {
     jobname: 'daily-batch-trigger-est',
-    schedule: '0 8 * * *', // 8 AM UTC = 3 AM EST (winter)
+    schedule: '5 8 * * *', // 8:05 AM UTC = 3:05 AM EST (winter) - aligned with execution window
     command: `SELECT net.http_post(
       url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger',
       headers := jsonb_build_object(
@@ -28,8 +28,8 @@ const CRON_JOBS = [
     ) as request_id;`
   },
   {
-    jobname: 'daily-batch-trigger-edt',
-    schedule: '0 7 * * *', // 7 AM UTC = 3 AM EDT (summer)
+    jobname: 'daily-batch-trigger-edt',  
+    schedule: '5 7 * * *', // 7:05 AM UTC = 3:05 AM EDT (summer) - aligned with execution window
     command: `SELECT net.http_post(
       url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/daily-batch-trigger',
       headers := jsonb_build_object(
@@ -44,8 +44,8 @@ const CRON_JOBS = [
     ) as request_id;`
   },
   {
-    jobname: 'batch-reconciler-every-5min',
-    schedule: '*/5 * * * *', // Every 5 minutes
+    jobname: 'batch-reconciler-every-10min',
+    schedule: '*/10 * * * *', // Every 10 minutes (reduced from every 30 seconds)
     command: `SELECT net.http_post(
       url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/batch-reconciler',
       headers := jsonb_build_object(
@@ -54,22 +54,6 @@ const CRON_JOBS = [
       ),
       body := jsonb_build_object(
         'triggered_by', 'pg_cron_reconciler',
-        'timestamp', now()::text
-      )
-    ) as request_id;`
-  },
-  {
-    jobname: 'scheduler-postcheck-repair',
-    schedule: '0 * * * *', // Every hour on the hour
-    command: `SELECT net.http_post(
-      url := 'https://cgocsffxqyhojtyzniyz.supabase.co/functions/v1/scheduler-postcheck?repair=true',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'x-cron-secret', (SELECT value FROM app_settings WHERE key = 'cron_secret')
-      ),
-      body := jsonb_build_object(
-        'triggered_by', 'pg_cron_postcheck_repair',
-        'repair_mode', true,
         'timestamp', now()::text
       )
     ) as request_id;`

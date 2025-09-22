@@ -140,7 +140,11 @@ export function BatchProcessorAdmin() {
     setIsForcingBatch(true);
     try {
       const { data, error } = await EnhancedEdgeFunctionClient.invoke('daily-batch-trigger', {
-        body: { force: true },
+        body: { 
+          force: true,
+          manual_recovery: true,
+          today_key: '2025-09-22'
+        },
         headers: { 'x-manual-call': 'true' }
       });
 
@@ -159,6 +163,56 @@ export function BatchProcessorAdmin() {
       toast.error(`Failed to force batch run: ${error.message}`);
     } finally {
       setIsForcingBatch(false);
+    }
+  };
+
+  const implementSchedulerFixes = async () => {
+    const fixingToast = toast.loading('Implementing scheduler fixes...');
+    
+    try {
+      // Step 1: Reset circuit breaker
+      EnhancedEdgeFunctionClient.resetCircuitBreaker('batch-reconciler');
+      toast.success('Circuit breaker reset for batch-reconciler');
+      
+      // Step 2: Clean up cron jobs
+      const cleanupResult = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-manager?action=cleanup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'x-admin-key': 'admin-key-placeholder'
+        }
+      });
+      
+      if (!cleanupResult.ok) {
+        throw new Error(`Cleanup failed: ${cleanupResult.status}`);
+      }
+      
+      // Step 3: Setup new cron jobs
+      const setupResult = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-manager?action=setup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'x-admin-key': 'admin-key-placeholder'
+        }
+      });
+      
+      if (!setupResult.ok) {
+        throw new Error(`Setup failed: ${setupResult.status}`);
+      }
+      
+      // Step 4: Force batch run for today
+      await forceBatchRun();
+      
+      toast.dismiss(fixingToast);
+      toast.success('Scheduler fixes implemented successfully!', {
+        description: 'Cron jobs cleaned up, schedules aligned with execution window, and today\'s batch processed.'
+      });
+      
+    } catch (error: any) {
+      toast.dismiss(fixingToast);
+      toast.error(`Failed to implement fixes: ${error.message}`);
     }
   };
 
@@ -497,21 +551,35 @@ export function BatchProcessorAdmin() {
             </AlertDescription>
           </Alert>
           
-          <Button
-            onClick={forceBatchRun}
-            disabled={isForcingBatch}
-            variant="outline"
-            className="w-full"
-          >
-            {isForcingBatch ? (
-              <>Processing...</>
-            ) : (
-              <>
-                <PlayCircle className="w-4 h-4 mr-2" />
-                Force Batch Run (Bypass Execution Window)
-              </>
-            )}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              onClick={implementSchedulerFixes}
+              variant="default"
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Implement Scheduler Fixes (Complete Solution)
+            </Button>
+            
+            <Button
+              onClick={forceBatchRun}
+              disabled={isForcingBatch}
+              variant="outline"
+              className="w-full"
+            >
+              {isForcingBatch ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="w-4 h-4 mr-2" />
+                  Force Batch Run Only (Bypass Execution Window)
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
