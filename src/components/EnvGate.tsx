@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getPublicEnv } from '@/lib/env/browserEnv';
 import { AlertTriangle } from 'lucide-react';
+import { getSupabaseBootError } from '@/lib/supabase/browser';
 
 export const EnvGate: React.FC = () => {
   // Only show info in development when using fallback config
@@ -9,9 +10,10 @@ export const EnvGate: React.FC = () => {
     return null;
   }
 
-  const { usingFallbacks, debugHealth } = getPublicEnv();
+  const { debugHealth } = getPublicEnv();
+  const bootErr = getSupabaseBootError();
   
-  if (!usingFallbacks) {
+  if (!bootErr) {
     return null;
   }
 

@@ -10,12 +10,19 @@ export function getPublicEnv() {
   const fallbackUrl = 'https://cgocsffxqyhojtyzniyz.supabase.co';
   const fallbackAnon = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk';
 
+  const effectiveUrl = url || fallbackUrl;
+  const effectiveAnon = anon || fallbackAnon;
+
   const hasEnvVars = !!(url && anon);
-  const usingFallbacks = !hasEnvVars;
+
+  // Treat known-good project defaults as valid config to avoid false alarms in preview
+  const usingFallbacks = hasEnvVars ? false : !(
+    effectiveUrl === fallbackUrl && effectiveAnon === fallbackAnon
+  );
 
   return { 
-    url: url || fallbackUrl, 
-    anon: anon || fallbackAnon, 
+    url: effectiveUrl, 
+    anon: effectiveAnon, 
     missing: false, // Never "missing" since we have fallbacks
     usingFallbacks,
     hasEnvVars,
