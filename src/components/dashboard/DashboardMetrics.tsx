@@ -32,8 +32,8 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
   const formatScore = (score: number) => Math.round(score * 10) / 10;
   
   const getTrendIcon = (trend: number) => {
-    if (trend > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
-    if (trend < 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
+    if (trend > 0) return <TrendingUp className="h-4 w-4 text-success" />;
+    if (trend < 0) return <TrendingDown className="h-4 w-4 text-error" />;
     return null;
   };
 
@@ -69,20 +69,20 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
-          <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-            <Users className="h-4 w-4 text-primary" />
+          <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
+            <Users className="h-4 w-4 text-secondary" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-2xl font-bold text-primary">{presenceStats.rate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-secondary">{presenceStats.rate.toFixed(1)}%</div>
               <p className="text-xs text-muted-foreground">
                 {presenceStats.presenceCount} of {presenceStats.totalCount} responses
               </p>
             </div>
             <div className="w-16 h-8">
-              <MiniSparkline data={presenceStats.sparklineData} />
+              <MiniSparkline data={presenceStats.sparklineData} color="hsl(var(--secondary))" />
             </div>
           </div>
         </CardContent>
@@ -91,12 +91,12 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
-          <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-            <AlertTriangle className="h-4 w-4 text-primary" />
+          <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
+            <AlertTriangle className="h-4 w-4 text-accent" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-primary">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
+          <div className="text-2xl font-bold text-accent">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
           <p className="text-xs text-muted-foreground">
             {metrics?.activePrompts || 0} active
           </p>
@@ -106,12 +106,12 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Responses</CardTitle>
-          <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-            <TrendingUp className="h-4 w-4 text-primary" />
+          <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
+            <TrendingUp className="h-4 w-4 text-warning" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-primary">
+          <div className="text-2xl font-bold text-warning">
             {metrics?.totalRuns || metrics?.recentRunsCount || 0}
           </div>
           <p className="text-xs text-muted-foreground">total responses</p>
