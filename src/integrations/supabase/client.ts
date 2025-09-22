@@ -3,15 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { getPublicEnv } from '@/lib/env/browserEnv';
 
-// Get environment configuration
-const { url, anon, missing } = getPublicEnv();
+// Get environment configuration with production detection
+const { url, anon, missing, isProd } = getPublicEnv();
 
-// Use fallback values if environment variables are missing
-const supabaseUrl = url || 'https://cgocsffxqyhojtyzniyz.supabase.co';
-const supabaseKey = anon || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk';
+// In production, use hardcoded values for this specific project
+const supabaseUrl = isProd ? 'https://cgocsffxqyhojtyzniyz.supabase.co' : (url || 'https://cgocsffxqyhojtyzniyz.supabase.co');
+const supabaseKey = isProd ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk' : (anon || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnb2NzZmZ4cXlob2p0eXpuaXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNDI1MDksImV4cCI6MjA3MDYxODUwOX0.Rn2lVaTcuu0TEn7S20a_56mkEBkG3_a7CT16CpEfirk');
 
-// Log missing environment variables in development
-if (import.meta.env.DEV && missing) {
+// Log missing environment variables in development only
+if (!isProd && missing) {
   console.warn('Missing Supabase environment variables. Using fallback values. Check your .env file.');
 }
 

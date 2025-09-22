@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -11,14 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshButton } from '@/components/RefreshButton';
-import { MiniSparkline } from '@/components/MiniSparkline';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
-import { Calendar, TrendingUp, TrendingDown, Eye, Users, AlertTriangle, Lightbulb, FileText, Download, BarChart3 } from 'lucide-react';
+import { Calendar, Lightbulb, FileText, Download } from 'lucide-react';
 import { useRealTimeDashboard } from '@/hooks/useRealTimeDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
+import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
+import { DashboardChart } from '@/components/dashboard/DashboardChart';
 
 export default function Dashboard() {
   const { user, orgData } = useAuth();
@@ -33,9 +32,9 @@ export default function Dashboard() {
   const [loadingCompetitors, setLoadingCompetitors] = useState(false);
   const { toast } = useToast();
   
-  // Use real-time dashboard hook with longer interval to reduce refreshes
+  // Use real-time dashboard hook with optimized interval
   const { data: dashboardData, loading, error, refresh, lastUpdated } = useRealTimeDashboard({
-    autoRefreshInterval: 120000, // 2 minutes (slower to reduce refreshes)
+    autoRefreshInterval: 180000, // 3 minutes (optimized for performance)
     enableAutoRefresh: true
   });
 
@@ -400,14 +399,6 @@ export default function Dashboard() {
     );
   }
 
-
-  const formatScore = (score: number) => Math.round(score * 10) / 10;
-  const getTrendIcon = (trend: number) => {
-    if (trend > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
-    if (trend < 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
-    return null;
-  };
-
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -432,438 +423,135 @@ export default function Dashboard() {
           </div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Visibility Score</CardTitle>
-                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                  <Eye className="h-4 w-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {dashboardData?.metrics?.avgScore ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="text-2xl font-bold text-primary">{formatScore(dashboardData.metrics.avgScore)}/10</div>
-                    {getTrendIcon(dashboardData?.metrics?.trend || 0)}
-                    {(dashboardData?.metrics?.trend || 0) !== 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {Math.abs(dashboardData.metrics.trend).toFixed(1)}%
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="text-2xl font-bold text-muted-foreground">-/10</div>
-                    <p className="text-xs text-muted-foreground">No data yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
-                <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
-                  <Lightbulb className="h-4 w-4 text-secondary" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {presenceStats.totalCount > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-2xl font-bold text-secondary">{presenceStats.rate.toFixed(1)}%</div>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="cursor-help">
-                              <MiniSparkline 
-                                data={presenceStats.sparklineData}
-                                color="hsl(var(--secondary))"
-                                className="h-6 w-12"
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-sm">{presenceStats.presenceCount}/{presenceStats.totalCount} responses</p>
-                            <p className="text-xs text-muted-foreground">Last 7 days trend</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Last 7 days ({presenceStats.presenceCount}/{presenceStats.totalCount})</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="text-2xl font-bold text-muted-foreground">-%</div>
-                    <p className="text-xs text-muted-foreground">No data yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
-                <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
-                  <Users className="h-4 w-4 text-accent" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {dashboardData?.metrics?.promptCount ? (
-                  <div>
-                    <div className="text-2xl font-bold text-accent">{dashboardData.metrics.promptCount}</div>
-                    <p className="text-xs text-muted-foreground">Being monitored</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="text-2xl font-bold text-muted-foreground">0</div>
-                    <p className="text-xs text-muted-foreground">Add prompts to start</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Responses</CardTitle>
-                <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
-                  <Calendar className="h-4 w-4 text-warning" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {dashboardData?.metrics?.totalRuns ? (
-                  <div>
-                    <div className="text-2xl font-bold text-warning">{dashboardData.metrics.totalRuns}</div>
-                    <p className="text-xs text-muted-foreground">Last 30 days</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="text-2xl font-bold text-muted-foreground">0</div>
-                    <p className="text-xs text-muted-foreground">No responses yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <DashboardMetrics 
+            metrics={dashboardData?.metrics || {}}
+            presenceStats={presenceStats}
+          />
 
           {/* Visibility Trend Chart */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    {chartView === 'score' ? <TrendingUp className="h-5 w-5 text-primary" /> : <BarChart3 className="h-5 w-5 text-primary" />}
-                  </div>
-                  <span>{chartView === 'score' ? 'Visibility Trend' : 'Presence Rate (Top Competitors)'}</span>
-                </CardTitle>
-                <div className="flex gap-2">
-                  <Button
-                    variant={chartView === 'score' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setChartView('score')}
-                    className="hover-lift"
-                  >
-                    Score
-                  </Button>
-                  <Button
-                    variant={chartView === 'competitors' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setChartView('competitors')}
-                    className="hover-lift"
-                  >
-                    Competitors
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {chartView === 'score' ? (
-                // Score Chart View
-                memoizedChartData && memoizedChartData.length > 0 ? (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={memoizedChartData}>
-                        <XAxis 
-                          dataKey="date" 
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        />
-                        <YAxis 
-                          domain={[0, 10]}
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12 }}
-                        />
-                        <ChartTooltip 
-                          labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                          formatter={(value: any) => [`${formatScore(value)}/10`, 'Visibility Score']}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                          animationDuration={0}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="score" 
-                          stroke="hsl(var(--primary))" 
-                          strokeWidth={3}
-                          dot={false}
-                          activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
-                          animationDuration={0}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-64 flex items-center justify-center">
-                    <div className="text-center">
-                      <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No visibility data available</p>
-                      <p className="text-sm text-muted-foreground mt-2">Run prompts to start collecting data</p>
-                    </div>
-                  </div>
-                )
-              ) : (
-                // Competitors Chart View
-                loadingCompetitors ? (
-                  <div className="h-64 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-2 text-muted-foreground">Loading competitors...</span>
-                  </div>
-                ) : competitors.length > 0 && competitorChartData.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={competitorChartData}>
-                          <XAxis 
-                            dataKey="date" 
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 12 }}
-                            tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          />
-                          <YAxis 
-                            domain={[0, 100]}
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 12 }}
-                            tickFormatter={(value) => `${value}%`}
-                          />
-                          <ChartTooltip 
-                            labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                            formatter={(value: any, name: string) => {
-                              if (name === 'orgPresence') return [`${value}%`, 'Your Brand'];
-                              const compIndex = parseInt(name.replace('competitor', ''));
-                              const compName = competitors[compIndex]?.name || 'Unknown';
-                              return [`${value}%`, compName];
-                            }}
-                            contentStyle={{ 
-                              backgroundColor: 'hsl(var(--card))', 
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px'
-                            }}
-                            animationDuration={0}
-                          />
-                          <Legend 
-                            content={(props) => (
-                              <div className="flex flex-wrap gap-4 justify-center mt-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-3 h-0.5 bg-primary rounded"></div>
-                                  <span className="text-sm text-foreground font-medium">Your Brand</span>
-                                </div>
-                                {competitors.slice(0, 4).map((comp, index) => (
-                                  <div key={comp.name} className="flex items-center gap-2">
-                                    <div 
-                                      className="w-3 h-0.5 rounded"
-                                      style={{ backgroundColor: `hsl(${(index + 1) * 60 + 180}, 70%, 50%)` }}
-                                    ></div>
-                                    <span className="text-sm text-muted-foreground truncate max-w-20" title={comp.name}>
-                                      {comp.name}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="orgPresence"
-                            stroke="hsl(var(--primary))" 
-                            strokeWidth={3}
-                            dot={false}
-                            activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2, fill: 'hsl(var(--background))' }}
-                            animationDuration={0}
-                          />
-                          {competitors.slice(0, 4).map((comp, index) => (
-                            <Line 
-                              key={comp.name}
-                              type="monotone" 
-                              dataKey={`competitor${index}`}
-                              stroke={`hsl(${(index + 1) * 60 + 180}, 70%, 50%)`}
-                              strokeWidth={2}
-                              dot={false}
-                              activeDot={{ r: 3, strokeWidth: 2 }}
-                              animationDuration={0}
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <p className="text-sm text-muted-foreground">
-                        Showing presence rates for top {Math.min(competitors.length, 4)} competitors
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate('/competitors')}
-                        className="hover-lift"
-                      >
-                        View Competitors
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-64 flex items-center justify-center">
-                    <div className="text-center">
-                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No competitor data available</p>
-                      <p className="text-sm text-muted-foreground mt-2">Run more prompts to detect competitors</p>
-                    </div>
-                  </div>
-                )
-              )}
-            </CardContent>
-          </Card>
+          <DashboardChart 
+            chartData={memoizedChartData}
+            competitorChartData={competitorChartData}
+            competitors={competitors}
+            chartView={chartView}
+            onChartViewChange={setChartView}
+            loadingCompetitors={loadingCompetitors}
+          />
 
-          {/* Top Optimizations */}
-          <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <Lightbulb className="h-5 w-5 text-accent" />
-                </div>
-                <span>Top Optimizations</span>
-              </CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/optimizations')}
-                className="hover-lift"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {recommendations.length > 0 ? (
-                <div className="space-y-4">
-                  {recommendations.map((rec) => (
-                    <div key={rec.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300 hover-lift group">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              rec.type === 'content' 
-                                ? 'border-primary text-primary bg-primary/10' 
-                                : rec.type === 'social' 
-                                ? 'border-accent text-accent bg-accent/10'
-                                : 'border-secondary text-secondary bg-secondary/10'
-                            }`}
-                          >
-                            {rec.type === 'content' ? 'Content' : rec.type === 'social' ? 'Social' : rec.type}
-                          </Badge>
-                        </div>
-                      </div>
-                      <h4 className="font-medium text-foreground mb-2 group-hover:text-primary transition-colors">{rec.title}</h4>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{rec.rationale}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No high-impact recommendations available</p>
-                  <p className="text-sm text-muted-foreground mt-2">Check back after running prompts</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Latest Weekly Report */}
-          {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-glow">
+          {/* Quick Insights Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recommendations Card */}
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <span>Latest Weekly Report</span>
-                </CardTitle>
+                <div className="flex items-center space-x-2">
+                  <Lightbulb className="h-5 w-5 text-primary" />
+                  <CardTitle>Quick Wins</CardTitle>
+                </div>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => navigate('/reports')}
+                  onClick={() => navigate('/optimizations')}
                   className="hover-lift"
                 >
-                  View All Reports
+                  View All
                 </Button>
               </CardHeader>
-              <CardContent>
-                {loadingReport ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-2 text-muted-foreground">Loading report...</span>
-                  </div>
-                ) : latestReport ? (
-                  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-all duration-300">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {latestReport.week_key}
-                        </Badge>
-                        <span className="text-sm font-medium text-foreground">
-                          {formatWeekPeriod(latestReport.period_start, latestReport.period_end)}
-                        </span>
+              <CardContent className="space-y-4">
+                {recommendations.length > 0 ? (
+                  recommendations.map((rec) => (
+                    <div key={rec.id} className="border-l-4 border-l-primary pl-4 py-2 rounded-r bg-primary/5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">{rec.title}</h4>
+                        {rec.metadata?.impact && (
+                          <Badge variant={rec.metadata.impact === 'high' ? 'default' : 'secondary'}>
+                            {rec.metadata.impact}
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Generated: {new Date(latestReport.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit'
-                        })}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.rationale}</p>
                     </div>
-                    <Button 
-                      onClick={downloadLatestReport}
-                      disabled={loadingReport}
-                      size="sm"
-                      className="hover-lift"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download PDF
-                    </Button>
-                  </div>
+                  ))
                 ) : (
                   <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground mb-2">No weekly reports available yet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Reports are generated automatically every Monday morning after your first complete week of usage.
-                    </p>
+                    <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No recommendations yet</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate('/optimizations')}
+                      className="mt-2"
+                    >
+                      Generate Recommendations
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
-          )}
 
-          {/* Diagnostic Panel for Admin Users */}
-          <AdminDiagnosticPanel />
+            {/* Weekly Reports Card */}
+            {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
+              <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <CardTitle>Weekly Reports</CardTitle>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/reports')}
+                    className="hover-lift"
+                  >
+                    View All
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {loadingReport ? (
+                    <div className="animate-pulse space-y-2">
+                      <div className="h-4 bg-muted rounded w-3/4"></div>
+                      <div className="h-4 bg-muted rounded w-1/2"></div>
+                    </div>
+                  ) : latestReport ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">Week of {formatWeekPeriod(latestReport.period_start, latestReport.period_end)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Generated {new Date(latestReport.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={downloadLatestReport}
+                          disabled={loadingReport}
+                          className="hover-lift"
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </Button>
+                      </div>
+                      {latestReport.byte_size && (
+                        <p className="text-xs text-muted-foreground">
+                          Size: {(latestReport.byte_size / 1024).toFixed(1)} KB
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground text-sm">No reports available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Admin Panel for Test Users */}
+          {user?.email?.includes('@test.app') && (
+            <AdminDiagnosticPanel />
+          )}
         </div>
       </div>
     </Layout>
