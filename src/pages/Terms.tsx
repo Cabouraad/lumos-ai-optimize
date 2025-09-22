@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { ArrowLeft } from 'lucide-react';
@@ -11,10 +12,10 @@ export default function Terms() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
           <Button variant="outline" asChild>
-            <a href="/free-checker">
+            <Link to="/free-checker">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Free Checker
-            </a>
+            </Link>
           </Button>
         </div>
       </header>

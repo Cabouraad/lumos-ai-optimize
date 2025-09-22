@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom/client';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryProvider } from './app/providers/QueryProvider';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -14,20 +14,7 @@ import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      retry: 1,
-      staleTime: 60_000,
-      gcTime: 10 * 60 * 1000,
-    },
-    mutations: {
-      retry: 0,
-    },
-  },
-});
+// Query client is provided by QueryProvider with sane defaults
 
 const Router = HashRouter;
 
@@ -41,7 +28,7 @@ ReactDOM.createRoot(rootEl).render(
     <ErrorBoundary>
       <HelmetProvider>
         <Router>
-          <QueryClientProvider client={queryClient}>
+          <QueryProvider>
             <ThemeProvider defaultTheme="dark">
               <EnvGate />
               <SafeAuthProvider>
@@ -52,7 +39,7 @@ ReactDOM.createRoot(rootEl).render(
                 </AuthProvider>
               </SafeAuthProvider>
             </ThemeProvider>
-          </QueryClientProvider>
+          </QueryProvider>
         </Router>
       </HelmetProvider>
     </ErrorBoundary>
