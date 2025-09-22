@@ -6,6 +6,7 @@ export function getPublicEnv() {
   const url = (ve?.VITE_SUPABASE_URL as string) ||
               (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
   const anon = (ve?.VITE_SUPABASE_ANON_KEY as string) ||
+               (ve?.VITE_SUPABASE_PUBLISHABLE_KEY as string) || // Legacy fallback
                (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined);
   const debug = (ve?.VITE_DEBUG_HEALTH as string) ||
                 (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_DEBUG_HEALTH : undefined);
