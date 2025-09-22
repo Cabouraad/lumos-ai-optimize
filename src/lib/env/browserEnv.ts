@@ -14,11 +14,7 @@ export function getPublicEnv() {
   const effectiveAnon = anon || fallbackAnon;
 
   const hasEnvVars = !!(url && anon);
-
-  // Treat known-good project defaults as valid config to avoid false alarms in preview
-  const usingFallbacks = hasEnvVars ? false : !(
-    effectiveUrl === fallbackUrl && effectiveAnon === fallbackAnon
-  );
+  const usingFallbacks = !hasEnvVars;
 
   return { 
     url: effectiveUrl, 

@@ -10,10 +10,9 @@ export const EnvGate: React.FC = () => {
     return null;
   }
 
-  const { debugHealth } = getPublicEnv();
-  const bootErr = getSupabaseBootError();
+  const { usingFallbacks, debugHealth } = getPublicEnv();
   
-  if (!bootErr) {
+  if (!usingFallbacks) {
     return null;
   }
 

@@ -18,6 +18,14 @@ interface DashboardMetricsProps {
 }
 
 export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsProps) {
+  // Debug logging for troubleshooting
+  console.log('[DashboardMetrics] Props received:', {
+    metrics,
+    presenceStats,
+    hasAvgScore: !!metrics?.avgScore,
+    presenceRate: presenceStats.rate
+  });
+
   const formatScore = (score: number) => Math.round(score * 10) / 10;
   
   const getTrendIcon = (trend: number) => {

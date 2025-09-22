@@ -379,7 +379,18 @@ export default function Dashboard() {
 
   const showTrialBanner = appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0;
 
+  // Debug logging for troubleshooting
+  console.log('[Dashboard] Render state:', {
+    loading,
+    hasData: !!dashboardData,
+    metricsKeys: dashboardData?.metrics ? Object.keys(dashboardData.metrics) : 'no metrics',
+    promptsCount: dashboardData?.prompts?.length || 0,
+    chartDataPoints: dashboardData?.chartData?.length || 0,
+    error: error?.message
+  });
+
   if (loading) {
+    console.log('[Dashboard] Showing loading skeleton');
     return (
       <Layout>
         <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -392,6 +403,23 @@ export default function Dashboard() {
                 ))}
               </div>
               <div className="h-64 bg-muted rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    console.log('[Dashboard] Showing error state:', error.message);
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+          <div className="container mx-auto p-6">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">Dashboard Error</h2>
+              <p className="text-muted-foreground">Failed to load dashboard data. Please try refreshing.</p>
+              <Button onClick={refresh}>Retry</Button>
             </div>
           </div>
         </div>
