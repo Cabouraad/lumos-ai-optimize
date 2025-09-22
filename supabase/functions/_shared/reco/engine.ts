@@ -1,6 +1,15 @@
 /**
- * Recommendation engine for generating actionable insights from visibility data
+ * Enhanced recommendation engine for generating actionable insights from visibility data
  */
+
+import { 
+  analyzeContentGaps, 
+  analyzeSEOOpportunities, 
+  analyzeSocialOpportunities, 
+  analyzePartnershipOpportunities, 
+  analyzeEmailOpportunities,
+  generateFallbackRecommendations 
+} from './enhanced-generators.ts';
 
 export type Reco = {
   kind: 'content' | 'social' | 'site' | 'prompt';
@@ -41,6 +50,13 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
   const recommendations: Reco[] = [];
 
   try {
+    // Get organization info for personalization
+    const { data: orgInfo } = await supabase
+      .from('organizations')
+      .select('name, domain')
+      .eq('id', accountId)
+      .single();
+
     // 1) Pull inputs (last 7d) using secure functions
     const { data: promptVisibility } = await supabase.rpc('get_prompt_visibility_7d', {
       requesting_org_id: accountId
@@ -64,6 +80,14 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       .gte('run_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .in('status', ['success', 'completed'])
       .order('run_at', { ascending: false });
+
+    // Get existing recommendations to avoid duplicates
+    const { data: existingRecos } = await supabase
+      .from('recommendations')
+      .select('title, type, created_at')
+      .eq('org_id', accountId)
+      .in('status', ['open', 'snoozed'])
+      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
     if (!promptVisibility || !competitorShare || !recentRuns) {
       return [];
@@ -113,8 +137,22 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
     // Helper functions
     const HEAD_INTENTS = [/best/i, /compare|vs/i, /alternatives?/i];
     const isHeadPrompt = (txt: string) => HEAD_INTENTS.some(r => r.test(txt));
+    const existingTitles = new Set((existingRecos || []).map(r => r.title.toLowerCase()));
+    
+    // Check if recommendation already exists (semantic similarity)
+    const isDuplicate = (title: string, type: string): boolean => {
+      const lowerTitle = title.toLowerCase();
+      for (const existing of existingRecos || []) {
+        if (existing.type === type && 
+            (existing.title.toLowerCase() === lowerTitle || 
+             existing.title.toLowerCase().includes(lowerTitle.slice(0, 20)))) {
+          return true;
+        }
+      }
+      return false;
+    };
 
-    // 3) Apply heuristic rules
+    // 3) Apply enhanced heuristic rules (targeting 12+ recommendations)
 
     // R1: Missing presence on head prompts (adjusted threshold)
     const headPrompts = promptVisibility.filter(p => 
@@ -122,6 +160,9 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
     );
 
     for (const prompt of headPrompts) {
+      const title = `Publish a comparison page for "${prompt.text.slice(0, 50)}..."`;
+      if (isDuplicate(title, 'content')) continue;
+
       const competitors = competitorMap.get(prompt.prompt_id) || [];
       const topCompetitor = competitors.sort((a, b) => b.mean_score - a.mean_score)[0];
       const runs = runsByPrompt.get(prompt.prompt_id) || [];
@@ -129,14 +170,15 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
 
       recommendations.push({
         kind: 'content',
-        title: `Publish a comparison page for "${prompt.text.slice(0, 50)}..."`,
+        title,
         rationale: `Your brand rarely appears for a high-intent query (${(prompt.avg_score_7d * 100).toFixed(1)}% visibility). ${topCompetitor ? `${topCompetitor.brand_norm} dominates citations and mentions.` : 'Competitors dominate citations and mentions.'}`,
         steps: [
           "Create a /compare/yourbrand-vs-competitor page with a summary table and FAQs.",
           "Add schema.org FAQ markup and internal links to Pricing and Case Studies.", 
-          "Include 2–3 proof snippets and recent customer outcomes."
+          "Include 2–3 proof snippets and recent customer outcomes.",
+          `Target keywords: ${prompt.text.split(' ').slice(0, 3).join(' ')}, comparison, alternative`
         ],
-        estLift: 0.10,
+        estLift: 0.12,
         sourcePromptIds: [prompt.prompt_id],
         sourceRunIds: runs.slice(0, 5).map(r => r.id),
         citations: topCitations,
@@ -158,6 +200,9 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
 
     for (const [competitor, promptIds] of competitorDominance.entries()) {
       if (promptIds.length >= 3) {
+        const title = `Create "${orgInfo?.name || 'YourBrand'} vs ${competitor}" pillar page + 2 use-case variants`;
+        if (isDuplicate(title, 'content')) continue;
+
         const sourcePrompts = promptIds.slice(0, 3);
         const sourceRuns = sourcePrompts.flatMap(pid => 
           runsByPrompt.get(pid)?.slice(0, 2).map(r => r.id) || []
@@ -165,14 +210,16 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
 
         recommendations.push({
           kind: 'content',
-          title: `Create "YourBrand vs ${competitor}" pillar page + 2 use-case variants`,
+          title,
           rationale: `${competitor} dominates across ${promptIds.length} prompts with 60%+ average visibility. Direct comparison content needed.`,
           steps: [
             "Write the pillar, then add sections targeting top use-cases where the competitor ranks.",
             "Link from homepage and relevant product pages.",
-            "Share a short thread addressing key buying questions."
+            "Share a short thread addressing key buying questions.",
+            `Include pricing comparison table and feature matrix`,
+            `Add customer testimonials highlighting advantages over ${competitor}`
           ],
-          estLift: 0.12,
+          estLift: 0.15,
           sourcePromptIds: sourcePrompts,
           sourceRunIds: sourceRuns,
           citations: [],
@@ -312,9 +359,56 @@ export async function buildRecommendations(supabase: any, accountId: string): Pr
       }
     }
 
+    // NEW R6: Content gap analysis - missing content types
+    const contentGaps = analyzeContentGaps(promptVisibility, runsByPrompt, orgInfo);
+    for (const gap of contentGaps) {
+      if (isDuplicate(gap.title, gap.kind)) continue;
+      recommendations.push(gap);
+    }
+
+    // NEW R7: Technical SEO opportunities  
+    const seoOpportunities = analyzeSEOOpportunities(promptVisibility, runsByPrompt, citationFreq, orgInfo);
+    for (const seo of seoOpportunities) {
+      if (isDuplicate(seo.title, seo.kind)) continue;
+      recommendations.push(seo);
+    }
+
+    // NEW R8: Social media content opportunities
+    const socialOpportunities = analyzeSocialOpportunities(promptVisibility, competitorMap, orgInfo);
+    for (const social of socialOpportunities) {
+      if (isDuplicate(social.title, social.kind)) continue;
+      recommendations.push(social);
+    }
+
+    // NEW R9: Partnership and co-marketing opportunities
+    const partnershipOpps = analyzePartnershipOpportunities(citationFreq, competitorMap, orgInfo);
+    for (const partnership of partnershipOpps) {
+      if (isDuplicate(partnership.title, partnership.kind)) continue;
+      recommendations.push(partnership);
+    }
+
+    // NEW R10: Email nurture sequence opportunities
+    const emailOpportunities = analyzeEmailOpportunities(promptVisibility, runsByPrompt, orgInfo);
+    for (const email of emailOpportunities) {
+      if (isDuplicate(email.title, email.kind)) continue;
+      recommendations.push(email);
+    }
+
+    // Ensure minimum quantity with fallback recommendations
+    if (recommendations.length < 10) {
+      const fallbacks = generateFallbackRecommendations(promptVisibility, orgInfo, 10 - recommendations.length);
+      for (const fallback of fallbacks) {
+        if (isDuplicate(fallback.title, fallback.kind)) continue;
+        recommendations.push(fallback);
+      }
+    }
+
   } catch (error) {
     console.error('Error building recommendations:', error);
   }
 
-  return recommendations;
+  // Sort by estimated lift (highest first) and limit to top 15
+  return recommendations
+    .sort((a, b) => b.estLift - a.estLift)
+    .slice(0, 15);
 }

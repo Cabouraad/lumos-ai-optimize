@@ -162,9 +162,14 @@ export default function Recommendations() {
           
           const retryData = retryResult.data;
           if (retryData.success) {
+            const count = retryData.created || 0;
+            const message = count >= 10 
+              ? `Generated ${count} diverse recommendations from your latest data!`
+              : `Generated ${count} recommendations. Run again to get more personalized suggestions.`;
+              
             toast({
               title: "Success",
-              description: `Generated ${retryData.created} recommendations (analyzed ${retryData.analysisResults?.totalResults ?? 0} results)`,
+              description: message,
             });
           } else {
             throw new Error(retryData.error || 'Failed to generate recommendations');
@@ -172,12 +177,17 @@ export default function Recommendations() {
         } else {
           throw error;
         }
-      } else if (data.success) {
-        toast({
-          title: "Success",
-          description: `Generated ${data.created} recommendations (analyzed ${data.analysisResults?.totalResults ?? 0} results)`,
-        });
-      } else {
+        } else if (data.success) {
+          const count = data.created || 0;
+          const message = count >= 10 
+            ? `Generated ${count} diverse recommendations from your latest data!`
+            : `Generated ${count} recommendations. Run again to get more personalized suggestions.`;
+            
+          toast({
+            title: "Success",
+            description: message,
+          });
+        } else {
         throw new Error(data.error || 'Failed to generate recommendations');
       }
 
@@ -357,10 +367,12 @@ export default function Recommendations() {
         {recommendations.length > 0 ? (
           <>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="all">All ({recommendations.filter(r => r.status === 'open').length})</TabsTrigger>
-                <TabsTrigger value="content">Content</TabsTrigger>
-                <TabsTrigger value="social">Social</TabsTrigger>
+                <TabsTrigger value="content">Content ({recommendations.filter(r => r.type === 'content' && r.status === 'open').length})</TabsTrigger>
+                <TabsTrigger value="site">SEO ({recommendations.filter(r => r.type === 'site' && r.status === 'open').length})</TabsTrigger>
+                <TabsTrigger value="social">Social ({recommendations.filter(r => r.type === 'social' && r.status === 'open').length})</TabsTrigger>
+                <TabsTrigger value="prompt">Prompts ({recommendations.filter(r => r.type === 'prompt' && r.status === 'open').length})</TabsTrigger>
               </TabsList>
 
               <TabsContent value={activeTab} className="space-y-6">
@@ -380,9 +392,18 @@ export default function Recommendations() {
                     <CardContent className="text-center py-12">
                       <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-medium mb-2">No {activeTab === 'all' ? '' : activeTab} recommendations</h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-4">
                         Generate new recommendations to see content suggestions for this category.
                       </p>
+                      <Button 
+                        onClick={handleGenerateRecommendations}
+                        disabled={generating || cleaning}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
+                        {generating ? 'Generating...' : 'Generate More'}
+                      </Button>
                     </CardContent>
                   </Card>
                 )}
@@ -395,7 +416,7 @@ export default function Recommendations() {
               <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No recommendations yet</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Generate AI-powered content recommendations based on your prompt performance data.
+                Generate AI-powered content recommendations based on your prompt performance data. We'll analyze your latest visibility results to suggest specific, actionable optimizations.
               </p>
               <Button 
                 onClick={handleGenerateRecommendations}

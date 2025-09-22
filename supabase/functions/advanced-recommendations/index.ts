@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Removed requireOwnerRole import as we'll validate differently
 import { getScoreThresholds } from '../_shared/scoring.ts';
 import { toCanonical, cleanCompetitorList, type BrandCatalogEntry } from '../_shared/brand-matching.ts';
+import { buildRecommendations } from '../_shared/reco/engine.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,53 +94,15 @@ serve(async (req) => {
 
 async function generateEnhancedRecommendations(orgId: string, supabase: any) {
   try {
-    const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    // Fetch org, prompts, brand catalog, and recent responses in parallel
-    const [orgRes, promptsRes, catalogRes, responsesRes] = await Promise.all([
-      supabase
-        .from('organizations')
-        .select('id, name, business_description, target_audience, keywords')
-        .eq('id', orgId)
-        .single(),
-      supabase
-        .from('prompts')
-        .select('id, text')
-        .eq('org_id', orgId),
-      supabase
-        .from('brand_catalog')
-        .select('id, name, variants_json, is_org_brand')
-        .eq('org_id', orgId),
-      supabase
-        .from('prompt_provider_responses')
-        .select('id, prompt_id, run_at, score, org_brand_present, org_brand_prominence, competitors_count, brands_json, competitors_json, metadata, status')
-        .eq('org_id', orgId)
-        .eq('status', 'success')
-        .gte('run_at', sinceIso)
-        .order('run_at', { ascending: false })
-        .limit(1000)
-    ]);
-
-    const org = orgRes.data;
-    const prompts = promptsRes.data || [];
-    const brandCatalog = catalogRes.data || [];
-    const responses = responsesRes.data || [];
-
-    if (!org) {
-      return { success: false, error: 'Organization not found' };
+    // Use the enhanced recommendation engine
+    console.log(`[generateEnhancedRecommendations] Using enhanced engine for org ${orgId}`);
+    
+    const recommendations = await buildRecommendations(supabase, orgId);
+    
+    if (!recommendations || recommendations.length === 0) {
+      console.log(`[generateEnhancedRecommendations] No recommendations generated`);
+      return { success: true, created: 0, message: 'No actionable insights found in recent data' };
     }
-
-    if (responses.length === 0) {
-      return { success: true, created: 0, message: 'No recent data to analyze' };
-    }
-
-    const promptMap = new Map<string, string>(prompts.map((p: any) => [p.id, p.text]));
-
-    // Analyze data with brand canonicalization
-    const analysisResults = analyzePPRData(responses, promptMap, org, brandCatalog);
-
-    // Build recommendations from analysis
-    const recommendations = buildRecommendationsFromAnalysis(analysisResults, org, orgId);
 
     // Remove existing open/snoozed to avoid duplicates
     await supabase
@@ -148,32 +111,50 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
       .eq('org_id', orgId)
       .in('status', ['open', 'snoozed']);
 
-    // Insert new recommendations
+    // Insert new enhanced recommendations
     let created = 0;
-    for (const rec of recommendations) {
-      const { error } = await supabase.from('recommendations').insert(rec);
-      if (error) {
-        console.error('Error inserting recommendation:', error);
-      } else {
-        created++;
+    for (const reco of recommendations) {
+      try {
+        const { error } = await supabase
+          .from('recommendations')
+          .insert({
+            org_id: orgId,
+            type: reco.kind,
+            title: reco.title,
+            rationale: reco.rationale,
+            status: 'open',
+            metadata: {
+              steps: reco.steps,
+              estLift: reco.estLift,
+              sourcePromptIds: reco.sourcePromptIds,
+              sourceRunIds: reco.sourceRunIds,
+              citations: reco.citations,
+              cooldownDays: reco.cooldownDays || 14
+            }
+          });
+
+        if (error) {
+          console.error('Error inserting enhanced recommendation:', error);
+        } else {
+          created++;
+          console.log(`Created enhanced recommendation: ${reco.title}`);
+        }
+      } catch (error) {
+        console.error('Error processing enhanced recommendation:', error);
       }
     }
 
     const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
 
-    console.log(`[advanced-recommendations] Generated ${created} recommendations for org ${orgId}`);
+    console.log(`[generateEnhancedRecommendations] Generated ${created} recommendations for org ${orgId}`);
 
     return {
       success: true,
       created,
       deleted: cleanupResult.deleted,
-      analysisResults: {
-        totalResults: responses.length,
-        lowVisibilityPrompts: analysisResults.lowVisibilityPrompts.length,
-        noMentionPrompts: analysisResults.noMentionPrompts.length,
-        topCompetitors: analysisResults.topCompetitors.slice(0, 3).map((c: any) => c.canonical),
-        avgVisibilityScore: analysisResults.avgScore,
-      },
+      message: created >= 10 
+        ? `Generated ${created} diverse recommendations using latest visibility data!`
+        : `Generated ${created} recommendations. System will create more as new data becomes available.`
     };
   } catch (error: any) {
     console.error('Error in generateEnhancedRecommendations:', error);
