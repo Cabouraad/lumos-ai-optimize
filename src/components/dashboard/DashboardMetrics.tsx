@@ -8,6 +8,9 @@ interface DashboardMetricsProps {
     trend?: number;
     totalPrompts?: number;
     activePrompts?: number;
+    promptCount?: number;
+    totalRuns?: number;
+    recentRunsCount?: number;
   };
   presenceStats: {
     rate: number;
@@ -65,7 +68,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
 
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Brand Presence</CardTitle>
+          <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
           <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
             <Users className="h-4 w-4 text-primary" />
           </div>
@@ -87,13 +90,13 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
 
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Prompts</CardTitle>
+          <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
           <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
             <AlertTriangle className="h-4 w-4 text-primary" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-primary">{metrics?.totalPrompts || 0}</div>
+          <div className="text-2xl font-bold text-primary">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
           <p className="text-xs text-muted-foreground">
             {metrics?.activePrompts || 0} active
           </p>
@@ -102,16 +105,16 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
 
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+          <CardTitle className="text-sm font-medium">Responses</CardTitle>
           <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-primary">
-            {presenceStats.totalCount || 0}
+            {metrics?.totalRuns || metrics?.recentRunsCount || 0}
           </div>
-          <p className="text-xs text-muted-foreground">responses in 7 days</p>
+          <p className="text-xs text-muted-foreground">total responses</p>
         </CardContent>
       </Card>
     </div>

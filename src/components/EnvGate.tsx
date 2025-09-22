@@ -11,8 +11,10 @@ export const EnvGate: React.FC = () => {
   }
 
   const { usingFallbacks, debugHealth } = getPublicEnv();
+  const bootErr = getSupabaseBootError();
   
-  if (!usingFallbacks) {
+  // Only show banner for real errors or when debug mode is enabled
+  if (!usingFallbacks && !bootErr && !debugHealth) {
     return null;
   }
 

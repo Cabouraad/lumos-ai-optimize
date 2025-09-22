@@ -14,7 +14,10 @@ export function getPublicEnv() {
   const effectiveAnon = anon || fallbackAnon;
 
   const hasEnvVars = !!(url && anon);
-  const usingFallbacks = !hasEnvVars;
+  
+  // Only show fallback warning if we're NOT using the known-good project values
+  const usingKnownGoodProject = effectiveUrl === fallbackUrl && effectiveAnon === fallbackAnon;
+  const usingFallbacks = !hasEnvVars && !usingKnownGoodProject;
 
   return { 
     url: effectiveUrl, 
