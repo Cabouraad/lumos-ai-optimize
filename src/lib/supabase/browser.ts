@@ -6,18 +6,12 @@ import { getBrowserEnv } from './env';
 let _bootError: string | null = null;
 
 export function getSupabaseBrowserClient() {
-  // Validate environment at runtime
+  // Environment is now handled with fallbacks, so this should not fail
   try {
-    const { url, anon } = getBrowserEnv();
-    if (!url || !anon) {
-      _bootError = 'Missing VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY';
-      console.error('Supabase environment validation failed: Missing required environment variables');
-      return supabase; // Return client anyway, will use defaults from integrations/supabase/client.ts
-    }
     return supabase;
   } catch (error) {
     _bootError = (error as any)?.message || String(error);
-    console.error('Supabase environment validation failed:', error);
+    console.error('Supabase client initialization failed:', error);
     return supabase; // Don't throw, return client to prevent app freeze
   }
 }

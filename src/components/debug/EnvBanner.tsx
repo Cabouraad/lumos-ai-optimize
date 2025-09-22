@@ -4,13 +4,13 @@ import { getSupabaseBootError } from '@/lib/supabase/browser';
 import { getPublicEnv } from '@/lib/env/browserEnv';
 
 export function EnvBanner() {
-  const { missing } = getPublicEnv();
+  const { usingFallbacks } = getPublicEnv();
   const bootErr = getSupabaseBootError();
   const [networkStatus, setNetworkStatus] = useState<'unknown' | 'checking' | 'failed' | 'ok'>('unknown');
 
   // Test basic network connectivity to distinguish env vs network issues
   useEffect(() => {
-    if (missing || bootErr) return;
+    if (bootErr) return;
     
     setNetworkStatus('checking');
     
@@ -23,17 +23,15 @@ export function EnvBanner() {
     }).catch(() => {
       setNetworkStatus('failed');
     });
-  }, [missing, bootErr]);
+  }, [usingFallbacks, bootErr]);
 
   // Don't show banner if everything is OK
-  if (!missing && !bootErr && networkStatus === 'ok') return null;
+  if (!bootErr && networkStatus === 'ok') return null;
 
   let msg = '';
   let bgColor = '#B91C1C'; // default red
   
-  if (missing) {
-    msg = 'Supabase environment missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Lovable Secrets.';
-  } else if (bootErr) {
+  if (bootErr) {
     if (bootErr.includes('Missing VITE_SUPABASE')) {
       msg = `Environment configuration error: ${bootErr}. Add missing secrets in Lovable.`;
     } else {

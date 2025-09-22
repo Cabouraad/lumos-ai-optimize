@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { EnhancedEdgeFunctionClient } from '@/lib/edge-functions/enhanced-client';
 import { supabase } from '@/integrations/supabase/client';
+import { getPublicEnv } from '@/lib/env/browserEnv';
 
 interface CircuitBreakerState {
   failures: number;
@@ -175,11 +176,11 @@ export function BatchProcessorAdmin() {
       toast.success('Circuit breaker reset for batch-reconciler');
       
       // Step 2: Clean up cron jobs
-      const cleanupResult = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-manager?action=cleanup`, {
+      const cleanupResult = await fetch(`${getPublicEnv().url}/functions/v1/cron-manager?action=cleanup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${getPublicEnv().anon}`,
           'x-admin-key': 'admin-key-placeholder'
         }
       });
@@ -189,11 +190,11 @@ export function BatchProcessorAdmin() {
       }
       
       // Step 3: Setup new cron jobs
-      const setupResult = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-manager?action=setup`, {
+      const setupResult = await fetch(`${getPublicEnv().url}/functions/v1/cron-manager?action=setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${getPublicEnv().anon}`,
           'x-admin-key': 'admin-key-placeholder'
         }
       });
