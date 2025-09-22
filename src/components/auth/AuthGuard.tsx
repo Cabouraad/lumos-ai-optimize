@@ -1,53 +1,36 @@
-import { ReactNode, useEffect } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import { ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublicRoute } from '@/lib/auth/publicRoutes';
+import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
   children: ReactNode;
+  requireAuth?: boolean;
 }
 
-export function AuthGuard({ children }: AuthGuardProps) {
-  const { ready, user, loading } = useAuth();
-  const location = useLocation();
-  const pathname = location.pathname;
+export function AuthGuard({ children, requireAuth = true }: AuthGuardProps) {
+  const { user, ready } = useAuth();
 
-  // Timeout warning for stuck auth
-  useEffect(() => {
-    if (!ready) {
-      const timeoutId = setTimeout(() => {
-        if (!ready) {
-          console.warn('Auth guard timeout - auth may be stuck. Check network connectivity.');
-        }
-      }, 30000);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [ready]);
-
-  // Allow public routes to render without auth check
-  if (isPublicRoute(pathname)) {
-    return <>{children}</>;
-  }
-
-  // Show loading while auth is initializing
+  // Show loading while auth state is not ready
   if (!ready) {
     return (
-      <div className="w-full h-[60vh] grid place-items-center text-muted-foreground">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <div>Loading authentication...</div>
-          <div className="text-xs text-gray-500 max-w-md text-center">
-            If this takes more than a few seconds, check your network connection and browser console for errors.
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Redirect to auth if not authenticated on protected route
-  if (!user) {
+  // Redirect to auth page if authentication is required but user is not logged in
+  if (requireAuth && !user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Redirect authenticated users away from auth page
+  if (!requireAuth && user) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

@@ -8,6 +8,7 @@ import Health from "@/components/Health";
 // Lazy load all page components to reduce initial bundle size
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthProcessing = lazy(() => import("./pages/AuthProcessing"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Prompts = lazy(() => import("./pages/Prompts"));
@@ -58,85 +59,119 @@ const App = () => {
 
   return (
     <TooltipProvider>
-      <AuthGuard>
-        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/health" element={<Health />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/features" element={<Features />} />
-            <Route path="/features/brand-visibility" element={<BrandVisibility />} />
-            <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
-            <Route path="/features/actionable-recommendations" element={<ActionableRecommendations />} />
-            <Route path="/resources" element={<Resources />} />
-            <Route path="/resources/:slug" element={<BlogPost />} />
-            <Route path="/trial-success" element={<TrialSuccess />} />
-            <Route path="/free-checker" element={<FreeChecker />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/dashboard" element={
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+        <Routes>
+          {/* Public routes - no auth required */}
+          <Route path="/" element={<Index />} />
+          <Route path="/health" element={<Health />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/features/brand-visibility" element={<BrandVisibility />} />
+          <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
+          <Route path="/features/actionable-recommendations" element={<ActionableRecommendations />} />
+          <Route path="/resources" element={<Resources />} />
+          <Route path="/resources/:slug" element={<BlogPost />} />
+          <Route path="/trial-success" element={<TrialSuccess />} />
+          <Route path="/free-checker" element={<FreeChecker />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          
+          {/* Auth routes - redirect if already authenticated */}
+          <Route path="/auth" element={
+            <AuthGuard requireAuth={false}>
+              <Auth />
+            </AuthGuard>
+          } />
+          <Route path="/auth/processing" element={<AuthProcessing />} />
+          
+          {/* Protected routes - require authentication */}
+          <Route path="/onboarding" element={
+            <AuthGuard requireAuth={true}>
+              <Onboarding />
+            </AuthGuard>
+          } />
+          <Route path="/dashboard" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Dashboard />
               </SubscriptionGate>
-            } />
-            <Route path="/prompts" element={
+            </AuthGuard>
+          } />
+          <Route path="/prompts" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Prompts />
               </SubscriptionGate>
-            } />
-            <Route path="/competitors" element={
+            </AuthGuard>
+          } />
+          <Route path="/competitors" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Competitors />
               </SubscriptionGate>
-            } />
-            <Route path="/llms-txt" element={
+            </AuthGuard>
+          } />
+          <Route path="/llms-txt" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <LLMsText />
               </SubscriptionGate>
-            } />
-            <Route path="/optimizations" element={
+            </AuthGuard>
+          } />
+          <Route path="/optimizations" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Optimizations />
               </SubscriptionGate>
-            } />
-            <Route path="/reports" element={
+            </AuthGuard>
+          } />
+          <Route path="/reports" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Reports />
               </SubscriptionGate>
-            } />
-            <Route path="/settings" element={
+            </AuthGuard>
+          } />
+          <Route path="/settings" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Settings />
               </SubscriptionGate>
-            } />
-            <Route path="/domain-verification" element={
+            </AuthGuard>
+          } />
+          <Route path="/domain-verification" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <DomainVerification />
               </SubscriptionGate>
-            } />
-            <Route path="/bypass-test" element={
+            </AuthGuard>
+          } />
+          <Route path="/bypass-test" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <BypassTestPage />
               </SubscriptionGate>
-            } />
-            <Route path="/labs" element={
+            </AuthGuard>
+          } />
+          <Route path="/labs" element={
+            <AuthGuard requireAuth={true}>
               <SubscriptionGate>
                 <Labs />
               </SubscriptionGate>
-            } />
-            {isFeatureEnabled('AUDIT_UI') && (
-              <Route path="/admin/audit-runs" element={
+            </AuthGuard>
+          } />
+          {isFeatureEnabled('AUDIT_UI') && (
+            <Route path="/admin/audit-runs" element={
+              <AuthGuard requireAuth={true}>
                 <SubscriptionGate>
                   <AuditRuns />
                 </SubscriptionGate>
-              } />
-            )}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </AuthGuard>
+              </AuthGuard>
+            } />
+          )}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </TooltipProvider>
   );
 };

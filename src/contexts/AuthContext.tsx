@@ -303,8 +303,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
-          // Fetch user's org data on auth change
+        // Only act on true sign-in/out events; ignore periodic TOKEN_REFRESHED
+        if (event === 'SIGNED_IN') {
+          // Fetch user's org data on sign in
           setTimeout(async () => {
             if (!mountedRef.current) return;
             
@@ -325,14 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               
               setOrgData(data);
-              
-              // Only check subscription on initial sign-in, not on every token refresh
-              if (event === 'SIGNED_IN') {
-                await debouncedCheckSubscription(100); // Quick initial check
-              } else if (event === 'TOKEN_REFRESHED') {
-                await debouncedCheckSubscription(2000); // Slower refresh check
-              }
-              
+              await debouncedCheckSubscription(100); // Quick initial check
               setLoading(false);
             } catch (err) {
               if (!mountedRef.current) return;
@@ -341,12 +335,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setLoading(false);
             }
           }, 0);
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setOrgData(null);
           setSubscriptionData(null);
           setSubscriptionLoading(false);
           setLoading(false);
         }
+        // Do NOTHING on TOKEN_REFRESHED, USER_UPDATED, etc.
       }
     );
 

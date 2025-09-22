@@ -48,13 +48,11 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     
-    const redirectUrl = `${window.location.origin}/`;
-    
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl
+        emailRedirectTo: `${window.location.origin}/auth/processing`
       }
     });
 
@@ -79,9 +77,9 @@ export default function Auth() {
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`
-      }
+        options: {
+          redirectTo: `${window.location.origin}/auth/processing`
+        }
     });
 
     if (error) {
