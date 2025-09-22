@@ -12,6 +12,7 @@ import { EnvGate } from '@/components/EnvGate';
 import './index.css';
 import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
+import { RefreshDetector } from '@/features/debug/RefreshDetector';
 
 
 // Query client is provided by QueryProvider with sane defaults
@@ -36,6 +37,7 @@ ReactDOM.createRoot(rootEl).render(
                    <QueryAuthBridge />
                     <App />
                     <Toaster />
+                    <RefreshDetector />
                 </AuthProvider>
               </SafeAuthProvider>
             </ThemeProvider>
