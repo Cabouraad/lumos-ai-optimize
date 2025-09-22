@@ -32,7 +32,7 @@ export function EnvBanner() {
   let bgColor = '#B91C1C'; // default red
   
   if (missing) {
-    msg = 'Supabase environment missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Lovable Secrets.';
+    msg = 'Supabase environment missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Lovable Secrets.';
   } else if (bootErr) {
     if (bootErr.includes('Missing VITE_SUPABASE')) {
       msg = `Environment configuration error: ${bootErr}. Add missing secrets in Lovable.`;
