@@ -300,22 +300,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         devLog('Auth state change', { event, hasUser: !!session?.user });
         
-        // Update local state only; do NOT navigate on TOKEN_REFRESHED
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Only act on true sign-in/out events; ignore periodic TOKEN_REFRESHED
-        switch (event) {
-          case 'SIGNED_IN':
-            // Optional: redirect logic here if needed
-            break;
-          case 'SIGNED_OUT':
-            // Optional: redirect logic here if needed  
-            break;
-          default:
-            // TOKEN_REFRESHED, USER_UPDATED, etc. => no navigation
-            break;
-        }
         
         if (session?.user) {
           // Fetch user's org data on auth change
