@@ -14,7 +14,11 @@ import {
   Target,
   Users,
   Zap,
-  Clock
+  Clock,
+  Bot,
+  Search,
+  Sparkles,
+  Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
@@ -263,6 +267,12 @@ export function ProviderDebugPanel() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {getStatusIcon(result.status)}
+                    {/* Provider icon */}
+                    {result.provider === 'openai' && <Bot className="h-4 w-4 text-emerald-600" />}
+                    {result.provider === 'perplexity' && <Search className="h-4 w-4 text-blue-600" />}
+                    {result.provider === 'gemini' && <Sparkles className="h-4 w-4 text-purple-600" />}
+                    {result.provider === 'google_ai_overview' && <Globe className="h-4 w-4 text-orange-600" />}
+                    
                     <span className="font-medium capitalize">{result.provider}</span>
                     <Badge className={`text-xs ${getStatusColor(result.status)}`}>
                       {result.status}

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
-import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle, Bot, Search, Sparkles, Globe } from 'lucide-react';
 import { ResponseClassificationFixer } from './ResponseClassificationFixer';
 import { CompetitorChipList } from './CompetitorChip';
 import { useOrgBrands } from '@/hooks/useOrgBrands';
@@ -20,10 +20,10 @@ interface ProviderResponseCardProps {
 }
 
 const PROVIDER_CONFIG = {
-  openai: { name: 'OpenAI', color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
-  gemini: { name: 'Gemini', color: 'bg-purple-50 border-purple-200 text-purple-700' },
-  perplexity: { name: 'Perplexity', color: 'bg-blue-50 border-blue-200 text-blue-700' },
-  google_ai_overview: { name: 'Google AI Overview', color: 'bg-orange-50 border-orange-200 text-orange-700' }
+  openai: { name: 'OpenAI', color: 'bg-emerald-50 border-emerald-200 text-emerald-700', icon: Bot },
+  gemini: { name: 'Gemini', color: 'bg-purple-50 border-purple-200 text-purple-700', icon: Sparkles },
+  perplexity: { name: 'Perplexity', color: 'bg-blue-50 border-blue-200 text-blue-700', icon: Search },
+  google_ai_overview: { name: 'Google AI Overview', color: 'bg-orange-50 border-orange-200 text-orange-700', icon: Globe }
 };
 
 export function ProviderResponseCard({ provider, response, promptText }: ProviderResponseCardProps) {
@@ -36,6 +36,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
       <Card className="h-full">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
+            <config.icon className="h-4 w-4" />
             {config.name}
             <Badge variant="outline" className="text-xs text-muted-foreground">
               No data
@@ -138,6 +139,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
+            <config.icon className="h-4 w-4" />
             {config.name}
           </div>
           <div className="flex items-center gap-2">

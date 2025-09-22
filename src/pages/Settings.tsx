@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
 import { getAllowedProviders, type ProviderName, type SubscriptionTier } from '@/lib/providers/tier-policy';
+import { Bot, Search, Sparkles, Globe } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -199,6 +200,12 @@ export default function Settings() {
               return (
                 <div key={providerName} className="flex items-center justify-between border rounded-lg p-3">
                   <div className="flex items-center gap-3">
+                    {/* Provider icon */}
+                    {providerName === 'openai' && <Bot className="h-4 w-4 text-emerald-600" />}
+                    {providerName === 'perplexity' && <Search className="h-4 w-4 text-blue-600" />}
+                    {providerName === 'gemini' && <Sparkles className="h-4 w-4 text-purple-600" />}
+                    {providerName === 'google_ai_overview' && <Globe className="h-4 w-4 text-orange-600" />}
+                    
                     <span className="text-sm capitalize font-medium">
                       {providerName === 'google_ai_overview' ? 'Google AI Overviews' : providerName}
                     </span>
