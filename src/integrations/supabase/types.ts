@@ -1144,6 +1144,50 @@ export type Database = {
       }
     }
     Views: {
+      org_competitor_analytics: {
+        Row: {
+          average_score: number | null
+          competitor_name: string | null
+          competitor_strength: string | null
+          days_since_last_seen: number | null
+          first_detected_at: string | null
+          last_seen_at: string | null
+          org_id: string | null
+          recently_active: boolean | null
+          total_appearances: number | null
+        }
+        Insert: {
+          average_score?: number | null
+          competitor_name?: string | null
+          competitor_strength?: never
+          days_since_last_seen?: never
+          first_detected_at?: string | null
+          last_seen_at?: string | null
+          org_id?: string | null
+          recently_active?: never
+          total_appearances?: number | null
+        }
+        Update: {
+          average_score?: number | null
+          competitor_name?: string | null
+          competitor_strength?: never
+          days_since_last_seen?: never
+          first_detected_at?: string | null
+          last_seen_at?: string | null
+          org_id?: string | null
+          recently_active?: never
+          total_appearances?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_catalog_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriber_public: {
         Row: {
           created_at: string | null
@@ -1441,6 +1485,10 @@ export type Database = {
           schema_name: string
           severity: string
         }[]
+      }
+      sync_competitor_detection_automated: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       test_reco_insert: {
         Args: { p_org_id: string; p_test_title?: string }
