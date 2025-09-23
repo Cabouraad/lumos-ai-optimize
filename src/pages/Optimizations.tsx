@@ -138,8 +138,10 @@ export default function Recommendations() {
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
         headers: session?.access_token ? { 
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        } : { 'Content-Type': 'application/json' },
+          'Content-Type': 'application/json',
+          'x-org-id': orgId,
+          'x-force-new': 'true'
+        } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-force-new': 'true' },
         body: { orgId, forceNew: true }
       });
 
@@ -154,8 +156,10 @@ export default function Recommendations() {
           const retryResult = await supabase.functions.invoke('advanced-recommendations', {
             headers: freshSession?.access_token ? { 
               'Authorization': `Bearer ${freshSession.access_token}`,
-              'Content-Type': 'application/json'
-            } : { 'Content-Type': 'application/json' },
+              'Content-Type': 'application/json',
+              'x-org-id': orgId,
+              'x-force-new': 'true'
+            } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-force-new': 'true' },
             body: { orgId, forceNew: true }
           });
           
@@ -230,8 +234,10 @@ export default function Recommendations() {
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
         headers: session?.access_token ? { 
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        } : { 'Content-Type': 'application/json' },
+          'Content-Type': 'application/json',
+          'x-org-id': orgId,
+          'x-cleanup-only': 'true'
+        } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-cleanup-only': 'true' },
         body: { orgId, cleanupOnly: true }
       });
 
@@ -284,8 +290,11 @@ export default function Recommendations() {
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
         headers: session?.access_token ? {
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        } : { 'Content-Type': 'application/json' },
+          'Content-Type': 'application/json',
+          'x-org-id': orgId,
+          'x-cleanup-only': 'true',
+          'x-hard-reset': 'true'
+        } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-cleanup-only': 'true', 'x-hard-reset': 'true' },
         body: { orgId, cleanupOnly: true, hardReset: true }
       });
 
