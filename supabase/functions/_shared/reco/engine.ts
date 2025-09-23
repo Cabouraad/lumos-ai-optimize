@@ -38,9 +38,9 @@ interface PromptVisibility {
 
 interface CompetitorShare {
   prompt_id: string;
-  brand_norm: string;
-  mean_score: number;
-  n: number;
+  competitor_name: string; // canonical name from RPC
+  share: number;           // percentage share (0-100)
+  total_mentions: number;  // absolute mentions count
 }
 
 interface RunData {
@@ -204,17 +204,17 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     for (const prompt of headPrompts) {
       const title = `Create comprehensive comparison guide: "${prompt.text.slice(0, 40)}..."`;
       const competitors = competitorMap.get(prompt.prompt_id) || [];
-      const topCompetitor = competitors.sort((a, b) => b.mean_score - a.mean_score)[0];
+      const topCompetitor = competitors.sort((a, b) => (b.total_mentions - a.total_mentions) || (b.share - a.share))[0];
       const runs = runsByPrompt.get(prompt.prompt_id) || [];
       const topCitations = runs.flatMap(r => r.citations).slice(0, 3);
-      const topicKey = generateTopicKey('content', title, [prompt.prompt_id], [topCompetitor?.brand_norm || '']);
+      const topicKey = generateTopicKey('content', title, [prompt.prompt_id], [topCompetitor?.competitor_name || '']);
 
       if (!isNovel(topicKey)) continue;
 
       candidatesByCategory.content.push({
         kind: 'content',
         title,
-        rationale: `Critical visibility gap: only ${(prompt.avg_score_7d * 100).toFixed(1)}% visibility on high-intent query. ${topCompetitor ? `${topCompetitor.brand_norm} dominates with superior content positioning.` : 'Competitors dominate through better content strategy.'}`,
+        rationale: `Critical visibility gap: only ${(prompt.avg_score_7d * 100).toFixed(1)}% visibility on high-intent query. ${topCompetitor ? `${topCompetitor.competitor_name} dominates with superior content positioning.` : 'Competitors dominate through better content strategy.'}`,
         steps: [
           "Research competitor positioning and identify content gaps in comparison landscape",
           "Create comprehensive comparison page with detailed feature matrix, pricing analysis, and use case scenarios",
@@ -242,12 +242,12 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     // R2: Competitor dominance opportunities
     const competitorDominance = new Map<string, string[]>();
     for (const [promptId, competitors] of competitorMap.entries()) {
-      const dominant = competitors.find(c => c.mean_score >= 6.0);
+      const dominant = competitors.find(c => c.share >= 40 || c.total_mentions >= 3);
       if (dominant) {
-        if (!competitorDominance.has(dominant.brand_norm)) {
-          competitorDominance.set(dominant.brand_norm, []);
+        if (!competitorDominance.has(dominant.competitor_name)) {
+          competitorDominance.set(dominant.competitor_name, []);
         }
-        competitorDominance.get(dominant.brand_norm)!.push(promptId);
+        competitorDominance.get(dominant.competitor_name)!.push(promptId);
       }
     }
 

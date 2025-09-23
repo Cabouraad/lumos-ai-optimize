@@ -20,7 +20,12 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   
+  // Admin client for writes/deletes
   const supabase = createClient(supabaseUrl, supabaseKey);
+  // User-scoped client for reads/RPCs (ensures auth.uid() works in SECURITY DEFINER functions)
+  const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    global: { headers: { Authorization: req.headers.get('Authorization') || '' } },
+  });
 
   try {
     // Safe body parsing and robust org resolution
@@ -31,9 +36,11 @@ serve(async (req) => {
       body = {};
     }
 
+    console.log('[advanced-recommendations] raw body', body);
     const requestedOrgId = body.orgId || body.accountId || null;
     const cleanupOnly = !!body.cleanupOnly;
     const forceNew = !!body.forceNew;
+    const hardReset = !!body.hardReset;
 
     let orgId = requestedOrgId as string | null;
 
@@ -61,8 +68,8 @@ serve(async (req) => {
     
     // Handle cleanup-only mode
     if (cleanupOnly) {
-      console.log('[advanced-recommendations] Running cleanup only');
-      const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
+      console.log('[advanced-recommendations] Running cleanup only', { hardReset });
+      const cleanupResult = await cleanupOldRecommendations(supabase, orgId, hardReset);
       console.log(`[advanced-recommendations] Cleanup completed: deleted ${cleanupResult.deleted}`);
       
       return new Response(JSON.stringify({
@@ -73,8 +80,8 @@ serve(async (req) => {
       });
     }
     
-    // Generate enhanced recommendations
-    const result = await generateEnhancedRecommendations(orgId, supabase, forceNew);
+    // Generate enhanced recommendations (reads via user client, writes via admin)
+    const result = await generateEnhancedRecommendations(orgId, supabase, supabaseUser, forceNew);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -93,12 +100,13 @@ serve(async (req) => {
   }
 });
 
-async function generateEnhancedRecommendations(orgId: string, supabase: any, forceNew: boolean = false) {
+async function generateEnhancedRecommendations(orgId: string, adminSupabase: any, userSupabase: any, forceNew: boolean = false) {
   try {
     // Use the enhanced recommendation engine with novelty support
     console.log(`[generateEnhancedRecommendations] Using enhanced engine for org ${orgId}, forceNew: ${forceNew}`);
     
-    const recommendations = await buildRecommendations(supabase, orgId, forceNew);
+    // Read with user-scoped client so RPCs honor auth.uid()
+    const recommendations = await buildRecommendations(userSupabase, orgId, forceNew);
     
     if (!recommendations || recommendations.length === 0) {
       console.log(`[generateEnhancedRecommendations] No new recommendations generated`);
@@ -111,7 +119,7 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any, for
 
     for (const reco of recommendations) {
       try {
-        const { error } = await supabase
+        const { error } = await adminSupabase
           .from('recommendations')
           .insert({
             org_id: orgId,
@@ -149,7 +157,7 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any, for
     }
 
     // Capacity management: keep only newest 30 open/snoozed recommendations
-    const { data: allRecommendations } = await supabase
+    const { data: allRecommendations } = await adminSupabase
       .from('recommendations')
       .select('id, created_at')
       .eq('org_id', orgId)
@@ -158,7 +166,7 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any, for
 
     if (allRecommendations && allRecommendations.length > 30) {
       const toDelete = allRecommendations.slice(30).map(r => r.id);
-      await supabase
+      await adminSupabase
         .from('recommendations')
         .delete()
         .in('id', toDelete);
@@ -462,9 +470,23 @@ function extractMainTopic(promptTexts: string[]): string {
   return sortedWords.length > 0 ? sortedWords[0][0] : 'industry expertise';
 }
 
-async function cleanupOldRecommendations(supabase: any, orgId: string) {
+async function cleanupOldRecommendations(supabase: any, orgId: string, hardReset: boolean = false) {
   try {
-    console.log(`[cleanup] Starting cleanup for org: ${orgId}`);
+    console.log(`[cleanup] Starting cleanup for org: ${orgId} (hardReset=${hardReset})`);
+
+    if (hardReset) {
+      const { error } = await supabase
+        .from('recommendations')
+        .delete()
+        .eq('org_id', orgId)
+        .in('status', ['open', 'snoozed']);
+      if (error) {
+        console.error('[cleanup] Hard reset failed:', error);
+        return { deleted: 0 };
+      }
+      console.log('[cleanup] Hard reset completed for open/snoozed recommendations');
+      return { deleted: -1 }; // sentinel for full reset
+    }
     
     // Get all recommendations for org, ordered by created_at DESC
     const { data: allRecs, error: fetchError } = await supabase
