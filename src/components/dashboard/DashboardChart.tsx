@@ -44,7 +44,7 @@ export function DashboardChart({
             variant={chartView === 'competitors' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onChartViewChange('competitors')}
-            disabled={loadingCompetitors || competitors.length === 0}
+            disabled={loadingCompetitors}
           >
             Competitors
           </Button>
