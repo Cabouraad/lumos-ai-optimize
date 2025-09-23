@@ -139,7 +139,7 @@ export default function Recommendations() {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' },
-        body: { orgId }
+        body: { orgId, forceNew: true }
       });
 
       console.log('[Generate] Response received:', { data, error });
@@ -155,7 +155,7 @@ export default function Recommendations() {
               'Authorization': `Bearer ${freshSession.access_token}`,
               'Content-Type': 'application/json'
             } : { 'Content-Type': 'application/json' },
-            body: { orgId }
+            body: { orgId, forceNew: true }
           });
           
           if (retryResult.error) throw retryResult.error;
@@ -163,9 +163,10 @@ export default function Recommendations() {
           const retryData = retryResult.data;
           if (retryData.success) {
             const count = retryData.created || 0;
-            const message = count >= 10 
-              ? `Generated ${count} diverse recommendations from your latest data!`
-              : `Generated ${count} recommendations. Run again to get more personalized suggestions.`;
+            const categories = retryData.categories_covered?.join('/') || 'various categories';
+            const message = retryData.message || (count >= 8 
+              ? `Generated ${count} fresh recommendations (${categories})`
+              : `Generated ${count} new recommendations across ${categories}`);
               
             toast({
               title: "Success",
@@ -179,12 +180,13 @@ export default function Recommendations() {
         }
         } else if (data.success) {
           const count = data.created || 0;
-          const message = count >= 10 
-            ? `Generated ${count} diverse recommendations from your latest data!`
-            : `Generated ${count} recommendations. Run again to get more personalized suggestions.`;
+          const categories = data.categories_covered?.join('/') || 'various categories';
+          const message = data.message || (count >= 8 
+            ? `Generated ${count} fresh recommendations (${categories})`
+            : `Generated ${count} new recommendations across ${categories}`);
             
           toast({
-            title: "Success",
+            title: "Success", 
             description: message,
           });
         } else {

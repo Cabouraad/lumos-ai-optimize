@@ -33,6 +33,7 @@ serve(async (req) => {
 
     const requestedOrgId = body.orgId || body.accountId || null;
     const cleanupOnly = !!body.cleanupOnly;
+    const forceNew = !!body.forceNew;
 
     let orgId = requestedOrgId as string | null;
 
@@ -56,7 +57,7 @@ serve(async (req) => {
       });
     }
     
-    console.log(`[advanced-recommendations] Processing for org: ${orgId}, cleanupOnly: ${cleanupOnly}`);
+    console.log(`[advanced-recommendations] Processing for org: ${orgId}, cleanupOnly: ${cleanupOnly}, forceNew: ${forceNew}`);
     
     // Handle cleanup-only mode
     if (cleanupOnly) {
@@ -73,7 +74,7 @@ serve(async (req) => {
     }
     
     // Generate enhanced recommendations
-    const result = await generateEnhancedRecommendations(orgId, supabase);
+    const result = await generateEnhancedRecommendations(orgId, supabase, forceNew);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -92,27 +93,22 @@ serve(async (req) => {
   }
 });
 
-async function generateEnhancedRecommendations(orgId: string, supabase: any) {
+async function generateEnhancedRecommendations(orgId: string, supabase: any, forceNew: boolean = false) {
   try {
-    // Use the enhanced recommendation engine
-    console.log(`[generateEnhancedRecommendations] Using enhanced engine for org ${orgId}`);
+    // Use the enhanced recommendation engine with novelty support
+    console.log(`[generateEnhancedRecommendations] Using enhanced engine for org ${orgId}, forceNew: ${forceNew}`);
     
-    const recommendations = await buildRecommendations(supabase, orgId);
+    const recommendations = await buildRecommendations(supabase, orgId, forceNew);
     
     if (!recommendations || recommendations.length === 0) {
-      console.log(`[generateEnhancedRecommendations] No recommendations generated`);
-      return { success: true, created: 0, message: 'No actionable insights found in recent data' };
+      console.log(`[generateEnhancedRecommendations] No new recommendations generated`);
+      return { success: true, created: 0, message: 'No new actionable insights found. Try again later or run cleanup to refresh suggestions.' };
     }
 
-    // Remove existing open/snoozed to avoid duplicates
-    await supabase
-      .from('recommendations')
-      .delete()
-      .eq('org_id', orgId)
-      .in('status', ['open', 'snoozed']);
-
-    // Insert new enhanced recommendations
+    // NEW STRATEGY: No wholesale deletion - insert only new topics
     let created = 0;
+    let skipped = 0;
+
     for (const reco of recommendations) {
       try {
         const { error } = await supabase
@@ -129,32 +125,66 @@ async function generateEnhancedRecommendations(orgId: string, supabase: any) {
               sourcePromptIds: reco.sourcePromptIds,
               sourceRunIds: reco.sourceRunIds,
               citations: reco.citations,
-              cooldownDays: reco.cooldownDays || 14
+              cooldownDays: reco.cooldownDays || 14,
+              timeline: reco.timeline,
+              resources: reco.resources,
+              expectedImpact: reco.expectedImpact,
+              kpis: reco.kpis,
+              topic_key: reco.topic_key,
+              batch_id: reco.batch_id
             }
           });
 
         if (error) {
           console.error('Error inserting enhanced recommendation:', error);
+          skipped++;
         } else {
           created++;
           console.log(`Created enhanced recommendation: ${reco.title}`);
         }
       } catch (error) {
         console.error('Error processing enhanced recommendation:', error);
+        skipped++;
       }
     }
 
-    const cleanupResult = await cleanupOldRecommendations(supabase, orgId);
+    // Capacity management: keep only newest 30 open/snoozed recommendations
+    const { data: allRecommendations } = await supabase
+      .from('recommendations')
+      .select('id, created_at')
+      .eq('org_id', orgId)
+      .in('status', ['open', 'snoozed'])
+      .order('created_at', { ascending: false });
 
-    console.log(`[generateEnhancedRecommendations] Generated ${created} recommendations for org ${orgId}`);
+    if (allRecommendations && allRecommendations.length > 30) {
+      const toDelete = allRecommendations.slice(30).map(r => r.id);
+      await supabase
+        .from('recommendations')
+        .delete()
+        .in('id', toDelete);
+      console.log(`Cleaned up ${toDelete.length} old recommendations to maintain capacity`);
+    }
+
+    console.log(`[generateEnhancedRecommendations] Created ${created}, skipped ${skipped} for org ${orgId}`);
+
+    // Enhanced messaging based on diversity and novelty
+    let message: string;
+    if (created >= 8) {
+      message = `Generated ${created} fresh, diverse recommendations (balanced across content/SEO/social/prompts)!`;
+    } else if (created >= 4) {
+      message = `Generated ${created} new recommendations. Click again for more diverse suggestions across categories.`;
+    } else if (created > 0) {
+      message = `Generated ${created} new recommendations. Most topics recently covered - try cleanup or wait for fresh data.`;
+    } else {
+      message = 'All recent topics covered. Try cleanup to refresh or wait for new prompt data.';
+    }
 
     return {
       success: true,
       created,
-      deleted: cleanupResult.deleted,
-      message: created >= 10 
-        ? `Generated ${created} diverse recommendations using latest visibility data!`
-        : `Generated ${created} recommendations. System will create more as new data becomes available.`
+      skipped,
+      message,
+      categories_covered: [...new Set(recommendations.map(r => r.kind))]
     };
   } catch (error: any) {
     console.error('Error in generateEnhancedRecommendations:', error);

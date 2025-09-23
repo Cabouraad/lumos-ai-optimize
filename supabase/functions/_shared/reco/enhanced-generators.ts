@@ -322,7 +322,8 @@ export function analyzeEmailOpportunities(
 export function generateFallbackRecommendations(
   promptVisibility: PromptVisibility[],
   orgInfo?: OrgInfo,
-  count: number
+  count: number,
+  batchId?: string
 ): Reco[] {
   const recommendations: Reco[] = [];
   const orgName = orgInfo?.name || 'YourBrand';
@@ -333,12 +334,20 @@ export function generateFallbackRecommendations(
       title: `Create "${orgName} Ultimate Guide" comprehensive resource`,
       rationale: `Comprehensive pillar content can capture long-tail queries and establish topical authority.`,
       steps: [
-        "Consolidate your best-performing content into one comprehensive guide",
-        "Add new sections covering knowledge gaps",
-        "Include downloadable resources and templates",
-        "Create internal linking hub to related content"
+        "Audit existing content and identify the top 10 most-visited, highest-converting pieces",
+        "Consolidate into comprehensive 8,000+ word pillar page with clear navigation and section anchors",
+        "Add new sections covering identified knowledge gaps and frequently asked questions",
+        "Create 5-7 downloadable resources: templates, checklists, worksheets, implementation guides",
+        "Build internal linking hub connecting to all related product pages, case studies, and blog posts",
+        "Implement advanced schema markup (FAQ, How-To, Article) for better AI visibility",
+        "Set up conversion tracking and lead capture forms throughout the guide",
+        "Create email nurture sequence for guide downloaders with progressive value delivery"
       ],
-      estLift: 0.07
+      estLift: 0.12,
+      timeline: "4-6 weeks development + ongoing optimization",
+      resources: "Content strategist, subject matter expert, designer (for downloadables)",
+      expectedImpact: "20-30% increase in organic traffic and lead generation from long-tail queries",
+      kpis: ["Organic sessions to guide", "Time on page", "Download conversion rate", "Email signup rate"]
     },
     {
       kind: 'site' as const,
@@ -392,12 +401,15 @@ export function generateFallbackRecommendations(
 
   for (let i = 0; i < Math.min(count, fallbacks.length); i++) {
     const fallback = fallbacks[i];
+    const topicKey = `fallback_${fallback.kind}_${fallback.title.toLowerCase().replace(/[^\w]/g, '_').substring(0, 30)}`;
     recommendations.push({
       ...fallback,
       sourcePromptIds: promptVisibility.slice(0, 2).map(p => p.prompt_id),
       sourceRunIds: [],
       citations: [],
-      cooldownDays: 21
+      cooldownDays: 21,
+      topic_key: topicKey,
+      batch_id: batchId || `fallback_${Date.now()}`
     });
   }
 
