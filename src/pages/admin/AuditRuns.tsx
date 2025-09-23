@@ -8,9 +8,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Layout } from '@/components/Layout';
-import { ChevronDown, ChevronRight, Play, Download, ExternalLink, Clock, CheckCircle, XCircle, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, Download, ExternalLink, Clock, CheckCircle, XCircle, Settings, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { BatchProcessorAdmin } from '@/components/admin/BatchProcessorAdmin';
+import { CompetitorSyncTrigger } from '@/components/admin/CompetitorSyncTrigger';
 
 interface AuditRun {
   id: string;
@@ -216,10 +217,14 @@ export default function AuditRuns() {
         </div>
 
         <Tabs defaultValue="batch-processor" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="batch-processor" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Batch Processor
+            </TabsTrigger>
+            <TabsTrigger value="competitor-sync" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Competitor Sync
             </TabsTrigger>
             <TabsTrigger value="audit-runs" className="flex items-center gap-2">
               <Play className="w-4 h-4" />
@@ -229,6 +234,16 @@ export default function AuditRuns() {
 
           <TabsContent value="batch-processor" className="space-y-6">
             <BatchProcessorAdmin />
+          </TabsContent>
+
+          <TabsContent value="competitor-sync" className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Competitor Sync Management</h2>
+              <p className="text-muted-foreground mt-2">
+                Manage organization-specific competitor detection and brand catalog synchronization
+              </p>
+            </div>
+            <CompetitorSyncTrigger />
           </TabsContent>
 
           <TabsContent value="audit-runs" className="space-y-6">
