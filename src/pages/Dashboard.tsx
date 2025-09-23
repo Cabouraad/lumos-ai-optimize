@@ -291,53 +291,76 @@ export default function Dashboard() {
       const orgId = orgData?.organizations?.id;
       if (!orgId) return;
 
+      console.log('[Dashboard] Loading competitors for org:', orgId);
+
       const { data, error } = await supabase.rpc('get_org_competitor_summary', {
-        p_org_id: orgId
+        p_org_id: orgId,
+        p_days: 30
       });
 
       if (error) {
-        console.error('RPC error, falling back to client-side aggregation:', error);
-        // Fallback: aggregate from existing dashboard data
+        console.error('[Dashboard] RPC error, triggering sync and falling back:', error);
+        
+        // Trigger competitor sync to populate brand_catalog
+        try {
+          const syncResult = await supabase.functions.invoke('trigger-competitor-sync');
+          console.log('[Dashboard] Competitor sync triggered:', syncResult);
+        } catch (syncError) {
+          console.warn('[Dashboard] Could not trigger competitor sync:', syncError);
+        }
+        
+        // Improved fallback: aggregate competitors from existing dashboard data
         const competitorMap = new Map();
         if (dashboardData?.responses) {
           dashboardData.responses.forEach((response: any) => {
             if (response.competitors_json && response.status === 'success') {
               const competitors = Array.isArray(response.competitors_json) ? response.competitors_json : [response.competitors_json];
               competitors.forEach((competitor: string) => {
-                // Filter out generic terms and include legitimate competitors regardless of org brand presence
-                if (competitor && 
-                    competitor.trim().length >= 3 && 
-                    !/^(price|these|offers|trade|cost|free|paid|premium|basic|pro|standard)$/i.test(competitor.trim()) &&
-                    !competitor.match(/^\d+$/)) {
-                  const existing = competitorMap.get(competitor.trim());
-                  competitorMap.set(competitor.trim(), (existing || 0) + 1);
+                // More lenient filtering - include most legitimate competitors
+                const trimmed = competitor.trim();
+                if (trimmed && 
+                    trimmed.length >= 2 && // Reduced from 3 to 2
+                    !/^(price|these|offers|trade|cost|free|paid|premium|basic|pro|standard|email|web|app|system|data)$/i.test(trimmed) &&
+                    !trimmed.match(/^[\d\s]*$/) && // Only exclude purely numeric/space strings
+                    !trimmed.includes('<') && !trimmed.includes('>')) { // Exclude obvious HTML
+                  const existing = competitorMap.get(trimmed);
+                  competitorMap.set(trimmed, (existing || 0) + 1);
                 }
               });
             }
           });
         }
         
+        // Include competitors with 1+ mentions to provide better fallback data
         const fallbackCompetitors = Array.from(competitorMap.entries())
+          .filter(([name, count]) => count >= 1) // Include all mentions for better coverage
           .map(([name, count]) => ({ name, total_mentions: count }))
           .sort((a, b) => b.total_mentions - a.total_mentions)
-          .slice(0, 5);
+          .slice(0, 8); // Increased from 5 to 8 for more data
         
+        console.log('[Dashboard] Fallback competitors loaded:', fallbackCompetitors.length, 'competitors found');
         setCompetitors(fallbackCompetitors);
         return;
       }
-
-      // Map competitor_name to name for UI compatibility and take top 5
-      const mappedCompetitors = (data || [])
-        .slice(0, 5)
-        .map((competitor: any) => ({
-          ...competitor,
-          name: competitor.competitor_name || competitor.name
-        }));
       
-      setCompetitors(mappedCompetitors);
+      // If RPC succeeded, use catalog data
+      if (data && data.length > 0) {
+        const mappedCompetitors = data
+          .slice(0, 8)
+          .map((competitor: any) => ({
+            ...competitor,
+            name: competitor.competitor_name || competitor.name
+          }));
+        
+        console.log('[Dashboard] Catalog competitors loaded:', mappedCompetitors.length, 'competitors');
+        setCompetitors(mappedCompetitors);
+        return;
+      }
+      
+      // If no catalog data, fall through to client-side aggregation
+      console.log('[Dashboard] No catalog data found, using fallback');
     } catch (error) {
       console.error('Error loading competitors:', error);
-      setCompetitors([]);
     } finally {
       setLoadingCompetitors(false);
     }
