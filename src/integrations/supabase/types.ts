@@ -1283,6 +1283,15 @@ export type Database = {
           status: string
         }[]
       }
+      get_competitor_share_7d: {
+        Args: { p_org_id?: string }
+        Returns: {
+          competitor_name: string
+          prompt_id: string
+          share: number
+          total_mentions: number
+        }[]
+      }
       get_cron_jobs_status: {
         Args: Record<PropertyKey, never>
         Returns: {
