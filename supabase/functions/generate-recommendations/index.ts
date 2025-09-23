@@ -55,25 +55,19 @@ async function generateRecommendations(orgId: string, supabase: any) {
   try {
     // Get recent visibility results (last 30 days)
     const { data: results } = await supabase
-      .from('visibility_results')
+      .from('prompt_provider_responses')
       .select(`
         *,
-        prompt_runs!inner (
+        prompts!inner (
           id,
-          prompt_id,
-          run_at,
-          prompts!inner (
-            text,
-            org_id
-          ),
-          llm_providers!inner (
-            name
-          )
+          text,
+          org_id
         )
       `)
-      .eq('prompt_runs.prompts.org_id', orgId)
-      .gte('prompt_runs.run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .order('prompt_runs.run_at', { ascending: false });
+      .eq('prompts.org_id', orgId)
+      .gte('run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .eq('status', 'success')
+      .order('run_at', { ascending: false });
 
     if (!results || results.length === 0) {
       return { success: true, recommendationsCreated: 0, message: 'No recent data to analyze' };
@@ -194,7 +188,7 @@ async function analyzeVisibilityResults(results: any[], org: any, supabase: any,
     const score = result.score || 0;
     const orgPresent = result.org_brand_present;
     const prominence = result.org_brand_prominence;
-    const brands = result.brands_json || [];
+    const brands = (result.brands_json || []);
 
     // Count low visibility (score < 5)
     if (score < 5) {
@@ -214,7 +208,8 @@ async function analyzeVisibilityResults(results: any[], org: any, supabase: any,
     }
 
     // Collect competitor brands for canonicalization
-    allCompetitorBrands.push(...brands);
+    const competitors = result.competitors_json || [];
+    allCompetitorBrands.push(...competitors);
   }
 
   // Clean and canonicalize competitors

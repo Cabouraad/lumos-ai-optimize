@@ -1400,7 +1400,6 @@ export type Database = {
         Args: { requesting_org_id?: string }
         Returns: {
           avg_score_7d: number
-          org_id: string
           prompt_id: string
           runs_7d: number
           text: string

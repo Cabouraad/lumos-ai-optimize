@@ -71,22 +71,22 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     });
 
     const { data: competitorShare } = await supabase.rpc('get_competitor_share_7d', {
-      requesting_org_id: accountId
+      p_org_id: accountId
     });
 
     const { data: recentRuns } = await supabase
-      .from('prompt_runs')
+      .from('prompt_provider_responses')
       .select(`
         id,
         prompt_id,
-        citations,
-        competitors,
+        citations_json,
+        competitors_json,
         run_at,
         prompts!inner(org_id, text)
       `)
       .eq('prompts.org_id', accountId)
       .gte('run_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      .in('status', ['success', 'completed'])
+      .eq('status', 'success')
       .order('run_at', { ascending: false });
 
     // Get existing recommendations across ALL statuses for novelty detection
@@ -120,8 +120,8 @@ export async function buildRecommendations(supabase: any, accountId: string, for
       runsByPrompt.get(run.prompt_id)!.push({
         id: run.id,
         prompt_id: run.prompt_id,
-        citations: run.citations || [],
-        competitors: run.competitors || [],
+        citations: run.citations_json || [],
+        competitors: run.competitors_json || [],
         run_at: run.run_at,
         prompt_text: (run.prompts as any)?.text || ''
       });
@@ -130,15 +130,18 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     // Collect citation frequency
     const citationFreq = new Map<string, {count: number, runs: string[], prompts: Set<string>}>();
     recentRuns.forEach(run => {
-      const citations = run.citations || [];
+      const citations = run.citations_json || [];
       citations.forEach((citation: any) => {
-        if (!citationFreq.has(citation.value)) {
-          citationFreq.set(citation.value, {count: 0, runs: [], prompts: new Set()});
+        const url = typeof citation === 'string' ? citation : citation.link || citation.url || citation.value;
+        if (url && !citationFreq.has(url)) {
+          citationFreq.set(url, {count: 0, runs: [], prompts: new Set()});
         }
-        const freq = citationFreq.get(citation.value)!;
-        freq.count++;
-        freq.runs.push(run.id);
-        freq.prompts.add(run.prompt_id);
+        if (url) {
+          const freq = citationFreq.get(url)!;
+          freq.count++;
+          freq.runs.push(run.id);
+          freq.prompts.add(run.prompt_id);
+        }
       });
     });
 
@@ -333,22 +336,24 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
     const { data: recentVisibilityRuns } = await supabase
-      .from('visibility_results')
+      .from('prompt_provider_responses')
       .select(`
         score,
-        prompt_runs!inner(prompt_id, run_at, prompts!inner(text, org_id))
+        prompt_id,
+        run_at,
+        prompts!inner(text, org_id)
       `)
-      .eq('prompt_runs.prompts.org_id', accountId)
-      .gte('prompt_runs.run_at', sixDaysAgo.toISOString())
-      .in('prompt_runs.status', ['success', 'completed']);
+      .eq('prompts.org_id', accountId)
+      .gte('run_at', sixDaysAgo.toISOString())
+      .eq('status', 'success');
 
     if (recentVisibilityRuns) {
       const scoresByPrompt = new Map<string, {recent: number[], older: number[], text: string}>();
       
       recentVisibilityRuns.forEach((result: any) => {
-        const promptId = result.prompt_runs.prompt_id;
-        const runDate = new Date(result.prompt_runs.run_at);
-        const promptText = result.prompt_runs.prompts.text;
+        const promptId = result.prompt_id;
+        const runDate = new Date(result.run_at);
+        const promptText = result.prompts.text;
         
         if (!scoresByPrompt.has(promptId)) {
           scoresByPrompt.set(promptId, {recent: [], older: [], text: promptText});
