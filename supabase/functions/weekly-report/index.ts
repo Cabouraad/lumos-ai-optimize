@@ -1,13 +1,15 @@
 /**
- * Weekly Report Generation Edge Function
- * Handles on-demand report generation and retrieval for authenticated users
- * Also supports scheduled runs via CRON_SECRET
+ * Weekly Report Generation Edge Function  
+ * Generates comprehensive PDF and CSV reports for AI visibility analytics
+ * Supports both scheduled runs (all orgs) and user requests (single org)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
-import { collectWeeklyData } from '../_shared/report/collect.ts';
-import { renderReportPDF } from '../_shared/report/pdf.ts';
-import { getStrictCorsHeaders } from '../_shared/cors.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 interface WeekBoundaries {
   weekKey: string;
@@ -23,16 +25,10 @@ function getLastCompleteWeek(): WeekBoundaries {
   const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
   
   // Calculate the most recent complete week (Monday to Sunday)
-  // If today is Sunday (0), the most recent complete week ended yesterday
-  // If today is Monday (1), the most recent complete week ended yesterday  
-  // If today is Tuesday (2), the most recent complete week ended last Sunday, etc.
-  
   let daysToLastSunday: number;
   if (currentDay === 0) {
-    // Today is Sunday, so yesterday was the end of the most recent complete week
     daysToLastSunday = 1;
   } else {
-    // For Mon(1) through Sat(6), calculate days back to last Sunday
     daysToLastSunday = currentDay;
   }
   
@@ -82,58 +78,24 @@ async function generateSHA256(data: Uint8Array): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Parse ISO week string and return boundaries
- */
-function parseWeekKey(weekKey: string): WeekBoundaries | null {
-  const match = weekKey.match(/^(\d{4})-W(\d{2})$/);
-  if (!match) return null;
-  
-  const year = parseInt(match[1]);
-  const week = parseInt(match[2]);
-  
-  // Calculate first day of the year
-  const jan1 = new Date(year, 0, 1);
-  const daysToFirstMonday = (8 - jan1.getDay()) % 7;
-  
-  // Calculate the Monday of the specified week
-  const firstMonday = new Date(jan1);
-  firstMonday.setDate(jan1.getDate() + daysToFirstMonday + (week - 1) * 7);
-  
-  const monday = new Date(firstMonday);
-  monday.setHours(0, 0, 0, 0);
-  
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  
-  return {
-    weekKey,
-    periodStart: monday.toISOString().split('T')[0],
-    periodEnd: sunday.toISOString().split('T')[0],
-  };
-}
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[WEEKLY-REPORT] ${step}${detailsStr}`);
+};
 
 Deno.serve(async (req) => {
-  const requestOrigin = req.headers.get('origin');
-  const corsHeaders = getStrictCorsHeaders(requestOrigin);
-
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Initialize Supabase clients
+    logStep('Weekly report generation started');
+
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
-    // Service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Anon client for user authentication validation
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
 
     // Authentication handling: Support both CRON_SECRET and user JWT
     const authHeader = req.headers.get('Authorization');
@@ -147,12 +109,12 @@ Deno.serve(async (req) => {
       // Check for user JWT authentication
       if (authHeader?.startsWith('Bearer ')) {
         const jwt = authHeader.replace('Bearer ', '');
+        const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
         
-        // Use anon client to validate the JWT token
         const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(jwt);
         
         if (authError || !user) {
-          console.log('[WEEKLY-REPORT] Invalid user authentication:', authError?.message);
+          logStep('Invalid user authentication', { error: authError?.message });
           return new Response(
             JSON.stringify({ error: 'Authentication required' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -162,7 +124,7 @@ Deno.serve(async (req) => {
         authenticatedUser = user;
         isUserRequest = true;
       } else {
-        console.log('[WEEKLY-REPORT] No valid authentication provided');
+        logStep('No valid authentication provided');
         return new Response(
           JSON.stringify({ error: 'Authentication required' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -174,14 +136,14 @@ Deno.serve(async (req) => {
     let targetOrgIds: string[] = [];
     
     if (isScheduledRun) {
-      // Scheduled run: process all organizations
-      console.log('[WEEKLY-REPORT] Processing scheduled run for all organizations');
+      // Scheduled run: process all organizations with recent activity
+      logStep('Processing scheduled run for all organizations');
       
       // Log scheduler run start
       const { data: runData, error: logError } = await supabase
         .from('scheduler_runs')
         .insert({
-          run_key: 'weekly-pdf-' + new Date().toISOString().split('T')[0],
+          run_key: 'weekly-pdf-csv-' + new Date().toISOString().split('T')[0],
           function_name: 'weekly-report',
           status: 'running'
         })
@@ -189,29 +151,31 @@ Deno.serve(async (req) => {
         .single();
 
       if (logError) {
-        console.error('[WEEKLY-REPORT] Failed to log scheduler run start:', logError);
+        logStep('Failed to log scheduler run start', { error: logError.message });
       } else {
         schedulerRun = runData;
       }
       
-      const { data: orgs, error: orgsError } = await supabase
-        .from('organizations')
-        .select('id')
-        .order('created_at');
+      // Get organizations that have recent activity (last 14 days)
+      const { data: activeOrgs, error: orgsError } = await supabase
+        .from('prompt_provider_responses')
+        .select('org_id')
+        .gte('run_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
+        .eq('status', 'success');
 
       if (orgsError) {
-        console.error('[WEEKLY-REPORT] Error fetching organizations:', orgsError);
+        logStep('Error fetching active organizations', { error: orgsError.message });
         return new Response(
           JSON.stringify({ error: 'Failed to fetch organizations' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      targetOrgIds = orgs?.map(org => org.id) || [];
-      console.log(`[WEEKLY-REPORT] Found ${targetOrgIds.length} organizations to process`);
+      targetOrgIds = [...new Set(activeOrgs?.map(org => org.org_id) || [])];
+      logStep('Found active organizations', { count: targetOrgIds.length });
     } else if (isUserRequest && authenticatedUser) {
       // User request: process only user's organization
-      console.log(`[WEEKLY-REPORT] Processing user request for user ${authenticatedUser.id}`);
+      logStep('Processing user request', { userId: authenticatedUser.id });
       
       // Get user's organization
       const { data: userData, error: userError } = await supabase
@@ -221,7 +185,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (userError || !userData?.org_id) {
-        console.error('[WEEKLY-REPORT] Error fetching user organization:', userError);
+        logStep('Error fetching user organization', { error: userError?.message });
         return new Response(
           JSON.stringify({ error: 'User organization not found' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -229,7 +193,7 @@ Deno.serve(async (req) => {
       }
 
       targetOrgIds = [userData.org_id];
-      console.log(`[WEEKLY-REPORT] Processing organization ${userData.org_id} for user request`);
+      logStep('Processing user organization', { orgId: userData.org_id });
     }
 
     if (req.method === 'POST') {
@@ -240,103 +204,140 @@ Deno.serve(async (req) => {
       // Calculate last complete week boundaries
       const { weekKey, periodStart, periodEnd } = getLastCompleteWeek();
 
-      console.log(`[WEEKLY-REPORT] Generating reports for week ${weekKey} (${periodStart} to ${periodEnd})`);
-      console.log(`[WEEKLY-REPORT] Processing ${targetOrgIds.length} organization(s)`);
+      logStep('Generating reports for week', { weekKey, periodStart, periodEnd, targetOrgs: targetOrgIds.length });
 
       // Process each organization
       for (const orgId of targetOrgIds) {
         try {
-          console.log(`[WEEKLY-REPORT] Processing org ${orgId}`);
+          logStep('Processing organization', { orgId });
 
-          // Check if report already exists
-          const { data: existingReport, error: checkError } = await supabase
+          // Check if reports already exist
+          const { data: existingPdf } = await supabase
             .from('reports')
             .select('storage_path, week_key')
             .eq('org_id', orgId)
             .eq('week_key', weekKey)
             .maybeSingle();
 
-          if (checkError) {
-            console.error(`[WEEKLY-REPORT] Database check error for org ${orgId}:`, checkError);
-            errors.push({ orgId, error: 'Database check failed', details: checkError.message });
-            continue;
-          }
+          const { data: existingCsv } = await supabase
+            .from('weekly_reports')
+            .select('file_path, status')
+            .eq('org_id', orgId)
+            .eq('week_start_date', periodStart)
+            .maybeSingle();
 
-          if (existingReport) {
-            console.log(`[WEEKLY-REPORT] Report already exists for org ${orgId}, week ${weekKey}`);
+          if (existingPdf && existingCsv) {
+            logStep('Both reports already exist', { orgId, weekKey });
             results.push({
               orgId,
               week_key: weekKey,
-              storage_path: existingReport.storage_path,
+              pdf_path: existingPdf.storage_path,
+              csv_path: existingCsv.file_path,
               status: 'exists',
             });
             continue;
           }
 
           // Collect weekly data
-          console.log(`[WEEKLY-REPORT] Collecting weekly data for org ${orgId}...`);
-          const reportData = await collectWeeklyData(supabase, orgId, periodStart + 'T00:00:00Z', periodEnd + 'T23:59:59Z');
+          logStep('Collecting weekly data', { orgId });
+          const reportData = await generateReportData(supabase, orgId, periodStart, periodEnd);
 
-          // Generate PDF
-          console.log(`[WEEKLY-REPORT] Rendering PDF for org ${orgId}...`);
-          const pdfBytes = await renderReportPDF(reportData);
+          // Generate both PDF and CSV reports
+          logStep('Generating PDF report', { orgId });
+          const pdfBytes = await generatePDFReport(reportData, weekKey);
+          
+          logStep('Generating CSV report', { orgId });
+          const csvContent = generateCSVContent(reportData);
 
-          // Calculate storage path and metadata
-          const storagePath = `reports/${orgId}/${weekKey}.pdf`;
-          const fileSize = pdfBytes.length;
-          const sha256Hash = await generateSHA256(pdfBytes);
-
-          // Upload to storage
-          console.log(`[WEEKLY-REPORT] Uploading to storage: ${storagePath}`);
-          const { error: uploadError } = await supabase.storage
+          // Upload PDF to reports storage
+          const pdfPath = `${orgId}/${weekKey}.pdf`;
+          const { error: pdfUploadError } = await supabase.storage
             .from('reports')
-            .upload(storagePath.replace('reports/', ''), pdfBytes, {
+            .upload(pdfPath, pdfBytes, {
               contentType: 'application/pdf',
               upsert: true,
             });
 
-          if (uploadError) {
-            console.error(`[WEEKLY-REPORT] Storage upload error for org ${orgId}:`, uploadError);
-            errors.push({ orgId, error: 'Storage upload failed', details: uploadError.message });
+          if (pdfUploadError) {
+            logStep('PDF upload error', { orgId, error: pdfUploadError.message });
+            errors.push({ orgId, error: 'PDF upload failed', details: pdfUploadError.message });
             continue;
           }
 
-          // Insert record into reports table
-          const { error: insertError } = await supabase
+          // Upload CSV to weekly-reports storage  
+          const csvPath = `${orgId}/${periodStart}_${periodEnd}_weekly_report.csv`;
+          const { error: csvUploadError } = await supabase.storage
+            .from('weekly-reports')
+            .upload(csvPath, csvContent, {
+              contentType: 'text/csv',
+              upsert: true,
+            });
+
+          if (csvUploadError) {
+            logStep('CSV upload error', { orgId, error: csvUploadError.message });
+            errors.push({ orgId, error: 'CSV upload failed', details: csvUploadError.message });
+            continue;
+          }
+
+          // Insert PDF record into reports table
+          const pdfSize = pdfBytes.length;
+          const sha256Hash = await generateSHA256(pdfBytes);
+          
+          const { error: pdfInsertError } = await supabase
             .from('reports')
             .insert({
               org_id: orgId,
               week_key: weekKey,
               period_start: periodStart,
               period_end: periodEnd,
-              storage_path: storagePath,
-              byte_size: fileSize,
+              storage_path: `reports/${pdfPath}`,
+              byte_size: pdfSize,
               sha256: sha256Hash,
             });
 
-          if (insertError) {
-            console.error(`[WEEKLY-REPORT] Database insert error for org ${orgId}:`, insertError);
-            // Try to clean up uploaded file
-            await supabase.storage.from('reports').remove([storagePath.replace('reports/', '')]);
-            errors.push({ orgId, error: 'Database insert failed', details: insertError.message });
+          // Insert CSV record into weekly_reports table
+          const csvSize = new TextEncoder().encode(csvContent).length;
+          
+          const { error: csvInsertError } = await supabase
+            .from('weekly_reports')
+            .insert({
+              org_id: orgId,
+              week_start_date: periodStart,
+              week_end_date: periodEnd,
+              status: 'completed',
+              file_path: csvPath,
+              file_size_bytes: csvSize,
+              generated_at: new Date().toISOString(),
+              metadata: {
+                prompts_analyzed: reportData.prompts.length,
+                total_responses: reportData.totalResponses,
+                generated_by: isScheduledRun ? 'scheduler' : 'user'
+              }
+            });
+
+          if (pdfInsertError && csvInsertError) {
+            logStep('Database insert errors', { orgId, pdfError: pdfInsertError.message, csvError: csvInsertError.message });
+            errors.push({ orgId, error: 'Database insert failed', details: 'Both PDF and CSV inserts failed' });
             continue;
           }
 
-          console.log(`[WEEKLY-REPORT] Report generation completed for org ${orgId}, week ${weekKey}`);
+          logStep('Report generation completed', { orgId, weekKey });
           
           results.push({
             orgId,
             week_key: weekKey,
-            storage_path: storagePath,
+            pdf_path: `reports/${pdfPath}`,
+            csv_path: csvPath,
             period_start: periodStart,
             period_end: periodEnd,
-            file_size: fileSize,
+            pdf_size: pdfSize,
+            csv_size: csvSize,
             sha256: sha256Hash,
             status: 'created',
           });
 
         } catch (orgError) {
-          console.error(`[WEEKLY-REPORT] Unexpected error for org ${orgId}:`, orgError);
+          logStep('Unexpected error for org', { orgId, error: orgError.message });
           errors.push({ orgId, error: 'Unexpected error', details: orgError.message });
         }
       }
@@ -345,7 +346,7 @@ Deno.serve(async (req) => {
       const successCount = results.length;
       const errorCount = errors.length;
       
-      console.log(`[WEEKLY-REPORT] Scheduled run completed: ${successCount} successful, ${errorCount} errors`);
+      logStep('Report generation completed', { successCount, errorCount });
       
       // Update scheduler run log with completion
       if (schedulerRun) {
@@ -366,7 +367,7 @@ Deno.serve(async (req) => {
       
       return new Response(
         JSON.stringify({
-          ok: true,
+          success: true,
           scheduled_run: isScheduledRun,
           user_request: isUserRequest,
           week_key: weekKey,
@@ -382,28 +383,208 @@ Deno.serve(async (req) => {
 
     // Method not allowed for non-POST requests
     return new Response(
-      JSON.stringify({ error: 'Only scheduled POST requests allowed' }),
+      JSON.stringify({ error: 'Only POST requests allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('[WEEKLY-REPORT] Unexpected error:', error);
-    
-    // Update scheduler run log with error
-    if (schedulerRun) {
-      await supabase
-        .from('scheduler_runs')
-        .update({
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          error_message: error.message
-        })
-        .eq('id', schedulerRun.id);
-    }
+    logStep('Unexpected error', { error: error.message });
     
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+// Enhanced data collection function
+async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string) {
+  logStep('Collecting report data', { orgId, weekStart, weekEnd });
+
+  // Get all successful responses for the week
+  const { data: responses, error: responsesError } = await supabase
+    .from('prompt_provider_responses')
+    .select(`
+      id,
+      prompt_id,
+      provider,
+      score,
+      org_brand_present,
+      org_brand_prominence,
+      competitors_count,
+      competitors_json,
+      brands_json,
+      run_at,
+      status,
+      prompts!inner(text, id)
+    `)
+    .eq('org_id', orgId)
+    .gte('run_at', weekStart + 'T00:00:00Z')
+    .lte('run_at', weekEnd + 'T23:59:59Z')
+    .eq('status', 'success')
+    .order('run_at', { ascending: false });
+
+  if (responsesError) {
+    throw new Error(`Failed to fetch responses: ${responsesError.message}`);
+  }
+
+  // Process data by prompt
+  const promptMap = new Map();
+  let totalResponses = 0;
+  let totalBrandPresent = 0;
+  const allCompetitors = new Set();
+
+  for (const response of responses || []) {
+    totalResponses++;
+    if (response.org_brand_present) totalBrandPresent++;
+    
+    // Collect unique competitors
+    if (response.competitors_json) {
+      const competitors = Array.isArray(response.competitors_json) 
+        ? response.competitors_json 
+        : JSON.parse(response.competitors_json || '[]');
+      competitors.forEach((comp: string) => allCompetitors.add(comp));
+    }
+
+    const promptId = response.prompt_id;
+    
+    if (!promptMap.has(promptId)) {
+      promptMap.set(promptId, {
+        id: promptId,
+        text: response.prompts.text.substring(0, 100) + (response.prompts.text.length > 100 ? '...' : ''),
+        responses: [],
+        totalRuns: 0,
+        brandPresentCount: 0,
+        totalScore: 0,
+        totalCompetitors: 0,
+        providers: new Set()
+      });
+    }
+
+    const promptData = promptMap.get(promptId);
+    promptData.responses.push(response);
+    promptData.totalRuns++;
+    promptData.totalScore += parseFloat(response.score || 0);
+    promptData.totalCompetitors += parseInt(response.competitors_count || 0);
+    promptData.providers.add(response.provider);
+    
+    if (response.org_brand_present) {
+      promptData.brandPresentCount++;
+    }
+  }
+
+  // Process prompts with enhanced metrics
+  const prompts = Array.from(promptMap.values()).map(prompt => ({
+    ...prompt,
+    avgScore: prompt.totalRuns > 0 ? (prompt.totalScore / prompt.totalRuns) : 0,
+    avgCompetitors: prompt.totalRuns > 0 ? (prompt.totalCompetitors / prompt.totalRuns) : 0,
+    brandPresentRate: prompt.totalRuns > 0 ? (prompt.brandPresentCount / prompt.totalRuns) * 100 : 0,
+    providersCount: prompt.providers.size,
+    providersList: Array.from(prompt.providers)
+  }));
+
+  // Calculate summary metrics
+  const summary = {
+    totalPrompts: prompts.length,
+    totalResponses,
+    overallBrandPresenceRate: totalResponses > 0 ? (totalBrandPresent / totalResponses) * 100 : 0,
+    avgScoreAcrossAll: prompts.length > 0 ? prompts.reduce((sum, p) => sum + p.avgScore, 0) / prompts.length : 0,
+    topCompetitors: Array.from(allCompetitors).slice(0, 5),
+    weekStart,
+    weekEnd
+  };
+
+  logStep('Data collection completed', { 
+    totalPrompts: prompts.length, 
+    totalResponses, 
+    brandPresenceRate: summary.overallBrandPresenceRate.toFixed(1) + '%'
+  });
+
+  return { prompts, totalResponses, summary };
+}
+
+// Simple PDF generation (placeholder - can be enhanced)
+async function generatePDFReport(reportData: any, weekKey: string): Promise<Uint8Array> {
+  // For now, generate a simple text-based "PDF" (should be replaced with proper PDF generation)
+  const content = `
+AI VISIBILITY WEEKLY REPORT
+Week: ${weekKey}
+Generated: ${new Date().toISOString()}
+
+=== SUMMARY ===
+Total Prompts Analyzed: ${reportData.summary.totalPrompts}
+Total Responses: ${reportData.summary.totalResponses}
+Overall Brand Presence Rate: ${reportData.summary.overallBrandPresenceRate.toFixed(1)}%
+Average Visibility Score: ${reportData.summary.avgScoreAcrossAll.toFixed(2)}
+
+=== TOP PERFORMING PROMPTS ===
+${reportData.prompts
+  .sort((a, b) => b.avgScore - a.avgScore)
+  .slice(0, 5)
+  .map((p, i) => `${i+1}. Score: ${p.avgScore.toFixed(2)} | Brand Present: ${p.brandPresentRate.toFixed(1)}% | "${p.text}"`)
+  .join('\n')}
+
+=== IMPROVEMENT OPPORTUNITIES ===
+${reportData.prompts
+  .filter(p => p.brandPresentRate < 50)
+  .slice(0, 3)
+  .map(p => `- "${p.text}" (${p.brandPresentRate.toFixed(1)}% brand presence)`)
+  .join('\n')}
+
+Report generated automatically by AI Visibility Analytics Platform.
+  `;
+  
+  return new TextEncoder().encode(content);
+}
+
+// Enhanced CSV generation
+function generateCSVContent(reportData: any) {
+  const headers = [
+    'Prompt ID',
+    'Prompt Text',
+    'Total Runs',
+    'Average Score',
+    'Brand Present Rate (%)',
+    'Average Competitors',
+    'Brand Present Count',
+    'Providers Used',
+    'Best Score',
+    'Worst Score'
+  ];
+
+  const rows = reportData.prompts.map((prompt: any) => {
+    const scores = prompt.responses.map((r: any) => parseFloat(r.score || 0));
+    const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const worstScore = scores.length > 0 ? Math.min(...scores) : 0;
+    
+    return [
+      prompt.id,
+      `"${prompt.text.replace(/"/g, '""')}"`,
+      prompt.totalRuns,
+      prompt.avgScore.toFixed(2),
+      prompt.brandPresentRate.toFixed(1),
+      prompt.avgCompetitors.toFixed(1),
+      prompt.brandPresentCount,
+      `"${prompt.providersList.join(', ')}"`,
+      bestScore.toFixed(2),
+      worstScore.toFixed(2)
+    ];
+  });
+
+  // Add summary row
+  rows.push([
+    'SUMMARY',
+    `"Week Summary (${reportData.summary.totalPrompts} prompts analyzed)"`,
+    reportData.summary.totalResponses,
+    reportData.summary.avgScoreAcrossAll.toFixed(2),
+    reportData.summary.overallBrandPresenceRate.toFixed(1),
+    '',
+    '', 
+    `"Period: ${reportData.summary.weekStart} to ${reportData.summary.weekEnd}"`,
+    '',
+    ''
+  ]);
+
+  const csvLines = [headers.join(','), ...rows.map(row => row.map(cell => cell?.toString() || '').join(','))];
+  return csvLines.join('\n');
+}

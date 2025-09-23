@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +8,7 @@ const corsHeaders = {
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[WEEKLY-REPORT] ${step}${detailsStr}`);
+  console.log(`[GENERATE-WEEKLY-REPORT] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -17,40 +16,44 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
   try {
-    logStep('Weekly report generation started');
+    logStep('Generate weekly report request received');
 
-    // Check for CRON secret - only allow automated generation
-    const cronSecret = Deno.env.get('CRON_SECRET');
-    const cronHeaderSecret = req.headers.get('x-cron-secret');
-    
-    if (!cronSecret || cronHeaderSecret !== cronSecret) {
-      logStep('Unauthorized request - CRON secret required');
+    // Check for authentication - require user JWT for manual generation
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      logStep('No authentication provided');
       return new Response(JSON.stringify({
         success: false,
-        error: 'Unauthorized. Reports are generated automatically.'
+        error: 'Authentication required'
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // This function is only used by the scheduler - no need for week calculation or org lookup
-    logStep('CRON-only function called');
+    // Redirect to main weekly-report function
+    logStep('Redirecting to main weekly-report function');
     
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Weekly reports are generated automatically by the scheduler.'
-    }), {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/weekly-report`, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_request: true })
+    });
+
+    const data = await response.json();
+    
+    return new Response(JSON.stringify(data), {
+      status: response.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    logStep('Error generating report', { error: error.message });
+    logStep('Error in generate weekly report', { error: error.message });
     
     return new Response(JSON.stringify({
       success: false,
