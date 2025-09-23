@@ -3,6 +3,79 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
+// Smart filtering logic (inline for edge function)
+const GENERIC_TERMS = new Set([
+  // Common words that appear capitalized but aren't brands
+  'the', 'and', 'or', 'but', 'for', 'with', 'by', 'from', 'to', 'in', 'on', 'at',
+  'some', 'many', 'most', 'all', 'every', 'each', 'few', 'several', 'various',
+  'when', 'where', 'what', 'how', 'why', 'who', 'which', 'here', 'there', 'this', 'that',
+  'business', 'company', 'corporation', 'enterprise', 'organization', 'firm', 'agency',
+  'service', 'solution', 'product', 'platform', 'system', 'tool', 'software',
+  'application', 'app', 'website', 'site', 'portal', 'dashboard', 'search', 'email',
+  'mobile', 'web', 'online', 'digital', 'smart', 'pro', 'plus', 'premium', 'standard',
+  'basic', 'free', 'paid', 'custom', 'advanced', 'data', 'database', 'server', 'cloud',
+  
+  // Problematic terms from responses
+  'platforms', 'specific', 'consider', 'businesses', 'needs', 'options', 'features',
+  'capabilities', 'functionality', 'integration', 'integrations', 'automation',
+  'analytics', 'insights', 'reporting', 'management', 'marketing', 'sales', 'crm',
+  'content', 'social', 'media', 'campaigns', 'leads', 'customers', 'users',
+  
+  // Action words often capitalized incorrectly
+  'create', 'build', 'make', 'develop', 'design', 'manage', 'handle', 'process',
+  'analyze', 'review', 'update', 'improve', 'optimize', 'enhance', 'track', 'monitor'
+]);
+
+function isValidCompetitor(name: string): boolean {
+  if (!name || typeof name !== 'string') return false;
+  
+  const normalized = name.toLowerCase().trim();
+  
+  // Length check
+  if (normalized.length < 3 || normalized.length > 50) return false;
+  
+  // Generic terms check
+  if (GENERIC_TERMS.has(normalized)) return false;
+  
+  // Numbers only check
+  if (/^\d+$/.test(normalized)) return false;
+  
+  // Special characters check (some punctuation is OK for domains)
+  if (/[<>{}[\]()"`''""''„"‚'']/.test(name)) return false;
+  
+  // Must contain at least one letter
+  if (!/[a-zA-Z]/.test(name)) return false;
+  
+  // Common business software patterns (positive indicators)
+  const businessSoftwarePatterns = [
+    /\.(com|io|org|net|co|ai)$/i,  // Domain patterns
+    /^[A-Z][a-z]+([A-Z][a-z]+)*$/,  // CamelCase (like HubSpot, SaleForce)
+    /Hub$|Force$|Spot$|Works?$|Pro$|Analytics$|CRM$/i  // Common business software suffixes
+  ];
+  
+  const hasBusinessPattern = businessSoftwarePatterns.some(pattern => pattern.test(name));
+  if (hasBusinessPattern) return true;
+  
+  // Well-known business software brands (case-insensitive check)
+  const knownBusinessBrands = new Set([
+    'salesforce', 'hubspot', 'mailchimp', 'zapier', 'slack', 'zoom', 'dropbox',
+    'notion', 'asana', 'trello', 'monday', 'clickup', 'airtable', 'basecamp',
+    'shopify', 'woocommerce', 'magento', 'bigcommerce', 'squarespace', 'wix',
+    'stripe', 'paypal', 'square', 'quickbooks', 'xero', 'freshbooks',
+    'adobe', 'figma', 'canva', 'sketch', 'invision', 'github', 'gitlab',
+    'atlassian', 'jira', 'confluence', 'bitbucket', 'microsoft', 'google',
+    'oracle', 'ibm', 'aws', 'azure', 'digitalocean', 'heroku', 'netlify',
+    'marketo', 'pardot', 'klaviyo', 'constant contact', 'activecampaign',
+    'pipedrive', 'zoho', 'dynamics', 'netsuite', 'workday', 'servicenow'
+  ]);
+  
+  if (knownBusinessBrands.has(normalized)) return true;
+  
+  // If it's not obviously business software, require strong indicators
+  // This helps filter out generic terms that made it through
+  return false;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -21,21 +94,21 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    console.log('Starting competitor detection sync...');
+    console.log('Starting organization-specific competitor detection sync...');
 
-    // Get all recent responses with competitors that haven't been synced
+    // Get recent responses grouped by organization
     const { data: responses, error: responsesError } = await supabase
       .from('prompt_provider_responses')
       .select(`
-        id,
         org_id,
         competitors_json,
         score,
         run_at
       `)
       .not('competitors_json', 'is', null)
-      .gte('run_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
-      .eq('status', 'success');
+      .gte('run_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()) // Last 14 days
+      .eq('status', 'success')
+      .order('run_at', { ascending: false });
 
     if (responsesError) {
       console.error('Error fetching responses:', responsesError);
@@ -44,77 +117,167 @@ serve(async (req) => {
 
     console.log(`Found ${responses?.length || 0} responses to process`);
 
-    let totalCompetitorsProcessed = 0;
-    let competitorsAdded = 0;
-    let competitorsUpdated = 0;
+    // Group by organization and analyze competitor patterns
+    const orgCompetitorData = new Map<string, Map<string, { 
+      mentions: number; 
+      scores: number[]; 
+      firstSeen: string; 
+      lastSeen: string; 
+    }>>();
 
-    // Process each response
+    // Process responses to build competitor frequency maps per org
     for (const response of responses || []) {
       if (!response.competitors_json || !Array.isArray(response.competitors_json)) {
         continue;
       }
 
+      const orgId = response.org_id;
+      if (!orgCompetitorData.has(orgId)) {
+        orgCompetitorData.set(orgId, new Map());
+      }
+
+      const orgMap = orgCompetitorData.get(orgId)!;
+
       for (const competitor of response.competitors_json) {
-        if (typeof competitor !== 'string' || competitor.trim().length < 2) {
+        if (typeof competitor !== 'string') continue;
+        
+        const competitorName = competitor.trim();
+        
+        // Apply smart filtering
+        if (!isValidCompetitor(competitorName)) {
           continue;
         }
 
-        const competitorName = competitor.trim();
-        totalCompetitorsProcessed++;
+        if (!orgMap.has(competitorName)) {
+          orgMap.set(competitorName, {
+            mentions: 0,
+            scores: [],
+            firstSeen: response.run_at,
+            lastSeen: response.run_at
+          });
+        }
 
-        try {
-          // Check if competitor already exists in brand catalog
-          const { data: existingBrand, error: checkError } = await supabase
+        const data = orgMap.get(competitorName)!;
+        data.mentions++;
+        data.scores.push(response.score || 0);
+        data.lastSeen = response.run_at;
+        
+        // Keep first seen as the earliest
+        if (response.run_at < data.firstSeen) {
+          data.firstSeen = response.run_at;
+        }
+      }
+    }
+
+    let totalOrgsProcessed = 0;
+    let totalCompetitorsAdded = 0;
+    let totalCompetitorsUpdated = 0;
+    let totalCompetitorsRemoved = 0;
+
+    // Process each organization
+    for (const [orgId, competitorMap] of orgCompetitorData) {
+      console.log(`Processing org ${orgId} with ${competitorMap.size} unique competitors`);
+      
+      totalOrgsProcessed++;
+
+      // Get existing competitors for this org
+      const { data: existingCompetitors, error: existingError } = await supabase
+        .from('brand_catalog')
+        .select('id, name, total_appearances, last_seen_at')
+        .eq('org_id', orgId)
+        .eq('is_org_brand', false);
+
+      if (existingError) {
+        console.error(`Error fetching existing competitors for org ${orgId}:`, existingError);
+        continue;
+      }
+
+      const existingMap = new Map(existingCompetitors?.map(c => [c.name.toLowerCase(), c]) || []);
+
+      // Process competitors with frequency threshold
+      for (const [competitorName, data] of competitorMap) {
+        const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+        
+        // Frequency threshold: must be mentioned at least 3 times OR have high confidence
+        const meetsFrequencyThreshold = data.mentions >= 3 || avgScore >= 7.0;
+        
+        if (!meetsFrequencyThreshold) {
+          console.log(`Skipping ${competitorName}: only ${data.mentions} mentions (threshold: 3)`);
+          continue;
+        }
+
+        const existingKey = competitorName.toLowerCase();
+        const existing = existingMap.get(existingKey);
+
+        if (existing) {
+          // Update existing competitor
+          const newAppearances = Math.max(existing.total_appearances || 0, data.mentions);
+          
+          const { error: updateError } = await supabase
             .from('brand_catalog')
-            .select('id, total_appearances, average_score')
-            .eq('org_id', response.org_id)
-            .ilike('name', competitorName)
-            .eq('is_org_brand', false)
-            .single();
+            .update({
+              last_seen_at: data.lastSeen,
+              total_appearances: newAppearances,
+              average_score: avgScore
+            })
+            .eq('id', existing.id);
 
-          if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
-            console.error('Error checking existing brand:', checkError);
-            continue;
+          if (!updateError) {
+            totalCompetitorsUpdated++;
+            console.log(`Updated competitor: ${competitorName} (${data.mentions} mentions, avg score: ${avgScore.toFixed(1)})`);
           }
+        } else {
+          // Add new legitimate competitor
+          const { error: insertError } = await supabase
+            .from('brand_catalog')
+            .insert({
+              org_id: orgId,
+              name: competitorName,
+              is_org_brand: false,
+              variants_json: [],
+              first_detected_at: data.firstSeen,
+              last_seen_at: data.lastSeen,
+              total_appearances: data.mentions,
+              average_score: avgScore
+            });
 
-          if (existingBrand) {
-            // Update existing competitor
-            const newAppearances = (existingBrand.total_appearances || 0) + 1;
-            const currentAvgScore = existingBrand.average_score || 0;
-            const newAvgScore = ((currentAvgScore * (existingBrand.total_appearances || 0)) + (response.score || 0)) / newAppearances;
-
-            const { error: updateError } = await supabase
-              .from('brand_catalog')
-              .update({
-                last_seen_at: response.run_at,
-                total_appearances: newAppearances,
-                average_score: newAvgScore
-              })
-              .eq('id', existingBrand.id);
-
-            if (updateError) {
-              console.error('Error updating brand:', updateError);
-            } else {
-              competitorsUpdated++;
-              console.log(`Updated competitor: ${competitorName} (appearances: ${newAppearances})`);
-            }
+          if (!insertError) {
+            totalCompetitorsAdded++;
+            console.log(`Added new competitor: ${competitorName} (${data.mentions} mentions, avg score: ${avgScore.toFixed(1)})`);
           } else {
-            // DO NOT ADD NEW COMPETITORS AUTOMATICALLY
-            // This prevents generic terms from being added to brand_catalog
-            console.log(`Skipping unknown competitor: ${competitorName} (not in brand catalog)`);
+            console.error(`Error adding competitor ${competitorName}:`, insertError);
           }
-        } catch (error) {
-          console.error(`Error processing competitor ${competitorName}:`, error);
+        }
+
+        // Remove from existing map to track what wasn't updated
+        existingMap.delete(existingKey);
+      }
+
+      // Clean up stale competitors (not seen in last 14 days)
+      const cutoffDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      
+      for (const [_, existing] of existingMap) {
+        if (existing.last_seen_at && existing.last_seen_at < cutoffDate) {
+          const { error: deleteError } = await supabase
+            .from('brand_catalog')
+            .delete()
+            .eq('id', existing.id);
+
+          if (!deleteError) {
+            totalCompetitorsRemoved++;
+            console.log(`Removed stale competitor: ${existing.name} (last seen: ${existing.last_seen_at})`);
+          }
         }
       }
     }
 
     const result = {
-      message: 'Competitor detection sync completed',
-      totalCompetitorsProcessed,
-      competitorsAdded,
-      competitorsUpdated,
-      responsesProcessed: responses?.length || 0,
+      message: 'Organization-specific competitor sync completed',
+      orgsProcessed: totalOrgsProcessed,
+      competitorsAdded: totalCompetitorsAdded,
+      competitorsUpdated: totalCompetitorsUpdated,
+      competitorsRemoved: totalCompetitorsRemoved,
+      responsesAnalyzed: responses?.length || 0,
       timestamp: new Date().toISOString()
     };
 
