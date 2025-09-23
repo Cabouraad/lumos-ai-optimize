@@ -36,12 +36,29 @@ serve(async (req) => {
       body = {};
     }
 
-    console.log('[advanced-recommendations] raw body', body);
-    const requestedOrgId = body.orgId || body.accountId || null;
-    const cleanupOnly = !!body.cleanupOnly;
-    const forceNew = !!body.forceNew;
-    const hardReset = !!body.hardReset;
+    const url = new URL(req.url);
+    const qp = url.searchParams;
 
+    // Allow flags via body, headers, or query params
+    const headerOrgId = req.headers.get('x-org-id');
+    const headerCleanup = req.headers.get('x-cleanup-only') ?? req.headers.get('x-cleanup');
+    const headerHardReset = req.headers.get('x-hard-reset');
+    const headerForceNew = req.headers.get('x-force-new');
+
+    console.log('[advanced-recommendations] raw body', body);
+
+    const requestedOrgId = body.orgId || body.accountId || headerOrgId || qp.get('orgId') || qp.get('accountId') || null;
+
+    const coRaw: any = (body.cleanupOnly ?? headerCleanup ?? qp.get('cleanupOnly') ?? qp.get('cleanup'));
+    const hrRaw: any = (body.hardReset ?? headerHardReset ?? qp.get('hardReset'));
+    const fnRaw: any = (body.forceNew ?? headerForceNew ?? qp.get('forceNew'));
+
+    const cleanupOnly = coRaw === true || coRaw === 'true' || coRaw === '1';
+    const forceNew = fnRaw === true || fnRaw === 'true' || fnRaw === '1';
+    const hardReset = hrRaw === true || hrRaw === 'true' || hrRaw === '1';
+
+    const queryParams = Object.fromEntries(qp.entries());
+    console.log('[advanced-recommendations] parsed flags', { requestedOrgId, cleanupOnly, forceNew, hardReset, queryParams });
     let orgId = requestedOrgId as string | null;
 
     // If orgId not provided, try to resolve from caller JWT via anon client

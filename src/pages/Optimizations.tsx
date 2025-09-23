@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { 
   Lightbulb, 
   RefreshCw
@@ -48,7 +49,7 @@ export default function Recommendations() {
   const [generating, setGenerating] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-
+  const [showResetDialog, setShowResetDialog] = useState(false);
   // Show upgrade prompt if no access
   if (!recommendationsAccess.hasAccess) {
     return (
@@ -259,6 +260,60 @@ export default function Recommendations() {
     }
   };
 
+  const handleHardReset = async () => {
+    const orgId = orgData?.organizations?.id ?? orgData?.org_id;
+    console.log('[ResetAll] Resolved orgId:', orgId);
+
+    if (!orgId) {
+      console.warn('[ResetAll] No orgId found');
+      toast({
+        title: "Error",
+        description: "Organization ID not found. Please refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCleaning(true);
+    setShowResetDialog(false);
+    console.log('[ResetAll] Starting hard reset for orgId:', orgId);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
+        headers: session?.access_token ? {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        } : { 'Content-Type': 'application/json' },
+        body: { orgId, cleanupOnly: true, hardReset: true }
+      });
+
+      console.log('[ResetAll] Response received:', { data, error });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: 'Reset complete',
+          description: 'Cleared all open and snoozed recommendations.',
+        });
+        await loadRecommendations();
+      } else {
+        throw new Error(data.error || 'Failed to reset recommendations');
+      }
+    } catch (error: any) {
+      console.error('[ResetAll] Error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to reset recommendations',
+        variant: 'destructive',
+      });
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const handleUpdateStatus = async (id: string, status: 'done' | 'dismissed', cooldownDays?: number) => {
     try {
       let updateData: any = { status };
@@ -351,10 +406,36 @@ export default function Recommendations() {
               disabled={generating || cleaning}
               variant="outline"
               size="sm"
-              aria-label="Cleanup old recommendations"
+              aria-label="Trim old recommendations to latest 20"
             >
-              {cleaning ? 'Cleaning...' : 'Cleanup'}
+              {cleaning ? 'Cleaning...' : 'Trim to latest 20'}
             </Button>
+
+            <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={generating || cleaning}
+                  aria-label="Reset all open and snoozed recommendations"
+                >
+                  Reset All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset all recommendations?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove all open and snoozed recommendations for your organization. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleHardReset}>Reset</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             <Button 
               onClick={handleGenerateRecommendations}
               disabled={generating || cleaning}
