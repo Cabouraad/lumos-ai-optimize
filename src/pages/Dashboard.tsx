@@ -301,12 +301,16 @@ export default function Dashboard() {
         const competitorMap = new Map();
         if (dashboardData?.responses) {
           dashboardData.responses.forEach((response: any) => {
-            if (response.competitors_json) {
+            if (response.competitors_json && response.status === 'success') {
               const competitors = Array.isArray(response.competitors_json) ? response.competitors_json : [response.competitors_json];
               competitors.forEach((competitor: string) => {
-                if (competitor && competitor.trim() && !response.org_brand_present) {
-                  const existing = competitorMap.get(competitor);
-                  competitorMap.set(competitor, (existing || 0) + 1);
+                // Filter out generic terms and include legitimate competitors regardless of org brand presence
+                if (competitor && 
+                    competitor.trim().length >= 3 && 
+                    !/^(price|these|offers|trade|cost|free|paid|premium|basic|pro|standard)$/i.test(competitor.trim()) &&
+                    !competitor.match(/^\d+$/)) {
+                  const existing = competitorMap.get(competitor.trim());
+                  competitorMap.set(competitor.trim(), (existing || 0) + 1);
                 }
               });
             }
