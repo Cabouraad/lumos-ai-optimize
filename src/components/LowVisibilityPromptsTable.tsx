@@ -67,7 +67,7 @@ export function LowVisibilityPromptsTable() {
           <TrendingDown className="h-5 w-5" />
           Low-Visibility Prompts
           <Badge variant="secondary" className="ml-auto">
-            {prompts.length} prompts need optimization
+            up to 10 lowest performing prompts
           </Badge>
         </CardTitle>
       </CardHeader>

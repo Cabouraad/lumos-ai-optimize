@@ -79,7 +79,7 @@ export async function getLowVisibilityPrompts() {
     .from('low_visibility_prompts')
     .select('*')
     .order('presence_rate', { ascending: true })
-    .limit(20);
+    .limit(10);
     
   if (error) throw error;
   return data ?? [];
