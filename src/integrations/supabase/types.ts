@@ -651,7 +651,7 @@ export type Database = {
           content_type: string
           created_at: string
           id: string
-          job_id: string
+          job_id: string | null
           org_id: string
           projected_impact: string | null
           prompt_id: string
@@ -665,7 +665,7 @@ export type Database = {
           content_type: string
           created_at?: string
           id?: string
-          job_id: string
+          job_id?: string | null
           org_id: string
           projected_impact?: string | null
           prompt_id: string
@@ -679,7 +679,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           id?: string
-          job_id?: string
+          job_id?: string | null
           org_id?: string
           projected_impact?: string | null
           prompt_id?: string

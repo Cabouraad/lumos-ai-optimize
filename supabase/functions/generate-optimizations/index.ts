@@ -60,9 +60,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('[generate-optimizations] Function called', { 
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   try {
     const auth = req.headers.get("authorization") || "";
     if (!auth.startsWith("Bearer ")) {
+      console.error('[generate-optimizations] Unauthorized request');
       return new Response("Unauthorized", { status: 401, headers: corsHeaders });
     }
 
@@ -83,6 +90,8 @@ serve(async (req) => {
     const promptId: string | undefined = body?.promptId;
     const doBatch: boolean = !!body?.batch;
 
+    console.log('[generate-optimizations] Request body parsed', { promptId, doBatch });
+
     // Get user's org
     const { data: userRecord } = await supabase
       .from("users")
@@ -91,10 +100,12 @@ serve(async (req) => {
       .single();
 
     if (!userRecord?.org_id) {
+      console.error('[generate-optimizations] No org found for user', user.id);
       return new Response("No org found", { status: 403, headers: corsHeaders });
     }
 
     const orgId = userRecord.org_id;
+    console.log('[generate-optimizations] Found org', { orgId, userId: user.id });
 
     // Get organization details
     const { data: org } = await supabase
@@ -118,10 +129,13 @@ serve(async (req) => {
     }
 
     if (promptIds.length === 0) {
+      console.log('[generate-optimizations] No prompts to process');
       return new Response(JSON.stringify({ inserted: 0, optimizations: [] }), { 
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+
+    console.log('[generate-optimizations] Processing prompts', { count: promptIds.length, promptIds });
 
     // Generate for single prompt synchronously
     const pid = promptIds[0];
@@ -290,18 +304,22 @@ serve(async (req) => {
       });
     });
 
+    console.log('[generate-optimizations] Ready to insert', { count: toInsert.length });
+    
     if (toInsert.length) {
       const { error: insErr } = await supabase
         .from("optimizations")
         .insert(toInsert);
         
       if (insErr) {
-        console.error('Insert error:', insErr);
+        console.error('[generate-optimizations] Insert error:', insErr);
         return new Response(`Insert error: ${insErr.message}`, { 
           status: 500, 
           headers: corsHeaders 
         });
       }
+      
+      console.log('[generate-optimizations] Successfully inserted optimizations');
     }
 
     // Refresh visibility data
