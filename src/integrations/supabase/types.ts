@@ -714,6 +714,13 @@ export type Database = {
             foreignKeyName: "optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
           },
@@ -1329,6 +1336,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brand_catalog_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_visibility_14d: {
+        Row: {
+          org_id: string | null
+          presence_rate: number | null
+          prompt_id: string | null
+          prompt_text: string | null
+          runs_14d: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
