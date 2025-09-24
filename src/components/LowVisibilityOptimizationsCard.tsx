@@ -7,9 +7,9 @@ import { Loader2, TrendingUp } from 'lucide-react';
 export function LowVisibilityOptimizationsCard() {
   const { data: optimizations = [], isLoading } = useOrgOptimizations();
   
-  const lowVisibilityOptimizations = optimizations.filter(
-    opt => opt.optimization_category === 'low_visibility'
-  );
+  const lowVisibilityOptimizations = optimizations
+    .filter(opt => opt.optimization_category === 'low_visibility')
+    .slice(0, 10);
 
   if (isLoading) {
     return (
