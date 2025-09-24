@@ -589,6 +589,136 @@ export type Database = {
         }
         Relationships: []
       }
+      optimization_jobs: {
+        Row: {
+          created_at: string
+          error_text: string | null
+          finished_at: string | null
+          id: string
+          input_hash: string
+          model_version: string | null
+          org_id: string
+          prompt_ids: string[] | null
+          requested_by: string
+          scope: string
+          started_at: string | null
+          status: string
+          target_week: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_text?: string | null
+          finished_at?: string | null
+          id?: string
+          input_hash: string
+          model_version?: string | null
+          org_id: string
+          prompt_ids?: string[] | null
+          requested_by: string
+          scope: string
+          started_at?: string | null
+          status?: string
+          target_week?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_text?: string | null
+          finished_at?: string | null
+          id?: string
+          input_hash?: string
+          model_version?: string | null
+          org_id?: string
+          prompt_ids?: string[] | null
+          requested_by?: string
+          scope?: string
+          started_at?: string | null
+          status?: string
+          target_week?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimization_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      optimizations: {
+        Row: {
+          body: string | null
+          content_type: string
+          created_at: string
+          id: string
+          job_id: string
+          org_id: string
+          projected_impact: string | null
+          prompt_id: string
+          provider: string
+          score_before: number | null
+          sources: Json | null
+          title: string | null
+        }
+        Insert: {
+          body?: string | null
+          content_type: string
+          created_at?: string
+          id?: string
+          job_id: string
+          org_id: string
+          projected_impact?: string | null
+          prompt_id: string
+          provider?: string
+          score_before?: number | null
+          sources?: Json | null
+          title?: string | null
+        }
+        Update: {
+          body?: string | null
+          content_type?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          org_id?: string
+          projected_impact?: string | null
+          prompt_id?: string
+          provider?: string
+          score_before?: number | null
+          sources?: Json | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimizations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "optimization_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimizations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           business_city: string | null
@@ -1144,6 +1274,24 @@ export type Database = {
       }
     }
     Views: {
+      low_visibility_prompts: {
+        Row: {
+          org_id: string | null
+          presence_rate: number | null
+          prompt_id: string | null
+          prompt_text: string | null
+          runs: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_competitor_analytics: {
         Row: {
           average_score: number | null
