@@ -74,13 +74,19 @@ export async function getJob(jobId: string) {
   return data;
 }
 
-export async function getLowVisibilityPrompts() {
-  const { data, error } = await supabase
+export async function getLowVisibilityPrompts(orgId?: string) {
+  let query = supabase
     .from('low_visibility_prompts')
     .select('*')
     .order('presence_rate', { ascending: true })
     .limit(10);
     
+  // Add org filter as additional safety layer
+  if (orgId) {
+    query = query.eq('org_id', orgId);
+  }
+    
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }

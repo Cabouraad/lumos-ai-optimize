@@ -1326,20 +1326,6 @@ export type Database = {
           prompt_text: string | null
           runs: number | null
         }
-        Insert: {
-          org_id?: string | null
-          presence_rate?: number | null
-          prompt_id?: string | null
-          prompt_text?: string | null
-          runs?: number | null
-        }
-        Update: {
-          org_id?: string | null
-          presence_rate?: number | null
-          prompt_id?: string | null
-          prompt_text?: string | null
-          runs?: number | null
-        }
         Relationships: []
       }
       org_competitor_analytics: {

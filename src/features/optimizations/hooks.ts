@@ -30,9 +30,12 @@ export function useOrgOptimizations() {
 }
 
 export function useLowVisibilityPrompts() {
+  const { orgData } = useAuth();
+  
   return useQuery({
-    queryKey: ['low-visibility-prompts'],
-    queryFn: getLowVisibilityPrompts,
+    queryKey: ['low-visibility-prompts', orgData?.organizations?.id],
+    queryFn: () => getLowVisibilityPrompts(orgData?.organizations?.id),
+    enabled: !!orgData?.organizations?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
