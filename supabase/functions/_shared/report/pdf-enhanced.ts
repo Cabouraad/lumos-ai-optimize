@@ -4,7 +4,7 @@
  * Brand Style Guide: Primary Blue, Secondary Green, Accent Orange
  */
 
-import { PDFDocument, rgb, StandardFonts, PageSizes } from 'https://cdn.skypack.dev/pdf-lib@1.17.1';
+import { PDFDocument, rgb, StandardFonts, PageSizes } from 'https://esm.sh/pdf-lib@1.17.1';
 import { WeeklyReportData } from './collect.ts';
 
 // Convert hex colors to RGB for PDF-lib compatibility

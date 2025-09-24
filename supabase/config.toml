@@ -167,3 +167,8 @@ verify_jwt = true
 weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
 daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
 auto_audit_nightly = { schedule = "0 7 * * *", endpoint = "/auto-audit", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
+# Daily prompt execution every 6 hours to ensure fresh dashboard data
+daily_prompt_execution = { schedule = "0 */6 * * *", endpoint = "/daily-batch-trigger", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"force\": true}" }
+
+[functions.scheduled-prompt-executor]
+verify_jwt = false

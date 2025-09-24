@@ -27,7 +27,7 @@ export function useRealTimeDashboard(
   options: UseRealTimeDashboardOptions = {}
 ): UseRealTimeDashboardResult {
   const {
-    autoRefreshInterval = 60000, // 1 minute default
+    autoRefreshInterval = 30000, // 30 seconds default for more responsive UI
     enableAutoRefresh = true,
     enableAdaptivePolling = true,
     onError
@@ -205,7 +205,7 @@ export function useRealTimeDashboard(
  */
 export function useRealTimePrompts() {
   const { data, loading, error, refresh, lastUpdated } = useRealTimeDashboard({
-    autoRefreshInterval: 120000, // 2 minutes for prompt data (slower)
+    autoRefreshInterval: 60000, // 1 minute for prompt data
     enableAutoRefresh: true
   });
 

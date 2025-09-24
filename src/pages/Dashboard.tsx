@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { DashboardChart } from '@/components/dashboard/DashboardChart';
+import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 
 export default function Dashboard() {
   const { user, orgData } = useAuth();
@@ -465,7 +466,10 @@ export default function Dashboard() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
+                <DataFreshnessIndicator lastUpdated={lastUpdated} />
+              </div>
               <p className="text-muted-foreground">AI visibility insights for your organization</p>
             </div>
             <RefreshButton 
