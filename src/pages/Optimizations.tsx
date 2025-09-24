@@ -9,7 +9,8 @@ import {
   Zap
 } from 'lucide-react';
 import { LowVisibilityPromptsTable } from '@/components/LowVisibilityPromptsTable';
-import { OptimizationsGrid } from '@/components/OptimizationsGrid';
+import { LowVisibilityOptimizationsCard } from '@/components/LowVisibilityOptimizationsCard';
+import { GeneralOptimizationsCard } from '@/components/GeneralOptimizationsCard';
 import { JobStatusBanner } from '@/components/JobStatusBanner';
 import { useGenerateForOrg } from '@/features/optimizations/hooks';
 
@@ -92,7 +93,10 @@ export default function Optimizations() {
 
         <div className="space-y-8">
           <LowVisibilityPromptsTable />
-          <OptimizationsGrid />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LowVisibilityOptimizationsCard />
+            <GeneralOptimizationsCard />
+          </div>
         </div>
       </div>
     </Layout>
