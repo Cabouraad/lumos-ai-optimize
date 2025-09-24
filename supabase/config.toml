@@ -75,6 +75,12 @@ verify_jwt = true
 [functions.advanced-recommendations]
 verify_jwt = true
 
+[functions.enqueue-optimizations]
+verify_jwt = true
+
+[functions.optimization-worker]
+verify_jwt = false
+
 [functions.test-prompt-response]
 verify_jwt = true
 
