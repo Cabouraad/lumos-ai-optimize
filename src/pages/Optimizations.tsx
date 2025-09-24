@@ -134,14 +134,20 @@ export default function Recommendations() {
       const { data: { session } } = await supabase.auth.getSession();
       console.log('[Generate] Session available:', !!session?.access_token);
       
+      // Build headers conditionally to avoid null values
+      const baseHeaders = { 'Content-Type': 'application/json' };
+      if (orgId) baseHeaders['x-org-id'] = orgId;
+      baseHeaders['x-force-new'] = 'true';
+      
+      const headers = session?.access_token 
+        ? { ...baseHeaders, 'Authorization': `Bearer ${session.access_token}` }
+        : baseHeaders;
+      
+      console.log('[Generate] Invoking with headers:', Object.keys(headers));
+      
       // Bulletproof invoke with explicit headers
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
-        headers: session?.access_token ? { 
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'x-org-id': orgId,
-          'x-force-new': 'true'
-        } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-force-new': 'true' },
+        headers,
         body: { orgId, forceNew: true }
       });
 
@@ -153,13 +159,16 @@ export default function Recommendations() {
           console.log('[Generate] Auth error detected, retrying with fresh session...');
           const { data: { session: freshSession } } = await supabase.auth.getSession();
           
+          const retryHeaders = { 'Content-Type': 'application/json' };
+          if (orgId) retryHeaders['x-org-id'] = orgId;
+          retryHeaders['x-force-new'] = 'true';
+          
+          const finalHeaders = freshSession?.access_token 
+            ? { ...retryHeaders, 'Authorization': `Bearer ${freshSession.access_token}` }
+            : retryHeaders;
+          
           const retryResult = await supabase.functions.invoke('advanced-recommendations', {
-            headers: freshSession?.access_token ? { 
-              'Authorization': `Bearer ${freshSession.access_token}`,
-              'Content-Type': 'application/json',
-              'x-org-id': orgId,
-              'x-force-new': 'true'
-            } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-force-new': 'true' },
+            headers: finalHeaders,
             body: { orgId, forceNew: true }
           });
           
@@ -231,13 +240,19 @@ export default function Recommendations() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Build headers conditionally to avoid null values
+      const baseHeaders = { 'Content-Type': 'application/json' };
+      if (orgId) baseHeaders['x-org-id'] = orgId;
+      baseHeaders['x-cleanup-only'] = 'true';
+      
+      const headers = session?.access_token 
+        ? { ...baseHeaders, 'Authorization': `Bearer ${session.access_token}` }
+        : baseHeaders;
+      
+      console.log('[Cleanup] Invoking with headers:', Object.keys(headers));
+      
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
-        headers: session?.access_token ? { 
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'x-org-id': orgId,
-          'x-cleanup-only': 'true'
-        } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-cleanup-only': 'true' },
+        headers,
         body: { orgId, cleanupOnly: true }
       });
 
@@ -287,14 +302,20 @@ export default function Recommendations() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
+      // Build headers conditionally to avoid null values
+      const baseHeaders = { 'Content-Type': 'application/json' };
+      if (orgId) baseHeaders['x-org-id'] = orgId;
+      baseHeaders['x-cleanup-only'] = 'true';
+      baseHeaders['x-hard-reset'] = 'true';
+      
+      const headers = session?.access_token 
+        ? { ...baseHeaders, 'Authorization': `Bearer ${session.access_token}` }
+        : baseHeaders;
+      
+      console.log('[ResetAll] Invoking with headers:', Object.keys(headers));
+
       const { data, error } = await supabase.functions.invoke('advanced-recommendations', {
-        headers: session?.access_token ? {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'x-org-id': orgId,
-          'x-cleanup-only': 'true',
-          'x-hard-reset': 'true'
-        } : { 'Content-Type': 'application/json', 'x-org-id': orgId, 'x-cleanup-only': 'true', 'x-hard-reset': 'true' },
+        headers,
         body: { orgId, cleanupOnly: true, hardReset: true }
       });
 
