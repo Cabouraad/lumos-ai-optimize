@@ -48,7 +48,7 @@ export class LegacyCompetitorDetector {
     const rejectedTerms: string[] = [];
 
     // Get organization brands for filtering
-    const { data: orgBrands: orgBrandData } = await this.supabase
+    const { data: orgBrandData } = await this.supabase
       .from('brand_catalog')
       .select('name')
       .eq('org_id', orgId)
