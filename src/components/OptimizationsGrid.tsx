@@ -125,10 +125,7 @@ export function OptimizationsGrid() {
               {lowVisibilityOptimizations.map((optimization) => (
                 <EnhancedOptimizationCard 
                   key={optimization.id} 
-                  optimization={{
-                    ...optimization,
-                    sources: JSON.stringify(optimization.sources || {})
-                  }} 
+                  optimization={optimization as any} 
                 />
               ))}
             </div>
@@ -146,10 +143,7 @@ export function OptimizationsGrid() {
               {generalOptimizations.map((optimization) => (
                 <EnhancedOptimizationCard 
                   key={optimization.id} 
-                  optimization={{
-                    ...optimization,
-                    sources: JSON.stringify(optimization.sources || {})
-                  }} 
+                  optimization={optimization as any} 
                 />
               ))}
             </div>
@@ -160,10 +154,7 @@ export function OptimizationsGrid() {
               {optimizations.map((optimization) => (
                 <EnhancedOptimizationCard 
                   key={optimization.id} 
-                  optimization={{
-                    ...optimization,
-                    sources: JSON.stringify(optimization.sources || {})
-                  }} 
+                  optimization={optimization as any} 
                 />
               ))}
             </div>
@@ -175,10 +166,7 @@ export function OptimizationsGrid() {
                 {(groupedOptimizations[tab.value] || []).map((optimization) => (
                   <EnhancedOptimizationCard 
                     key={optimization.id} 
-                    optimization={{
-                      ...optimization,
-                      sources: JSON.stringify(optimization.sources || {})
-                    }} 
+                    optimization={optimization as any} 
                   />
                 ))}
               </div>

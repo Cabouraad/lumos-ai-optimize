@@ -24,19 +24,19 @@ interface EnhancedOptimizationCardProps {
     id: string;
     optimization_category: string;
     content_type: string;
-    title: string;
-    body: string;
-    sources: string;
-    score_before: number;
-    projected_impact: string;
+    title: string | null;
+    body: string | null;
+    sources: string | any;
+    score_before: number | null;
+    projected_impact: string | null;
     created_at: string;
     implementation_details?: any;
-    resources?: any[];
+    resources?: any;
     success_metrics?: any;
     reddit_strategy?: any;
-    impact_score?: number;
-    difficulty_level?: string;
-    timeline_weeks?: number;
+    impact_score?: number | null;
+    difficulty_level?: string | null;
+    timeline_weeks?: number | null;
     prompts?: { text: string };
   };
 }
@@ -71,7 +71,7 @@ export function EnhancedOptimizationCard({ optimization }: EnhancedOptimizationC
 
   const handleCopyContent = async () => {
     try {
-      await navigator.clipboard.writeText(optimization.body);
+      await navigator.clipboard.writeText(optimization.body || '');
       toast({
         title: "Copied to clipboard",
         description: "Content has been copied to your clipboard.",
@@ -96,10 +96,24 @@ export function EnhancedOptimizationCard({ optimization }: EnhancedOptimizationC
     return field;
   };
 
+  const parseSources = () => {
+    try {
+      if (typeof optimization.sources === 'string') {
+        return JSON.parse(optimization.sources);
+      }
+      return optimization.sources || [];
+    } catch {
+      return [];
+    }
+  };
+
   const implementationDetails = parseJsonField(optimization.implementation_details);
-  const resources = parseJsonField(optimization.resources) || [];
+  const resources = Array.isArray(parseJsonField(optimization.resources)) 
+    ? parseJsonField(optimization.resources) 
+    : [];
   const successMetrics = parseJsonField(optimization.success_metrics);
   const redditStrategy = parseJsonField(optimization.reddit_strategy);
+  const sources = parseSources();
 
   const renderRedditStrategy = () => {
     if (!redditStrategy || !redditStrategy.subreddits) return null;
@@ -220,7 +234,7 @@ export function EnhancedOptimizationCard({ optimization }: EnhancedOptimizationC
       <CardContent className="pt-0 space-y-4">
         <div className="max-h-32 overflow-y-auto">
           <div className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {optimization.body}
+            {optimization.body || 'No content available'}
           </div>
         </div>
         
@@ -264,7 +278,10 @@ export function EnhancedOptimizationCard({ optimization }: EnhancedOptimizationC
         
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <span>Current Visibility: {optimization.score_before?.toFixed(1)}%</span>
+            <span>Current Visibility: {optimization.score_before?.toFixed(1) || '0.0'}%</span>
+            {sources.length > 0 && (
+              <span>• {sources.length} sources</span>
+            )}
           </div>
           <span>{new Date(optimization.created_at).toLocaleDateString()}</span>
         </div>
