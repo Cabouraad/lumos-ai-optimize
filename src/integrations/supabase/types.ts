@@ -707,20 +707,6 @@ export type Database = {
             foreignKeyName: "optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
-            referencedRelation: "low_visibility_prompts"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "optimizations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompt_visibility_14d"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "optimizations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
           },
@@ -873,6 +859,33 @@ export type Database = {
           status?: string
           token_in?: number
           token_out?: number
+        }
+        Relationships: []
+      }
+      prompt_visibility_14d: {
+        Row: {
+          org_id: string
+          presence_rate: number
+          prompt_id: string
+          prompt_text: string
+          runs_14d: number
+          updated_at: string
+        }
+        Insert: {
+          org_id: string
+          presence_rate?: number
+          prompt_id: string
+          prompt_text: string
+          runs_14d?: number
+          updated_at?: string
+        }
+        Update: {
+          org_id?: string
+          presence_rate?: number
+          prompt_id?: string
+          prompt_text?: string
+          runs_14d?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1289,15 +1302,21 @@ export type Database = {
           prompt_text: string | null
           runs: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "prompts_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Insert: {
+          org_id?: string | null
+          presence_rate?: number | null
+          prompt_id?: string | null
+          prompt_text?: string | null
+          runs?: number | null
+        }
+        Update: {
+          org_id?: string | null
+          presence_rate?: number | null
+          prompt_id?: string | null
+          prompt_text?: string | null
+          runs?: number | null
+        }
+        Relationships: []
       }
       org_competitor_analytics: {
         Row: {
@@ -1336,24 +1355,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brand_catalog_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prompt_visibility_14d: {
-        Row: {
-          org_id: string | null
-          presence_rate: number | null
-          prompt_id: string | null
-          prompt_text: string | null
-          runs_14d: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1644,6 +1645,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_dashboard_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_prompt_visibility_14d: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

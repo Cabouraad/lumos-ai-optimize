@@ -1,6 +1,8 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
+  generateForPrompt,
+  generateForLowVisibilityBatch,
   enqueueOptimizations, 
   listOptimizationsByPrompt, 
   listOptimizationsByOrg,
@@ -49,11 +51,13 @@ export function useGenerateForPrompt(promptId: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: () => enqueueOptimizations('prompt', [promptId]),
-    onSuccess: (data) => {
-      console.log('[useGenerateForPrompt] Job enqueued:', data.jobId);
-      // Invalidate queries after job completes (handled by job status polling)
-      queryClient.setQueryData(['latest-job-id'], data.jobId);
+    mutationFn: () => generateForPrompt(promptId),
+    onSuccess: async () => {
+      console.log('[useGenerateForPrompt] Generated optimizations for prompt:', promptId);
+      // Immediately invalidate queries to show new results
+      await queryClient.invalidateQueries({ queryKey: ['optimizations', 'prompt', promptId] });
+      await queryClient.invalidateQueries({ queryKey: ['optimizations', 'org'] });
+      await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
     },
   });
 }
@@ -62,10 +66,12 @@ export function useGenerateForOrg() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: () => enqueueOptimizations('org'),
-    onSuccess: (data) => {
-      console.log('[useGenerateForOrg] Job enqueued:', data.jobId);
-      queryClient.setQueryData(['latest-job-id'], data.jobId);
+    mutationFn: generateForLowVisibilityBatch,
+    onSuccess: async () => {
+      console.log('[useGenerateForOrg] Generated optimizations for low-visibility prompts');
+      // Immediately invalidate queries to show new results
+      await queryClient.invalidateQueries({ queryKey: ['optimizations', 'org'] });
+      await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
     },
   });
 }

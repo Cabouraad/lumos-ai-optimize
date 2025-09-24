@@ -81,6 +81,9 @@ verify_jwt = true
 [functions.optimization-worker]
 verify_jwt = false
 
+[functions.generate-optimizations]
+verify_jwt = true
+
 [functions.test-prompt-response]
 verify_jwt = true
 

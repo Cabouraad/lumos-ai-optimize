@@ -1,5 +1,21 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export async function generateForPrompt(promptId: string) {
+  const { data, error } = await supabase.functions.invoke('generate-optimizations', {
+    body: { promptId }
+  });
+  if (error) throw error;
+  return data as { inserted: number, optimizations: any[] };
+}
+
+export async function generateForLowVisibilityBatch() {
+  const { data, error } = await supabase.functions.invoke('generate-optimizations', {
+    body: { batch: true }
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function enqueueOptimizations(scope: 'org' | 'prompt', promptIds?: string[]) {
   const { data: { session } } = await supabase.auth.getSession();
   
