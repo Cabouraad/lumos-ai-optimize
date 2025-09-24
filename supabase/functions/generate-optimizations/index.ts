@@ -107,7 +107,6 @@ Focus on scalable strategies that build long-term brand authority and visibility
 Include detailed implementation guides, resource requirements, and projected ROI.`;
   }
 }
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests

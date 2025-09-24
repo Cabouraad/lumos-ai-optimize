@@ -3,7 +3,7 @@
  * Creates clean, branded weekly visibility reports
  */
 
-import { PDFDocument, rgb, StandardFonts } from 'https://cdn.skypack.dev/pdf-lib@1.17.1';
+import { PDFDocument, rgb, StandardFonts } from 'https://esm.sh/pdf-lib@1.17.1';
 
 // Re-export the enhanced PDF renderer and use the same interface
 export { renderReportPDF } from './pdf-enhanced.ts';
