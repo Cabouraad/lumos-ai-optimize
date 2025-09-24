@@ -21,37 +21,92 @@ function jsonRepair(s: string) {
 }
 
 function optimizerSystem() {
-  return `You are an AI Search Optimization strategist. Produce structured, publish-ready content
-targeted to a tracked prompt where the brand currently has low visibility in LLM answers.
+  return `You are an AI Search Optimization strategist. Create comprehensive, actionable content strategies with detailed implementation instructions.
 Return STRICT JSON only (no backticks). Keys:
 {
-  "social_posts": [{"platform":"LinkedIn|X","headline": "...","bullets":["..."],"cta":"..."}],
-  "blog_outline": {"title":"...","sections":[{"h2":"...","h3":["..."], "notes":["..."]}], "internal_links":["..."], "outreach_domains":["example.com","..."]},
-  "talking_points": ["..."],
-  "cta_snippets": ["..."],
-  "projected_impact": "1-2 sentences on why this lifts visibility"
+  "optimizations": [
+    {
+      "content_type": "social_post|blog_outline|talking_points|cta_snippets|reddit_strategy",
+      "title": "Clear descriptive title",
+      "body": "Main content (structured JSON for complex types)",
+      "implementation_details": {
+        "steps": ["Step 1", "Step 2", "..."],
+        "tools_needed": ["Tool 1", "Tool 2"],
+        "timeline": "Expected timeframe",
+        "best_practices": ["Practice 1", "Practice 2"]
+      },
+      "resources": [
+        {"type": "template|tool|guide", "title": "Resource name", "url": "URL if applicable", "description": "Brief description"}
+      ],
+      "success_metrics": {
+        "primary": "Main KPI to track",
+        "secondary": ["Additional metrics"],
+        "timeline": "When to expect results"
+      },
+      "reddit_strategy": {
+        "subreddits": [{"name": "r/subreddit", "audience": "Description", "rules": "Key posting rules"}],
+        "post_types": ["discussion", "tutorial", "case_study"],
+        "content_approach": "Value-first strategy description"
+      },
+      "impact_score": 7,
+      "difficulty_level": "easy|medium|hard",
+      "timeline_weeks": 4
+    }
+  ]
 }`;
 }
 
 function optimizerUserPrompt(args: {
   brand: string; promptText: string; presenceRate: number;
   competitors: string[]; citations: { domain: string; title?: string; link: string }[];
+  category: 'low_visibility' | 'general';
 }) {
   const cites = args.citations.slice(0,8).map(c => `- ${c.domain}${c.title?` — ${c.title}`:''} (${c.link})`).join("\n");
   const comp  = args.competitors.slice(0,8).join(", ") || "None observed";
-  return `BRAND: ${args.brand}
-TRACKED PROMPT: "${args.promptText}"
-CURRENT PRESENCE: ${args.presenceRate.toFixed(1)}% (last 14 days)
+  
+  if (args.category === 'low_visibility') {
+    return `BRAND: ${args.brand}
+LOW-VISIBILITY PROMPT: "${args.promptText}"
+CURRENT PRESENCE: ${args.presenceRate.toFixed(1)}% (needs improvement)
 COMPETITORS IN RESPONSES: ${comp}
 TOP CITATION DOMAINS:
 ${cites}
 
-TASKS:
-1) 2 SOCIAL POSTS (LinkedIn + X): hook + 2-3 bullets + CTA.
-2) 1 BLOG OUTLINE: H2/H3 + bullets + 3 internal link ideas + 3 outreach domains from the citations list.
-3) 5 TALKING POINTS for winning mentions in LLM answers.
-4) 3 CTA SNIPPETS (<=120 chars).
-Rules: B2B SaaS tone, non-spammy brand mention, JSON ONLY.`;
+GOAL: Create 3-4 targeted optimizations to improve visibility for this specific prompt.
+
+REQUIREMENTS:
+1) LINKEDIN POST: Professional thought leadership post that naturally addresses the prompt topic. Include step-by-step posting instructions, optimal timing, hashtag strategy.
+2) REDDIT STRATEGY: Identify 5-7 relevant subreddits, specific post approaches, community engagement tactics. Focus on providing value first.
+3) BLOG OUTLINE: Comprehensive SEO-optimized article addressing the prompt. Include keyword strategy, internal linking, outreach targets.
+4) TALKING POINTS: 5 key points for interviews, podcasts, and conversations that position ${args.brand} as the solution.
+
+For each optimization include:
+- Detailed implementation steps
+- Required tools and resources  
+- Success metrics and timeline
+- Specific Reddit subreddits with posting strategies
+- Impact score (1-10) and difficulty level`;
+  } else {
+    return `BRAND: ${args.brand}
+GENERAL BRAND VISIBILITY OPTIMIZATION
+CURRENT PROMPT CONTEXT: "${args.promptText}"
+MARKET COMPETITORS: ${comp}
+INDUSTRY CITATION SOURCES:
+${cites}
+
+GOAL: Create 4-5 comprehensive brand visibility strategies for general market presence.
+
+REQUIREMENTS:
+1) THOUGHT LEADERSHIP CONTENT: Blog series, speaking opportunities, industry positioning
+2) SOCIAL MEDIA STRATEGY: Multi-platform approach including LinkedIn, Twitter, Reddit
+3) COMMUNITY ENGAGEMENT: Industry forums, Reddit communities, professional networks  
+4) CONTENT MARKETING: SEO content, video series, podcast appearances
+5) REDDIT COMMUNITY BUILDING: Long-term subreddit engagement, value-first contributions
+
+Focus on scalable strategies that build long-term brand authority and visibility across AI search results.
+Include detailed implementation guides, resource requirements, and projected ROI.`;
+  }
+}
 }
 
 serve(async (req) => {
@@ -89,6 +144,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const promptId: string | undefined = body?.promptId;
     const doBatch: boolean = !!body?.batch;
+    const category: 'low_visibility' | 'general' = body?.category || 'general';
 
     console.log('[generate-optimizations] Request body parsed', { promptId, doBatch });
 
@@ -119,12 +175,13 @@ serve(async (req) => {
     if (promptId) {
       promptIds = [promptId];
     } else if (doBatch) {
-      // select low-visibility prompts for org
+      // select low-visibility prompts for org (limit to 10 for low-visibility category)
+      const limit = category === 'low_visibility' ? 10 : 20;
       const { data: lows } = await supabase
         .from("low_visibility_prompts")
         .select("prompt_id")
         .eq("org_id", orgId)
-        .limit(20);
+        .limit(limit);
       promptIds = (lows ?? []).map((r: any) => r.prompt_id);
     }
 
@@ -198,7 +255,8 @@ serve(async (req) => {
       promptText: prompt.text,
       presenceRate: presence,
       competitors,
-      citations
+      citations,
+      category
     });
 
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -245,62 +303,28 @@ serve(async (req) => {
       });
     }
 
-    // Normalize & insert optimization rows
+    // Normalize & insert optimization rows from new structure
     const toInsert: any[] = [];
     
-    (parsed.social_posts ?? []).forEach((sp: any, index: number) => {
+    (parsed.optimizations ?? []).forEach((opt: any) => {
       toInsert.push({ 
         org_id: orgId, 
         prompt_id: pid, 
-        content_type: "social_post",
-        title: sp.headline ?? `Social Post ${index + 1}`, 
-        body: JSON.stringify(sp), 
+        optimization_category: category,
+        content_type: opt.content_type || "general",
+        title: opt.title || "Optimization", 
+        body: typeof opt.body === 'string' ? opt.body : JSON.stringify(opt.body), 
         sources: citations, 
         score_before: presence,
-        projected_impact: parsed.projected_impact ?? null,
-        provider: 'optimizer'
-      });
-    });
-    
-    if (parsed.blog_outline) {
-      toInsert.push({ 
-        org_id: orgId, 
-        prompt_id: pid, 
-        content_type: "blog_outline",
-        title: parsed.blog_outline.title ?? "Blog Outline", 
-        body: JSON.stringify(parsed.blog_outline),
-        sources: citations, 
-        score_before: presence, 
-        projected_impact: parsed.projected_impact ?? null,
-        provider: 'optimizer'
-      });
-    }
-    
-    (parsed.talking_points ?? []).forEach((tp: string, index: number) => {
-      toInsert.push({ 
-        org_id: orgId, 
-        prompt_id: pid, 
-        content_type: "talking_points",
-        title: `Talking Point ${index + 1}`, 
-        body: tp, 
-        sources: citations, 
-        score_before: presence, 
-        projected_impact: parsed.projected_impact ?? null,
-        provider: 'optimizer'
-      });
-    });
-    
-    (parsed.cta_snippets ?? []).forEach((cta: string, index: number) => {
-      toInsert.push({ 
-        org_id: orgId, 
-        prompt_id: pid, 
-        content_type: "cta_snippets",
-        title: `CTA ${index + 1}`, 
-        body: cta, 
-        sources: citations, 
-        score_before: presence, 
-        projected_impact: parsed.projected_impact ?? null,
-        provider: 'optimizer'
+        projected_impact: opt.implementation_details?.timeline || "Improvement expected within 4-6 weeks",
+        provider: 'optimizer',
+        implementation_details: opt.implementation_details || {},
+        resources: opt.resources || [],
+        success_metrics: opt.success_metrics || {},
+        reddit_strategy: opt.reddit_strategy || {},
+        impact_score: opt.impact_score || 5,
+        difficulty_level: opt.difficulty_level || 'medium',
+        timeline_weeks: opt.timeline_weeks || 4
       });
     });
 

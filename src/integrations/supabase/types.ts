@@ -650,42 +650,66 @@ export type Database = {
           body: string | null
           content_type: string
           created_at: string
+          difficulty_level: string | null
           id: string
+          impact_score: number | null
+          implementation_details: Json | null
           job_id: string | null
+          optimization_category: string
           org_id: string
           projected_impact: string | null
           prompt_id: string
           provider: string
+          reddit_strategy: Json | null
+          resources: Json | null
           score_before: number | null
           sources: Json | null
+          success_metrics: Json | null
+          timeline_weeks: number | null
           title: string | null
         }
         Insert: {
           body?: string | null
           content_type: string
           created_at?: string
+          difficulty_level?: string | null
           id?: string
+          impact_score?: number | null
+          implementation_details?: Json | null
           job_id?: string | null
+          optimization_category?: string
           org_id: string
           projected_impact?: string | null
           prompt_id: string
           provider?: string
+          reddit_strategy?: Json | null
+          resources?: Json | null
           score_before?: number | null
           sources?: Json | null
+          success_metrics?: Json | null
+          timeline_weeks?: number | null
           title?: string | null
         }
         Update: {
           body?: string | null
           content_type?: string
           created_at?: string
+          difficulty_level?: string | null
           id?: string
+          impact_score?: number | null
+          implementation_details?: Json | null
           job_id?: string | null
+          optimization_category?: string
           org_id?: string
           projected_impact?: string | null
           prompt_id?: string
           provider?: string
+          reddit_strategy?: Json | null
+          resources?: Json | null
           score_before?: number | null
           sources?: Json | null
+          success_metrics?: Json | null
+          timeline_weeks?: number | null
           title?: string | null
         }
         Relationships: [

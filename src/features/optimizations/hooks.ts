@@ -66,9 +66,10 @@ export function useGenerateForOrg() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: generateForLowVisibilityBatch,
+    mutationFn: (params?: { category?: 'low_visibility' | 'general' }) => 
+      generateForLowVisibilityBatch(params?.category),
     onSuccess: async () => {
-      console.log('[useGenerateForOrg] Generated optimizations for low-visibility prompts');
+      console.log('[useGenerateForOrg] Generated optimizations');
       // Immediately invalidate queries to show new results
       await queryClient.invalidateQueries({ queryKey: ['optimizations', 'org'] });
       await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });

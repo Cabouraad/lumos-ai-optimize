@@ -48,8 +48,9 @@ export default function Optimizations() {
     );
   }
 
-  const handleGenerateForLowVisibility = () => {
-    generateForOrgMutation.mutate();
+  // Handle generation with category support
+  const handleGenerate = (category: 'low_visibility' | 'general') => {
+    generateForOrgMutation.mutate({ category });
   };
 
   return (
@@ -66,14 +67,25 @@ export default function Optimizations() {
               AI-powered content recommendations based on your prompt performance
             </p>
           </div>
-          <Button 
-            onClick={handleGenerateForLowVisibility}
-            disabled={generateForOrgMutation.isPending}
-            className="flex items-center gap-2"
-          >
-            <Zap className={`h-4 w-4 ${generateForOrgMutation.isPending ? 'animate-pulse' : ''}`} />
-            {generateForOrgMutation.isPending ? 'Generating...' : 'Generate for Low-Visibility Prompts'}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => handleGenerate('low_visibility')}
+              disabled={generateForOrgMutation.isPending}
+              className="flex items-center gap-2"
+              variant="outline"
+            >
+              <Zap className={`h-4 w-4 ${generateForOrgMutation.isPending ? 'animate-pulse' : ''}`} />
+              Generate Low-Visibility Fixes
+            </Button>
+            <Button 
+              onClick={() => handleGenerate('general')}
+              disabled={generateForOrgMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              <Lightbulb className={`h-4 w-4 ${generateForOrgMutation.isPending ? 'animate-pulse' : ''}`} />
+              Generate General Strategy
+            </Button>
+          </div>
         </div>
 
         <JobStatusBanner />

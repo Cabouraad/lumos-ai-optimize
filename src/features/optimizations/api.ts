@@ -8,9 +8,9 @@ export async function generateForPrompt(promptId: string) {
   return data as { inserted: number, optimizations: any[] };
 }
 
-export async function generateForLowVisibilityBatch() {
+export async function generateForLowVisibilityBatch(category: 'low_visibility' | 'general' = 'low_visibility') {
   const { data, error } = await supabase.functions.invoke('generate-optimizations', {
-    body: { batch: true }
+    body: { batch: true, category }
   });
   if (error) throw error;
   return data;

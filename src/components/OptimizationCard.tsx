@@ -14,13 +14,21 @@ import { useToast } from '@/hooks/use-toast';
 interface OptimizationCardProps {
   optimization: {
     id: string;
-    content_type: 'social_post' | 'blog_outline' | 'talking_points' | 'cta_snippets';
+    optimization_category: 'low_visibility' | 'general';
+    content_type: 'social_post' | 'blog_outline' | 'talking_points' | 'cta_snippets' | 'reddit_strategy' | 'general';
     title: string;
     body: string;
     sources: string;
     score_before: number;
     projected_impact: string;
     created_at: string;
+    implementation_details?: any;
+    resources?: any[];
+    success_metrics?: any;
+    reddit_strategy?: any;
+    impact_score?: number;
+    difficulty_level?: 'easy' | 'medium' | 'hard';
+    timeline_weeks?: number;
     prompts?: { text: string };
   };
 }
@@ -45,6 +53,16 @@ const contentTypeConfig = {
     icon: Target,
     label: 'CTA Snippets',
     color: 'bg-orange-500/10 text-orange-700 border-orange-200'
+  },
+  reddit_strategy: {
+    icon: MessageSquare,
+    label: 'Reddit Strategy',
+    color: 'bg-red-500/10 text-red-700 border-red-200'
+  },
+  general: {
+    icon: Target,
+    label: 'General Strategy',
+    color: 'bg-gray-500/10 text-gray-700 border-gray-200'
   }
 };
 

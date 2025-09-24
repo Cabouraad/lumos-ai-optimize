@@ -1,22 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { OptimizationCard } from './OptimizationCard';
-import { 
-  Lightbulb, 
-  FileText, 
-  MessageSquare, 
-  Share2, 
-  Target,
-  Loader2
-} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Lightbulb, Target, TrendingDown } from 'lucide-react';
 import { useOrgOptimizations } from '@/features/optimizations/hooks';
+import { EnhancedOptimizationCard } from './EnhancedOptimizationCard';
 
 const contentTypeTabs = [
-  { value: 'all', label: 'All', icon: Lightbulb },
-  { value: 'social_post', label: 'Social Posts', icon: Share2 },
-  { value: 'blog_outline', label: 'Blog Outlines', icon: FileText },
-  { value: 'talking_points', label: 'Talking Points', icon: MessageSquare },
+  { value: 'social_post', label: 'Social Posts', icon: Target },
+  { value: 'blog_outline', label: 'Blog Outlines', icon: Target },
+  { value: 'talking_points', label: 'Talking Points', icon: Target },
   { value: 'cta_snippets', label: 'CTA Snippets', icon: Target },
 ];
 
@@ -63,12 +55,21 @@ export function OptimizationsGrid() {
     );
   }
 
-  // Group optimizations by content type
+  // Separate optimizations by category
+  const lowVisibilityOptimizations = optimizations.filter(
+    opt => opt.optimization_category === 'low_visibility'
+  );
+  const generalOptimizations = optimizations.filter(
+    opt => opt.optimization_category === 'general'
+  );
+
+  // Group by content type for the "All" tab
   const groupedOptimizations = optimizations.reduce((acc, opt) => {
-    if (!acc[opt.content_type]) {
-      acc[opt.content_type] = [];
+    const type = opt.content_type;
+    if (!acc[type]) {
+      acc[type] = [];
     }
-    acc[opt.content_type].push(opt);
+    acc[type].push(opt);
     return acc;
   }, {} as Record<string, typeof optimizations>);
 
@@ -77,38 +78,55 @@ export function OptimizationsGrid() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5" />
-          Generated Optimizations
-          <Badge variant="secondary" className="ml-auto">
-            {optimizations.length} items
-          </Badge>
+          AI Visibility Optimizations
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs defaultValue="low_visibility" className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="low_visibility" className="flex items-center gap-1">
+              <TrendingDown className="h-3 w-3" />
+              Low-Visibility Fixes
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {lowVisibilityOptimizations.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="general" className="flex items-center gap-1">
+              <Target className="h-3 w-3" />
+              General Strategy
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {generalOptimizations.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              All ({optimizations.length})
+            </TabsTrigger>
             {contentTypeTabs.map((tab) => {
+              const count = groupedOptimizations[tab.value]?.length || 0;
               const Icon = tab.icon;
-              const count = tab.value === 'all' 
-                ? optimizations.length 
-                : groupedOptimizations[tab.value]?.length || 0;
-              
               return (
-                <TabsTrigger key={tab.value} value={tab.value} className="text-xs">
-                  <Icon className="h-3 w-3 mr-1" />
+                <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-1">
+                  <Icon className="h-3 w-3" />
                   {tab.label} ({count})
                 </TabsTrigger>
               );
             })}
           </TabsList>
 
-          <TabsContent value="all" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {optimizations.map((optimization) => (
-                <OptimizationCard 
+          <TabsContent value="low_visibility" className="mt-6">
+            <div className="mb-4 p4 bg-amber-50 border border-amber-200 rounded-lg">
+              <h3 className="font-medium text-amber-800 mb-2">📈 Low-Visibility Prompt Fixes</h3>
+              <p className="text-sm text-amber-700">
+                Targeted optimizations to improve visibility for prompts with less than 50% presence rate. 
+                Limited to 10 most impactful optimizations.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {lowVisibilityOptimizations.map((optimization) => (
+                <EnhancedOptimizationCard 
                   key={optimization.id} 
                   optimization={{
                     ...optimization,
-                    content_type: optimization.content_type as 'social_post' | 'blog_outline' | 'talking_points' | 'cta_snippets',
                     sources: JSON.stringify(optimization.sources || {})
                   }} 
                 />
@@ -116,15 +134,49 @@ export function OptimizationsGrid() {
             </div>
           </TabsContent>
 
-          {contentTypeTabs.slice(1).map((tab) => (
+          <TabsContent value="general" className="mt-6">
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-medium text-blue-800 mb-2">🎯 General Brand Visibility</h3>
+              <p className="text-sm text-blue-700">
+                Comprehensive strategies to build overall brand authority and visibility across AI search results.
+                Includes thought leadership, community engagement, and content marketing approaches.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {generalOptimizations.map((optimization) => (
+                <EnhancedOptimizationCard 
+                  key={optimization.id} 
+                  optimization={{
+                    ...optimization,
+                    sources: JSON.stringify(optimization.sources || {})
+                  }} 
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="all" className="mt-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {optimizations.map((optimization) => (
+                <EnhancedOptimizationCard 
+                  key={optimization.id} 
+                  optimization={{
+                    ...optimization,
+                    sources: JSON.stringify(optimization.sources || {})
+                  }} 
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          {contentTypeTabs.map((tab) => (
             <TabsContent key={tab.value} value={tab.value} className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {(groupedOptimizations[tab.value] || []).map((optimization) => (
-                  <OptimizationCard 
+                  <EnhancedOptimizationCard 
                     key={optimization.id} 
                     optimization={{
                       ...optimization,
-                      content_type: optimization.content_type as 'social_post' | 'blog_outline' | 'talking_points' | 'cta_snippets',
                       sources: JSON.stringify(optimization.sources || {})
                     }} 
                   />
