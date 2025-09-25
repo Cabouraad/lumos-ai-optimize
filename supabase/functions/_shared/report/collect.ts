@@ -13,6 +13,8 @@ export interface WeeklyReportData {
   };
   kpis: {
     avgVisibilityScore: number;
+    overallScore: number;
+    scoreTrend: number;
     totalRuns: number;
     brandPresentRate: number;
     avgCompetitors: number;
@@ -610,9 +612,15 @@ export async function collectWeeklyData(
 
   // Generate insights
   const insights = generateInsights({
-    kpis: { avgVisibilityScore: avgScore, brandPresentRate, deltaVsPriorWeek },
+    kpis: { 
+      avgVisibilityScore: avgScore, 
+      brandPresentRate, 
+      avgCompetitors,
+      deltaVsPriorWeek 
+    },
     competitors: { newThisWeek: newCompetitors },
-    prompts: { zeroPresence }
+    prompts: { zeroPresence },
+    volume: { providersUsed: providersUsed }
   });
 
   return {
@@ -625,6 +633,8 @@ export async function collectWeeklyData(
     },
     kpis: {
       avgVisibilityScore: Math.round(avgScore * 10) / 10,
+      overallScore: Math.round(avgScore * 10) / 10,
+      scoreTrend: deltaVsPriorWeek ? Math.round(deltaVsPriorWeek.avgVisibilityScore * 10) / 10 : 0,
       totalRuns,
       brandPresentRate: Math.round(brandPresentRate * 10) / 10,
       avgCompetitors: Math.round(avgCompetitors * 10) / 10,
