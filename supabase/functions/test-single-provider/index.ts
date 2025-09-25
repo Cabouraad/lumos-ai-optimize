@@ -214,7 +214,7 @@ async function analyzeResponse(responseText: string, orgName: string) {
       method: analysis.metadata.analysis_method
     };
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Comprehensive analysis failed, using fallback:', error);
     
     // Fallback basic analysis

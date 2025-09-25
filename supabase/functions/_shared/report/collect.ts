@@ -5,27 +5,7 @@
 
 import type { WeeklyReportData } from './types.ts';
 
-export type VisibilityMetrics = {
-  avgVisibilityScore: number;
-  overallScore: number;
-  scoreTrend: number;
-  totalRuns: number;
-  brandPresentRate: number;   // canonical
-  avgCompetitors: number;
-  deltaVsPriorWeek?: {
-    avgVisibilityScore: number;
-    totalRuns: number;
-    brandPresentRate: number;
-  };
-  trendProjection: {
-    brandPresenceNext4Weeks: number;
-    confidenceLevel: 'high' | 'medium' | 'low';
-  };
-  // Back-compat alias (optional) to satisfy older consumers:
-  brandPresenceRate?: number;
-  presenceTrend?: number;
-  totalPrompts?: number;
-};
+import { VisibilityMetrics } from './types.ts';
 
 // Ensure every consumer gets a consistent object with both canonical and legacy field names
 export function normalizeVisibilityMetrics(input: Partial<VisibilityMetrics>): VisibilityMetrics {
@@ -215,7 +195,7 @@ export async function collectWeeklyData(
 
   // Create a map of prompt_id -> prompt_text for efficient lookups
   const promptsMap = new Map();
-  orgPrompts?.forEach((prompt: any) => {
+  orgPrompts?.forEach((prompt: { id: string; text: string }) => {
     promptsMap.set(prompt.id, prompt.text);
   });
 
@@ -275,7 +255,7 @@ export async function collectWeeklyData(
 
   // 5. Aggregate prompt-level data with categorization
   const promptMap = new Map();
-  currentWeekResponses?.forEach((response: any) => {
+  currentWeekResponses?.forEach((response: { prompt_id: string; score?: number; brand_present?: boolean; [key: string]: unknown }) => {
     const promptId = response.prompt_id;
     const promptText = promptsMap.get(promptId);
     
@@ -343,7 +323,7 @@ export async function collectWeeklyData(
   const historicalCompetitorCounts = new Map();
   
   // Current week competitors
-  currentWeekResponses?.forEach((response: any) => {
+  currentWeekResponses?.forEach((response: { competitors_json?: string[]; [key: string]: unknown }) => {
     if (response.competitors_json && Array.isArray(response.competitors_json)) {
       response.competitors_json.forEach((competitor: string) => {
         const count = competitorCounts.get(competitor) || 0;
@@ -353,7 +333,7 @@ export async function collectWeeklyData(
   });
 
   // Prior week competitors
-  priorWeekResponses?.forEach((response: any) => {
+  priorWeekResponses?.forEach((response: { competitors_json?: string[]; [key: string]: unknown }) => {
     if (response.competitors_json && Array.isArray(response.competitors_json)) {
       response.competitors_json.forEach((competitor: string) => {
         const count = priorCompetitorCounts.get(competitor) || 0;
@@ -442,7 +422,7 @@ export async function collectWeeklyData(
 
   const recosByType: Record<string, number> = {};
   const recosByStatus: Record<string, number> = {};
-  recommendations?.forEach((reco: any) => {
+  recommendations?.forEach((reco: { id: string; type: string; status: string; [key: string]: unknown }) => {
     recosByType[reco.type] = (recosByType[reco.type] || 0) + 1;
     recosByStatus[reco.status] = (recosByStatus[reco.status] || 0) + 1;
   });
@@ -456,7 +436,7 @@ export async function collectWeeklyData(
 
   // 8. Enhanced provider metrics with brand mention tracking
   const providerCounts = new Map();
-  currentWeekResponses?.forEach((response: any) => {
+  currentWeekResponses?.forEach((response: { provider: string; score?: number; brand_present?: boolean; [key: string]: unknown }) => {
     const provider = response.provider;
     if (!providerCounts.has(provider)) {
       providerCounts.set(provider, { 
@@ -504,7 +484,7 @@ export async function collectWeeklyData(
 
   // 9. Daily breakdown
   const dailyMap = new Map();
-  currentWeekResponses?.forEach((response: any) => {
+  currentWeekResponses?.forEach((response: { run_at: string; score?: number; [key: string]: unknown }) => {
     const date = response.run_at.split('T')[0];
     if (!dailyMap.has(date)) {
       dailyMap.set(date, { count: 0, totalScore: 0 });
@@ -515,7 +495,7 @@ export async function collectWeeklyData(
   });
 
   const dailyBreakdown = Array.from(dailyMap.entries())
-    .map(([date, data]: [string, any]) => ({
+    .map(([date, data]: [string, { count: number; totalScore: number }]) => ({
       date,
       responses: data.count,
       avgScore: data.count > 0 ? data.totalScore / data.count : 0,

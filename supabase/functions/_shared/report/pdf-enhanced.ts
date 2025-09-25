@@ -382,7 +382,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   ];
   
   // Group by category
-  allCategorizedPrompts.forEach((prompt: any) => {
+  allCategorizedPrompts.forEach((prompt: { category?: string; [key: string]: unknown }) => {
     const category = prompt.category || 'General';
     if (!promptsByCategory[category]) promptsByCategory[category] = [];
     promptsByCategory[category].push(prompt);

@@ -48,14 +48,14 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error triggering competitor sync:', error);
     
     return new Response(
       JSON.stringify({ 
         success: false,
         error: 'Failed to trigger competitor sync',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString()
       }),
       { 

@@ -218,8 +218,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    logStep('Error in weekly scheduler', { error: error.message });
+  } catch (error: unknown) {
+    logStep('Error in weekly scheduler', { error: error instanceof Error ? error.message : String(error) });
     
     // Update scheduler run log with error
     if (schedulerRun) {

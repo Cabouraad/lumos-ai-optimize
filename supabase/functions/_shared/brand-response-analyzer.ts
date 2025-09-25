@@ -95,7 +95,7 @@ async function analyzeWithV2(
       competitors: orgData.competitors,
       products_services: orgData.products_services
     },
-    brandCatalog: brandCatalog.map((bc: any) => ({
+    brandCatalog: brandCatalog.map((bc: { name: string; is_org_brand: boolean; variants_json: string[] }) => ({
       name: bc.name,
       is_org_brand: bc.is_org_brand,
       variants_json: bc.variants_json

@@ -216,7 +216,7 @@ async function verifyDNSRecord(recordName: string, expectedToken: string): Promi
 
     return false;
 
-  } catch (error) {
+  } catch (error: unknown) {
     return false;
   }
 }
@@ -243,7 +243,7 @@ async function verifyHTTPFile(fileUrl: string, expectedToken: string): Promise<b
       return false;
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     return false;
   }
 }

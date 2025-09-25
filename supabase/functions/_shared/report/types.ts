@@ -1,5 +1,28 @@
 // Centralized report types to prevent type drift across the codebase
 
+// Import VisibilityMetrics from collect.ts to ensure type consistency
+export type VisibilityMetrics = {
+  avgVisibilityScore: number;
+  overallScore: number;
+  scoreTrend: number;
+  totalRuns: number;
+  brandPresentRate: number;
+  avgCompetitors: number;
+  deltaVsPriorWeek?: {
+    avgVisibilityScore: number;
+    totalRuns: number;
+    brandPresentRate: number;
+  };
+  trendProjection: {
+    brandPresenceNext4Weeks: number;
+    confidenceLevel: 'high' | 'medium' | 'low';
+  };
+  // Backward compatibility aliases (will be set at runtime)
+  brandPresenceRate?: number;        // alias for brandPresentRate
+  presenceTrend?: number;           // alias for deltaVsPriorWeek?.brandPresentRate
+  totalPrompts?: number;            // alias for prompts.totalActive
+};
+
 export interface WeeklyReportData {
   header: {
     orgId: string;
@@ -8,27 +31,7 @@ export interface WeeklyReportData {
     periodEnd: string;
     generatedAt: string;
   };
-  kpis: {
-    avgVisibilityScore: number;
-    overallScore: number;
-    scoreTrend: number;
-    totalRuns: number;
-    brandPresentRate: number;
-    avgCompetitors: number;
-    deltaVsPriorWeek?: {
-      avgVisibilityScore: number;
-      totalRuns: number;
-      brandPresentRate: number;
-    };
-    trendProjection: {
-      brandPresenceNext4Weeks: number;
-      confidenceLevel: 'high' | 'medium' | 'low';
-    };
-    // Backward compatibility aliases (will be set at runtime)
-    brandPresenceRate?: number;        // alias for brandPresentRate
-    presenceTrend?: number;           // alias for deltaVsPriorWeek?.brandPresentRate
-    totalPrompts?: number;            // alias for prompts.totalActive
-  };
+  kpis: VisibilityMetrics;
   historicalTrend: {
     weeklyScores: Array<{
       weekStart: string;

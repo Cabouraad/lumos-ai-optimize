@@ -439,7 +439,7 @@ function buildOrgBrandVariants(
   
   // From org overlay
   if (orgOverlay.brand_variants) {
-    orgOverlay.brand_variants.forEach((v: any) => variants.add(v));
+    orgOverlay.brand_variants.forEach((v: string) => variants.add(v));
   }
   
   return Array.from(variants);
@@ -447,8 +447,8 @@ function buildOrgBrandVariants(
 
 function buildCatalogCompetitors(brandCatalog: AnalyzerV2Context['brandCatalog']): string[] {
   return brandCatalog
-    .filter((brand: any) => !brand.is_org_brand)
-    .map((brand: any) => brand.name);
+    .filter((brand: { is_org_brand: boolean }) => !brand.is_org_brand)
+    .map((brand: { name: string }) => brand.name);
 }
 
 function buildIndustryCompetitors(): typeof automotiveMarketplaces.canonical_brands {
