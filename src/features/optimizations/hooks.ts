@@ -10,6 +10,7 @@ import {
   getLowVisibilityPrompts 
 } from './api';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 export function usePromptOptimizations(promptId: string) {
   return useQuery({ 
@@ -57,10 +58,22 @@ export function useGenerateForPrompt(promptId: string) {
     mutationFn: () => generateForPrompt(promptId),
     onSuccess: async () => {
       console.log('[useGenerateForPrompt] Generated optimizations for prompt:', promptId);
+      toast({
+        title: "Success",
+        description: "Optimizations generated successfully",
+      });
       // Immediately invalidate queries to show new results
       await queryClient.invalidateQueries({ queryKey: ['optimizations', 'prompt', promptId] });
       await queryClient.invalidateQueries({ queryKey: ['optimizations', 'org'] });
       await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
+    },
+    onError: (error) => {
+      console.error('[useGenerateForPrompt] Error generating optimizations:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate optimizations",
+        variant: "destructive",
+      });
     },
   });
 }
@@ -69,13 +82,27 @@ export function useGenerateForOrg() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (params?: { category?: 'low_visibility' | 'general' }) => 
-      generateForLowVisibilityBatch(params?.category),
-    onSuccess: async () => {
-      console.log('[useGenerateForOrg] Generated optimizations');
+    mutationFn: (params?: { category?: 'low_visibility' | 'general' }) => {
+      console.log('[useGenerateForOrg] Starting generation with category:', params?.category);
+      return generateForLowVisibilityBatch(params?.category);
+    },
+    onSuccess: async (data) => {
+      console.log('[useGenerateForOrg] Generated optimizations:', data);
+      toast({
+        title: "Success",
+        description: `Generated ${data?.inserted || 0} optimizations`,
+      });
       // Immediately invalidate queries to show new results
       await queryClient.invalidateQueries({ queryKey: ['optimizations', 'org'] });
       await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
+    },
+    onError: (error) => {
+      console.error('[useGenerateForOrg] Error generating optimizations:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate optimizations",
+        variant: "destructive",
+      });
     },
   });
 }

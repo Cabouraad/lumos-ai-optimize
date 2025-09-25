@@ -524,8 +524,8 @@ export async function collectWeeklyData(
     .gte('created_at', periodStart)
     .lt('created_at', periodEnd);
 
-  const recosByType = {};
-  const recosByStatus = {};
+  const recosByType: Record<string, number> = {};
+  const recosByStatus: Record<string, number> = {};
   recommendations?.forEach((reco: any) => {
     recosByType[reco.type] = (recosByType[reco.type] || 0) + 1;
     recosByStatus[reco.status] = (recosByStatus[reco.status] || 0) + 1;

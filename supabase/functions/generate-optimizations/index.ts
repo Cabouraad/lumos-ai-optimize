@@ -75,7 +75,7 @@ ${cites}
 GOAL: Create 3-4 targeted optimizations to improve visibility for this specific prompt.
 
 REQUIREMENTS:
-1) LINKEDIN POST: Professional thought leadership post that naturally addresses the prompt topic. Include step-by-step posting instructions, optimal timing, hashtag strategy.
+1) SOCIAL POST: Professional thought leadership post that naturally addresses the prompt topic. Include step-by-step posting instructions, optimal timing, hashtag strategy.
 2) REDDIT STRATEGY: Identify 5-7 relevant subreddits, specific post approaches, community engagement tactics. Focus on providing value first.
 3) BLOG OUTLINE: Comprehensive SEO-optimized article addressing the prompt. Include keyword strategy, internal linking, outreach targets.
 4) TALKING POINTS: 5 key points for interviews, podcasts, and conversations that position ${args.brand} as the solution.
@@ -97,11 +97,11 @@ ${cites}
 GOAL: Create 4-5 comprehensive brand visibility strategies for general market presence.
 
 REQUIREMENTS:
-1) THOUGHT LEADERSHIP CONTENT: Blog series, speaking opportunities, industry positioning
-2) SOCIAL MEDIA STRATEGY: Multi-platform approach including LinkedIn, Twitter, Reddit
-3) COMMUNITY ENGAGEMENT: Industry forums, Reddit communities, professional networks  
-4) CONTENT MARKETING: SEO content, video series, podcast appearances
-5) REDDIT COMMUNITY BUILDING: Long-term subreddit engagement, value-first contributions
+1) SOCIAL POST: Thought leadership content, speaking opportunities, industry positioning
+2) BLOG OUTLINE: Multi-platform approach including LinkedIn, Twitter, Reddit
+3) REDDIT STRATEGY: Industry forums, Reddit communities, professional networks  
+4) TALKING POINTS: SEO content, video series, podcast appearances
+5) CTA SNIPPETS: Long-term subreddit engagement, value-first contributions
 
 Focus on scalable strategies that build long-term brand authority and visibility across AI search results.
 Include detailed implementation guides, resource requirements, and projected ROI.`;
@@ -134,6 +134,7 @@ serve(async (req) => {
     
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
+      console.error('[generate-optimizations] Auth failed:', userError);
       return new Response("Auth failed", { status: 401, headers: corsHeaders });
     }
 
@@ -145,7 +146,7 @@ serve(async (req) => {
     const doBatch: boolean = !!body?.batch;
     const category: 'low_visibility' | 'general' = body?.category || 'general';
 
-    console.log('[generate-optimizations] Request body parsed', { promptId, doBatch });
+    console.log('[generate-optimizations] Request body parsed', { promptId, doBatch, category });
 
     // Get user's org
     const { data: userRecord } = await supabase
@@ -169,19 +170,21 @@ serve(async (req) => {
       .eq("id", orgId)
       .single();
 
-    // Single prompt (sync) or batch (fall back to job enqueue if >1)
+    // Single prompt (sync) or batch (ALL prompts for batch mode)
     let promptIds: string[] = [];
     if (promptId) {
       promptIds = [promptId];
     } else if (doBatch) {
-      // select low-visibility prompts for org (limit to 10 for low-visibility category)
-      const limit = category === 'low_visibility' ? 10 : 20;
+      // FIXED: Get ALL low-visibility prompts for batch processing, not just limit 10
+      const limit = category === 'low_visibility' ? 50 : 20; // Increased limit
       const { data: lows } = await supabase
         .from("low_visibility_prompts")
         .select("prompt_id")
         .eq("org_id", orgId)
+        .order("presence_rate", { ascending: true }) // Process lowest visibility first
         .limit(limit);
       promptIds = (lows ?? []).map((r: any) => r.prompt_id);
+      console.log('[generate-optimizations] Batch mode: processing', promptIds.length, 'prompts');
     }
 
     if (promptIds.length === 0) {
@@ -193,170 +196,199 @@ serve(async (req) => {
 
     console.log('[generate-optimizations] Processing prompts', { count: promptIds.length, promptIds });
 
-    // Generate for single prompt synchronously
-    const pid = promptIds[0];
+    // FIXED: Process ALL prompts in batch mode, not just the first one
+    let totalInserted = 0;
+    const allOptimizations = [];
 
-    // Get prompt details
-    const { data: prompt } = await supabase
-      .from("prompts")
-      .select("id, text")
-      .eq("id", pid)
-      .eq("org_id", orgId)
-      .single();
+    for (const pid of promptIds) {
+      try {
+        // Get prompt details
+        const { data: prompt } = await supabase
+          .from("prompts")
+          .select("id, text")
+          .eq("id", pid)
+          .eq("org_id", orgId)
+          .single();
 
-    if (!prompt) {
-      return new Response("Prompt not found", { status: 404, headers: corsHeaders });
-    }
+        if (!prompt) {
+          console.log('[generate-optimizations] Prompt not found:', pid);
+          continue;
+        }
 
-    // Get visibility metrics
-    const { data: vis } = await supabase
-      .from("prompt_visibility_14d")
-      .select("presence_rate")
-      .eq("org_id", orgId)
-      .eq("prompt_id", pid)
-      .maybeSingle();
+        // Get visibility metrics
+        const { data: vis } = await supabase
+          .from("prompt_visibility_14d")
+          .select("presence_rate")
+          .eq("org_id", orgId)
+          .eq("prompt_id", pid)
+          .maybeSingle();
 
-    const presence = vis?.presence_rate ?? 0;
+        const presence = vis?.presence_rate ?? 0;
 
-    // Get recent competitors and citations from prompt_provider_responses
-    const { data: responses } = await supabase
-      .from("prompt_provider_responses")
-      .select("competitors_json, citations_json")
-      .eq("org_id", orgId)
-      .eq("prompt_id", pid)
-      .eq("status", "success")
-      .order("run_at", { ascending: false })
-      .limit(20);
+        // Get recent competitors and citations from prompt_provider_responses
+        const { data: responses } = await supabase
+          .from("prompt_provider_responses")
+          .select("competitors_json, citations_json")
+          .eq("org_id", orgId)
+          .eq("prompt_id", pid)
+          .eq("status", "success")
+          .order("run_at", { ascending: false })
+          .limit(20);
 
-    const competitors = Array.from(
-      new Set((responses ?? [])
-        .flatMap((r: any) => r.competitors_json ? 
-          (Array.isArray(r.competitors_json) ? r.competitors_json : []) : [])
-        .filter(Boolean)
-      )
-    );
+        const competitors = Array.from(
+          new Set((responses ?? [])
+            .flatMap((r: any) => r.competitors_json ? 
+              (Array.isArray(r.competitors_json) ? r.competitors_json : []) : [])
+            .filter(Boolean)
+          )
+        );
 
-    const citations = (responses ?? [])
-      .flatMap((r: any) => r.citations_json ? 
-        (Array.isArray(r.citations_json) ? r.citations_json : []) : [])
-      .filter(Boolean)
-      .slice(0, 10)
-      .map((c: any) => ({
-        domain: c.domain || (c.url ? new URL(c.url).hostname : ''),
-        title: c.title || null,
-        link: c.url || c.link || ''
-      }))
-      .filter((c: any) => c.domain && c.link);
+        const citations = (responses ?? [])
+          .flatMap((r: any) => r.citations_json ? 
+            (Array.isArray(r.citations_json) ? r.citations_json : []) : [])
+          .filter(Boolean)
+          .slice(0, 10)
+          .map((c: any) => ({
+            domain: c.domain || (c.url ? new URL(c.url).hostname : ''),
+            title: c.title || null,
+            link: c.url || c.link || ''
+          }))
+          .filter((c: any) => c.domain && c.link);
 
-    // Call OpenAI
-    const promptInput = optimizerUserPrompt({
-      brand: org?.name || "Your brand",
-      promptText: prompt.text,
-      presenceRate: presence,
-      competitors,
-      citations,
-      category
-    });
-
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { 
-        "authorization": `Bearer ${openAIApiKey}`, 
-        "content-type": "application/json" 
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.3,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: optimizerSystem() },
-          { role: "user", content: promptInput }
-        ]
-      })
-    });
-
-    if (!resp.ok) {
-      const errorText = await resp.text();
-      console.error('OpenAI error:', errorText);
-      return new Response(`OpenAI error: ${errorText}`, { 
-        status: 502, 
-        headers: corsHeaders 
-      });
-    }
-
-    const ai = await resp.json();
-    const raw = ai?.choices?.[0]?.message?.content ?? "";
-    let parsed: any;
-    
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = jsonRepair(raw);
-    }
-    
-    if (!parsed || typeof parsed !== "object") {
-      console.error('Failed to parse optimizer JSON:', raw);
-      return new Response("Failed to parse optimizer JSON", { 
-        status: 500, 
-        headers: corsHeaders 
-      });
-    }
-
-    // Normalize & insert optimization rows from new structure
-    const toInsert: any[] = [];
-    
-    (parsed.optimizations ?? []).forEach((opt: any) => {
-      toInsert.push({ 
-        org_id: orgId, 
-        prompt_id: pid, 
-        optimization_category: category,
-        content_type: opt.content_type || "general",
-        title: opt.title || "Optimization", 
-        body: typeof opt.body === 'string' ? opt.body : JSON.stringify(opt.body), 
-        sources: citations, 
-        score_before: presence,
-        projected_impact: opt.implementation_details?.timeline || "Improvement expected within 4-6 weeks",
-        provider: 'optimizer',
-        implementation_details: opt.implementation_details || {},
-        resources: opt.resources || [],
-        success_metrics: opt.success_metrics || {},
-        reddit_strategy: opt.reddit_strategy || {},
-        impact_score: opt.impact_score || 5,
-        difficulty_level: opt.difficulty_level || 'medium',
-        timeline_weeks: opt.timeline_weeks || 4
-      });
-    });
-
-    console.log('[generate-optimizations] Ready to insert', { count: toInsert.length });
-    
-    if (toInsert.length) {
-      const { error: insErr } = await supabase
-        .from("optimizations")
-        .insert(toInsert);
-        
-      if (insErr) {
-        console.error('[generate-optimizations] Insert error:', insErr);
-        return new Response(`Insert error: ${insErr.message}`, { 
-          status: 500, 
-          headers: corsHeaders 
+        // Call OpenAI for this prompt
+        const promptInput = optimizerUserPrompt({
+          brand: org?.name || "Your brand",
+          promptText: prompt.text,
+          presenceRate: presence,
+          competitors,
+          citations,
+          category
         });
+
+        console.log('[generate-optimizations] Calling OpenAI for prompt:', pid);
+        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { 
+            "authorization": `Bearer ${openAIApiKey}`, 
+            "content-type": "application/json" 
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            temperature: 0.3,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: optimizerSystem() },
+              { role: "user", content: promptInput }
+            ]
+          })
+        });
+
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          console.error('[generate-optimizations] OpenAI error for prompt', pid, ':', errorText);
+          continue; // Skip this prompt but continue with others
+        }
+
+        const ai = await resp.json();
+        const raw = ai?.choices?.[0]?.message?.content ?? "";
+        let parsed: any;
+        
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = jsonRepair(raw);
+        }
+        
+        if (!parsed || typeof parsed !== "object") {
+          console.error('[generate-optimizations] Failed to parse optimizer JSON for prompt', pid, ':', raw);
+          continue; // Skip this prompt but continue with others
+        }
+
+        // Normalize & insert optimization rows from new structure
+        const toInsert: any[] = [];
+        
+        (parsed.optimizations ?? []).forEach((opt: any) => {
+          // FIXED: Map content types to valid constraint values
+          let validContentType = 'social_post'; // default
+          const rawType = (opt.content_type || '').toLowerCase();
+          
+          if (rawType.includes('social') || rawType.includes('linkedin') || rawType.includes('post')) {
+            validContentType = 'social_post';
+          } else if (rawType.includes('blog') || rawType.includes('outline') || rawType.includes('article')) {
+            validContentType = 'blog_outline';
+          } else if (rawType.includes('talk') || rawType.includes('point') || rawType.includes('interview')) {
+            validContentType = 'talking_points';
+          } else if (rawType.includes('cta') || rawType.includes('snippet') || rawType.includes('call')) {
+            validContentType = 'cta_snippets';
+          } else if (rawType.includes('reddit') || rawType.includes('community')) {
+            validContentType = 'reddit_strategy';
+          }
+
+          toInsert.push({ 
+            org_id: orgId, 
+            prompt_id: pid, 
+            optimization_category: category,
+            content_type: validContentType,
+            title: opt.title || "Optimization", 
+            body: typeof opt.body === 'string' ? opt.body : JSON.stringify(opt.body), 
+            sources: citations, 
+            score_before: presence,
+            projected_impact: opt.implementation_details?.timeline || "Improvement expected within 4-6 weeks",
+            provider: 'optimizer',
+            implementation_details: opt.implementation_details || {},
+            resources: opt.resources || [],
+            success_metrics: opt.success_metrics || {},
+            reddit_strategy: opt.reddit_strategy || {},
+            impact_score: opt.impact_score || 5,
+            difficulty_level: opt.difficulty_level || 'medium',
+            timeline_weeks: opt.timeline_weeks || 4
+          });
+        });
+
+        console.log('[generate-optimizations] Ready to insert for prompt', pid, ':', { count: toInsert.length });
+        
+        if (toInsert.length) {
+          const { error: insErr } = await supabase
+            .from("optimizations")
+            .insert(toInsert);
+            
+          if (insErr) {
+            console.error('[generate-optimizations] Insert error for prompt', pid, ':', insErr);
+            continue; // Skip this prompt but continue with others
+          }
+          
+          console.log('[generate-optimizations] Successfully inserted optimizations for prompt', pid);
+          totalInserted += toInsert.length;
+          allOptimizations.push(...toInsert);
+        }
+
+        // Add small delay between prompts to avoid rate limiting
+        if (promptIds.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+      } catch (error) {
+        console.error('[generate-optimizations] Error processing prompt', pid, ':', error);
+        // Continue with next prompt
+        continue;
       }
-      
-      console.log('[generate-optimizations] Successfully inserted optimizations');
     }
 
     // Refresh visibility data
     await supabase.rpc('refresh_prompt_visibility_14d');
 
+    console.log('[generate-optimizations] Batch complete:', { totalInserted, promptsProcessed: promptIds.length });
+
     return new Response(JSON.stringify({ 
-      inserted: toInsert.length, 
-      optimizations: toInsert 
+      inserted: totalInserted, 
+      optimizations: allOptimizations.slice(0, 10), // Return sample for response size
+      promptsProcessed: promptIds.length
     }), {
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
 
   } catch (e) {
-    console.error('Server error:', e);
+    console.error('[generate-optimizations] Server error:', e);
     return new Response(`Server error: ${e}`, { 
       status: 500, 
       headers: corsHeaders 
