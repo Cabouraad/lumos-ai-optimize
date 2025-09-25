@@ -535,7 +535,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     console.log(`[buildRecommendations] Generated ${recommendations.length} recommendations with category distribution:`, 
       categories.reduce((acc: any, cat: any) => ({ ...acc, [cat]: recommendations.filter((r: Reco) => r.kind === cat).length }), {}));
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error building recommendations:', error);
   }
 

@@ -57,7 +57,7 @@ export async function executeGoogleAio(
     const result = await response.json();
     return result as GoogleAioResult;
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error executing Google AIO:', error);
     return null;
   }

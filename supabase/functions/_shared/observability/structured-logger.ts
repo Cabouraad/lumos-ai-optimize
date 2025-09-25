@@ -147,7 +147,7 @@ class EdgeFunctionLogger {
       });
       
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       const duration = performance.now() - start;
       this.error(`${operation} failed`, error as Error, {
         ...context,
@@ -226,7 +226,7 @@ export const withRequestLogging = async <T>(
     });
     
     return result;
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Request failed', error as Error, {
       functionName,
     });

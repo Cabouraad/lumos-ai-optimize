@@ -429,7 +429,7 @@ Return only the JSON object, no other text:`;
 
       return result;
 
-    } catch (error) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`${name} attempt failed:`, message);
       lastError = error instanceof Error ? error : new Error(message);
@@ -490,7 +490,7 @@ Return format: ["keyword1", "keyword2", ...]`;
       }
     }
     return [];
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Keywords generation failed:', error);
     return [];
   }

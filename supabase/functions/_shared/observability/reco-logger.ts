@@ -196,22 +196,22 @@ export class RecoLogger {
     }));
   }
   
-  generationFailed(error: Error, step?: string): void {
+  generationFailed(error: unknown, step?: string): void {
     const duration = Date.now() - (this.context.startTime || Date.now());
     
     console.log(JSON.stringify({
       event: 'reco_generation_failed',
       level: 'error',
-      message: `Recommendation generation failed${step ? ` at ${step}` : ''}: ${error.message}`,
+      message: `Recommendation generation failed${step ? ` at ${step}` : ''}: ${error instanceof Error ? error.message : String(error)}`,
       context: {
         ...this.context,
         duration,
         errorType: this.categorizeError(error),
-        errorCode: error.name
+        errorCode: error instanceof Error ? error.name : 'unknown'
       },
       metadata: {
-        error: error.message,
-        stack: error.stack,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         step
       },
       timestamp: new Date().toISOString()
@@ -236,18 +236,18 @@ export class RecoLogger {
   }
   
   // AI service events
-  aiServiceError(provider: string, error: Error, retryAttempt?: number): void {
+  aiServiceError(provider: string, error: unknown, retryAttempt?: number): void {
     console.log(JSON.stringify({
       event: 'ai_service_error',
       level: 'error',
-      message: `AI service ${provider} error: ${error.message}`,
+      message: `AI service ${provider} error: ${error instanceof Error ? error.message : String(error)}`,
       context: {
         ...this.context,
         aiProvider: provider,
         errorType: 'ai-service'
       },
       metadata: {
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         retryAttempt
       },
       timestamp: new Date().toISOString()
@@ -273,8 +273,8 @@ export class RecoLogger {
     }));
   }
   
-  private categorizeError(error: Error): RecoLogContext['errorType'] {
-    const message = error.message.toLowerCase();
+  private categorizeError(error: unknown): RecoLogContext['errorType'] {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
     
     if (message.includes('insufficient') || message.includes('no data') || message.includes('empty')) {
       return 'data-insufficient';

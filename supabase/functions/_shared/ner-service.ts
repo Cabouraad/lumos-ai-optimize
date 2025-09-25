@@ -148,7 +148,7 @@ Only include entities with confidence >= ${confidenceThreshold}. Maximum ${maxEn
       processing_time_ms: processingTime
     };
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ NER extraction failed:', error);
     throw error;
   }

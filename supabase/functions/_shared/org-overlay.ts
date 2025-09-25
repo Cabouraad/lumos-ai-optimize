@@ -52,7 +52,7 @@ export async function getOrgOverlay(orgId: string): Promise<OrgOverlay> {
     });
 
     return overlay;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in getOrgOverlay:', error);
     
     // Return empty overlay on error
@@ -88,7 +88,7 @@ export async function updateOrgOverlay(orgId: string, updates: Partial<OrgOverla
     });
     
     console.log(`✅ Updated org overlay for ${orgId} (cache only)`);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating org overlay:', error);
     throw error;
   }
@@ -204,7 +204,7 @@ export async function getCrossProviderConsensus(promptId: string, hours: number 
     }
 
     return consensusCompetitors;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in getCrossProviderConsensus:', error);
     return [];
   }

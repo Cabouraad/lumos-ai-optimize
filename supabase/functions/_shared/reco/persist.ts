@@ -52,7 +52,7 @@ export async function upsertRecommendations(supabase: any, accountId: string, re
         console.log(`Created recommendation: ${reco.title} (estimated lift: ${(reco.estLift * 100).toFixed(1)}%)`);
       }
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error processing recommendation "${reco.title}":`, error);
     }
   }
@@ -80,7 +80,7 @@ export async function upsertRecommendationsWithRPC(supabase: any, accountId: str
       if (error) {
         console.error(`RPC upsert failed for "${reco.title}":`, error);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error in RPC upsert for "${reco.title}":`, error);
     }
   }

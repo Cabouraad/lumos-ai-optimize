@@ -83,9 +83,9 @@ class TestRunner {
         await test.fn();
         console.log(`✅ ${test.name}`);
         this.passed++;
-      } catch (error) {
+      } catch (error: unknown) {
         console.log(`❌ ${test.name}`);
-        console.log(`   Error: ${error.message}`);
+        console.log(`   Error: ${error instanceof Error ? error.message : String(error)}`);
         this.failed++;
       }
     }

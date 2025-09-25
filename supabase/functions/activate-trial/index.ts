@@ -123,7 +123,7 @@ serve(async (req) => {
 
     if (error) {
       logStep('Database update failed', { error });
-      throw new Error(`Failed to update subscriber: ${error.message}`);
+      throw new Error(`Failed to update subscriber: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     logStep('Trial activated successfully', { 
@@ -139,7 +139,7 @@ serve(async (req) => {
       }),
       { headers: { ...C.headers, "content-type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in activate-trial", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {

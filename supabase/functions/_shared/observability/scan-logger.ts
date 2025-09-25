@@ -161,22 +161,22 @@ export class ScanLogger {
     }));
   }
   
-  scanFailed(error: Error, step?: string): void {
+  scanFailed(error: unknown, step?: string): void {
     const duration = Date.now() - (this.context.startTime || Date.now());
     
     console.log(JSON.stringify({
       event: 'scan_failed',
       level: 'error',
-      message: `Daily scan failed${step ? ` at ${step}` : ''}: ${error.message}`,
+      message: `Daily scan failed${step ? ` at ${step}` : ''}: ${error instanceof Error ? error.message : String(error)}`,
       context: {
         ...this.context,
         duration,
         errorType: this.categorizeError(error),
-        errorCode: error.name
+        errorCode: error instanceof Error ? error.name : 'unknown'
       },
       metadata: {
-        error: error.message,
-        stack: error.stack,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         step
       },
       timestamp: new Date().toISOString()
@@ -195,17 +195,17 @@ export class ScanLogger {
     }));
   }
   
-  providerError(provider: string, error: Error): void {
+  providerError(provider: string, error: unknown): void {
     console.log(JSON.stringify({
       event: 'provider_error',
       level: 'error',
-      message: `Provider ${provider} error: ${error.message}`,
+      message: `Provider ${provider} error: ${error instanceof Error ? error.message : String(error)}`,
       context: {
         ...this.context,
         provider,
         errorType: this.categorizeError(error)
       },
-      metadata: { error: error.message },
+      metadata: { error: error instanceof Error ? error.message : String(error) },
       timestamp: new Date().toISOString()
     }));
   }
@@ -226,8 +226,8 @@ export class ScanLogger {
     }));
   }
   
-  private categorizeError(error: Error): ScanLogContext['errorType'] {
-    const message = error.message.toLowerCase();
+  private categorizeError(error: unknown): ScanLogContext['errorType'] {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
     
     if (message.includes('rate limit') || message.includes('quota')) {
       return 'rate-limit';
