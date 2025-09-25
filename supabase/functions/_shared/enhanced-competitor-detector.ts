@@ -182,7 +182,7 @@ export class EnhancedCompetitorDetector {
 
       console.log(`✅ Gazetteer initialized: ${this.accountGazetteer.size} account entries, ${this.orgBrands.size} org brands`);
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error initializing gazetteer:', error);
     }
   }
@@ -216,7 +216,7 @@ export class EnhancedCompetitorDetector {
     // Step 1: Extract potential competitor candidates using strict proper noun rules
     const candidates = this.extractProperNounCandidates(text);
     
-    console.log(`🔍 Found ${candidates.length} proper noun candidates:`, candidates.slice(0, 10).map(c => c.name));
+    console.log(`🔍 Found ${candidates.length} proper noun candidates:`, candidates.slice(0, 10).map((c: any) => c.name));
 
     // Step 2: Validate and match against gazetteers
     for (const candidate of candidates) {
@@ -299,7 +299,7 @@ export class EnhancedCompetitorDetector {
             nerMatches++;
           }
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('❌ NER fallback failed:', error);
       }
     }
@@ -496,7 +496,7 @@ export class EnhancedCompetitorDetector {
    */
   private capitalizeProperNoun(name: string): string {
     return name.split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .map((word: any) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   }
 

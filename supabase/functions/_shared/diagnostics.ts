@@ -71,9 +71,9 @@ export class EdgeFunctionDiagnostics {
       const stepDuration = Date.now() - stepStart;
       this.logStep(`${step}_completed`, { ...details, duration_ms: stepDuration });
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       const stepDuration = Date.now() - stepStart;
-      this.logStep(`${step}_failed`, { ...details, duration_ms: stepDuration }, error as Error);
+      this.logStep(`${step}_failed`, { ...details, duration_ms: stepDuration }, error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -85,7 +85,7 @@ export class EdgeFunctionDiagnostics {
       functionName: this.context.functionName,
       totalDuration,
       steps: this.steps.length,
-      errors: this.steps.filter(s => s.error).length,
+      errors: this.steps.filter((s: any) => s.error).length,
       context: this.context
     };
   }

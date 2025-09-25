@@ -95,7 +95,7 @@ async function analyzeWithV2(
       competitors: orgData.competitors,
       products_services: orgData.products_services
     },
-    brandCatalog: brandCatalog.map(bc => ({
+    brandCatalog: brandCatalog.map((bc: any) => ({
       name: bc.name,
       is_org_brand: bc.is_org_brand,
       variants_json: bc.variants_json
@@ -166,7 +166,7 @@ async function analyzeWithV1(
   // ... keep existing V1 code (Step 1-5 from original function)
   const orgBrandVariants = extractOrgBrandVariants(brandCatalog);
   const catalogCompetitors = extractCatalogCompetitors(brandCatalog);
-  const globalCompetitors = GLOBAL_COMPETITORS.map(c => c.name);
+  const globalCompetitors = GLOBAL_COMPETITORS.map((c: any) => c.name);
   
   console.log(`🏷️ Org brand variants: ${orgBrandVariants.length}`);
   console.log(`📋 Catalog competitors: ${catalogCompetitors.length}`);
@@ -196,7 +196,7 @@ async function analyzeWithV1(
   ];
   
   const uniqueCompetitors = [...new Set(allCompetitors)]
-    .filter(comp => !orgBrandVariants.some(org => 
+    .filter((comp: any) => !orgBrandVariants.some(org => 
       normalize(comp) === normalize(org)
     ))
     .slice(0, 20);
@@ -267,7 +267,7 @@ function extractOrgBrandVariants(brandCatalog: BrandCatalogEntry[]): string[] {
     }
   }
   
-  return Array.from(variants).filter(v => v.length >= 2);
+  return Array.from(variants).filter((v: any) => v.length >= 2);
 }
 
 /**
@@ -275,8 +275,8 @@ function extractOrgBrandVariants(brandCatalog: BrandCatalogEntry[]): string[] {
  */
 function extractCatalogCompetitors(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
-    .filter(brand => !brand.is_org_brand && brand.name.length >= 3)
-    .map(brand => brand.name);
+    .filter((brand: any) => !brand.is_org_brand && brand.name.length >= 3)
+    .map((brand: any) => brand.name);
 }
 
 /**
@@ -346,7 +346,7 @@ async function extractOrganizationsNER(
   console.log(`🔍 Found ${properNouns.length} proper noun candidates`);
   
   // Step 2: Filter out known brands and common words
-  const unknownCandidates = properNouns.filter(noun => 
+  const unknownCandidates = properNouns.filter((noun: any) => 
     !knownBrands.some(known => normalize(known) === normalize(noun)) &&
     !isCommonWord(noun) &&
     noun.length >= 3 &&
@@ -366,10 +366,10 @@ async function extractOrganizationsNER(
     const nerResult = await classifyOrganizations(unknownCandidates, text);
     console.log(`✅ NER identified ${nerResult.length} organizations`);
     return nerResult;
-  } catch (error) {
+  } catch (error: unknown) {
     console.log('⚠️ NER classification failed, using pattern-based fallback');
     return unknownCandidates
-      .filter(candidate => isLikelyOrganization(candidate, text))
+      .filter((candidate: any) => isLikelyOrganization(candidate, text))
       .slice(0, 10); // Limit fallback results
   }
 }
@@ -498,7 +498,7 @@ Respond with only a JSON array of organization names that are clearly businesses
         console.log(`✅ NER extracted ${organizations.length} organizations: ${organizations.slice(0, 5).join(', ')}`);
         return organizations.slice(0, 15); // Limit results
       }
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.log('Failed to parse NER JSON response, attempting fallback extraction');
       // Fallback: extract organization names from response text
       const orgMatches = content.match(/"([^"]+)"/g);
@@ -513,7 +513,7 @@ Respond with only a JSON array of organization names that are clearly businesses
     }
     
     return [];
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('NER classification error:', error);
     throw error;
   }

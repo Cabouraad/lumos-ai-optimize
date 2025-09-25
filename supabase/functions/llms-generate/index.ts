@@ -194,7 +194,7 @@ async function discoverPages(baseUrl: string): Promise<string[]> {
       const urlMatches = sitemapText.match(/<loc>(.*?)<\/loc>/g);
       
       if (urlMatches) {
-        urlMatches.forEach(match => {
+        urlMatches.forEach((match: any) => {
           const url = match.replace('<loc>', '').replace('</loc>', '');
           if (url.startsWith(baseUrl)) {
             pages.add(url);
@@ -209,7 +209,7 @@ async function discoverPages(baseUrl: string): Promise<string[]> {
   // Add common pages if none found
   if (pages.size === 0) {
     const commonPages = ['/', '/about', '/contact', '/services', '/products', '/pricing'];
-    commonPages.forEach(page => pages.add(`${baseUrl}${page}`));
+    commonPages.forEach((page: any) => pages.add(`${baseUrl}${page}`));
   }
 
   return Array.from(pages).slice(0, 20); // Limit to 20 pages

@@ -281,7 +281,7 @@ async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8A
     `Delta vs Previous Week: ${dto.kpis.deltaVsPriorWeek?.totalRuns ? (dto.kpis.deltaVsPriorWeek.totalRuns >= 0 ? '+' : '') + formatNumber(dto.kpis.deltaVsPriorWeek.totalRuns) : 'N/A'}`,
   ];
 
-  volumeStats.forEach(stat => {
+  volumeStats.forEach((stat: any) => {
     kpiPage.drawText(stat, {
       x: margin,
       y: currentY,
@@ -336,7 +336,7 @@ async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8A
     currentY -= 20;
 
     // Table rows
-    dto.prompts.topPerformers.slice(0, 5).forEach(prompt => {
+    dto.prompts.topPerformers.slice(0, 5).forEach((prompt: any) => {
       currentX = margin;
       
       // Prompt text (truncated)
@@ -394,7 +394,7 @@ async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8A
     });
     currentY -= 30;
 
-    dto.prompts.zeroPresence.slice(0, 3).forEach(prompt => {
+    dto.prompts.zeroPresence.slice(0, 3).forEach((prompt: any) => {
       promptsPage.drawText(`• ${truncateText(prompt.text, 60)} (${prompt.totalRuns} runs)`, {
         x: margin,
         y: currentY,
@@ -442,7 +442,7 @@ async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8A
     // Top 10 competitors
     const maxAppearances = Math.max(...dto.competitors.topCompetitors.map(c => c.appearances));
     
-    dto.competitors.topCompetitors.slice(0, 10).forEach(competitor => {
+    dto.competitors.topCompetitors.slice(0, 10).forEach((competitor: any) => {
       currentX = margin;
       
       // Competitor name
@@ -596,7 +596,7 @@ async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8A
     });
     currentY -= 25;
 
-    dto.recommendations.highlights.slice(0, 3).forEach(reco => {
+    dto.recommendations.highlights.slice(0, 3).forEach((reco: any) => {
       const statusColor = reco.status === 'open' ? warningColor : successColor;
       
       recoPage.drawText(`• ${truncateText(reco.title, 70)}`, {

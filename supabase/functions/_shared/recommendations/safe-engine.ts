@@ -131,7 +131,7 @@ export class SafeRecommendationEngine {
   }
 
   private detectLowVisibilityPrompts(input: RecommendationInput, dateKey: string): SafeRecommendation[] {
-    const lowVisibilityPrompts = input.promptVisibility.filter(p => 
+    const lowVisibilityPrompts = input.promptVisibility.filter((p: any) => 
       p.avg_score_7d < 4.0 && 
       p.runs_7d >= 5 && 
       p.brand_visible_count < 2
@@ -163,7 +163,7 @@ export class SafeRecommendationEngine {
   }
 
   private detectDominantCompetitors(input: RecommendationInput, dateKey: string): SafeRecommendation[] {
-    const dominantCompetitors = input.competitorAnalysis.filter(c => 
+    const dominantCompetitors = input.competitorAnalysis.filter((c: any) => 
       c.mention_count > 8 && 
       c.prompt_coverage > 0.6 &&
       c.avg_position < 3
@@ -193,7 +193,7 @@ export class SafeRecommendationEngine {
   }
 
   private detectCitationOpportunities(input: RecommendationInput, dateKey: string): SafeRecommendation[] {
-    const highValueCitations = input.citationData.filter(c => 
+    const highValueCitations = input.citationData.filter((c: any) => 
       c.citation_count >= 10 && 
       c.source_type !== 'competitor'
     );
@@ -221,7 +221,7 @@ export class SafeRecommendationEngine {
 
   private detectVisibilityGaps(input: RecommendationInput, dateKey: string): SafeRecommendation[] {
     const totalPrompts = input.promptVisibility.length;
-    const lowBrandVisibility = input.promptVisibility.filter(p => p.brand_visible_count === 0).length;
+    const lowBrandVisibility = input.promptVisibility.filter((p: any) => p.brand_visible_count === 0).length;
     const visibilityRate = (totalPrompts - lowBrandVisibility) / totalPrompts;
 
     if (visibilityRate > 0.7) return []; // Good visibility already
@@ -251,7 +251,7 @@ export class SafeRecommendationEngine {
 
   private async persistRecommendations(orgId: string, recommendations: SafeRecommendation[]): Promise<void> {
     try {
-      const dbRecos = recommendations.map(reco => ({
+      const dbRecos = recommendations.map((reco: any) => ({
         org_id: orgId,
         type: reco.type,
         title: reco.title,

@@ -307,5 +307,5 @@ export function createBrandGazetteer(
   // NO AUTOMATIC ADDITION OF INDUSTRY OR COMMON BRANDS
   // This ensures we only match against explicitly cataloged competitors
   
-  return Array.from(gazetteer).filter(brand => brand.length >= 3);
+  return Array.from(gazetteer).filter((brand: any) => brand.length >= 3);
 }

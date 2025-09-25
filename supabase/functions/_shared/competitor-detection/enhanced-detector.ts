@@ -99,14 +99,14 @@ export class EnhancedCompetitorDetector {
             try {
               // Compute current from existing strict results (unchanged)
               const current: DetectionResult = {
-                brands: finalResult.orgBrands.map(b => b.name),
-                competitors: finalResult.competitors.map(c => c.name)
+                brands: finalResult.orgBrands.map((b: any) => b.name),
+                competitors: finalResult.competitors.map((c: any) => c.name)
               };
               
               // Compute proposed via V2 detection
               await this.runV2ShadowDiagnostics(runId, orgId, text, current, 'strict');
               
-            } catch (error) {
+            } catch (error: unknown) {
               this.logger.warn('Shadow diagnostics failed', { 
                 error: error instanceof Error ? error.message : String(error) 
               });
@@ -123,7 +123,7 @@ export class EnhancedCompetitorDetector {
         
         return this.normalizeResult(legacyResult, 'strict_with_fallback', performance.now() - startTime, true);
 
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.error('Strict detection failed, falling back to legacy', error as Error);
         
         const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
@@ -140,15 +140,15 @@ export class EnhancedCompetitorDetector {
           
           // Compute current from existing legacy results (unchanged)
           const current: DetectionResult = {
-            brands: finalResult.orgBrands.map(b => b.name),
-            competitors: finalResult.competitors.map(c => c.name)
+            brands: finalResult.orgBrands.map((b: any) => b.name),
+            competitors: finalResult.competitors.map((c: any) => c.name)
           };
           
           // Compute proposed via V2 detection
           await this.runV2ShadowDiagnostics(runId, orgId, text, current, 'legacy');
           
           return finalResult;
-        } catch (error) {
+        } catch (error: unknown) {
           this.logger.warn('Shadow diagnostics failed', { 
             error: error instanceof Error ? error.message : String(error) 
           });
@@ -204,8 +204,8 @@ export class EnhancedCompetitorDetector {
   ): void {
     try {
       const currentNormalized: DetectionResult = {
-        brands: current.orgBrands.map(b => b.name),
-        competitors: current.competitors.map(c => c.name)
+        brands: current.orgBrands.map((b: any) => b.name),
+        competitors: current.competitors.map((c: any) => c.name)
       };
 
       const proposedNormalized: DetectionResult = {
@@ -234,7 +234,7 @@ export class EnhancedCompetitorDetector {
       };
 
       logDetections(context, diffs, sample);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.warn('Shadow diagnostics execution failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });
@@ -255,8 +255,8 @@ export class EnhancedCompetitorDetector {
   ): void {
     try {
       const currentNormalized: DetectionResult = {
-        brands: current.orgBrands.map(b => b.name),
-        competitors: current.competitors.map(c => c.name)
+        brands: current.orgBrands.map((b: any) => b.name),
+        competitors: current.competitors.map((c: any) => c.name)
       };
 
       const proposedNormalized: DetectionResult = {
@@ -292,7 +292,7 @@ export class EnhancedCompetitorDetector {
       };
 
       logDetections(context, diffs, sample);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.warn('Shadow diagnostics with preprocessing execution failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });
@@ -369,7 +369,7 @@ export class EnhancedCompetitorDetector {
       };
 
       logDetections(context, diffs, sample);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.warn('V2 shadow diagnostics execution failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });

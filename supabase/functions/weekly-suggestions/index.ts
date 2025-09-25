@@ -115,7 +115,7 @@ async function generateSuggestions(orgId: string, orgName: string, domain: strin
       `${domain} industry trends and predictions`
     ];
 
-    industrySuggestions.forEach(text => {
+    industrySuggestions.forEach((text: any) => {
       suggestions.push({ text, source: 'industry' });
     });
 
@@ -128,7 +128,7 @@ async function generateSuggestions(orgId: string, orgName: string, domain: strin
       'Marketing analytics platforms'
     ];
 
-    keywordSuggestions.forEach(text => {
+    keywordSuggestions.forEach((text: any) => {
       suggestions.push({ text, source: 'keywords' });
     });
 
@@ -140,7 +140,7 @@ async function generateSuggestions(orgId: string, orgName: string, domain: strin
       `${domain} software comparison guide`
     ];
 
-    competitorSuggestions.forEach(text => {
+    competitorSuggestions.forEach((text: any) => {
       suggestions.push({ text, source: 'competitors' });
     });
 
@@ -153,7 +153,7 @@ async function generateSuggestions(orgId: string, orgName: string, domain: strin
         `How ${orgName} solves ${domain} challenges`
       ];
 
-      gapSuggestions.forEach(text => {
+      gapSuggestions.forEach((text: any) => {
         suggestions.push({ text, source: 'gap' });
       });
     }

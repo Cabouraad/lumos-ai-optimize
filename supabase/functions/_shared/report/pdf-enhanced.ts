@@ -746,7 +746,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
     currentY -= 25;
 
-    dto.competitors.byProvider.forEach(provider => {
+    dto.competitors.byProvider.forEach((provider: any) => {
       competitorsPage.drawText(
         `${provider.provider}: ${provider.totalMentions} mentions, ${provider.uniqueCompetitors} unique competitors (avg score: ${provider.avgScore.toFixed(1)})`,
         {
@@ -776,7 +776,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
     currentY -= 30;
 
-    dto.insights.keyFindings.forEach(finding => {
+    dto.insights.keyFindings.forEach((finding: any) => {
       recoPage.drawText(`• ${finding}`, {
         x: margin,
         y: currentY,
@@ -838,7 +838,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     `Data Coverage: ${dto.header.periodStart} to ${dto.header.periodEnd}`
   ];
 
-  summaryStats.forEach(stat => {
+  summaryStats.forEach((stat: any) => {
     recoPage.drawText(stat, {
       x: margin,
       y: currentY,

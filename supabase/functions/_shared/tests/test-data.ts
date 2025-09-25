@@ -152,7 +152,7 @@ export function validateDetectionResult(result: any): string[] {
       'processing_time_ms'
     ];
 
-    requiredMetadataFields.forEach(field => {
+    requiredMetadataFields.forEach((field: any) => {
       if (typeof result.metadata[field] !== 'number') {
         errors.push(`metadata.${field} must be a number`);
       }
@@ -168,7 +168,7 @@ export function validateDetectionResult(result: any): string[] {
       }
 
       const requiredFields = ['name', 'normalized', 'mentions', 'first_pos_ratio', 'confidence', 'source'];
-      requiredFields.forEach(field => {
+      requiredFields.forEach((field: any) => {
         if (comp[field] === undefined || comp[field] === null) {
           errors.push(`competitors[${index}].${field} is required`);
         }

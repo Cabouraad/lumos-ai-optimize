@@ -65,7 +65,7 @@ export function extractPerplexityCitations(response: any, responseText: string):
   // Fallback: extract URLs from text if no provider citations
   if (citations.length === 0) {
     const extractedCitations = extractCitations(responseText);
-    extractedCitations.forEach(citation => {
+    extractedCitations.forEach((citation: any) => {
       citations.push({
         url: citation.url,
         domain: citation.domain || extractDomain(citation.url),
@@ -112,7 +112,7 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
   // Fallback: extract URLs from text if no grounding attributions
   if (citations.length === 0) {
     const extractedCitations = extractCitations(responseText);
-    extractedCitations.forEach(citation => {
+    extractedCitations.forEach((citation: any) => {
       citations.push({
         url: citation.url,
         domain: citation.domain || extractDomain(citation.url),
@@ -141,7 +141,7 @@ export function extractOpenAICitations(responseText: string): CitationsData {
   
   // OpenAI doesn't provide citations, so extract from text
   const extractedCitations = extractCitations(responseText);
-  extractedCitations.forEach(citation => {
+  extractedCitations.forEach((citation: any) => {
     citations.push({
       url: citation.url,
       domain: citation.domain || extractDomain(citation.url),
@@ -185,7 +185,7 @@ function guessSourceType(url: string): 'page' | 'pdf' | 'video' | 'unknown' {
  */
 function deduplicateCitations(citations: Citation[]): Citation[] {
   const seen = new Set<string>();
-  return citations.filter(citation => {
+  return citations.filter((citation: any) => {
     if (seen.has(citation.url)) {
       return false;
     }

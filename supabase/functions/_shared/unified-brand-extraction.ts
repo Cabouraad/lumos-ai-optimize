@@ -124,11 +124,11 @@ function extractPotentialBrands(text: string): string[] {
   
   // Pattern 1: Capitalized words/phrases (brand names are usually capitalized)
   const capitalizedWords = text.match(/\b[A-Z][a-zA-Z0-9]*(?:\s+[A-Z][a-zA-Z0-9]*)*\b/g) || [];
-  capitalizedWords.forEach(term => brands.add(term.trim()));
+  capitalizedWords.forEach((term: any) => brands.add(term.trim()));
   
   // Pattern 2: Common brand patterns with domains
   const domainPatterns = text.match(/\b[a-zA-Z0-9]+(\.com|\.io|\.net|\.org)\b/g) || [];
-  domainPatterns.forEach(term => {
+  domainPatterns.forEach((term: any) => {
     // Extract just the domain name without extension
     const domainName = term.split('.')[0];
     if (domainName.length >= 3) {
@@ -138,7 +138,7 @@ function extractPotentialBrands(text: string): string[] {
   
   // Pattern 3: Quoted brand names
   const quotedTerms = text.match(/"([^"]+)"/g) || [];
-  quotedTerms.forEach(term => {
+  quotedTerms.forEach((term: any) => {
     const cleaned = term.replace(/["""]/g, '').trim();
     if (cleaned.length >= 3) {
       brands.add(cleaned);
@@ -151,11 +151,11 @@ function extractPotentialBrands(text: string): string[] {
     /(?:tools like|platforms like|software like)\s+([A-Z][a-zA-Z0-9\s]+?)(?:[,.;:]|$)/gi
   ];
   
-  contextPatterns.forEach(pattern => {
+  contextPatterns.forEach((pattern: any) => {
     let match;
     while ((match = pattern.exec(text)) !== null) {
       const terms = match[1].split(/,|\sand\s/).map(t => t.trim());
-      terms.forEach(term => {
+      terms.forEach((term: any) => {
         if (term.length >= 3) {
           brands.add(term);
         }
@@ -231,7 +231,7 @@ export function createBrandGazetteer(brandCatalog: BrandCatalogEntry[]): string[
  */
 export function getOrgBrandNames(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
-    .filter(brand => brand.is_org_brand)
+    .filter((brand: any) => brand.is_org_brand)
     .map(brand => brand.name);
 }
 
@@ -240,6 +240,6 @@ export function getOrgBrandNames(brandCatalog: BrandCatalogEntry[]): string[] {
  */
 export function getCompetitorNames(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
-    .filter(brand => !brand.is_org_brand)
+    .filter((brand: any) => !brand.is_org_brand)
     .map(brand => brand.name);
 }

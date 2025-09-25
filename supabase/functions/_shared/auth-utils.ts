@@ -78,7 +78,7 @@ export async function authenticateUser(
       id: user.id,
       email: user.email
     };
-  } catch (error) {
+  } catch (error: unknown) {
     diagnostics?.logStep("auth_user_exception", undefined, error as Error);
     throw error;
   }
@@ -113,7 +113,7 @@ export async function getUserOrgId(
 
     diagnostics?.logStep("org_lookup_success", { orgId: data.org_id });
     return data.org_id;
-  } catch (error) {
+  } catch (error: unknown) {
     diagnostics?.logStep("org_lookup_exception", undefined, error as Error);
     throw error;
   }

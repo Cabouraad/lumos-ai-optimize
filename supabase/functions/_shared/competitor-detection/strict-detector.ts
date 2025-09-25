@@ -112,7 +112,7 @@ export class StrictCompetitorDetector {
         totalEntries: this.orgGazetteer.size 
       });
 
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Failed to initialize strict gazetteer', error as Error, { orgId });
       throw error;
     }

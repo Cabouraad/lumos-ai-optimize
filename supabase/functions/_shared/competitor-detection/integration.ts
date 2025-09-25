@@ -23,8 +23,8 @@ export async function detectCompetitorsWithFallback(
     });
     
     return result;
-  } catch (error) {
-    logger.error('Competitor detection failed', error as Error, { orgId });
+  } catch (error: unknown) {
+    logger.error('Competitor detection failed', error instanceof Error ? error : new Error(String(error)), { orgId });
     throw error;
   }
 }

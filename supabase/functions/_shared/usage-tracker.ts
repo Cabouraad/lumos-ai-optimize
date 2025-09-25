@@ -212,7 +212,7 @@ export async function getUsageStats(supabase: any, orgId: string, days: number =
 
     const totalPrompts = data.reduce((sum, day) => sum + day.prompts_used, 0);
     const totalProviders = data.reduce((sum, day) => sum + day.providers_used, 0);
-    const activeDays = data.filter(day => day.prompts_used > 0).length;
+    const activeDays = data.filter((day: any) => day.prompts_used > 0).length;
 
     return {
       dailyData: data,

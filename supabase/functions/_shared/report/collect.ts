@@ -299,7 +299,7 @@ export async function collectWeeklyData(
 
   // Create a map of prompt_id -> prompt_text for efficient lookups
   const promptsMap = new Map();
-  orgPrompts?.forEach(prompt => {
+  orgPrompts?.forEach((prompt: any) => {
     promptsMap.set(prompt.id, prompt.text);
   });
 
@@ -313,7 +313,7 @@ export async function collectWeeklyData(
     const weekEnd = new Date(endDate);
     weekEnd.setDate(endDate.getDate() - (weekOffset * 7));
     
-    const weekResponses = historicalResponses?.filter(r => 
+    const weekResponses = historicalResponses?.filter((r: any) => 
       r.run_at >= weekStart.toISOString() && r.run_at < weekEnd.toISOString()
     ) || [];
     
@@ -417,9 +417,9 @@ export async function collectWeeklyData(
   }));
   
   const zeroPresence = promptMetrics
-    .filter(p => p.brandPresentRate === 0)
+    .filter((p: any) => p.brandPresentRate === 0)
     .slice(0, 5)
-    .map(p => ({ id: p.id, text: p.text, totalRuns: p.totalRuns, category: p.category }));
+    .map((p: any) => ({ id: p.id, text: p.text, totalRuns: p.totalRuns, category: p.category }));
 
   // 6. Enhanced competitor analysis with new competitor detection
   const competitorCounts = new Map();
@@ -486,7 +486,7 @@ export async function collectWeeklyData(
 
   // Competitor analysis by provider
   const providerCompetitorMap = new Map();
-  currentWeekResponses?.forEach(response => {
+  currentWeekResponses?.forEach((response: any) => {
     const provider = response.provider;
     if (!providerCompetitorMap.has(provider)) {
       providerCompetitorMap.set(provider, {
@@ -687,7 +687,7 @@ export async function collectWeeklyData(
         sharePercent: Math.round(c.sharePercent * 10) / 10,
       })),
       avgCompetitorsPerResponse: Math.round(avgCompetitors * 10) / 10,
-      byProvider: competitorsByProvider.map(p => ({
+      byProvider: competitorsByProvider.map((p: any) => ({
         ...p,
         avgScore: Math.round(p.avgScore * 10) / 10
       }))
