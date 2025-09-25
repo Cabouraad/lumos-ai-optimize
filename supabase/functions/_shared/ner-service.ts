@@ -96,13 +96,13 @@ Only include entities with confidence >= ${confidenceThreshold}. Maximum ${maxEn
       // Fallback: try to extract entities from malformed JSON
       const entityMatches = content.match(/"name":\s*"([^"]+)"/g);
       if (entityMatches) {
-        extractedEntities = entityMatches.map(match => {
+        extractedEntities = entityMatches.map((match: string) => {
           const nameMatch = match.match(/"name":\s*"([^"]+)"/);
           return {
             name: nameMatch ? nameMatch[1] : '',
             confidence: 0.75 // Default confidence for fallback
           };
-        }).filter(entity => entity.name.length > 0);
+        }).filter((entity: { name: string; confidence: number }) => entity.name.length > 0);
       }
     }
 

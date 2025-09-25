@@ -174,7 +174,7 @@ export class StrictCompetitorDetector {
       rejectedTerms,
       metadata: {
         total_candidates: candidates.length,
-        gazetteer_matches,
+        gazetteer_matches: gazetteerMatches,
         rejected_count: rejectedTerms.length,
         processing_time_ms: Math.round(processingTime),
         strict_mode: true

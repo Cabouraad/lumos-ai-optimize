@@ -104,7 +104,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     // 2) Compute signals and helper data structures
     const competitorMap = new Map<string, CompetitorShare[]>();
     
-    competitorShare.forEach(cs => {
+    competitorShare.forEach((cs: CompetitorShare) => {
       if (!competitorMap.has(cs.prompt_id)) {
         competitorMap.set(cs.prompt_id, []);
       }
@@ -113,7 +113,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Group runs by prompt
     const runsByPrompt = new Map<string, RunData[]>();
-    recentRuns.forEach(run => {
+    recentRuns.forEach((run: any) => {
       if (!runsByPrompt.has(run.prompt_id)) {
         runsByPrompt.set(run.prompt_id, []);
       }
@@ -129,7 +129,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Collect citation frequency
     const citationFreq = new Map<string, {count: number, runs: string[], prompts: Set<string>}>();
-    recentRuns.forEach(run => {
+    recentRuns.forEach((run: any) => {
       const citations = run.citations_json || [];
       citations.forEach((citation: any) => {
         const url = typeof citation === 'string' ? citation : citation.link || citation.url || citation.value;
@@ -159,7 +159,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Extract existing topic keys within cooldown window
     const existingTopicKeys = new Set();
-    (existingRecos || []).forEach(existing => {
+    (existingRecos || []).forEach((existing: any) => {
       if (existing.metadata?.topic_key) {
         existingTopicKeys.add(existing.metadata.topic_key);
       }
@@ -197,7 +197,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     };
 
     // R1: Missing presence on head prompts (adjusted threshold)
-    const headPrompts = shuffleWithSeed(promptVisibility.filter(p => 
+    const headPrompts = shuffleWithSeed(promptVisibility.filter((p: PromptVisibility) => 
       p.avg_score_7d < 5.0 && isHeadPrompt(p.text)
     )).slice(0, 5); // Limit for performance
 

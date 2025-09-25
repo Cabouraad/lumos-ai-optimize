@@ -2,6 +2,8 @@
  * LLM provider adapters for edge functions
  */
 
+import { extractOpenAICitations, extractPerplexityCitations, type CitationsData } from './citations-enhanced.ts';
+
 export type BrandExtraction = { 
   brands: string[]; 
   responseText: string;
@@ -428,8 +430,9 @@ Return only the JSON object, no other text:`;
       return result;
 
     } catch (error) {
-      console.error(`${name} attempt failed:`, error.message);
-      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`${name} attempt failed:`, message);
+      lastError = error instanceof Error ? error : new Error(message);
       continue;
     }
   }
