@@ -202,19 +202,19 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     )).slice(0, 5); // Limit for performance
 
     for (const prompt of headPrompts) {
-      const title = `Create comprehensive comparison guide: "${prompt.text.slice(0, 40)}..."`;
-      const competitors = competitorMap.get(prompt.prompt_id) || [];
+      const title = `Create comprehensive comparison guide: "${(prompt as PromptVisibility).text.slice(0, 40)}..."`;
+      const competitors = competitorMap.get((prompt as PromptVisibility).prompt_id) || [];
       const topCompetitor = competitors.sort((a, b) => (b.total_mentions - a.total_mentions) || (b.share - a.share))[0];
-      const runs = runsByPrompt.get(prompt.prompt_id) || [];
-      const topCitations = runs.flatMap(r => r.citations).slice(0, 3);
-      const topicKey = generateTopicKey('content', title, [prompt.prompt_id], [topCompetitor?.competitor_name || '']);
+      const runs = runsByPrompt.get((prompt as PromptVisibility).prompt_id) || [];
+      const topCitations = runs.flatMap((r: any) => r.citations).slice(0, 3);
+      const topicKey = generateTopicKey('content', title, [(prompt as PromptVisibility).prompt_id], [topCompetitor?.competitor_name || '']);
 
       if (!isNovel(topicKey)) continue;
 
       candidatesByCategory.content.push({
         kind: 'content',
         title,
-        rationale: `Critical visibility gap: only ${(prompt.avg_score_7d * 100).toFixed(1)}% visibility on high-intent query. ${topCompetitor ? `${topCompetitor.competitor_name} dominates with superior content positioning.` : 'Competitors dominate through better content strategy.'}`,
+        rationale: `Critical visibility gap: only ${((prompt as PromptVisibility).avg_score_7d * 100).toFixed(1)}% visibility on high-intent query. ${topCompetitor ? `${topCompetitor.competitor_name} dominates with superior content positioning.` : 'Competitors dominate through better content strategy.'}`,
         steps: [
           "Research competitor positioning and identify content gaps in comparison landscape",
           "Create comprehensive comparison page with detailed feature matrix, pricing analysis, and use case scenarios",
@@ -222,12 +222,12 @@ export async function buildRecommendations(supabase: any, accountId: string, for
           "Include 3-5 customer testimonials with specific ROI metrics and implementation timelines",
           "Build internal link network from product pages, case studies, and pricing page",
           "Create retargeting campaigns for comparison page visitors with demo/trial CTAs",
-          `Optimize for target keywords: ${prompt.text.split(' ').slice(0, 3).join(' ')}, comparison, alternative, vs [competitor]`,
+          `Optimize for target keywords: ${(prompt as PromptVisibility).text.split(' ').slice(0, 3).join(' ')}, comparison, alternative, vs [competitor]`,
           "Set up conversion tracking to measure impact on sales pipeline and demo requests"
         ],
         estLift: 0.18,
-        sourcePromptIds: [prompt.prompt_id],
-        sourceRunIds: runs.slice(0, 5).map(r => r.id),
+        sourcePromptIds: [(prompt as PromptVisibility).prompt_id],
+        sourceRunIds: runs.slice(0, 5).map((r: any) => r.id),
         citations: topCitations,
         cooldownDays: 21,
         timeline: "3-4 weeks (1 week research, 2 weeks content creation, 1 week optimization)",
@@ -242,7 +242,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     // R2: Competitor dominance opportunities
     const competitorDominance = new Map<string, string[]>();
     for (const [promptId, competitors] of competitorMap.entries()) {
-      const dominant = competitors.find(c => c.share >= 40 || c.total_mentions >= 3);
+      const dominant = competitors.find((c: CompetitorShare) => c.share >= 40 || c.total_mentions >= 3);
       if (dominant) {
         if (!competitorDominance.has(dominant.competitor_name)) {
           competitorDominance.set(dominant.competitor_name, []);
@@ -255,8 +255,8 @@ export async function buildRecommendations(supabase: any, accountId: string, for
       if (promptIds.length >= 2) {
         const title = `Develop "${orgInfo?.name || 'YourBrand'} vs ${competitor}" content strategy`;
         const sourcePrompts = promptIds.slice(0, 3);
-        const sourceRuns = sourcePrompts.flatMap(pid => 
-          runsByPrompt.get(pid)?.slice(0, 2).map(r => r.id) || []
+        const sourceRuns = sourcePrompts.flatMap((pid: string) => 
+          runsByPrompt.get(pid)?.slice(0, 2).map((r: any) => r.id) || []
         );
         const topicKey = generateTopicKey('content', title, sourcePrompts, [competitor]);
 
@@ -293,8 +293,8 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // R3: Citation opportunities (site category)
     const frequentCitations = Array.from(citationFreq.entries())
-      .filter(([url, data]) => url.startsWith('http') && data.count >= 3 && data.prompts.size >= 2)
-      .sort((a, b) => b[1].count - a[1].count)
+      .filter(([url, data]: [string, any]) => url.startsWith('http') && data.count >= 3 && data.prompts.size >= 2)
+      .sort((a: [string, any], b: [string, any]) => b[1].count - a[1].count)
       .slice(0, 4);
 
     for (const [citation, data] of frequentCitations) {
@@ -369,8 +369,8 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
       for (const [promptId, {recent, older, text}] of scoresByPrompt.entries()) {
         if (recent.length > 0 && older.length > 0 && isHeadPrompt(text)) {
-          const recentAvg = recent.reduce((sum, s) => sum + s, 0) / recent.length;
-          const olderAvg = older.reduce((sum, s) => sum + s, 0) / older.length;
+          const recentAvg = recent.reduce((sum: number, s: number) => sum + s, 0) / recent.length;
+          const olderAvg = older.reduce((sum: number, s: number) => sum + s, 0) / older.length;
           const dropPercent = (olderAvg - recentAvg) / olderAvg;
           
           if (dropPercent > 0.2) { // >20% drop
@@ -396,7 +396,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
               ],
               estLift: 0.08,
               sourcePromptIds: [promptId],
-              sourceRunIds: runs.slice(0, 3).map(r => r.id),
+              sourceRunIds: runs.slice(0, 3).map((r: any) => r.id),
               citations: [],
               cooldownDays: 7,
               timeline: "48-72 hours immediate response, 1 week monitoring and optimization",
@@ -503,7 +503,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     // Fill remaining slots with highest-lift candidates from any category
     while (totalSelected < 15) {
       const allRemaining = Object.values(candidatesByCategory).flat()
-        .sort((a, b) => b.estLift - a.estLift);
+        .sort((a: Reco, b: Reco) => b.estLift - a.estLift);
       
       if (allRemaining.length === 0) break;
       
@@ -512,7 +512,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
       
       // Remove from candidate pool
       const category = next.kind;
-      const index = candidatesByCategory[category].findIndex(r => r.topic_key === next.topic_key);
+      const index = candidatesByCategory[category].findIndex((r: Reco) => r.topic_key === next.topic_key);
       if (index >= 0) {
         candidatesByCategory[category].splice(index, 1);
       }
@@ -522,7 +522,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Add novelty-based fallbacks if still under minimum
     if (selectedRecos.length < 8) {
-      const fallbacks = generateFallbackRecommendations(promptVisibility, orgInfo, 8 - selectedRecos.length, batchId);
+      const fallbacks = generateFallbackRecommendations(promptVisibility, 8 - selectedRecos.length, orgInfo, batchId);
       for (const fallback of fallbacks) {
         if (isNovel(fallback.topic_key!)) {
           selectedRecos.push(fallback);
@@ -533,7 +533,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
     recommendations.push(...selectedRecos);
     
     console.log(`[buildRecommendations] Generated ${recommendations.length} recommendations with category distribution:`, 
-      categories.reduce((acc, cat) => ({ ...acc, [cat]: recommendations.filter(r => r.kind === cat).length }), {}));
+      categories.reduce((acc: any, cat: any) => ({ ...acc, [cat]: recommendations.filter((r: Reco) => r.kind === cat).length }), {}));
 
   } catch (error) {
     console.error('Error building recommendations:', error);
@@ -541,6 +541,6 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
   // Sort by estimated lift (highest first) and limit to top 15
   return recommendations
-    .sort((a, b) => b.estLift - a.estLift)
+    .sort((a: Reco, b: Reco) => b.estLift - a.estLift)
     .slice(0, 15);
 }

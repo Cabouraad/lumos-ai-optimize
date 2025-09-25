@@ -22,9 +22,9 @@ interface RunData {
 
 interface CompetitorShare {
   prompt_id: string;
-  brand_norm: string;
-  mean_score: number;
-  n: number;
+  competitor_name: string; // canonical name from RPC
+  share: number;           // percentage share (0-100) 
+  total_mentions: number;  // absolute mentions count
 }
 
 interface OrgInfo {
@@ -41,16 +41,16 @@ export function analyzeContentGaps(
   
   // Analyze missing content formats
   const formatAnalysis = {
-    tutorials: promptVisibility.filter(p => /how to|tutorial|guide/i.test(p.text) && p.avg_score_7d < 4),
-    reviews: promptVisibility.filter(p => /review|rating|opinion/i.test(p.text) && p.avg_score_7d < 4),
-    casestudies: promptVisibility.filter(p => /case study|success story|example/i.test(p.text) && p.avg_score_7d < 4),
-    faqs: promptVisibility.filter(p => /faq|question|help|support/i.test(p.text) && p.avg_score_7d < 4)
+    tutorials: promptVisibility.filter((p: PromptVisibility) => /how to|tutorial|guide/i.test(p.text) && p.avg_score_7d < 4),
+    reviews: promptVisibility.filter((p: PromptVisibility) => /review|rating|opinion/i.test(p.text) && p.avg_score_7d < 4),
+    casestudies: promptVisibility.filter((p: PromptVisibility) => /case study|success story|example/i.test(p.text) && p.avg_score_7d < 4),
+    faqs: promptVisibility.filter((p: PromptVisibility) => /faq|question|help|support/i.test(p.text) && p.avg_score_7d < 4)
   };
 
   // Tutorial/Guide content gap
   if (formatAnalysis.tutorials.length >= 2) {
     const topTutorials = formatAnalysis.tutorials.slice(0, 3);
-    const sourceRuns = topTutorials.flatMap(t => runsByPrompt.get(t.prompt_id)?.slice(0, 2).map(r => r.id) || []);
+    const sourceRuns = topTutorials.flatMap((t: PromptVisibility) => runsByPrompt.get(t.prompt_id)?.slice(0, 2).map((r: any) => r.id) || []);
     
     recommendations.push({
       kind: 'content',
@@ -64,7 +64,7 @@ export function analyzeContentGaps(
         "Optimize for featured snippets with structured markup"
       ],
       estLift: 0.08,
-      sourcePromptIds: topTutorials.map(t => t.prompt_id),
+      sourcePromptIds: topTutorials.map((t: PromptVisibility) => t.prompt_id),
       sourceRunIds: sourceRuns,
       citations: [],
       cooldownDays: 21
@@ -89,7 +89,7 @@ export function analyzeContentGaps(
       ],
       estLift: 0.07,
       sourcePromptIds: [review.prompt_id],
-      sourceRunIds: runs.slice(0, 3).map(r => r.id),
+      sourceRunIds: runs.slice(0, 3).map((r: any) => r.id),
       citations: [],
       cooldownDays: 30
     });
@@ -107,13 +107,13 @@ export function analyzeSEOOpportunities(
   const recommendations: Reco[] = [];
 
   // Schema markup opportunity
-  const structuredDataOpps = promptVisibility.filter(p => 
+  const structuredDataOpps = promptVisibility.filter((p: PromptVisibility) => 
     /faq|question|price|review|compare/i.test(p.text) && p.avg_score_7d < 6
   );
 
   if (structuredDataOpps.length >= 2) {
     const topOpps = structuredDataOpps.slice(0, 3);
-    const sourceRuns = topOpps.flatMap(o => runsByPrompt.get(o.prompt_id)?.slice(0, 2).map(r => r.id) || []);
+    const sourceRuns = topOpps.flatMap((o: PromptVisibility) => runsByPrompt.get(o.prompt_id)?.slice(0, 2).map((r: any) => r.id) || []);
 
     recommendations.push({
       kind: 'site',
@@ -127,7 +127,7 @@ export function analyzeSEOOpportunities(
         "Monitor for featured snippet improvements"
       ],
       estLift: 0.09,
-      sourcePromptIds: topOpps.map(o => o.prompt_id),
+      sourcePromptIds: topOpps.map((o: PromptVisibility) => o.prompt_id),
       sourceRunIds: sourceRuns,
       citations: [],
       cooldownDays: 14
@@ -136,7 +136,7 @@ export function analyzeSEOOpportunities(
 
   // Internal linking opportunity
   const linkingOpportunity = Array.from(citationFreq.entries())
-    .filter(([url, data]) => !url.includes(orgInfo?.domain || 'yourdomain') && data.prompts.size >= 3)
+    .filter(([url, data]: [string, any]) => !url.includes(orgInfo?.domain || 'yourdomain') && data.prompts.size >= 3)
     .slice(0, 1);
 
   if (linkingOpportunity.length > 0) {
@@ -173,8 +173,8 @@ export function analyzeSocialOpportunities(
 
   // Trending topic social opportunity
   const trendingPrompts = promptVisibility
-    .filter(p => p.runs_7d >= 3 && p.avg_score_7d < 5)
-    .sort((a, b) => b.runs_7d - a.runs_7d)
+    .filter((p: PromptVisibility) => p.runs_7d >= 3 && p.avg_score_7d < 5)
+    .sort((a: PromptVisibility, b: PromptVisibility) => b.runs_7d - a.runs_7d)
     .slice(0, 2);
 
   for (const prompt of trendingPrompts) {
@@ -198,7 +198,7 @@ export function analyzeSocialOpportunities(
   }
 
   // Video content opportunity
-  const visualPrompts = promptVisibility.filter(p => 
+  const visualPrompts = promptVisibility.filter((p: PromptVisibility) => 
     /demo|tutorial|example|show|how/i.test(p.text) && p.avg_score_7d < 5
   );
 
@@ -283,9 +283,9 @@ export function analyzeEmailOpportunities(
 
   // Email sequence based on customer journey prompts
   const journeyPrompts = {
-    awareness: promptVisibility.filter(p => /what is|introduction|basics|overview/i.test(p.text)),
-    consideration: promptVisibility.filter(p => /compare|vs|alternative|best/i.test(p.text)),
-    decision: promptVisibility.filter(p => /pricing|cost|demo|trial/i.test(p.text))
+    awareness: promptVisibility.filter((p: PromptVisibility) => /what is|introduction|basics|overview/i.test(p.text)),
+    consideration: promptVisibility.filter((p: PromptVisibility) => /compare|vs|alternative|best/i.test(p.text)),
+    decision: promptVisibility.filter((p: PromptVisibility) => /pricing|cost|demo|trial/i.test(p.text))
   };
 
   const totalJourneyPrompts = Object.values(journeyPrompts).flat().length;
@@ -309,7 +309,7 @@ export function analyzeEmailOpportunities(
         "Track email → website → conversion flow"
       ],
       estLift: 0.06,
-      sourcePromptIds: samplePrompts.map(p => p.prompt_id),
+      sourcePromptIds: samplePrompts.map((p: PromptVisibility) => p.prompt_id),
       sourceRunIds: [],
       citations: [],
       cooldownDays: 30
@@ -321,8 +321,8 @@ export function analyzeEmailOpportunities(
 
 export function generateFallbackRecommendations(
   promptVisibility: PromptVisibility[],
-  orgInfo?: OrgInfo,
   count: number,
+  orgInfo?: OrgInfo,
   batchId?: string
 ): Reco[] {
   const recommendations: Reco[] = [];
@@ -404,7 +404,7 @@ export function generateFallbackRecommendations(
     const topicKey = `fallback_${fallback.kind}_${fallback.title.toLowerCase().replace(/[^\w]/g, '_').substring(0, 30)}`;
     recommendations.push({
       ...fallback,
-      sourcePromptIds: promptVisibility.slice(0, 2).map(p => p.prompt_id),
+      sourcePromptIds: promptVisibility.slice(0, 2).map((p: PromptVisibility) => p.prompt_id),
       sourceRunIds: [],
       citations: [],
       cooldownDays: 21,
