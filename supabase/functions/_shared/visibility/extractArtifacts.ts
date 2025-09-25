@@ -271,7 +271,7 @@ function calculateAnalysisConfidence(brandArtifacts: BrandArtifact[]): number {
   if (brandArtifacts.length === 0) return 0.5;
   
   const avgConfidence = brandArtifacts.reduce((sum, brand) => sum + brand.confidence, 0) / brandArtifacts.length;
-  const highConfidenceCount = brandArtifacts.filter(b => b.confidence >= 0.8).length;
+  const highConfidenceCount = brandArtifacts.filter((b: BrandArtifact) => b.confidence >= 0.8).length;
   const highConfidenceRatio = highConfidenceCount / brandArtifacts.length;
   
   return (avgConfidence * 0.7) + (highConfidenceRatio * 0.3);

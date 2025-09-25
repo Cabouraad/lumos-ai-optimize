@@ -56,6 +56,18 @@ export class EnhancedCompetitorDetector {
     this.logger = logger || createEdgeLogger('enhanced-competitor-detector');
   }
 
+  /**
+   * Convert detection method string to numeric confidence score
+   */
+  private getConfidenceScore(method: 'strict' | 'legacy' | 'strict_with_fallback'): number {
+    switch (method) {
+      case 'strict': return 0.9;
+      case 'legacy': return 0.7;
+      case 'strict_with_fallback': return 0.8;
+      default: return 0.5;
+    }
+  }
+
   async detectCompetitors(text: string, orgId: string): Promise<EnhancedDetectionResult> {
     const startTime = performance.now();
     const runId = crypto.randomUUID();
@@ -212,7 +224,7 @@ export class EnhancedCompetitorDetector {
 
       const sample = {
         responseLength,
-        confidence: current.metadata.detection_method,
+        confidence: this.getConfidenceScore(current.metadata.detection_method),
         metadata: {
           current_method: current.metadata.detection_method,
           proposed_method: proposed.metadata?.detection_method || 'unknown',
@@ -223,7 +235,9 @@ export class EnhancedCompetitorDetector {
 
       logDetections(context, diffs, sample);
     } catch (error) {
-      this.logger.warn('Shadow diagnostics execution failed', { error: error.message });
+      this.logger.warn('Shadow diagnostics execution failed', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   }
 
@@ -261,7 +275,7 @@ export class EnhancedCompetitorDetector {
 
       const sample = {
         responseLength,
-        confidence: current.metadata.detection_method,
+        confidence: this.getConfidenceScore(current.metadata.detection_method),
         metadata: {
           current_method: current.metadata.detection_method,
           proposed_method: proposed.metadata?.detection_method || 'unknown',
@@ -279,7 +293,9 @@ export class EnhancedCompetitorDetector {
 
       logDetections(context, diffs, sample);
     } catch (error) {
-      this.logger.warn('Shadow diagnostics with preprocessing execution failed', { error: error.message });
+      this.logger.warn('Shadow diagnostics with preprocessing execution failed', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   }
 
@@ -314,8 +330,8 @@ export class EnhancedCompetitorDetector {
       // Add org brand aliases from catalog
       if (brandCatalog) {
         brandCatalog
-          .filter(b => b.is_org_brand)
-          .forEach(brand => {
+          .filter((b: any) => b.is_org_brand)
+          .forEach((brand: any) => {
             orgBrands.push(brand.name);
             if (brand.variants_json && Array.isArray(brand.variants_json)) {
               orgBrands.push(...brand.variants_json);
@@ -325,8 +341,8 @@ export class EnhancedCompetitorDetector {
 
       // Build competitors seed
       const competitorsSeed = brandCatalog
-        ?.filter(b => !b.is_org_brand)
-        .map(b => b.name) || [];
+        ?.filter((b: any) => !b.is_org_brand)
+        .map((b: any) => b.name) || [];
 
       // Run simplified V2 detection
       const v2Result = runSimpleV2Detection(text, 'enhanced-detector', orgBrands, competitorsSeed);
@@ -342,7 +358,7 @@ export class EnhancedCompetitorDetector {
 
       const sample = {
         responseLength: text.length,
-        confidence: method,
+        confidence: this.getConfidenceScore(method as 'strict' | 'legacy' | 'strict_with_fallback'),
         metadata: {
           text_sample: text.substring(0, 200), // First 200 chars for spot checks
           current_method: method,
@@ -354,7 +370,9 @@ export class EnhancedCompetitorDetector {
 
       logDetections(context, diffs, sample);
     } catch (error) {
-      this.logger.warn('V2 shadow diagnostics execution failed', { error: error.message });
+      this.logger.warn('V2 shadow diagnostics execution failed', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   }
 }

@@ -208,7 +208,7 @@ export function detectBrandMentions(
   let totalMatches = 0;
   const contentLower = content.toLowerCase();
   
-  for (const brand of orgBrands.filter(b => b.variants_json)) {
+  for (const brand of orgBrands.filter((b: any) => b.variants_json)) {
     const variants = Array.isArray(brand.variants_json) ? brand.variants_json : [];
     const allNames = [brand.name, ...variants].filter(Boolean);
     

@@ -18,11 +18,8 @@ export async function detectCompetitorsWithFallback(
     const detector = new EnhancedCompetitorDetector(supabase, logger);
     const result = await detector.detectCompetitors(text, orgId);
     
-    logger.info('Competitor detection completed', {
-      orgId,
-      method: result.metadata.detection_method,
-      competitors: result.competitors.length,
-      fallbackUsed: result.metadata.fallback_used
+    logger.info(`Competitor detection completed using ${result.metadata.detection_method} method. Found ${result.competitors.length} competitors, fallback used: ${result.metadata.fallback_used}`, {
+      orgId
     });
     
     return result;

@@ -651,7 +651,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                   }
 
                   // Update org brand tracking if mentioned
-                  for (const brand of artifacts.brands.filter(b => userBrandNorms.includes(b.normalized))) {
+                  for (const brand of artifacts.brands.filter((b: any) => userBrandNorms.includes(b.normalized))) {
                     try {
                       const { error: mentionError } = await supabase.rpc('upsert_competitor_mention', {
                         p_org_id: org.id,
