@@ -5,6 +5,53 @@
 
 import type { WeeklyReportData } from './types.ts';
 
+export type VisibilityMetrics = {
+  avgVisibilityScore: number;
+  overallScore: number;
+  scoreTrend: number;
+  totalRuns: number;
+  brandPresentRate: number;   // canonical
+  avgCompetitors: number;
+  deltaVsPriorWeek?: {
+    avgVisibilityScore: number;
+    totalRuns: number;
+    brandPresentRate: number;
+  };
+  trendProjection: {
+    brandPresenceNext4Weeks: number;
+    confidenceLevel: 'high' | 'medium' | 'low';
+  };
+  // Back-compat alias (optional) to satisfy older consumers:
+  brandPresenceRate?: number;
+  presenceTrend?: number;
+  totalPrompts?: number;
+};
+
+// Ensure every consumer gets a consistent object with both canonical and legacy field names
+export function normalizeVisibilityMetrics(input: Partial<VisibilityMetrics>): VisibilityMetrics {
+  const canonical: VisibilityMetrics = {
+    avgVisibilityScore: input.avgVisibilityScore ?? 0,
+    overallScore: input.overallScore ?? input.avgVisibilityScore ?? 0,
+    scoreTrend: input.scoreTrend ?? (input.deltaVsPriorWeek?.avgVisibilityScore ?? 0),
+    totalRuns: input.totalRuns ?? 0,
+    // prefer canonical; fall back to legacy misspelling if present
+    brandPresentRate: input.brandPresentRate ?? ((input as any).brandPresenceRate ?? 0),
+    avgCompetitors: input.avgCompetitors ?? 0,
+    deltaVsPriorWeek: input.deltaVsPriorWeek,
+    trendProjection: input.trendProjection ?? {
+      brandPresenceNext4Weeks: 0,
+      confidenceLevel: 'low'
+    }
+  };
+
+  // also expose the legacy aliases so older code that reads them won't break at runtime
+  (canonical as any).brandPresenceRate = canonical.brandPresentRate;
+  (canonical as any).presenceTrend = canonical.deltaVsPriorWeek?.brandPresentRate ?? 0;
+  (canonical as any).totalPrompts = input.totalPrompts ?? 0;
+  
+  return canonical;
+}
+
 function categorizePrompt(text: string): string {
   const lowerText = text.toLowerCase();
   
@@ -490,6 +537,23 @@ export async function collectWeeklyData(
     volume: { providersUsed: providersUsed }
   });
 
+  // Create normalized KPIs using the compatibility helper
+  const rawKpis = {
+    avgVisibilityScore: Math.round(avgScore * 10) / 10,
+    overallScore: Math.round(avgScore * 10) / 10,
+    scoreTrend: deltaVsPriorWeek ? Math.round(deltaVsPriorWeek.avgVisibilityScore * 10) / 10 : 0,
+    totalRuns,
+    brandPresentRate: Math.round(brandPresentRate * 10) / 10,
+    avgCompetitors: Math.round(avgCompetitors * 10) / 10,
+    deltaVsPriorWeek,
+    trendProjection: {
+      brandPresenceNext4Weeks: Math.round(trendProjection.brandPresenceNext4Weeks * 10) / 10,
+      confidenceLevel: trendProjection.confidenceLevel
+    }
+  };
+
+  const normalizedKpis = normalizeVisibilityMetrics(rawKpis);
+
   // Create the base report data
   const reportData: WeeklyReportData = {
     header: {
@@ -499,19 +563,7 @@ export async function collectWeeklyData(
       periodEnd,
       generatedAt: new Date().toISOString(),
     },
-    kpis: {
-      avgVisibilityScore: Math.round(avgScore * 10) / 10,
-      overallScore: Math.round(avgScore * 10) / 10,
-      scoreTrend: deltaVsPriorWeek ? Math.round(deltaVsPriorWeek.avgVisibilityScore * 10) / 10 : 0,
-      totalRuns,
-      brandPresentRate: Math.round(brandPresentRate * 10) / 10,
-      avgCompetitors: Math.round(avgCompetitors * 10) / 10,
-      deltaVsPriorWeek,
-      trendProjection: {
-        brandPresenceNext4Weeks: Math.round(trendProjection.brandPresenceNext4Weeks * 10) / 10,
-        confidenceLevel: trendProjection.confidenceLevel
-      }
-    },
+    kpis: normalizedKpis,
     historicalTrend: {
       weeklyScores: weeklyTrends
     },
@@ -595,10 +647,9 @@ export async function collectWeeklyData(
     insights,
   };
 
-  // Add backward compatibility aliases
-  reportData.kpis.brandPresenceRate = reportData.kpis.brandPresentRate;
-  reportData.kpis.presenceTrend = reportData.kpis.deltaVsPriorWeek?.brandPresentRate ?? 0;
-  reportData.kpis.totalPrompts = reportData.prompts.totalActive;
+  // Backward compatibility aliases are already set by normalizeVisibilityMetrics
+  // but ensure totalPrompts is set from prompts data
+  (reportData.kpis as any).totalPrompts = reportData.prompts.totalActive;
 
   return reportData;
 }

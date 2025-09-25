@@ -369,13 +369,24 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   const promptsPage = pdfDoc.addPage([pageWidth, pageHeight]);
   currentY = addHeader(promptsPage, 'Prompt Performance Analysis', 3);
 
-  // Group prompts by category for analysis
-  const promptsByCategory = dto.prompts.reduce((acc: any, prompt: any) => {
+  // Group prompts by category for analysis (using the correct data structure)
+  const promptsByCategory: Record<string, any[]> = {};
+  
+  // Collect all prompts from categories and topPerformers
+  const allCategorizedPrompts = [
+    ...dto.prompts.categories.crm,
+    ...dto.prompts.categories.competitorTools,
+    ...dto.prompts.categories.aiFeatures,
+    ...dto.prompts.categories.other,
+    ...dto.prompts.topPerformers
+  ];
+  
+  // Group by category
+  allCategorizedPrompts.forEach((prompt: any) => {
     const category = prompt.category || 'General';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(prompt);
-    return acc;
-  }, {});
+    if (!promptsByCategory[category]) promptsByCategory[category] = [];
+    promptsByCategory[category].push(prompt);
+  });
 
   const categoryLabels = Object.keys(promptsByCategory);
   const categoryData = Object.values(promptsByCategory) as any[][];
@@ -404,7 +415,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
 
   // Top performing prompts table
   currentY -= 60;
-  if (dto.prompts && dto.prompts.length > 0) {
+  if (dto.prompts && dto.prompts.topPerformers && dto.prompts.topPerformers.length > 0) {
     promptsPage.drawText('Top Performing Prompts', {
       x: 40,
       y: currentY,
@@ -431,7 +442,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
 
     // Table rows (top 10 prompts)
-    dto.prompts.slice(0, 10).forEach((prompt: any, index: number) => {
+    dto.prompts.topPerformers.slice(0, 10).forEach((prompt: any, index: number) => {
       currentY -= 25;
       currentX = 40;
 
@@ -567,7 +578,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     color: colors.neutralDark,
   });
 
-  const findings = dto.recommendations?.findings || ['No specific findings available'];
+  const findings = dto.insights?.keyFindings || ['No specific findings available'];
   findings.slice(0, 4).forEach((finding: string, index: number) => {
     currentY -= 25;
     recoPage.drawText(`• ${finding}`, {
@@ -589,7 +600,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     color: colors.neutralDark,
   });
 
-  const actionItems = dto.recommendations?.actionItems || ['No specific actions recommended'];
+  const actionItems = dto.insights?.recommendations || ['No specific actions recommended'];
   actionItems.slice(0, 5).forEach((rec: string, index: number) => {
     currentY -= 25;
     recoPage.drawText(`${index + 1}. ${rec}`, {
@@ -601,9 +612,9 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
   });
 
-  // Performance summary
+  // Performance summary using insights highlights
   currentY -= 60;
-  if (dto.summary && dto.summary.length > 0) {
+  if (dto.insights && dto.insights.highlights && dto.insights.highlights.length > 0) {
     recoPage.drawText('📊 Performance Summary', {
       x: 40,
       y: currentY,
@@ -613,9 +624,9 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
 
     currentY -= 30;
-    dto.summary.slice(0, 6).forEach((stat: string) => {
+    dto.insights.highlights.slice(0, 6).forEach((highlight: string) => {
       currentY -= 20;
-      recoPage.drawText(stat, {
+      recoPage.drawText(highlight, {
         x: 50,
         y: currentY,
         size: 11,
