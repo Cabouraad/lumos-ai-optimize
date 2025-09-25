@@ -95,7 +95,9 @@ export class EnhancedCompetitorDetector {
               await this.runV2ShadowDiagnostics(runId, orgId, text, current, 'strict');
               
             } catch (error) {
-              this.logger.warn('Shadow diagnostics failed', { error: error.message });
+              this.logger.warn('Shadow diagnostics failed', { 
+                error: error instanceof Error ? error.message : String(error) 
+              });
             }
           }
           
@@ -135,7 +137,9 @@ export class EnhancedCompetitorDetector {
           
           return finalResult;
         } catch (error) {
-          this.logger.warn('Shadow diagnostics failed', { error: error.message });
+          this.logger.warn('Shadow diagnostics failed', { 
+            error: error instanceof Error ? error.message : String(error) 
+          });
         }
       }
       

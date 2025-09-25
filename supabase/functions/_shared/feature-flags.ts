@@ -8,6 +8,7 @@ export interface EdgeFeatureFlags {
   FEATURE_PROMINENCE_FIX: boolean;
   FEATURE_BILLING_BYPASS: boolean;
   FEATURE_GOOGLE_AIO: boolean;
+  FEATURE_STRICT_COMPETITOR_DETECT: boolean;
 }
 
 // Simple inline feature flag check for edge functions

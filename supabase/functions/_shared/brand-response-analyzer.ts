@@ -34,6 +34,11 @@ export interface BrandAnalysisResult {
       final_classified: number;
     };
     consensus_boost_applied?: boolean;
+    // Safeguard metadata
+    text_presence_override?: boolean;
+    original_org_brand_present?: boolean;
+    original_score?: number;
+    safeguard_applied_at?: string;
   };
 }
 
@@ -499,8 +504,8 @@ Respond with only a JSON array of organization names that are clearly businesses
       const orgMatches = content.match(/"([^"]+)"/g);
       if (orgMatches) {
         return orgMatches
-          .map(match => match.replace(/"/g, ''))
-          .filter(org => candidates.some(c => 
+          .map((match: string) => match.replace(/"/g, ''))
+          .filter((org: string) => candidates.some(c => 
             normalize(org) === normalize(c)
           ))
           .slice(0, 10);
