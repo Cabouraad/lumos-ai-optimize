@@ -258,18 +258,18 @@ export async function collectWeeklyData(
   }
 
   // Separate current week and prior week data
-  const currentWeekResponses = historicalResponses?.filter(r => 
+  const currentWeekResponses = historicalResponses?.filter((r: any) => 
     r.run_at >= periodStart && r.run_at < periodEnd
   ) || [];
   
-  const priorWeekResponses = historicalResponses?.filter(r => 
+  const priorWeekResponses = historicalResponses?.filter((r: any) => 
     r.run_at >= priorWeekStart.toISOString() && r.run_at < priorWeekEnd.toISOString()
   ) || [];
-
+  
   // Get all responses for the 2 weeks before prior week (for new competitor detection)
   const twoWeeksBeforePrior = new Date(priorWeekStart);
   twoWeeksBeforePrior.setDate(priorWeekStart.getDate() - 14);
-  const historicalCompetitorResponses = historicalResponses?.filter(r => 
+  const historicalCompetitorResponses = historicalResponses?.filter((r: any) => 
     r.run_at >= twoWeeksBeforePrior.toISOString() && r.run_at < priorWeekStart.toISOString()
   ) || [];
 
@@ -318,9 +318,9 @@ export async function collectWeeklyData(
     ) || [];
     
     const weekAvgScore = weekResponses.length > 0 
-      ? weekResponses.reduce((sum, r) => sum + (r.score || 0), 0) / weekResponses.length 
+      ? weekResponses.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / weekResponses.length 
       : 0;
-    const weekBrandPresent = weekResponses.filter(r => r.org_brand_present).length;
+    const weekBrandPresent = weekResponses.filter((r: any) => r.org_brand_present).length;
     const weekBrandPresentRate = weekResponses.length > 0 ? (weekBrandPresent / weekResponses.length) * 100 : 0;
     
     weeklyTrends.push({
@@ -334,20 +334,20 @@ export async function collectWeeklyData(
   // 3. Calculate KPIs for current week
   const totalRuns = currentWeekResponses?.length || 0;
   const avgScore = totalRuns > 0 
-    ? currentWeekResponses.reduce((sum, r) => sum + (r.score || 0), 0) / totalRuns 
+    ? currentWeekResponses.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / totalRuns 
     : 0;
-  const brandPresentCount = currentWeekResponses?.filter(r => r.org_brand_present).length || 0;
+  const brandPresentCount = currentWeekResponses?.filter((r: any) => r.org_brand_present).length || 0;
   const brandPresentRate = totalRuns > 0 ? (brandPresentCount / totalRuns) * 100 : 0;
   const avgCompetitors = totalRuns > 0 
-    ? currentWeekResponses.reduce((sum, r) => sum + (r.competitors_count || 0), 0) / totalRuns 
+    ? currentWeekResponses.reduce((sum: number, r: any) => sum + (r.competitors_count || 0), 0) / totalRuns 
     : 0;
 
   // 4. Calculate prior week KPIs for deltas
   let deltaVsPriorWeek;
   if (priorWeekResponses && priorWeekResponses.length > 0) {
     const priorTotalRuns = priorWeekResponses.length;
-    const priorAvgScore = priorWeekResponses.reduce((sum, r) => sum + (r.score || 0), 0) / priorTotalRuns;
-    const priorBrandPresentCount = priorWeekResponses.filter(r => r.org_brand_present).length;
+    const priorAvgScore = priorWeekResponses.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / priorTotalRuns;
+    const priorBrandPresentCount = priorWeekResponses.filter((r: any) => r.org_brand_present).length;
     const priorBrandPresentRate = (priorBrandPresentCount / priorTotalRuns) * 100;
 
     deltaVsPriorWeek = {
@@ -359,7 +359,7 @@ export async function collectWeeklyData(
 
   // 5. Aggregate prompt-level data with categorization
   const promptMap = new Map();
-  currentWeekResponses?.forEach(response => {
+  currentWeekResponses?.forEach((response: any) => {
     const promptId = response.prompt_id;
     const promptText = promptsMap.get(promptId);
     
@@ -386,13 +386,13 @@ export async function collectWeeklyData(
   });
 
   // Calculate prompt metrics with categories
-  const promptMetrics = Array.from(promptMap.values()).map(prompt => {
-    const scores = prompt.responses.map(r => r.score);
+  const promptMetrics = Array.from(promptMap.values()).map((prompt: any) => {
+    const scores = prompt.responses.map((r: any) => r.score);
     return {
       id: prompt.id,
       text: prompt.text,
       category: prompt.category,
-      avgScore: scores.reduce((a, b) => a + b, 0) / scores.length,
+      avgScore: scores.reduce((a: number, b: number) => a + b, 0) / scores.length,
       totalRuns: prompt.responses.length,
       brandPresentRate: (prompt.brandPresentCount / prompt.responses.length) * 100,
     };
@@ -400,14 +400,14 @@ export async function collectWeeklyData(
 
   // Group by categories
   const categories = {
-    crm: promptMetrics.filter(p => p.category === 'crm'),
-    competitorTools: promptMetrics.filter(p => p.category === 'competitorTools'),
-    aiFeatures: promptMetrics.filter(p => p.category === 'aiFeatures'),
-    other: promptMetrics.filter(p => p.category === 'other')
+    crm: promptMetrics.filter((p: any) => p.category === 'crm'),
+    competitorTools: promptMetrics.filter((p: any) => p.category === 'competitorTools'),
+    aiFeatures: promptMetrics.filter((p: any) => p.category === 'aiFeatures'),
+    other: promptMetrics.filter((p: any) => p.category === 'other')
   };
 
   const sortedByScore = [...promptMetrics].sort((a, b) => b.avgScore - a.avgScore);
-  const topPerformers = sortedByScore.slice(0, 5).map(p => ({
+  const topPerformers = sortedByScore.slice(0, 5).map((p: any) => ({
     id: p.id,
     text: p.text,
     avgScore: p.avgScore,
@@ -427,7 +427,7 @@ export async function collectWeeklyData(
   const historicalCompetitorCounts = new Map();
   
   // Current week competitors
-  currentWeekResponses?.forEach(response => {
+  currentWeekResponses?.forEach((response: any) => {
     if (response.competitors_json && Array.isArray(response.competitors_json)) {
       response.competitors_json.forEach((competitor: string) => {
         const count = competitorCounts.get(competitor) || 0;
@@ -437,7 +437,7 @@ export async function collectWeeklyData(
   });
 
   // Prior week competitors
-  priorWeekResponses?.forEach(response => {
+  priorWeekResponses?.forEach((response: any) => {
     if (response.competitors_json && Array.isArray(response.competitors_json)) {
       response.competitors_json.forEach((competitor: string) => {
         const count = priorCompetitorCounts.get(competitor) || 0;
@@ -447,7 +447,7 @@ export async function collectWeeklyData(
   });
 
   // Historical competitors (2 weeks before prior)
-  historicalCompetitorResponses?.forEach(response => {
+  historicalCompetitorResponses?.forEach((response: any) => {
     if (response.competitors_json && Array.isArray(response.competitors_json)) {
       response.competitors_json.forEach((competitor: string) => {
         const count = historicalCompetitorCounts.get(competitor) || 0;
@@ -509,7 +509,7 @@ export async function collectWeeklyData(
     }
   });
 
-  const competitorsByProvider = Array.from(providerCompetitorMap.entries()).map(([provider, data]) => ({
+  const competitorsByProvider = Array.from(providerCompetitorMap.entries()).map(([provider, data]: [any, any]) => ({
     provider,
     totalMentions: data.totalMentions,
     uniqueCompetitors: data.uniqueCompetitors.size,
@@ -526,12 +526,12 @@ export async function collectWeeklyData(
 
   const recosByType = {};
   const recosByStatus = {};
-  recommendations?.forEach(reco => {
+  recommendations?.forEach((reco: any) => {
     recosByType[reco.type] = (recosByType[reco.type] || 0) + 1;
     recosByStatus[reco.status] = (recosByStatus[reco.status] || 0) + 1;
   });
 
-  const recoHighlights = recommendations?.slice(0, 5).map(reco => ({
+  const recoHighlights = recommendations?.slice(0, 5).map((reco: any) => ({
     id: reco.id,
     type: reco.type,
     title: reco.title,
@@ -540,7 +540,7 @@ export async function collectWeeklyData(
 
   // 8. Enhanced provider metrics with brand mention tracking
   const providerCounts = new Map();
-  currentWeekResponses?.forEach(response => {
+  currentWeekResponses?.forEach((response: any) => {
     const provider = response.provider;
     if (!providerCounts.has(provider)) {
       providerCounts.set(provider, { 
@@ -557,7 +557,7 @@ export async function collectWeeklyData(
     }
   });
 
-  const providersUsed = Array.from(providerCounts.entries()).map(([provider, data]) => ({
+  const providersUsed = Array.from(providerCounts.entries()).map(([provider, data]: [any, any]) => ({
     provider,
     responseCount: data.count,
     avgScore: data.count > 0 ? data.totalScore / data.count : 0,
@@ -578,7 +578,7 @@ export async function collectWeeklyData(
     ));
     
     // Determine confidence based on data consistency
-    const totalResponses = recentTrends.reduce((sum, week) => sum + week.totalRuns, 0);
+    const totalResponses = recentTrends.reduce((sum: number, week: any) => sum + week.totalRuns, 0);
     if (totalResponses > 50) {
       trendProjection.confidenceLevel = 'high';
     } else if (totalResponses > 20) {
@@ -588,7 +588,7 @@ export async function collectWeeklyData(
 
   // 9. Daily breakdown
   const dailyMap = new Map();
-  currentWeekResponses?.forEach(response => {
+  currentWeekResponses?.forEach((response: any) => {
     const date = response.run_at.split('T')[0];
     if (!dailyMap.has(date)) {
       dailyMap.set(date, { count: 0, totalScore: 0 });
@@ -599,12 +599,12 @@ export async function collectWeeklyData(
   });
 
   const dailyBreakdown = Array.from(dailyMap.entries())
-    .map(([date, data]) => ({
+    .map(([date, data]: [string, any]) => ({
       date,
       responses: data.count,
       avgScore: data.count > 0 ? data.totalScore / data.count : 0,
     }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a: any, b: any) => a.date.localeCompare(b.date));
 
   console.log(`[COLLECT] Enhanced data collection completed. Processed ${totalRuns} responses, ${promptMetrics.length} prompts, ${newCompetitors.length} new competitors`);
 
@@ -640,28 +640,28 @@ export async function collectWeeklyData(
     prompts: {
       totalActive: promptMetrics.length,
       categories: {
-        crm: categories.crm.map(p => ({
+        crm: categories.crm.map((p: any) => ({
           id: p.id,
           text: p.text,
           avgScore: Math.round(p.avgScore * 10) / 10,
           totalRuns: p.totalRuns,
           brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
         })),
-        competitorTools: categories.competitorTools.map(p => ({
+        competitorTools: categories.competitorTools.map((p: any) => ({
           id: p.id,
           text: p.text,
           avgScore: Math.round(p.avgScore * 10) / 10,
           totalRuns: p.totalRuns,
           brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
         })),
-        aiFeatures: categories.aiFeatures.map(p => ({
+        aiFeatures: categories.aiFeatures.map((p: any) => ({
           id: p.id,
           text: p.text,
           avgScore: Math.round(p.avgScore * 10) / 10,
           totalRuns: p.totalRuns,
           brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
         })),
-        other: categories.other.map(p => ({
+        other: categories.other.map((p: any) => ({
           id: p.id,
           text: p.text,
           avgScore: Math.round(p.avgScore * 10) / 10,
@@ -669,7 +669,7 @@ export async function collectWeeklyData(
           brandPresentRate: Math.round(p.brandPresentRate * 10) / 10
         }))
       },
-      topPerformers: topPerformers.map(p => ({
+      topPerformers: topPerformers.map((p: any) => ({
         ...p,
         avgScore: Math.round(p.avgScore * 10) / 10,
         brandPresentRate: Math.round(p.brandPresentRate * 10) / 10,
@@ -678,11 +678,11 @@ export async function collectWeeklyData(
     },
     competitors: {
       totalDetected: competitorCounts.size,
-      newThisWeek: newCompetitors.map(c => ({
+      newThisWeek: newCompetitors.map((c: any) => ({
         ...c,
         sharePercent: Math.round(c.sharePercent * 10) / 10
       })),
-      topCompetitors: topCompetitors.map(c => ({
+      topCompetitors: topCompetitors.map((c: any) => ({
         ...c,
         sharePercent: Math.round(c.sharePercent * 10) / 10,
       })),
@@ -702,11 +702,11 @@ export async function collectWeeklyData(
     },
     volume: {
       totalResponsesAnalyzed: totalRuns,
-      providersUsed: providersUsed.map(p => ({
+      providersUsed: providersUsed.map((p: any) => ({
         ...p,
         avgScore: Math.round(p.avgScore * 10) / 10,
       })),
-      dailyBreakdown: dailyBreakdown.map(d => ({
+      dailyBreakdown: dailyBreakdown.map((d: any) => ({
         ...d,
         avgScore: Math.round(d.avgScore * 10) / 10,
       })),

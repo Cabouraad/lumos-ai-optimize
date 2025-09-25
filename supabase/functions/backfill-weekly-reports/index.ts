@@ -125,8 +125,8 @@ serve(async (req) => {
       results.push({ type: 'PDF', success: true, data: pdfResponse.data });
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failureCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r: any) => r.success).length;
+    const failureCount = results.filter((r: any) => !r.success).length;
 
     logStep('Backfill completed', { 
       weekKey,

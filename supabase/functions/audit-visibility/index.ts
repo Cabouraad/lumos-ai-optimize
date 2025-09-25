@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     audit.checks.prompts = {
       count: prompts?.length || 0,
-      active: prompts?.filter(p => p.active).length || 0,
+      active: prompts?.filter((p: any) => p.active).length || 0,
       error: promptsError?.message
     };
 
@@ -65,31 +65,31 @@ Deno.serve(async (req) => {
       .gte('run_at', yesterday)
       .order('run_at', { ascending: false });
 
-    const orgRuns = recentRuns?.filter(run => run.prompts?.org_id === orgId) || [];
+    const orgRuns = recentRuns?.filter((run: any) => run.prompts?.org_id === orgId) || [];
     
     audit.checks.recentRuns = {
       total: orgRuns.length,
-      successful: orgRuns.filter(r => r.status === 'success').length,
-      failed: orgRuns.filter(r => r.status === 'error').length,
+      successful: orgRuns.filter((r: any) => r.status === 'success').length,
+      failed: orgRuns.filter((r: any) => r.status === 'error').length,
       error: runsError?.message
     };
 
     // 3. Check visibility results for recent runs
     if (orgRuns.length > 0) {
-      const runIds = orgRuns.map(r => r.id);
+      const runIds = orgRuns.map((r: any) => r.id);
       const { data: visibilityResults, error: visError } = await supabase
         .from('visibility_results')
         .select('id, prompt_run_id, score, org_brand_present, competitors_count, brands_json')
         .in('prompt_run_id', runIds);
 
-      audit.checks.visibilityResults = {
-        count: visibilityResults?.length || 0,
-        avgScore: visibilityResults?.length > 0 
-          ? Math.round((visibilityResults.reduce((sum, r) => sum + r.score, 0) / visibilityResults.length) * 10) / 10
-          : 0,
-        brandPresentCount: visibilityResults?.filter(r => r.org_brand_present).length || 0,
-        error: visError?.message
-      };
+    audit.checks.visibilityResults = {
+      count: visibilityResults?.length || 0,
+      avgScore: visibilityResults?.length > 0 
+        ? Math.round((visibilityResults.reduce((sum: number, r: any) => sum + r.score, 0) / visibilityResults.length) * 10) / 10
+        : 0,
+      brandPresentCount: visibilityResults?.filter((r: any) => r.org_brand_present).length || 0,
+      error: visError?.message
+    };
     }
 
     // 4. Check competitors from brand_catalog

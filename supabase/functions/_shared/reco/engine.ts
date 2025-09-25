@@ -488,7 +488,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
       for (const category of categories) {
         const candidates = candidatesByCategory[category];
         const target = targetMix[category];
-        const currentCount = selectedRecos.filter(r => r.kind === category).length;
+        const currentCount = selectedRecos.filter((r: Reco) => r.kind === category).length;
         
         if (candidates.length > 0 && currentCount < target) {
           const selected = candidates.shift()!;

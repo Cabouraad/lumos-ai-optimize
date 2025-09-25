@@ -79,7 +79,7 @@ serve(async (req) => {
     const { data: responses } = await supabase
       .from('latest_prompt_provider_responses')
       .select('*')
-      .in('prompt_id', prompts.map(p => p.id));
+      .in('prompt_id', prompts.map((p: any) => p.id));
 
     // Get competitor data
     const { data: competitors } = await supabase
@@ -92,23 +92,23 @@ serve(async (req) => {
       .limit(10);
 
     // Analyze prompt performance
-    const promptPerformance: PromptPerformance[] = prompts.map(prompt => {
-      const promptResponses = responses?.filter(r => r.prompt_id === prompt.id) || [];
+    const promptPerformance: PromptPerformance[] = prompts.map((prompt: any) => {
+      const promptResponses = responses?.filter((r: any) => r.prompt_id === prompt.id) || [];
       const avgScore = promptResponses.length > 0 
-        ? promptResponses.reduce((sum, r) => sum + (r.score || 0), 0) / promptResponses.length 
+        ? promptResponses.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / promptResponses.length 
         : 0;
       
-      const brandPresent = promptResponses.some(r => r.org_brand_present);
-      const competitorCount = Math.max(...promptResponses.map(r => r.competitors_count || 0), 0);
-      const missingFromProviders = ['openai', 'gemini', 'perplexity'].filter(provider => 
-        !promptResponses.some(r => r.provider === provider && r.org_brand_present)
+      const brandPresent = promptResponses.some((r: any) => r.org_brand_present);
+      const competitorCount = Math.max(...promptResponses.map((r: any) => r.competitors_count || 0), 0);
+      const missingFromProviders = ['openai', 'gemini', 'perplexity'].filter((provider: string) => 
+        !promptResponses.some((r: any) => r.provider === provider && r.org_brand_present)
       );
 
       // Extract top competitors from this prompt's responses
       const allCompetitors = new Set<string>();
-      promptResponses.forEach(r => {
+      promptResponses.forEach((r: any) => {
         if (r.competitors_json) {
-          (r.competitors_json as string[]).forEach(comp => allCompetitors.add(comp));
+          (r.competitors_json as string[]).forEach((comp: string) => allCompetitors.add(comp));
         }
       });
 
@@ -121,7 +121,7 @@ serve(async (req) => {
         missingFromProviders,
         topCompetitors: Array.from(allCompetitors).slice(0, 3),
         lastRun: promptResponses.length > 0 
-          ? Math.max(...promptResponses.map(r => new Date(r.run_at || 0).getTime())).toString()
+          ? Math.max(...promptResponses.map((r: any) => new Date(r.run_at || 0).getTime())).toString()
           : '0'
       };
     });

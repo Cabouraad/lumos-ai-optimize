@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failureCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r: any) => r.success).length;
+    const failureCount = results.filter((r: any) => !r.success).length;
 
     console.log(`🎉 Manual recovery completed: ${successCount} successful, ${failureCount} failed`);
 
