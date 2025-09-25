@@ -291,7 +291,7 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Competitor sync error:', error);
     
     return new Response(

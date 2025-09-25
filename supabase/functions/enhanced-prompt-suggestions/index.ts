@@ -235,7 +235,7 @@ Format as JSON array with this structure:
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in enhanced-prompt-suggestions:', error);
     return new Response(JSON.stringify({
       success: false,

@@ -94,7 +94,7 @@ export class SafeRecommendationEngine {
       if (error) throw error;
 
       return (data || []).map(this.mapDbToReco);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.warn('Failed to check existing recommendations', { orgId, date, error });
       return [];
     }
@@ -279,7 +279,7 @@ export class SafeRecommendationEngine {
         count: recommendations.length 
       });
 
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Failed to persist recommendations', error as Error, { orgId });
     }
   }

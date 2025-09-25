@@ -110,7 +110,7 @@ serve(async (req) => {
           duration_ms: Date.now() - startTime,
           result 
         });
-      } catch (error) {
+      } catch (error: unknown) {
         phaseResult = { success: false, error: error.message };
         overallStatus = 'failed';
         await logEvent(phaseName, 'phase_error', 'error', { 
@@ -392,7 +392,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Audit run failed:', error);
     return new Response(JSON.stringify({ 
       error: error.message,

@@ -303,7 +303,7 @@ Return ONLY a JSON array with this exact format:
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in suggest-prompts-now function:', error);
     return new Response(
       JSON.stringify({ 

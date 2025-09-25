@@ -78,7 +78,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Free checker error:', error);
     return new Response(JSON.stringify({ 
       error: error.message || 'Internal server error' 
@@ -113,7 +113,7 @@ async function performAIAnalysis(leadId: string, companyName: string, domain: st
           
           // Small delay between requests
           await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('AI analysis error for prompt:', prompt, error);
           // Continue with other prompts even if one fails
         }
@@ -155,7 +155,7 @@ async function performAIAnalysis(leadId: string, companyName: string, domain: st
 
     console.log(`Analysis completed and sent for ${companyName}`);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI analysis failed:', error);
     
     // Update lead with error
@@ -388,7 +388,7 @@ async function sendResultsEmail(email: string, companyName: string, domain: stri
     }
 
     console.log('Results email sent successfully to:', email);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Email sending failed:', error);
     throw error;
   }

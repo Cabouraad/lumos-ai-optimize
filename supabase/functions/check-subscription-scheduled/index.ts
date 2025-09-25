@@ -189,7 +189,7 @@ serve(async (req) => {
           updatedCount++;
         }
 
-      } catch (error) {
+      } catch (error: unknown) {
         logStep("Error checking subscription", { 
           userId: user.user_id, 
           error: error instanceof Error ? error.message : String(error) 
@@ -213,7 +213,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
     

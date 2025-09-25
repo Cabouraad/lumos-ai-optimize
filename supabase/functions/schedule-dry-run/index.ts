@@ -72,7 +72,7 @@ serve(async (req) => {
           result: scanResult,
           timestamp: new Date().toISOString()
         });
-      } catch (error) {
+  } catch (error: unknown) {
         results.operations.push({
           type: 'daily-scan',
           status: 'error',
@@ -118,7 +118,7 @@ serve(async (req) => {
             result: reportResult,
             timestamp: new Date().toISOString()
           });
-        } catch (error) {
+        } catch (error: unknown) {
           results.operations.push({
             type: 'weekly-report',
             orgId: org.id,
@@ -138,7 +138,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ [E2E DRY RUN] Error:', error);
     
     return new Response(

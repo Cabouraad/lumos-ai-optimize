@@ -153,7 +153,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'content-type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in fetch-google-aio function:', error);
     return new Response(JSON.stringify({ 
       error: error.message,

@@ -415,7 +415,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Daily batch trigger error:', error);
     
     // Log the failure with enhanced context

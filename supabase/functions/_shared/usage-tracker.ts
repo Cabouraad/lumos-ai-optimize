@@ -94,7 +94,7 @@ export class PromptUsageTracker {
       });
 
       return data?.success || false;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error persisting usage:', error);
       return false;
     }
@@ -181,7 +181,7 @@ export class BatchUsageTracker {
       });
 
       return data?.success || false;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error persisting batch usage:', error);
       return false;
     }
@@ -224,7 +224,7 @@ export async function getUsageStats(supabase: any, orgId: string, days: number =
         avgProvidersPerDay: activeDays > 0 ? Math.round(totalProviders / activeDays) : 0
       }
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting usage stats:', error);
     return null;
   }

@@ -150,12 +150,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    logStep('Error in backfill', { error: error.message });
+  } catch (error: unknown) {
+    logStep('Error in backfill', { error: error instanceof Error ? error.message : String(error) });
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -244,7 +244,7 @@ serve(async (req) => {
       }
     }, { headers: corsHeaders });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Fix failed:', error);
     return Response.json(
       { error: error.message },

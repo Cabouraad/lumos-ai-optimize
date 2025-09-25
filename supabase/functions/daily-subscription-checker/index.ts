@@ -161,14 +161,14 @@ serve(async (req) => {
             tier: subscriptionData.subscription_tier
           });
 
-        } catch (error) {
-          logStep(`Exception checking user ${user.id}`, { error: error.message });
+        } catch (error: unknown) {
+          logStep(`Exception checking user ${user.id}`, { error: error instanceof Error ? error.message : String(error) });
           failedChecks++;
           results.push({
             userId: user.id,
             email: user.email,
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
         
@@ -202,11 +202,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
-    logStep("Error in daily subscription checker", { error: error.message });
+  } catch (error: unknown) {
+    logStep("Error in daily subscription checker", { error: error instanceof Error ? error.message : String(error) });
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString()
     }), {
       status: 500,

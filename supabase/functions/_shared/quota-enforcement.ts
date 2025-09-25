@@ -173,7 +173,7 @@ export async function checkPromptQuota(
 
     return { allowed: true };
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error checking quota:', error);
     return {
       allowed: false,
@@ -213,7 +213,7 @@ export async function incrementUsage(
     }
 
     return data?.success || false;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error incrementing usage:', error);
     return false;
   }

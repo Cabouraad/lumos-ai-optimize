@@ -305,7 +305,7 @@ serve(async (req) => {
       });
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[optimization-worker] Unexpected error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,

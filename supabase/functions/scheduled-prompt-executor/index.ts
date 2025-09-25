@@ -197,7 +197,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Scheduled prompt executor error:', error);
     
     // Log the failure

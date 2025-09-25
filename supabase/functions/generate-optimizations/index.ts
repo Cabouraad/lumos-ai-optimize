@@ -367,7 +367,7 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[generate-optimizations] Error processing prompt', pid, ':', error);
         // Continue with next prompt
         continue;

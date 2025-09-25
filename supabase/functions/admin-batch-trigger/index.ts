@@ -296,7 +296,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Admin batch trigger error:', error);
     
     return new Response(JSON.stringify({ 

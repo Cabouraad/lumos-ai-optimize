@@ -98,7 +98,7 @@ serve(async (req) => {
       headers: { ...C.headers, "content-type": "application/json" },
       status: 200,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-trial-checkout", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {

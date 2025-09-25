@@ -645,7 +645,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                       if (brandError) {
                         console.error('Error upserting competitor brand:', brandError);
                       }
-                    } catch (error) {
+                    } catch (error: unknown) {
                       console.error('Error processing competitor:', error);
                     }
                   }
@@ -665,7 +665,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
                       if (mentionError) {
                         console.error('Error upserting org brand mention:', mentionError);
                       }
-                    } catch (error) {
+                    } catch (error: unknown) {
                       console.error('Error processing org brand mention:', error);
                     }
                   }
@@ -726,7 +726,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
     console.log('Daily scan completed:', result);
     return result;
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Daily scan error:', error);
     return { success: false, error: error.message };
   }

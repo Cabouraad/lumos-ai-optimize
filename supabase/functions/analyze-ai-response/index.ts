@@ -114,7 +114,7 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
       } else {
         console.log(`⚠️ No citations extracted from ${providerId} response`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Citation extraction failed:', error);
       extractedCitations = null;
     }

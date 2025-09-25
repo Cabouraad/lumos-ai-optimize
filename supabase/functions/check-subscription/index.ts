@@ -474,7 +474,7 @@ if (customers.data.length === 0) {
       headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     diagnostics.logStep("unexpected_error", { error: error.message, stack: error.stack });
     return new Response(JSON.stringify({ 
       success: false, 

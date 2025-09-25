@@ -62,7 +62,7 @@ async function scheduleBackgroundResume(
       console.log(`✅ Background processing completed for job ${jobId}, correlation_id: ${correlationId}`);
     }
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`❌ Background resume failed for job ${jobId}, attempt ${attempt}, correlation_id: ${correlationId}:`, error);
     
     // Retry on failure if we haven't exhausted attempts
@@ -240,7 +240,7 @@ async function queueCompetitorCandidates(supabase: any, orgId: string, candidate
           onConflict: 'org_id,candidate_name',
           ignoreDuplicates: false
         });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error queueing competitor candidate:', error);
     }
   }
@@ -438,7 +438,7 @@ async function processTask(
         if (candidateError) {
           console.error('Error queuing brand candidate:', candidateError);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error processing brand candidate:', error);
       }
     }
@@ -607,7 +607,7 @@ serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Invalid JSON in request body:', error);
       return new Response(JSON.stringify({ 
         success: false, 
@@ -664,7 +664,7 @@ serve(async (req) => {
         const payload = JSON.parse(atob(token.split('.')[1]));
         userId = payload.sub;
         console.log('🔍 Extracted user ID from JWT:', userId?.substring(0, 8) + '...');
-      } catch (error) {
+      } catch (error: unknown) {
         console.warn('⚠️ Failed to parse JWT for user ID:', error);
         // Don't fail the request, just skip quota checking
       }

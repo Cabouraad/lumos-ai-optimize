@@ -165,7 +165,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Unexpected error in onboarding", error as Error);
     return new Response(JSON.stringify({ error: "Internal server error" }), { 
       status: 500,

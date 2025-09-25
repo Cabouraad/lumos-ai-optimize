@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Audit error:', error);
     return new Response(
       JSON.stringify({

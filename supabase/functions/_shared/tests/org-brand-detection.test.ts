@@ -183,7 +183,7 @@ async function runOrgBrandDetectionTests(): Promise<{ passed: number; failed: nu
         failed++;
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('❌ FAIL - Error:', error.message);
       failed++;
     }

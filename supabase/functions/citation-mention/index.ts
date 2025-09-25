@@ -160,7 +160,7 @@ serve(async (req) => {
           updated++;
           console.log(`Updated ${citation.domain} → ${citation.resolved_brand?.brand}: ${citation.brand_mention} (confidence: ${citation.brand_mention_confidence})`);
           
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`Error processing ${citation.url}:`, error.message);
           // Leave as unknown on error
         }
@@ -305,7 +305,7 @@ async function fetchPageContent(url: string): Promise<string | null> {
     
     return content.slice(0, 50000); // Limit to 50K chars for processing
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`Failed to fetch ${url}:`, error.message);
     return null;
   }

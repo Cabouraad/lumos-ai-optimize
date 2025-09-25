@@ -91,7 +91,7 @@ serve(async (req) => {
         } else {
           console.log(`Skipping duplicate recommendation: ${reco.title}`);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error processing recommendation:', error);
       }
     }
@@ -104,11 +104,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in reco-refresh:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       created: 0
     }), {
       status: 500,

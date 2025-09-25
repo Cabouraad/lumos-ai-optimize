@@ -322,7 +322,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Unexpected error in delete-account function:', error);
     
     return new Response(JSON.stringify({ 

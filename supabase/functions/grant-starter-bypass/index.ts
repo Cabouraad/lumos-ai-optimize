@@ -196,7 +196,7 @@ serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     return diagnostics.createErrorResponse(error as Error, 500);
   }
 });

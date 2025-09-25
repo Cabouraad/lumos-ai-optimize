@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('💥 Recovery process failed:', error);
     
     return new Response(JSON.stringify({

@@ -64,7 +64,7 @@ async function acquireWebsiteContent(targetDomain: string): Promise<{
           break
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.log(`Direct fetch failed for ${url}: ${error.message}`)
     }
   }
@@ -163,7 +163,7 @@ async function tryFirecrawl(domain: string): Promise<{ success: boolean; content
         }
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.log(`Firecrawl failed: ${error.message}`)
   }
   
@@ -188,7 +188,7 @@ async function tryLLMSTxt(domain: string): Promise<{ success: boolean; content: 
         return { success: true, content }
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.log(`LLMS.txt failed: ${error.message}`)
   }
   
@@ -218,7 +218,7 @@ async function tryReadabilityProxy(domain: string): Promise<{ success: boolean; 
         return { success: true, content }
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.log(`Readability proxy failed: ${error.message}`)
   }
   
@@ -261,7 +261,7 @@ async function trySitemapDiscovery(domain: string): Promise<{ success: boolean; 
         }
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.log(`Sitemap discovery failed: ${error.message}`)
   }
   
@@ -638,7 +638,7 @@ Deno.serve(async (req) => {
       }
     )
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Auto-fill error:', error)
     
     // Even in case of unexpected errors, try to return synthetic context

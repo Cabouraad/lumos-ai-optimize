@@ -104,7 +104,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error generating recommendations:', error);
     return new Response(JSON.stringify({ 
       success: false, 
@@ -167,7 +167,7 @@ async function generateEnhancedRecommendations(orgId: string, adminSupabase: any
           created++;
           console.log(`Created enhanced recommendation: ${reco.title}`);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error processing enhanced recommendation:', error);
         skipped++;
       }
@@ -541,7 +541,7 @@ async function cleanupOldRecommendations(supabase: any, orgId: string, hardReset
     
     console.log(`[cleanup] No cleanup needed, only ${allRecs?.length || 0} recommendations`);
     return { deleted: 0 };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[cleanup] Cleanup error:', error);
     return { deleted: 0 };
   }

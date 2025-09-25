@@ -1093,7 +1093,7 @@ async function cleanupOldRecommendations(supabase: any, orgId: string) {
         console.log(`Cleaned up ${idsToDelete.length} old recommendations, keeping latest 20`);
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in cleanup process:', error);
   }
 }

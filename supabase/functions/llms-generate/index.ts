@@ -168,7 +168,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in llms-generate function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
@@ -202,7 +202,7 @@ async function discoverPages(baseUrl: string): Promise<string[]> {
         });
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.log('Sitemap fetch failed:', error.message);
   }
 
@@ -265,7 +265,7 @@ async function crawlWithFirecrawl(baseUrl: string, discoveredPages: string[]): P
 
     throw new Error('Firecrawl returned no data');
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Firecrawl failed:', error.message);
     return await fallbackFetch(baseUrl, discoveredPages);
   }
@@ -306,7 +306,7 @@ async function fallbackFetch(baseUrl: string, discoveredPages: string[]): Promis
           });
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.log(`Failed to fetch ${pageUrl}:`, error.message);
     }
   }

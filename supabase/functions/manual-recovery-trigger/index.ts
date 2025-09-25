@@ -63,13 +63,13 @@ Deno.serve(async (req) => {
             batch_result: batchResult
           });
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(`💥 Exception processing ${org.name}:`, error);
         results.push({
           org_id: org.id,
           org_name: org.name,
           success: false,
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
       }
 
@@ -95,12 +95,12 @@ Deno.serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('💥 Manual recovery failed:', error);
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       recovery_timestamp: new Date().toISOString(),
       message: 'Manual recovery failed'
     }), {
