@@ -5,7 +5,7 @@
  */
 
 import { PDFDocument, rgb, StandardFonts, PageSizes } from 'https://esm.sh/pdf-lib@1.17.1';
-import { WeeklyReportData } from './collect.ts';
+import type { WeeklyReportData } from './types.ts';
 
 // Convert hex colors to RGB for PDF-lib compatibility
 function hexToRgb(hex: string) {
@@ -268,8 +268,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     cardWidth,
     cardHeight,
     'Brand Presence Rate',
-    `${dto.kpis.brandPresenceRate.toFixed(1)}%`,
-    dto.kpis.presenceTrend,
+    `${dto.kpis.brandPresentRate.toFixed(1)}%`,
+    dto.kpis.deltaVsPriorWeek?.brandPresentRate,
     'Prompts where brand was mentioned'
   );
 
@@ -281,7 +281,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     cardWidth,
     cardHeight,
     'Active Prompts',
-    dto.kpis.totalPrompts.toString(),
+    dto.prompts.totalActive.toString(),
     undefined,
     'Monitored this week'
   );
@@ -307,7 +307,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     highlightsY,
     cardWidth * 2 + cardSpacing,
     120,
-    dto.highlights || ['No highlights available']
+    dto.insights.highlights || ['No highlights available']
   );
 
   // PAGE 2: KPI Dashboard with Performance Metrics and Trends
@@ -324,8 +324,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     color: colors.neutralDark,
   });
 
-  currentY -= 30;
-  kpiPage.drawText(`Your brand was mentioned in ${dto.kpis.brandPresenceRate.toFixed(1)}% of AI responses this week.`, {
+  currentY -= 20;
+  kpiPage.drawText(`Your brand was mentioned in ${dto.kpis.brandPresentRate.toFixed(1)}% of AI responses this week.`, {
     x: 40,
     y: currentY,
     size: 12,

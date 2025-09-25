@@ -3,140 +3,7 @@
  * Collects and aggregates data for weekly visibility reports
  */
 
-export interface WeeklyReportData {
-  header: {
-    orgId: string;
-    orgName: string;
-    periodStart: string;
-    periodEnd: string;
-    generatedAt: string;
-  };
-  kpis: {
-    avgVisibilityScore: number;
-    overallScore: number;
-    scoreTrend: number;
-    totalRuns: number;
-    brandPresentRate: number;
-    avgCompetitors: number;
-    deltaVsPriorWeek?: {
-      avgVisibilityScore: number;
-      totalRuns: number;
-      brandPresentRate: number;
-    };
-    trendProjection: {
-      brandPresenceNext4Weeks: number;
-      confidenceLevel: 'high' | 'medium' | 'low';
-    };
-  };
-  historicalTrend: {
-    weeklyScores: Array<{
-      weekStart: string;
-      avgScore: number;
-      brandPresentRate: number;
-      totalRuns: number;
-    }>;
-  };
-  prompts: {
-    totalActive: number;
-    categories: {
-      crm: Array<{
-        id: string;
-        text: string;
-        avgScore: number;
-        totalRuns: number;
-        brandPresentRate: number;
-      }>;
-      competitorTools: Array<{
-        id: string;
-        text: string;
-        avgScore: number;
-        totalRuns: number;
-        brandPresentRate: number;
-      }>;
-      aiFeatures: Array<{
-        id: string;
-        text: string;
-        avgScore: number;
-        totalRuns: number;
-        brandPresentRate: number;
-      }>;
-      other: Array<{
-        id: string;
-        text: string;
-        avgScore: number;
-        totalRuns: number;
-        brandPresentRate: number;
-      }>;
-    };
-    topPerformers: Array<{
-      id: string;
-      text: string;
-      avgScore: number;
-      totalRuns: number;
-      brandPresentRate: number;
-      category: string;
-    }>;
-    zeroPresence: Array<{
-      id: string;
-      text: string;
-      totalRuns: number;
-      category: string;
-    }>;
-  };
-  competitors: {
-    totalDetected: number;
-    newThisWeek: Array<{
-      name: string;
-      appearances: number;
-      sharePercent: number;
-    }>;
-    topCompetitors: Array<{
-      name: string;
-      appearances: number;
-      sharePercent: number;
-      deltaVsPriorWeek?: number;
-      isNew: boolean;
-    }>;
-    avgCompetitorsPerResponse: number;
-    byProvider: Array<{
-      provider: string;
-      totalMentions: number;
-      uniqueCompetitors: number;
-      avgScore: number;
-    }>;
-  };
-  recommendations: {
-    totalCount: number;
-    byType: Record<string, number>;
-    byStatus: Record<string, number>;
-    highlights: Array<{
-      id: string;
-      type: string;
-      title: string;
-      status: string;
-    }>;
-    fallbackMessage?: string;
-  };
-  volume: {
-    totalResponsesAnalyzed: number;
-    providersUsed: Array<{
-      provider: string;
-      responseCount: number;
-      avgScore: number;
-      brandMentions: number;
-    }>;
-    dailyBreakdown: Array<{
-      date: string;
-      responses: number;
-      avgScore: number;
-    }>;
-  };
-  insights: {
-    highlights: string[];
-    keyFindings: string[];
-    recommendations: string[];
-  };
-}
+import type { WeeklyReportData } from './types.ts';
 
 function categorizePrompt(text: string): string {
   const lowerText = text.toLowerCase();
@@ -472,7 +339,7 @@ export async function collectWeeklyData(
 
   const totalCompetitorAppearances = Array.from(competitorCounts.values()).reduce((a, b) => a + b, 0);
   const topCompetitors = Array.from(competitorCounts.entries())
-    .map(([name, appearances]) => {
+    .map(([name, appearances]: [string, number]) => {
       const priorAppearances = priorCompetitorCounts.get(name) || 0;
       const isNew = !priorCompetitorCounts.has(name) && !historicalCompetitorCounts.has(name);
       return {
@@ -623,7 +490,8 @@ export async function collectWeeklyData(
     volume: { providersUsed: providersUsed }
   });
 
-  return {
+  // Create the base report data
+  const reportData: WeeklyReportData = {
     header: {
       orgId,
       orgName,
@@ -713,14 +581,24 @@ export async function collectWeeklyData(
     volume: {
       totalResponsesAnalyzed: totalRuns,
       providersUsed: providersUsed.map((p: any) => ({
-        ...p,
+        provider: p.provider,
+        responseCount: p.responseCount || p.count,
         avgScore: Math.round(p.avgScore * 10) / 10,
+        brandMentions: p.brandMentions || 0,
       })),
       dailyBreakdown: dailyBreakdown.map((d: any) => ({
-        ...d,
+        date: d.date,
+        responses: d.responses,
         avgScore: Math.round(d.avgScore * 10) / 10,
       })),
     },
-    insights
+    insights,
   };
+
+  // Add backward compatibility aliases
+  reportData.kpis.brandPresenceRate = reportData.kpis.brandPresentRate;
+  reportData.kpis.presenceTrend = reportData.kpis.deltaVsPriorWeek?.brandPresentRate ?? 0;
+  reportData.kpis.totalPrompts = reportData.prompts.totalActive;
+
+  return reportData;
 }
