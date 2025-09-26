@@ -273,7 +273,7 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ response_id: citationsStoredId })
-      }).catch(error => {
+      }).catch((error: unknown) => {
         console.error('Background citation analysis failed:', error);
       });
     }

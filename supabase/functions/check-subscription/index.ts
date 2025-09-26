@@ -325,7 +325,7 @@ if (customers.data.length === 0) {
 
     // BILLING BYPASS LOGIC - Check environment toggles after Stripe processing
     const bypassEnabled = Deno.env.get("BILLING_BYPASS_ENABLED") === "true";
-    const allowedEmails = (Deno.env.get("BILLING_BYPASS_EMAILS") ?? "").split(",").map((s: string) => s.trim().toLowerCase());
+  const allowedEmails = (Deno.env.get("BILLING_BYPASS_EMAILS") ?? "").split(",").map((s: string) => s.trim().toLowerCase());
     const bypassCutoff = Deno.env.get("BILLING_BYPASS_EXPIRES_AT");
     
     const isEmailAllowed = allowedEmails.includes(user.email.toLowerCase());

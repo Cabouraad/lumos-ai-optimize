@@ -23,12 +23,12 @@ function nyParts(d = new Date()) {
   });
   
   const parts = formatter.formatToParts(d);
-  const yyyy = parts.find(part => part.type === 'year')?.value || '1970';
-  const mm = parts.find(part => part.type === 'month')?.value || '01';
-  const dd = parts.find(part => part.type === 'day')?.value || '01';
-  const hh = parts.find(part => part.type === 'hour')?.value || '00';
-  const mi = parts.find(part => part.type === 'minute')?.value || '00';
-  const ss = parts.find(part => part.type === 'second')?.value || '00';
+  const yyyy = parts.find((part: any) => part.type === 'year')?.value || '1970';
+  const mm = parts.find((part: any) => part.type === 'month')?.value || '01';
+  const dd = parts.find((part: any) => part.type === 'day')?.value || '01';
+  const hh = parts.find((part: any) => part.type === 'hour')?.value || '00';
+  const mi = parts.find((part: any) => part.type === 'minute')?.value || '00';
+  const ss = parts.find((part: any) => part.type === 'second')?.value || '00';
   
   return { yyyy, mm, dd, hh, mi, ss };
 }
@@ -271,7 +271,7 @@ serve(async (req) => {
         }).then(result => {
           clearTimeout(timeout);
           resolve(result);
-        }).catch(error => {
+        }).catch((error: unknown) => {
           clearTimeout(timeout);
           reject(error);
         });

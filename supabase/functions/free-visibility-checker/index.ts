@@ -65,7 +65,7 @@ serve(async (req) => {
     const analysisPromise = performAIAnalysis(lead.id, companyName, domain, email);
     
     // Don't await - let it run in background
-    analysisPromise.catch(error => {
+    analysisPromise.catch((error: unknown) => {
       console.error('Background analysis error:', error);
     });
 

@@ -83,7 +83,7 @@ export function cleanCompetitorList(
     const normalized = normalize(brand);
     
     // Skip generic AI terms
-    if (excludeTerms.some(term => normalized.includes(term))) continue;
+    if (excludeTerms.some((term: string) => normalized.includes(term))) continue;
     
     const canonical = resolveCanonical(brand, canonicalMap);
     

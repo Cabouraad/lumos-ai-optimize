@@ -18,9 +18,9 @@ function getTodayKeyNY(): string {
   });
   
   const parts = formatter.formatToParts(new Date());
-  const yyyy = parts.find(part => part.type === 'year')?.value || '1970';
-  const mm = parts.find(part => part.type === 'month')?.value || '01';
-  const dd = parts.find(part => part.type === 'day')?.value || '01';
+  const yyyy = parts.find((part: any) => part.type === 'year')?.value || '1970';
+  const mm = parts.find((part: any) => part.type === 'month')?.value || '01';
+  const dd = parts.find((part: any) => part.type === 'day')?.value || '01';
   
   return `${yyyy}-${mm}-${dd}`;
 }

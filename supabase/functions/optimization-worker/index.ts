@@ -229,7 +229,7 @@ serve(async (req) => {
           // Dedupe competitors and citations
           const uniqueCompetitors = [...new Set(competitors)];
           const uniqueCitations = citations.reduce((acc: any[], curr) => {
-            if (!acc.find(c => c.domain === curr.domain)) {
+            if (!acc.find((c: any) => c.domain === curr.domain)) {
               acc.push(curr);
             }
             return acc;

@@ -503,14 +503,14 @@ function extractHowToSubject(text: string): string {
   if (howCanMatch) {
     const rest = howCanMatch[2].trim();
     // Extract meaningful nouns and verbs, skip pronouns
-    const words = rest.split(/\s+/).filter(word => 
+    const words = rest.split(/\s+/).filter((word: string) => 
       word.length > 2 && !STOPWORDS.has(word) && !/^(i|you|we|they|it)$/.test(word)
     );
     return words.slice(0, 3).join(' ');
   }
   
   // Fallback: extract first meaningful noun phrases
-  const words = cleanText.split(/\s+/).filter(word => 
+  const words = cleanText.split(/\s+/).filter((word: string) => 
     word.length > 3 && !STOPWORDS.has(word) && !/^\d+$/.test(word)
   );
   return words.slice(0, 2).join(' ');
@@ -807,7 +807,7 @@ function extractNounPhrases(text: string): string[] {
 
 function extractActionWord(text: string): string | null {
   const actionWords = ['create', 'build', 'make', 'setup', 'install', 'configure', 'optimize', 'improve', 'choose', 'select', 'implement', 'develop', 'design', 'plan', 'manage', 'use', 'start'];
-  return actionWords.find(word => text.includes(word)) || null;
+  return actionWords.find((word: string) => text.includes(word)) || null;
 }
 
 function extractComparisonSubjects(text: string): string[] {
@@ -820,7 +820,7 @@ function extractComparisonSubjects(text: string): string[] {
 
 function extractProblem(text: string): string | null {
   const problemWords = ['error', 'issue', 'problem', 'bug', 'fail', 'broken', 'not working'];
-  const found = problemWords.find(word => text.includes(word));
+  const found = problemWords.find((word: string) => text.includes(word));
   if (found) {
     const words = text.split(' ');
     const index = words.findIndex((w: string) => w.includes(found));

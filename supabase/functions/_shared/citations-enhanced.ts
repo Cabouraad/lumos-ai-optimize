@@ -48,7 +48,7 @@ export function extractPerplexityCitations(response: any, responseText: string):
   // Also check for related sources
   if (response.related_sources && Array.isArray(response.related_sources)) {
     response.related_sources.forEach((source: any) => {
-      if (source.url && !citations.some(c => c.url === source.url)) {
+      if (source.url && !citations.some((c: any) => c.url === source.url)) {
         citations.push({
           url: source.url,
           domain: extractDomain(source.url),

@@ -310,7 +310,7 @@ function generateSyntheticContext(domain: string, orgName?: string): BusinessCon
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
   
   const orgKeywords = orgName 
-    ? orgName.split(/\s+/).filter(word => word.length > 2)
+    ? orgName.split(/\s+/).filter((word: string) => word.length > 2)
     : []
   
   const baseKeywords = [...new Set([...domainKeywords, ...orgKeywords])]

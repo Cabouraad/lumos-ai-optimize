@@ -24,7 +24,7 @@ export function extractCitations(aiResponse: string): Array<{ url: string; title
   
   // Add standalone URLs
   urls.forEach((url: string) => {
-    if (!citations.some(c => c.url === url)) {
+    if (!citations.some((c: any) => c.url === url)) {
       citations.push({
         url,
         domain: extractDomain(url)
@@ -60,11 +60,11 @@ export function categorizeCitations(citations: Array<{ url: string; title?: stri
   citations.forEach((citation: any) => {
     const domain = citation.domain || '';
     
-    if (newsDomains.some(d => domain.includes(d))) {
+    if (newsDomains.some((d: string) => domain.includes(d))) {
       categories.news.push(citation);
-    } else if (socialDomains.some(d => domain.includes(d))) {
+    } else if (socialDomains.some((d: string) => domain.includes(d))) {
       categories.social.push(citation);
-    } else if (researchDomains.some(d => domain.includes(d))) {
+    } else if (researchDomains.some((d: string) => domain.includes(d))) {
       categories.research.push(citation);
     } else if (domain.endsWith('.gov') || domain.endsWith('.edu') || domain.endsWith('.org')) {
       categories.official.push(citation);

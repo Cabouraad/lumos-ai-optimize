@@ -289,8 +289,8 @@ function generateNearbyLocations(city: string, state: string, country: string): 
 
 // Simple text similarity calculation
 function calculateTextSimilarity(text1: string, text2: string): number {
-  const words1 = text1.split(' ').filter(w => w.length > 3); // Filter short words
-  const words2 = text2.split(' ').filter(w => w.length > 3);
+  const words1 = text1.split(' ').filter((w: string) => w.length > 3); // Filter short words
+  const words2 = text2.split(' ').filter((w: string) => w.length > 3);
   
   if (words1.length === 0 || words2.length === 0) return 0;
   

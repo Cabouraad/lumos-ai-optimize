@@ -348,7 +348,7 @@ async function extractOrganizationsNER(
   
   // Step 2: Filter out known brands and common words
   const unknownCandidates = properNouns.filter(noun => 
-    !knownBrands.some(known => normalize(known) === normalize(noun)) &&
+    !knownBrands.some((known: string) => normalize(known) === normalize(noun)) &&
     !isCommonWord(noun) &&
     noun.length >= 3 &&
     noun.length <= 30 &&
@@ -448,7 +448,7 @@ function isLikelyOrganization(candidate: string, context: string): boolean {
     'recommend', 'use', 'try', 'consider', 'choose', 'popular', 'leading', 'top'
   ];
   
-  return businessContext.some(term => surroundingText.includes(term));
+  return businessContext.some((term: string) => surroundingText.includes(term));
 }
 
 /**
