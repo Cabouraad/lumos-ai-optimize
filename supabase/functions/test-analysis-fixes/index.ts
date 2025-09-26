@@ -89,12 +89,13 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
-    console.error('Test error:', error);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Test error:', err);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        stack: error.stack 
+        error: err.message,
+        stack: err.stack 
       }),
       { 
         status: 500,

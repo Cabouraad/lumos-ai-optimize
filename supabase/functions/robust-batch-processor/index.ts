@@ -63,7 +63,8 @@ async function scheduleBackgroundResume(
     }
     
   } catch (error: unknown) {
-    console.error(`❌ Background resume failed for job ${jobId}, attempt ${attempt}, correlation_id: ${correlationId}:`, error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error(`❌ Background resume failed for job ${jobId}, attempt ${attempt}, correlation_id: ${correlationId}:`, err);
     
     // Retry on failure if we haven't exhausted attempts
     if (attempt < MAX_RESUME_ATTEMPTS) {
@@ -241,7 +242,8 @@ async function queueCompetitorCandidates(supabase: any, orgId: string, candidate
           ignoreDuplicates: false
         });
     } catch (error: unknown) {
-      console.error('Error queueing competitor candidate:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('Error queueing competitor candidate:', err);
     }
   }
 }
@@ -439,7 +441,8 @@ async function processTask(
           console.error('Error queuing brand candidate:', candidateError);
         }
       } catch (error: unknown) {
-        console.error('Error processing brand candidate:', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error('Error processing brand candidate:', err);
       }
     }
 
@@ -1007,7 +1010,8 @@ serve(async (req) => {
 
     // Add error handling to prevent jobs from getting permanently stuck
     const handleJobError = async (error: any, jobId: string) => {
-      console.error('🚨 Critical error in job processing:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('🚨 Critical error in job processing:', err);
       try {
         await supabase
           .from('batch_jobs')
@@ -1016,9 +1020,9 @@ serve(async (req) => {
             completed_at: new Date().toISOString(),
             last_heartbeat: new Date().toISOString(),
             metadata: {
-              error: error.message,
+              error: err.message,
               failed_at: new Date().toISOString(),
-              stack: error.stack
+              stack: err.stack
             }
           })
           .eq('id', jobId);
@@ -1233,13 +1237,14 @@ serve(async (req) => {
       throw processingError;
     }
 
-  } catch (error) {
-    console.error('❌ Batch processor error:', error.message);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('❌ Batch processor error:', err.message);
     
     // Ensure job is marked as failed if it's not already completed
     if (jobId) {
       try {
-        await handleJobError(error, jobId);
+        await handleJobError(err, jobId);
       } catch (finalError) {
         console.error('❌ Failed to handle job error:', finalError);
       }
@@ -1247,9 +1252,9 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Unknown error occurred',
+      error: err.message || 'Unknown error occurred',
       action: 'error',
-      details: error.stack || 'No stack trace available',
+      details: err.stack || 'No stack trace available',
       timestamp: new Date().toISOString(),
       jobId: jobId || 'unknown'
     }), {

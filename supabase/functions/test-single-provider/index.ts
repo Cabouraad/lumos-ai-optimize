@@ -358,14 +358,15 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
-    console.error(`=== PROVIDER TEST ERROR ===`, error.message);
-    console.error('Error stack:', error.stack);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error(`=== PROVIDER TEST ERROR ===`, err.message);
+    console.error('Error stack:', err.stack);
     
     // Ensure we always return valid JSON
     const errorResponse = {
       success: false,
-      error: error.message || 'Unknown error occurred',
+      error: err.message || 'Unknown error occurred',
       timestamp: new Date().toISOString()
     };
     

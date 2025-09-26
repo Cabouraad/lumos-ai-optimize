@@ -111,11 +111,12 @@ serve(async (req) => {
           result 
         });
       } catch (error: unknown) {
-        phaseResult = { success: false, error: error.message };
+        const err = error instanceof Error ? error : new Error(String(error));
+        phaseResult = { success: false, error: err.message };
         overallStatus = 'failed';
         await logEvent(phaseName, 'phase_error', 'error', { 
           phase: phaseName, 
-          error: error.message,
+          error: err.message,
           duration_ms: Date.now() - startTime 
         });
       }
@@ -393,10 +394,11 @@ serve(async (req) => {
     });
 
   } catch (error: unknown) {
-    console.error('Audit run failed:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Audit run failed:', err);
     return new Response(JSON.stringify({ 
-      error: error.message,
-      stack: error.stack 
+      error: err.message,
+      stack: err.stack 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

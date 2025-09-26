@@ -404,10 +404,11 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error('Unexpected error in convert-competitor-to-brand:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
+      message: err.message,
+      stack: err.stack,
+      name: err.name
     });
     
     // Don't expose internal error details
