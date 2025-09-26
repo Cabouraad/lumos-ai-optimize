@@ -303,7 +303,7 @@ export async function collectWeeklyData(
   };
 
   const sortedByScore = [...promptMetrics].sort((a, b) => b.avgScore - a.avgScore);
-  const topPerformers = sortedByScore.slice(0, 5).map(p => ({
+  const topPerformers = sortedByScore.slice(0, 5).map((p: any) => ({
     id: p.id,
     text: p.text,
     avgScore: p.avgScore,
@@ -427,7 +427,7 @@ export async function collectWeeklyData(
     recosByStatus[reco.status] = (recosByStatus[reco.status] || 0) + 1;
   });
 
-  const recoHighlights = recommendations?.slice(0, 5).map(reco => ({
+  const recoHighlights = recommendations?.slice(0, 5).map((reco: any) => ({
     id: reco.id,
     type: reco.type,
     title: reco.title,

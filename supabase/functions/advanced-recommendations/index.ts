@@ -182,7 +182,7 @@ async function generateEnhancedRecommendations(orgId: string, adminSupabase: any
       .order('created_at', { ascending: false });
 
     if (allRecommendations && allRecommendations.length > 30) {
-      const toDelete = allRecommendations.slice(30).map(r => r.id);
+      const toDelete = allRecommendations.slice(30).map((r: any) => r.id);
       await adminSupabase
         .from('recommendations')
         .delete()

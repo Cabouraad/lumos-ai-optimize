@@ -22,7 +22,7 @@ function optimizerUserPrompt(args: {
   citations: {domain: string; title?: string; link: string}[];
 }) {
   const { brand, promptText, presenceRate, competitors, citations } = args;
-  const cites = citations.slice(0, 8).map(c => `- ${c.domain} ${c.title ? `— ${c.title}` : ''} (${c.link})`).join('\n');
+  const cites = citations.slice(0, 8).map((c: any) => `- ${c.domain} ${c.title ? `— ${c.title}` : ''} (${c.link})`).join('\n');
   const comp = competitors.slice(0, 8).join(', ') || 'None observed';
   
   return `

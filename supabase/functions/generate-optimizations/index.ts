@@ -61,7 +61,7 @@ function optimizerUserPrompt(args: {
   competitors: string[]; citations: { domain: string; title?: string; link: string }[];
   category: 'low_visibility' | 'general';
 }) {
-  const cites = args.citations.slice(0,8).map(c => `- ${c.domain}${c.title?` — ${c.title}`:''} (${c.link})`).join("\n");
+  const cites = args.citations.slice(0,8).map((c: any) => `- ${c.domain}${c.title?` — ${c.title}`:''} (${c.link})`).join("\n");
   const comp  = args.competitors.slice(0,8).join(", ") || "None observed";
   
   if (args.category === 'low_visibility') {

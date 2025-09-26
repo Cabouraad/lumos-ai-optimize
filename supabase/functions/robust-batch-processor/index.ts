@@ -754,7 +754,7 @@ serve(async (req) => {
       providerConfigs: Object.keys(providerConfigs),
       validProviders,
       activeProviders,
-      apiKeyStatus: Object.keys(providerConfigs).map(p => ({
+      apiKeyStatus: Object.keys(providerConfigs).map((p: string) => ({
         provider: p,
         hasKey: !!providerConfigs[p].apiKey,
         keyLength: providerConfigs[p].apiKey?.length || 0
@@ -767,7 +767,7 @@ serve(async (req) => {
       requestedProviders: activeProviders,
       availableProviders,
       debug: {
-        apiKeyStatus: Object.keys(providerConfigs).map(p => ({
+        apiKeyStatus: Object.keys(providerConfigs).map((p: string) => ({
           provider: p,
           hasKey: !!providerConfigs[p].apiKey
         }))

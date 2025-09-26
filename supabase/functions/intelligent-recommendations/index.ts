@@ -407,7 +407,7 @@ function generateSocialMediaStrategy(prompts: PromptPerformance[], org: any, str
     ],
     expectedImpact: strategy === 'amplify' ? 'medium' : 'high',
     timeToImplement: '1 week',
-    seoKeywords: prompts.flatMap(p => extractKeywords(p.text)),
+    seoKeywords: prompts.flatMap((p: any) => extractKeywords(p.text)),
     socialStrategy: {
       platforms: ['LinkedIn', 'Twitter', 'Reddit', 'Industry Communities'],
       postTemplates: [
@@ -891,7 +891,7 @@ function generateEnhancedHashtags(productsServices: string | null, keywords: str
     baseHashtags.push(...productKeywords);
   }
   
-  const keywordHashtags = keywords.slice(0, 3).map(keyword => 
+  const keywordHashtags = keywords.slice(0, 3).map((keyword: string) => 
     `#${keyword.charAt(0).toUpperCase() + keyword.slice(1).replace(/[^a-zA-Z0-9]/g, '')}`
   );
   
@@ -1079,7 +1079,7 @@ async function cleanupOldRecommendations(supabase: any, orgId: string) {
 
     if (allRecommendations && allRecommendations.length > 20) {
       // Get IDs of recommendations beyond the first 20 (oldest ones to delete)
-      const idsToDelete = allRecommendations.slice(20).map(r => r.id);
+      const idsToDelete = allRecommendations.slice(20).map((r: any) => r.id);
       
       // Delete the old recommendations
       const { error } = await supabase

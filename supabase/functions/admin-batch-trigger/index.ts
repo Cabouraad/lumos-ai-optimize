@@ -262,7 +262,7 @@ serve(async (req) => {
     // Calculate summary statistics
     const totalPrompts = results.reduce((sum, r) => sum + (r.promptCount || 0), 0);
     const totalExpectedTasks = results.reduce((sum, r) => sum + (r.expectedTasks || 0), 0);
-    const providersUsed = [...new Set(results.flatMap(r => r.availableProviders || []))];
+    const providersUsed = [...new Set(results.flatMap((r: any) => r.availableProviders || []))];
 
     const result = {
       success: true,

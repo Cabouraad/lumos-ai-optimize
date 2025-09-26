@@ -50,7 +50,7 @@ export function analyzeContentGaps(
   // Tutorial/Guide content gap
   if (formatAnalysis.tutorials.length >= 2) {
     const topTutorials = formatAnalysis.tutorials.slice(0, 3);
-    const sourceRuns = topTutorials.flatMap(t => runsByPrompt.get(t.prompt_id)?.slice(0, 2).map(r => r.id) || []);
+    const sourceRuns = topTutorials.flatMap((t: any) => runsByPrompt.get(t.prompt_id)?.slice(0, 2).map((r: any) => r.id) || []);
     
     recommendations.push({
       kind: 'content',

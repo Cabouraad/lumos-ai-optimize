@@ -216,7 +216,7 @@ export class EnhancedCompetitorDetector {
     // Step 1: Extract potential competitor candidates using strict proper noun rules
     const candidates = this.extractProperNounCandidates(text);
     
-    console.log(`🔍 Found ${candidates.length} proper noun candidates:`, candidates.slice(0, 10).map(c => c.name));
+    console.log(`🔍 Found ${candidates.length} proper noun candidates:`, candidates.slice(0, 10).map((c: any) => c.name));
 
     // Step 2: Validate and match against gazetteers
     for (const candidate of candidates) {
