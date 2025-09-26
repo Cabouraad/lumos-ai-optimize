@@ -710,7 +710,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
           }
         }
 
-      } catch (orgError) {
+      } catch (orgError: unknown) {
         console.error(`Error processing org ${org.id}:`, orgError);
       }
     }

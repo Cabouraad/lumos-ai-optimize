@@ -86,7 +86,7 @@ function extractEnhancedCitations(text: string): Citation[] {
   
   // Extract URLs with better parsing
   const urlRegex = /(https?:\/\/(?:www\.)?[^\s)\]<>"']+)/gi;
-  let urlMatch;
+  let urlMatch: RegExpExecArray | null;
   
   while ((urlMatch = urlRegex.exec(text)) !== null) {
     const url = urlMatch[1];
@@ -122,7 +122,7 @@ function extractEnhancedCitations(text: string): Citation[] {
   ];
   
   for (const pattern of refPatterns) {
-    let refMatch;
+    let refMatch: RegExpExecArray | null;
     while ((refMatch = pattern.exec(text)) !== null) {
       const refValue = refMatch[1];
       if (!seenCitations.has(refValue)) {

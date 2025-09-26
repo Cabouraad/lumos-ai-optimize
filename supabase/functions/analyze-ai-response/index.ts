@@ -302,7 +302,7 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
     { headers: corsHeaders }
   );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error analyzing AI response:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

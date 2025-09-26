@@ -155,7 +155,7 @@ serve(async (req) => {
               success: !error,
               exists: error?.message?.includes('already') || false
             });
-          } catch (signupError) {
+          } catch (signupError: unknown) {
             // User might already exist, continue
             await logEvent('signup', 'user_exists', 'info', { 
               email: user.email.replace('@', '[at]')

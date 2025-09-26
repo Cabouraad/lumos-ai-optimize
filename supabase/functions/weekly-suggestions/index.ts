@@ -61,7 +61,7 @@ serve(async (req) => {
           console.error(`Failed to generate suggestions for org ${org.id}: ${result.error}`);
         }
 
-      } catch (orgError) {
+      } catch (orgError: unknown) {
         console.error(`Error processing org ${org.id}:`, orgError);
       }
     }

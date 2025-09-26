@@ -87,7 +87,7 @@ serve(async (req) => {
         .from('cron.job')
         .select('*');
       cronJobs = cronData || [];
-    } catch (cronError) {
+    } catch (cronError: unknown) {
       console.warn('Could not fetch cron jobs:', cronError);
     }
 

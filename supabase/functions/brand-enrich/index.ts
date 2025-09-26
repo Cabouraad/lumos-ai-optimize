@@ -99,7 +99,7 @@ Format as JSON with this structure:
     let enrichmentData;
     try {
       enrichmentData = JSON.parse(content);
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.error('Failed to parse AI response:', content);
       // Fallback to basic variants
       enrichmentData = {

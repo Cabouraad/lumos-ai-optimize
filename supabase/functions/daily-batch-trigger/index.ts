@@ -125,7 +125,7 @@ serve(async (req) => {
       if (body) {
         requestBody = JSON.parse(body);
       }
-    } catch (e) {
+    } catch (e: unknown) {
       // Not JSON or empty body, continue
     }
 
@@ -315,7 +315,7 @@ serve(async (req) => {
             
             batchSuccess = true;
             console.log(`✅ Batch processor invoked successfully for org ${org.id}, result: ${data?.action}`);
-          } catch (err) {
+          } catch (err: unknown) {
             console.error(`Attempt ${attempts} exception for org ${org.id}:`, err);
             if (attempts >= maxAttempts) {
               console.error(`❌ All attempts failed for org ${org.id}`);
@@ -349,7 +349,7 @@ serve(async (req) => {
         // Small delay to avoid overwhelming the system
         await new Promise(resolve => setTimeout(resolve, 100));
 
-      } catch (orgError) {
+      } catch (orgError: unknown) {
         console.error(`Error processing org ${org.id}:`, orgError);
         totalBatchJobs++;
         orgResults.push({

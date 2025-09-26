@@ -149,7 +149,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('💥 Manual daily run error:', error);
     
     return new Response(JSON.stringify({

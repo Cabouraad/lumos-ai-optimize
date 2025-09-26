@@ -58,7 +58,7 @@ function extractCitations(text: string): Citation[] {
   
   // Extract URLs
   const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
-  let urlMatch;
+  let urlMatch: RegExpExecArray | null;
   while ((urlMatch = urlRegex.exec(text)) !== null) {
     citations.push({
       type: 'url',
@@ -68,7 +68,7 @@ function extractCitations(text: string): Citation[] {
   
   // Extract bracket references like [1], [Smith 2023], [A], etc.
   const refRegex = /\[(?:\d+|[A-Za-z][^\]]{0,30})\]/g;
-  let refMatch;
+  let refMatch: RegExpExecArray | null;
   while ((refMatch = refRegex.exec(text)) !== null) {
     // Store without brackets
     const refValue = refMatch[0].slice(1, -1);

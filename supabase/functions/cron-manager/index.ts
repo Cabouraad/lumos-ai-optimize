@@ -138,7 +138,7 @@ serve(async (req) => {
                 console.log(`✅ Removed job: ${job.jobname} (ID: ${job.jobid})`);
                 removalResults.push({ job: job.jobname, success: true, jobid: job.jobid });
               }
-            } catch (err) {
+            } catch (err: unknown) {
               console.warn(`💥 Exception removing job ${job.jobname}:`, err);
               removalResults.push({ job: job.jobname, success: false, error: err.message });
             }
@@ -179,7 +179,7 @@ serve(async (req) => {
               results.push({ job: job.jobname, success: true });
               installedJobs++;
             }
-          } catch (err) {
+          } catch (err: unknown) {
             console.error(`💥 Exception installing ${job.jobname}:`, err);
             results.push({ job: job.jobname, success: false, error: err.message });
           }
@@ -262,7 +262,7 @@ serve(async (req) => {
         });
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('💥 Cron manager error:', error);
     
     return new Response(JSON.stringify({

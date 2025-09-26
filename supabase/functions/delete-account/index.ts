@@ -193,7 +193,7 @@ serve(async (req) => {
               prorate: false,
             });
             console.log(`Successfully canceled subscription: ${subscription.id}`);
-          } catch (subError) {
+          } catch (subError: unknown) {
             console.error(`Error canceling subscription ${subscription.id}:`, subError);
           }
         }
@@ -210,11 +210,11 @@ serve(async (req) => {
             try {
               await stripe.invoices.voidInvoice(invoice.id);
               console.log(`Successfully voided invoice: ${invoice.id}`);
-            } catch (invoiceError) {
+            } catch (invoiceError: unknown) {
               console.error(`Error voiding invoice ${invoice.id}:`, invoiceError);
             }
           }
-        } catch (invoiceError) {
+        } catch (invoiceError: unknown) {
           console.error('Error handling invoices:', invoiceError);
         }
 
@@ -222,7 +222,7 @@ serve(async (req) => {
       } else {
         console.log('No Stripe customer found for this user');
       }
-    } catch (stripeError) {
+    } catch (stripeError: unknown) {
       console.error('Error during Stripe cleanup:', stripeError);
       // Continue with account deletion even if Stripe cleanup fails
     }

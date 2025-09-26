@@ -387,7 +387,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
 
-  } catch (e) {
+  } catch (e: unknown) {
     console.error('[generate-optimizations] Server error:', e);
     return new Response(`Server error: ${e}`, { 
       status: 500, 

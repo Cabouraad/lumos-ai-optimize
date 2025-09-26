@@ -280,7 +280,7 @@ serve(async (req) => {
               });
               healingAttempted++;
             }
-          } catch (healingError) {
+          } catch (healingError: unknown) {
             logStep('Repair exception for org', { orgId, error: healingError.message });
             healingResults.push({ orgId, success: false, error: healingError.message });
           }

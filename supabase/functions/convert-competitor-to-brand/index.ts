@@ -139,7 +139,7 @@ serve(async (req) => {
     let body;
     try {
       body = await req.json();
-    } catch (e) {
+    } catch (e: unknown) {
       return createErrorResponse(422, 'INVALID_JSON', 'Invalid JSON body');
     }
 
@@ -160,7 +160,7 @@ serve(async (req) => {
     let sanitizedName: string;
     try {
       sanitizedName = sanitizeCompetitorName(competitorName);
-    } catch (error) {
+    } catch (error: unknown) {
       return createErrorResponse(422, 'INVALID_INPUT', error.message);
     }
 
@@ -402,7 +402,7 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Unexpected error in convert-competitor-to-brand:', {
       message: error.message,
       stack: error.stack,

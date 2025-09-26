@@ -233,7 +233,7 @@ Return ONLY a JSON array with this exact format:
     let suggestions;
     try {
       suggestions = JSON.parse(generatedContent);
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.error('Failed to parse OpenAI response as JSON:', parseError);
       console.error('Raw response:', generatedContent);
       throw new Error('Failed to parse AI response');

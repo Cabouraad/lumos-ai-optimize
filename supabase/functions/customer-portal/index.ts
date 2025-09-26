@@ -74,7 +74,7 @@ serve(async (req) => {
         if (allowedOrigins.includes(refererUrl.origin)) {
           returnUrl = `${refererUrl.origin}/settings`;
         }
-      } catch (e) {
+      } catch (e: unknown) {
         // Invalid URL, use default
       }
     }

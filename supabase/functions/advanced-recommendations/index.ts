@@ -32,7 +32,7 @@ serve(async (req) => {
     let body: any = {};
     try {
       body = await req.json();
-    } catch (_) {
+    } catch (_: unknown) {
       body = {};
     }
 
@@ -69,7 +69,7 @@ serve(async (req) => {
         });
         const { data: resolvedOrgId } = await (supabaseAnon as any).rpc('get_current_user_org_id');
         if (resolvedOrgId) orgId = resolvedOrgId as string;
-      } catch (e) {
+      } catch (e: unknown) {
         console.warn('[advanced-recommendations] Could not resolve org from JWT:', e?.message || e);
       }
     }
@@ -211,7 +211,7 @@ async function generateEnhancedRecommendations(orgId: string, adminSupabase: any
       message,
       categories_covered: [...new Set(recommendations.map(r => r.kind))]
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in generateEnhancedRecommendations:', error);
     return { success: false, error: error.message };
   }

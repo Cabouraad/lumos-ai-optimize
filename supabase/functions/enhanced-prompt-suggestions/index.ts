@@ -183,7 +183,7 @@ Format as JSON array with this structure:
     let suggestions;
     try {
       suggestions = JSON.parse(content);
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.error('Failed to parse AI response:', content);
       throw new Error('Failed to parse AI suggestions');
     }

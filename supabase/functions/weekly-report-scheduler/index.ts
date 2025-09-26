@@ -174,7 +174,7 @@ serve(async (req) => {
         logStep('Successfully generated report', { orgId, fileName });
         reportsGenerated++;
 
-      } catch (orgError) {
+      } catch (orgError: unknown) {
         logStep('Error processing org', { orgId, error: orgError.message });
         reportsFailed++;
       }

@@ -225,7 +225,7 @@ serve(async (req) => {
             } else {
               console.log(`✅ Resume triggered for job ${job.id}, result: ${resumeResponse.data?.action}, correlation_id: ${correlationId}`);
             }
-          } catch (invokeError) {
+          } catch (invokeError: unknown) {
             console.error(`💥 Error invoking resume for job ${job.id}:`, invokeError);
           }
           
@@ -241,7 +241,7 @@ serve(async (req) => {
 
         processedJobs++;
 
-      } catch (jobError) {
+      } catch (jobError: unknown) {
         console.error(`💥 Error processing stuck job ${job.id}:`, jobError);
         results.push({
           jobId: job.id,
@@ -278,7 +278,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('💥 Batch reconciler error:', error);
     
     // Log the failure

@@ -65,7 +65,7 @@ serve(async (req) => {
       if (body) {
         requestBody = JSON.parse(body);
       }
-    } catch (e) {
+    } catch (e: unknown) {
       // Not JSON or empty body, continue
     }
 
@@ -247,7 +247,7 @@ serve(async (req) => {
         // Small delay to avoid overwhelming the system
         await new Promise(resolve => setTimeout(resolve, 200));
 
-      } catch (orgError) {
+      } catch (orgError: unknown) {
         console.error(`❌ Error processing org ${org.name}:`, orgError);
         results.push({
           orgId: org.id,

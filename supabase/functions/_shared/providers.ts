@@ -89,7 +89,7 @@ export async function extractBrandsOpenAI(promptText: string, apiKey: string): P
       tokenOut: usage.completion_tokens || 0,
       citations
     };
-  } catch (parseError) {
+  } catch (parseError: unknown) {
     return { 
       brands: extractBrandsFromText(content), 
       responseText: content,
@@ -187,7 +187,7 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
             citations
           };
           
-        } catch (parseError) {
+        } catch (parseError: unknown) {
           return { 
             brands: extractBrandsFromText(content), 
             responseText: content,
@@ -197,7 +197,7 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
           };
         }
         
-      } catch (error) {
+      } catch (error: unknown) {
         attempt++;
         lastError = error;
         
@@ -235,7 +235,7 @@ function extractBrandsFromText(text: string): string[] {
   for (const pattern of brandPatterns) {
     const matches = text.match(pattern);
     if (matches) {
-      matches.forEach(match => {
+      matches.forEach((match: string) => {
         // Filter out common non-brand words
         if (!isCommonWord(match)) {
           brands.add(match);
@@ -397,7 +397,7 @@ Return only the JSON object, no other text:`;
         }
         
         businessContext = JSON.parse(cleanedResponse);
-      } catch (parseError) {
+      } catch (parseError: unknown) {
         console.error(`Failed to parse ${name} response:`, analysisText, 'Error:', parseError);
         lastError = new Error(`${name} JSON parse failed`);
         continue;
@@ -523,7 +523,7 @@ export function extractHeuristicKeywords(text: string): string[] {
 
   // Count word frequencies
   const freq: Record<string, number> = {};
-  words.forEach(w => {
+  words.forEach((w: string) => {
     if (!isCommonWord(w.charAt(0).toUpperCase() + w.slice(1))) {
       freq[w] = (freq[w] || 0) + 1;
     }

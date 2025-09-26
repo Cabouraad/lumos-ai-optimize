@@ -122,7 +122,7 @@ export class LegacyCompetitorDetector {
     ];
 
     for (const pattern of patterns) {
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(text)) !== null) {
         const candidate = match[0].trim();
         if (candidate.length >= 2) {

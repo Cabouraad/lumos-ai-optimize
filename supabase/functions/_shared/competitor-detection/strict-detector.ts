@@ -207,7 +207,7 @@ export class StrictCompetitorDetector {
     ];
 
     for (const pattern of patterns) {
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(text)) !== null) {
         const candidate = match[1] || match[0];
         if (this.isStrictCandidate(candidate)) {

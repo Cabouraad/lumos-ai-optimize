@@ -343,6 +343,8 @@ export class EnhancedCompetitorDetector {
     const textLength = text.length;
     let match: RegExpExecArray | null;
 
+    let match: RegExpExecArray | null;
+    
     // Pattern 1: Proper nouns (capitalized words, 2-30 chars)
     // Matches: "HubSpot", "Zoho CRM", "Google Analytics", "Microsoft Teams"
     const properNounPattern = /\b[A-Z][a-zA-Z]{1,29}(?:\s+[A-Z][a-zA-Z]+)*\b/g;

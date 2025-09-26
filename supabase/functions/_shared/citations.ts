@@ -11,7 +11,7 @@ export function extractCitations(aiResponse: string): Array<{ url: string; title
   
   // Extract markdown-style links [title](url)
   const markdownRegex = /\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g;
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = markdownRegex.exec(aiResponse)) !== null) {
     const title = match[1];
     const url = match[2];
@@ -23,7 +23,7 @@ export function extractCitations(aiResponse: string): Array<{ url: string; title
   }
   
   // Add standalone URLs
-  urls.forEach(url => {
+  urls.forEach((url: string) => {
     if (!citations.some(c => c.url === url)) {
       citations.push({
         url,
@@ -57,7 +57,7 @@ export function categorizeCitations(citations: Array<{ url: string; title?: stri
   const socialDomains = ['twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'reddit.com'];
   const researchDomains = ['arxiv.org', 'pubmed.ncbi.nlm.nih.gov', 'scholar.google.com', 'researchgate.net'];
   
-  citations.forEach(citation => {
+  citations.forEach((citation: any) => {
     const domain = citation.domain || '';
     
     if (newsDomains.some(d => domain.includes(d))) {

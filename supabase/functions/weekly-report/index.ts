@@ -336,7 +336,7 @@ Deno.serve(async (req) => {
             status: 'created',
           });
 
-        } catch (orgError) {
+        } catch (orgError: unknown) {
           logStep('Unexpected error for org', { orgId, error: orgError.message });
           errors.push({ orgId, error: 'Unexpected error', details: orgError.message });
         }

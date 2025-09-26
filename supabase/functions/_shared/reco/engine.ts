@@ -113,7 +113,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Group runs by prompt
     const runsByPrompt = new Map<string, RunData[]>();
-    recentRuns.forEach(run => {
+    recentRuns.forEach((run: any) => {
       if (!runsByPrompt.has(run.prompt_id)) {
         runsByPrompt.set(run.prompt_id, []);
       }
@@ -159,7 +159,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Extract existing topic keys within cooldown window
     const existingTopicKeys = new Set();
-    (existingRecos || []).forEach(existing => {
+    (existingRecos || []).forEach((existing: any) => {
       if (existing.metadata?.topic_key) {
         existingTopicKeys.add(existing.metadata.topic_key);
       }

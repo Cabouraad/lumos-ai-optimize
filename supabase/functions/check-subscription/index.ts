@@ -79,7 +79,7 @@ serve(async (req) => {
         setTimeout(() => reject(new Error("Authentication timeout")), 10000)
       );
       user = await Promise.race([authPromise, timeoutPromise]);
-    } catch (authError) {
+    } catch (authError: unknown) {
       diagnostics.logStep("auth_failed", { error: authError.message });
       return new Response(JSON.stringify({ 
         success: false, 
@@ -197,7 +197,7 @@ try {
   );
   customers = await Promise.race([customerPromise, timeoutPromise]);
   diagnostics.logStep("stripe_customer_lookup_success", { count: customers.data.length });
-} catch (stripeError) {
+} catch (stripeError: unknown) {
   diagnostics.logStep("stripe_customer_lookup_failed", { error: stripeError.message });
   return new Response(JSON.stringify({ 
     success: false, 

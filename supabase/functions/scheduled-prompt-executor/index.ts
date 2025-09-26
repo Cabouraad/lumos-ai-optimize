@@ -155,7 +155,7 @@ serve(async (req) => {
         // Small delay to avoid overwhelming the system
         await new Promise(resolve => setTimeout(resolve, 100));
 
-      } catch (orgError) {
+      } catch (orgError: unknown) {
         console.error(`❌ Error processing org ${org.name}:`, orgError);
         orgResults.push({
           orgId: org.id,

@@ -91,7 +91,7 @@ Only include entities with confidence >= ${confidenceThreshold}. Maximum ${maxEn
     let extractedEntities: Array<{ name: string; confidence: number }> = [];
     try {
       extractedEntities = JSON.parse(content);
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.warn('Failed to parse NER JSON response, attempting fallback extraction');
       // Fallback: try to extract entities from malformed JSON
       const entityMatches = content.match(/"name":\s*"([^"]+)"/g);

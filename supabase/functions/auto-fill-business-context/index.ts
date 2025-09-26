@@ -256,7 +256,7 @@ async function trySitemapDiscovery(domain: string): Promise<{ success: boolean; 
               return { success: true, content: pageContent }
             }
           }
-        } catch (pageError) {
+        } catch (pageError: unknown) {
           console.log(`Sitemap page fetch failed for ${url}: ${pageError.message}`)
         }
       }
@@ -496,7 +496,7 @@ Deno.serve(async (req) => {
     try {
       businessContextResult = await extractBusinessContextOpenAI(contentResult.content, openaiApiKey)
       console.log('Token usage - Input:', businessContextResult.tokenIn, 'Output:', businessContextResult.tokenOut)
-    } catch (openaiError) {
+    } catch (openaiError: unknown) {
       console.error('OpenAI analysis failed:', openaiError.message)
       
       // Use synthetic context as fallback for AI failure
@@ -561,7 +561,7 @@ Deno.serve(async (req) => {
         try {
           const aiKeywords = await generateKeywordsOnly(contentResult.content, openaiApiKey)
           finalKeywords = [...finalKeywords, ...aiKeywords]
-        } catch (keywordError) {
+        } catch (keywordError: unknown) {
           console.log('AI keywords generation failed:', keywordError.message)
         }
       }
@@ -663,7 +663,7 @@ Deno.serve(async (req) => {
           status: 200
         }
       )
-    } catch (syntheticError) {
+    } catch (syntheticError: unknown) {
       // Absolute final fallback
       return new Response(
         JSON.stringify({ 

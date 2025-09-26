@@ -99,8 +99,8 @@ export class EnhancedCompetitorDetector {
             try {
               // Compute current from existing strict results (unchanged)
               const current: DetectionResult = {
-                brands: finalResult.orgBrands.map(b => b.name),
-                competitors: finalResult.competitors.map(c => c.name)
+                brands: finalResult.orgBrands.map((b: any) => b.name),
+                competitors: finalResult.competitors.map((c: any) => c.name)
               };
               
               // Compute proposed via V2 detection
@@ -331,7 +331,7 @@ export class EnhancedCompetitorDetector {
       if (brandCatalog) {
         brandCatalog
           .filter(b => b.is_org_brand)
-          .forEach(brand => {
+          .forEach((brand: any) => {
             orgBrands.push(brand.name);
             if (brand.variants_json && Array.isArray(brand.variants_json)) {
               orgBrands.push(...brand.variants_json);

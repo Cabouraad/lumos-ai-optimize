@@ -252,7 +252,7 @@ serve(async (req) => {
     let requestBody;
     try {
       requestBody = JSON.parse(requestText);
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.error('JSON parse error:', parseError);
       throw new Error('Invalid JSON in request body');
     }
