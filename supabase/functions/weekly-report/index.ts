@@ -554,8 +554,8 @@ function generateCSVContent(reportData: any) {
 
   const rows = reportData.prompts.map((prompt: any) => {
     const scores = prompt.responses.map((r: any) => parseFloat(r.score || 0));
-    const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
-    const worstScore = scores.length > 0 ? Math.min(...scores) : 0;
+    const bestScore = scores.length > 0 ? Math.max(0, ...scores) : 0;
+    const worstScore = scores.length > 0 ? Math.min(0, ...scores) : 0;
     
     return [
       prompt.id,

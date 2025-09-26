@@ -440,7 +440,7 @@ async function legacyRenderReportPDF(dto: LegacyWeeklyReportDTO): Promise<Uint8A
     currentY -= 25;
 
     // Top 10 competitors
-    const maxAppearances = Math.max(...dto.competitors.topCompetitors.map(c => c.appearances));
+    const maxAppearances = Math.max(1, ...dto.competitors.topCompetitors.map((c: any) => c.appearances));
     
     dto.competitors.topCompetitors.slice(0, 10).forEach((competitor: any) => {
       currentX = margin;

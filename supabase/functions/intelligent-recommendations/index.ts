@@ -121,7 +121,7 @@ serve(async (req) => {
         missingFromProviders,
         topCompetitors: Array.from(allCompetitors).slice(0, 3),
         lastRun: promptResponses.length > 0 
-          ? Math.max(...promptResponses.map((r: any) => new Date(r.run_at || 0).getTime())).toString()
+          ? Math.max(0, ...promptResponses.map((r: any) => new Date(r.run_at || 0).getTime())).toString()
           : '0'
       };
     });

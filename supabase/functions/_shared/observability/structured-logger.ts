@@ -162,7 +162,7 @@ class EdgeFunctionLogger {
     this.debug(`DB: ${operation} on ${table}`, {
       ...context,
       metadata: {
-        ...context?.metadata,
+        ...(context?.metadata || {}),
         dbOperation: operation,
         table,
       },
@@ -174,7 +174,7 @@ class EdgeFunctionLogger {
     this.warn(`SECURITY: ${event}`, {
       ...context,
       metadata: {
-        ...context?.metadata,
+        ...(context?.metadata || {}),
         securityEvent: event,
       },
     });
@@ -185,7 +185,7 @@ class EdgeFunctionLogger {
     this.info(`BUSINESS: ${event}`, {
       ...context,
       metadata: {
-        ...context?.metadata,
+        ...(context?.metadata || {}),
         businessEvent: event,
       },
     });

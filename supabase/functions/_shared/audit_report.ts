@@ -38,7 +38,7 @@ export function renderAuditHTML(run: AuditRun, events: AuditEvent[]): string {
     const phaseEvents = events.filter((e: AuditEvent) => e.phase === phase);
     const hasError = phaseEvents.some((e: AuditEvent) => e.level === 'error');
     const duration = phaseEvents.length > 0 
-      ? Math.max(...phaseEvents.map((e: AuditEvent) => (e.data as any)?.latency_ms || 0))
+      ? Math.max(0, ...phaseEvents.map((e: AuditEvent) => (e.data as any)?.latency_ms || 0))
       : 0;
     return {
       name: phase,
