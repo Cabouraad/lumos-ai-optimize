@@ -42,7 +42,7 @@ class EdgeFunctionLogger {
     });
   }
 
-  private redactSensitiveData(data: any): any {
+  private redactSensitiveData(data: unknown): unknown {
     if (typeof data !== 'object' || data === null) {
       return data;
     }

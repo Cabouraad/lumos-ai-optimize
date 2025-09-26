@@ -55,7 +55,7 @@ export class LegacyCompetitorDetector {
       .eq('is_org_brand', true);
 
     const orgBrandNames = new Set(
-      (orgBrandData || []).map((b: any) => b.name.toLowerCase())
+      (orgBrandData || []).map(b => b.name.toLowerCase())
     );
 
     for (const candidate of candidates) {

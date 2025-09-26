@@ -432,7 +432,7 @@ function buildOrgBrandVariants(
     if (brand.is_org_brand) {
       variants.add(brand.name);
       if (brand.variants_json) {
-        brand.variants_json.forEach((v: any) => variants.add(v));
+        brand.variants_json.forEach(v => variants.add(v));
       }
     }
   }
@@ -447,8 +447,8 @@ function buildOrgBrandVariants(
 
 function buildCatalogCompetitors(brandCatalog: AnalyzerV2Context['brandCatalog']): string[] {
   return brandCatalog
-    .filter((brand: { is_org_brand: boolean }) => !brand.is_org_brand)
-    .map((brand: { name: string }) => brand.name);
+    .filter(brand => !brand.is_org_brand)
+    .map(brand => brand.name);
 }
 
 function buildIndustryCompetitors(): typeof automotiveMarketplaces.canonical_brands {

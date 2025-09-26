@@ -210,7 +210,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('=== FIX CLASSIFICATION ERROR ===', error);
     return new Response(
       JSON.stringify({ error: error.message }),

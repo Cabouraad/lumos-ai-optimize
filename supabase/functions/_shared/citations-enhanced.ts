@@ -29,7 +29,7 @@ export function extractPerplexityCitations(response: any, responseText: string):
   
   // First try to get provider-supplied citations
   if (response.citations && Array.isArray(response.citations)) {
-    response.citations.forEach((citation: any) => {
+    response.citations.forEach(citation => {
       if (citation.url || citation.link) {
         const url = citation.url || citation.link;
         citations.push({
@@ -47,7 +47,7 @@ export function extractPerplexityCitations(response: any, responseText: string):
   
   // Also check for related sources
   if (response.related_sources && Array.isArray(response.related_sources)) {
-    response.related_sources.forEach((source: any) => {
+    response.related_sources.forEach(source => {
       if (source.url && !citations.some(c => c.url === source.url)) {
         citations.push({
           url: source.url,
@@ -65,7 +65,7 @@ export function extractPerplexityCitations(response: any, responseText: string):
   // Fallback: extract URLs from text if no provider citations
   if (citations.length === 0) {
     const extractedCitations = extractCitations(responseText);
-    extractedCitations.forEach((citation: any) => {
+    extractedCitations.forEach(citation => {
       citations.push({
         url: citation.url,
         domain: citation.domain || extractDomain(citation.url),
@@ -94,7 +94,7 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
   
   // Try to get grounding attributions from Gemini
   if (response.candidates?.[0]?.groundingAttributions) {
-    response.candidates[0].groundingAttributions.forEach((attr: any) => {
+    response.candidates[0].groundingAttributions.forEach(attr => {
       if (attr.web?.uri) {
         citations.push({
           url: attr.web.uri,
@@ -112,7 +112,7 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
   // Fallback: extract URLs from text if no grounding attributions
   if (citations.length === 0) {
     const extractedCitations = extractCitations(responseText);
-    extractedCitations.forEach((citation: any) => {
+    extractedCitations.forEach(citation => {
       citations.push({
         url: citation.url,
         domain: citation.domain || extractDomain(citation.url),
@@ -141,7 +141,7 @@ export function extractOpenAICitations(responseText: string): CitationsData {
   
   // OpenAI doesn't provide citations, so extract from text
   const extractedCitations = extractCitations(responseText);
-  extractedCitations.forEach((citation: any) => {
+  extractedCitations.forEach(citation => {
     citations.push({
       url: citation.url,
       domain: citation.domain || extractDomain(citation.url),
@@ -185,7 +185,7 @@ function guessSourceType(url: string): 'page' | 'pdf' | 'video' | 'unknown' {
  */
 function deduplicateCitations(citations: Citation[]): Citation[] {
   const seen = new Set<string>();
-  return citations.filter((citation: any) => {
+  return citations.filter(citation => {
     if (seen.has(citation.url)) {
       return false;
     }
@@ -208,7 +208,7 @@ export function detectBrandMentions(
   let totalMatches = 0;
   const contentLower = content.toLowerCase();
   
-  for (const brand of orgBrands.filter((b: any) => b.variants_json)) {
+  for (const brand of orgBrands.filter(b => b.variants_json)) {
     const variants = Array.isArray(brand.variants_json) ? brand.variants_json : [];
     const allNames = [brand.name, ...variants].filter(Boolean);
     

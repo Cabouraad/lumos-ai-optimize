@@ -211,7 +211,7 @@ async function generateEnhancedRecommendations(orgId: string, adminSupabase: any
       message,
       categories_covered: [...new Set(recommendations.map(r => r.kind))]
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in generateEnhancedRecommendations:', error);
     return { success: false, error: error.message };
   }

@@ -99,8 +99,8 @@ export class EnhancedCompetitorDetector {
             try {
               // Compute current from existing strict results (unchanged)
               const current: DetectionResult = {
-                brands: finalResult.orgBrands.map((b: any) => b.name),
-                competitors: finalResult.competitors.map((c: any) => c.name)
+                brands: finalResult.orgBrands.map(b => b.name),
+                competitors: finalResult.competitors.map(c => c.name)
               };
               
               // Compute proposed via V2 detection
@@ -140,8 +140,8 @@ export class EnhancedCompetitorDetector {
           
           // Compute current from existing legacy results (unchanged)
           const current: DetectionResult = {
-            brands: finalResult.orgBrands.map((b: any) => b.name),
-            competitors: finalResult.competitors.map((c: any) => c.name)
+            brands: finalResult.orgBrands.map(b => b.name),
+            competitors: finalResult.competitors.map(c => c.name)
           };
           
           // Compute proposed via V2 detection
@@ -167,14 +167,14 @@ export class EnhancedCompetitorDetector {
   ): EnhancedDetectionResult {
     // Ensure consistent output shape regardless of detector used
     return {
-      competitors: result.competitors.map((c: any) => ({
+      competitors: result.competitors.map(c => ({
         name: c.name,
         normalized: c.normalized || c.name.toLowerCase().trim(),
         mentions: c.mentions,
         confidence: c.confidence,
         source: c.source || (method === 'strict' ? 'brand_catalog' : 'extraction')
       })),
-      orgBrands: result.orgBrands.map((b: any) => ({
+      orgBrands: result.orgBrands.map(b => ({
         name: b.name,
         normalized: b.normalized || b.name.toLowerCase().trim(),
         mentions: b.mentions,
@@ -204,13 +204,13 @@ export class EnhancedCompetitorDetector {
   ): void {
     try {
       const currentNormalized: DetectionResult = {
-        brands: current.orgBrands.map((b: any) => b.name),
-        competitors: current.competitors.map((c: any) => c.name)
+        brands: current.orgBrands.map(b => b.name),
+        competitors: current.competitors.map(c => c.name)
       };
 
       const proposedNormalized: DetectionResult = {
-        brands: proposed.orgBrands?.map((b: any) => b.name) || [],
-        competitors: proposed.competitors?.map((c: any) => c.name) || []
+        brands: proposed.orgBrands?.map(b => b.name) || [],
+        competitors: proposed.competitors?.map(c => c.name) || []
       };
 
       const diffs = diffDetections(currentNormalized, proposedNormalized);
@@ -255,13 +255,13 @@ export class EnhancedCompetitorDetector {
   ): void {
     try {
       const currentNormalized: DetectionResult = {
-        brands: current.orgBrands.map((b: any) => b.name),
-        competitors: current.competitors.map((c: any) => c.name)
+        brands: current.orgBrands.map(b => b.name),
+        competitors: current.competitors.map(c => c.name)
       };
 
       const proposedNormalized: DetectionResult = {
-        brands: proposed.orgBrands?.map((b: any) => b.name) || [],
-        competitors: proposed.competitors?.map((c: any) => c.name) || []
+        brands: proposed.orgBrands?.map(b => b.name) || [],
+        competitors: proposed.competitors?.map(c => c.name) || []
       };
 
       const diffs = diffDetections(currentNormalized, proposedNormalized);
@@ -330,8 +330,8 @@ export class EnhancedCompetitorDetector {
       // Add org brand aliases from catalog
       if (brandCatalog) {
         brandCatalog
-          .filter((b: any) => b.is_org_brand)
-          .forEach((brand: any) => {
+          .filter(b => b.is_org_brand)
+          .forEach(brand => {
             orgBrands.push(brand.name);
             if (brand.variants_json && Array.isArray(brand.variants_json)) {
               orgBrands.push(...brand.variants_json);
@@ -341,8 +341,8 @@ export class EnhancedCompetitorDetector {
 
       // Build competitors seed
       const competitorsSeed = brandCatalog
-        ?.filter((b: any) => !b.is_org_brand)
-        .map((b: any) => b.name) || [];
+        ?.filter(b => !b.is_org_brand)
+        .map(b => b.name) || [];
 
       // Run simplified V2 detection
       const v2Result = runSimpleV2Detection(text, 'enhanced-detector', orgBrands, competitorsSeed);

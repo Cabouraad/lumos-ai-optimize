@@ -197,7 +197,7 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
           };
         }
         
-      } catch (error: any) {
+      } catch (error) {
         attempt++;
         lastError = error;
         
@@ -235,7 +235,7 @@ function extractBrandsFromText(text: string): string[] {
   for (const pattern of brandPatterns) {
     const matches = text.match(pattern);
     if (matches) {
-      matches.forEach((match: any) => {
+      matches.forEach(match => {
         // Filter out common non-brand words
         if (!isCommonWord(match)) {
           brands.add(match);
@@ -408,12 +408,12 @@ Return only the JSON object, no other text:`;
         keywords: Array.isArray(businessContext.keywords) ? 
           businessContext.keywords
             .filter(k => k && typeof k === 'string' && k.trim().length > 0)
-            .map((k: string) => k.trim())
+            .map(k => k.trim())
             .slice(0, 10) : [],
         competitors: Array.isArray(businessContext.competitors) ? 
           businessContext.competitors
             .filter(c => c && typeof c === 'string' && c.trim().length > 0)
-            .map((c: string) => c.trim())
+            .map(c => c.trim())
             .slice(0, 8) : [],
         business_description: typeof businessContext.business_description === 'string' ? 
           businessContext.business_description : '',
@@ -523,7 +523,7 @@ export function extractHeuristicKeywords(text: string): string[] {
 
   // Count word frequencies
   const freq: Record<string, number> = {};
-  words.forEach((w: any) => {
+  words.forEach(w => {
     if (!isCommonWord(w.charAt(0).toUpperCase() + w.slice(1))) {
       freq[w] = (freq[w] || 0) + 1;
     }

@@ -123,7 +123,7 @@ export async function addCompetitorExclusion(orgId: string, competitor: string):
  */
 export async function removeCompetitorOverride(orgId: string, competitor: string): Promise<void> {
   const overlay = await getOrgOverlay(orgId);
-  const filtered = overlay.competitor_overrides.filter((c: any) => c !== competitor);
+  const filtered = overlay.competitor_overrides.filter(c => c !== competitor);
   
   if (filtered.length !== overlay.competitor_overrides.length) {
     await updateOrgOverlay(orgId, { competitor_overrides: filtered });
@@ -135,7 +135,7 @@ export async function removeCompetitorOverride(orgId: string, competitor: string
  */
 export async function removeCompetitorExclusion(orgId: string, competitor: string): Promise<void> {
   const overlay = await getOrgOverlay(orgId);
-  const filtered = overlay.competitor_exclusions.filter((c: any) => c !== competitor);
+  const filtered = overlay.competitor_exclusions.filter(c => c !== competitor);
   
   if (filtered.length !== overlay.competitor_exclusions.length) {
     await updateOrgOverlay(orgId, { competitor_exclusions: filtered });

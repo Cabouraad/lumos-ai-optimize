@@ -231,7 +231,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error generating intelligent recommendations:', error);
     return new Response(JSON.stringify({
       success: false,

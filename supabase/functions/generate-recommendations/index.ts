@@ -161,7 +161,7 @@ async function generateRecommendations(orgId: string, supabase: any) {
       analysis
     };
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in generateRecommendations:', error);
     return { success: false, error: error.message };
   }

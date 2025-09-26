@@ -325,7 +325,7 @@ async function callProviderAPI(
         tokenOut: data.usage?.completion_tokens || extractedResponse.length || 0
       };
       
-    } catch (error: any) {
+    } catch (error) {
       console.error(`❌ ${provider} attempt ${attempt} failed:`, error.message);
       
       // Fail fast for configuration errors (don't retry)
@@ -497,7 +497,7 @@ async function processTask(
     
     return { success: true, data: responseData };
 
-  } catch (error: any) {
+  } catch (error) {
     console.error(`❌ Task ${task.id} failed:`, error.message);
     
     // Update task as failed
@@ -1233,7 +1233,7 @@ serve(async (req) => {
       throw processingError;
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Batch processor error:', error.message);
     
     // Ensure job is marked as failed if it's not already completed

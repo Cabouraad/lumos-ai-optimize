@@ -78,7 +78,7 @@ export class ScanLogger {
     }));
   }
   
-  promptProcessed(promptId: string, provider: string, success: boolean, responseData?: any): void {
+  promptProcessed(promptId: string, provider: string, success: boolean, responseData?: unknown): void {
     const newProcessed = (this.context.processedPrompts || 0) + (success ? 1 : 0);
     const newFailed = (this.context.failedPrompts || 0) + (success ? 0 : 1);
     

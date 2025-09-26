@@ -36,12 +36,12 @@ export function diffDetections(
   const proposedCompetitors = new Set(proposed.competitors || []);
 
   // Calculate brand differences
-  const brandAdds = Array.from(proposedBrands).filter((brand: any) => !currentBrands.has(brand));
-  const brandDrops = Array.from(currentBrands).filter((brand: any) => !proposedBrands.has(brand));
+  const brandAdds = Array.from(proposedBrands).filter(brand => !currentBrands.has(brand));
+  const brandDrops = Array.from(currentBrands).filter(brand => !proposedBrands.has(brand));
 
   // Calculate competitor differences
-  const competitorAdds = Array.from(proposedCompetitors).filter((comp: any) => !currentCompetitors.has(comp));
-  const competitorDrops = Array.from(currentCompetitors).filter((comp: any) => !proposedCompetitors.has(comp));
+  const competitorAdds = Array.from(proposedCompetitors).filter(comp => !currentCompetitors.has(comp));
+  const competitorDrops = Array.from(currentCompetitors).filter(comp => !proposedCompetitors.has(comp));
 
   return {
     brandAdds,
@@ -60,7 +60,7 @@ export function logDetections(
   sample?: {
     responseLength?: number;
     confidence?: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): void {
   const hasChanges = diffs.brandAdds.length > 0 || 

@@ -15,7 +15,7 @@ export interface DiagnosticStep {
   step: string;
   timestamp: number;
   duration?: number;
-  details?: any;
+  details?: unknown;
   error?: string;
 }
 
@@ -41,7 +41,7 @@ export class EdgeFunctionDiagnostics {
     });
   }
 
-  logStep(step: string, details?: any, error?: Error | string): void {
+  logStep(step: string, details?: unknown, error?: Error | string): void {
     const timestamp = Date.now();
     const duration = timestamp - this.context.startTime;
     
@@ -62,7 +62,7 @@ export class EdgeFunctionDiagnostics {
     console.log(`${prefix} ${step} (+${duration}ms)${detailsStr}${errorStr}`);
   }
 
-  async measure<T>(step: string, operation: () => Promise<T>, details?: any): Promise<T> {
+  async measure<T>(step: string, operation: () => Promise<T>, details?: unknown): Promise<T> {
     const stepStart = Date.now();
     this.logStep(`${step}_started`, details);
     
@@ -78,14 +78,14 @@ export class EdgeFunctionDiagnostics {
     }
   }
 
-  getRequestSummary(): any {
+  getRequestSummary() {
     const totalDuration = Date.now() - this.context.startTime;
     return {
       requestId: this.context.requestId,
       functionName: this.context.functionName,
       totalDuration,
       steps: this.steps.length,
-      errors: this.steps.filter((s: any) => s.error).length,
+      errors: this.steps.filter(s => s.error).length,
       context: this.context
     };
   }
@@ -108,7 +108,7 @@ export class EdgeFunctionDiagnostics {
     }, { status });
   }
 
-  createSuccessResponse(data: any, status = 200): Response {
+  createSuccessResponse(data: unknown, status = 200): Response {
     this.logStep('success_response', { status });
     const summary = this.getRequestSummary();
     
@@ -132,11 +132,11 @@ export function createDiagnostics(functionName: string, request: Request): EdgeF
  */
 export function createLogger(functionName: string) {
   return {
-    log: (step: string, details?: any) => {
+    log: (step: string, details?: unknown) => {
       const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
       console.log(`[${functionName.toUpperCase()}] ${step}${detailsStr}`);
     },
-    error: (step: string, error: Error | string, details?: any) => {
+    error: (step: string, error: Error | string, details?: unknown) => {
       const errorMessage = typeof error === 'string' ? error : error.message;
       const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
       console.error(`[${functionName.toUpperCase()}] ${step} - ERROR: ${errorMessage}${detailsStr}`);

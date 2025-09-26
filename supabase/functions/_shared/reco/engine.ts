@@ -113,7 +113,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Group runs by prompt
     const runsByPrompt = new Map<string, RunData[]>();
-    recentRuns.forEach((run: any) => {
+    recentRuns.forEach(run => {
       if (!runsByPrompt.has(run.prompt_id)) {
         runsByPrompt.set(run.prompt_id, []);
       }
@@ -159,7 +159,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
 
     // Extract existing topic keys within cooldown window
     const existingTopicKeys = new Set();
-    (existingRecos || []).forEach((existing: any) => {
+    (existingRecos || []).forEach(existing => {
       if (existing.metadata?.topic_key) {
         existingTopicKeys.add(existing.metadata.topic_key);
       }
@@ -206,7 +206,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
       const competitors = competitorMap.get((prompt as PromptVisibility).prompt_id) || [];
       const topCompetitor = competitors.sort((a, b) => (b.total_mentions - a.total_mentions) || (b.share - a.share))[0];
       const runs = runsByPrompt.get((prompt as PromptVisibility).prompt_id) || [];
-      const topCitations = runs.flatMap((r: any) => r.citations).slice(0, 3);
+      const topCitations = runs.flatMap(r => r.citations).slice(0, 3);
       const topicKey = generateTopicKey('content', title, [(prompt as PromptVisibility).prompt_id], [topCompetitor?.competitor_name || '']);
 
       if (!isNovel(topicKey)) continue;
@@ -227,7 +227,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
         ],
         estLift: 0.18,
         sourcePromptIds: [(prompt as PromptVisibility).prompt_id],
-        sourceRunIds: runs.slice(0, 5).map((r: any) => r.id),
+        sourceRunIds: runs.slice(0, 5).map(r => r.id),
         citations: topCitations,
         cooldownDays: 21,
         timeline: "3-4 weeks (1 week research, 2 weeks content creation, 1 week optimization)",
@@ -256,7 +256,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
         const title = `Develop "${orgInfo?.name || 'YourBrand'} vs ${competitor}" content strategy`;
         const sourcePrompts = promptIds.slice(0, 3);
         const sourceRuns = sourcePrompts.flatMap((pid: string) => 
-          runsByPrompt.get(pid)?.slice(0, 2).map((r: any) => r.id) || []
+          runsByPrompt.get(pid)?.slice(0, 2).map(r => r.id) || []
         );
         const topicKey = generateTopicKey('content', title, sourcePrompts, [competitor]);
 
@@ -396,7 +396,7 @@ export async function buildRecommendations(supabase: any, accountId: string, for
               ],
               estLift: 0.08,
               sourcePromptIds: [promptId],
-              sourceRunIds: runs.slice(0, 3).map((r: any) => r.id),
+              sourceRunIds: runs.slice(0, 3).map(r => r.id),
               citations: [],
               cooldownDays: 7,
               timeline: "48-72 hours immediate response, 1 week monitoring and optimization",

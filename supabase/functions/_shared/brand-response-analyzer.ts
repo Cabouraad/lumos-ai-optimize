@@ -96,7 +96,7 @@ async function analyzeWithV2(
       competitors: orgData.competitors,
       products_services: orgData.products_services
     },
-    brandCatalog: brandCatalog.map((bc: { name: string; is_org_brand: boolean; variants_json: string[] }) => ({
+    brandCatalog: brandCatalog.map(bc => ({
       name: bc.name,
       is_org_brand: bc.is_org_brand,
       variants_json: bc.variants_json
@@ -505,7 +505,7 @@ Respond with only a JSON array of organization names that are clearly businesses
       const orgMatches = content.match(/"([^"]+)"/g);
       if (orgMatches) {
         return orgMatches
-          .map((match: string) => match.replace(/"/g, ''))
+          .map(match => match.replace(/"/g, ''))
           .filter((org: string) => candidates.some(c => 
             normalize(org) === normalize(c)
           ))

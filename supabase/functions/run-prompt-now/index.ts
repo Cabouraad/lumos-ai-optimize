@@ -275,7 +275,7 @@ serve(async (req) => {
       corsHeaders
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Run prompt error:', error);
     
     // Determine appropriate error code
@@ -490,7 +490,7 @@ async function executeGemini(promptText: string) {
         citations: citationsData
       };
       
-    } catch (error: any) {
+    } catch (error) {
       lastError = error;
       console.error(`[Gemini] Attempt ${attempt}/${maxAttempts} failed:`, error.message);
       
@@ -576,7 +576,7 @@ async function executeGoogleAio(promptText: string) {
       citations
     };
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Google AIO] Execution failed:', error.message);
     throw new Error(`Google AI Overview execution failed: ${error.message}`);
   }

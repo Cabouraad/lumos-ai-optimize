@@ -262,7 +262,7 @@ serve(async (req) => {
         });
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('💥 Cron manager error:', error);
     
     return new Response(JSON.stringify({

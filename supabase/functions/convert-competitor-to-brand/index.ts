@@ -160,7 +160,7 @@ serve(async (req) => {
     let sanitizedName: string;
     try {
       sanitizedName = sanitizeCompetitorName(competitorName);
-    } catch (error: any) {
+    } catch (error) {
       return createErrorResponse(422, 'INVALID_INPUT', error.message);
     }
 
@@ -402,7 +402,7 @@ serve(async (req) => {
       }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Unexpected error in convert-competitor-to-brand:', {
       message: error.message,
       stack: error.stack,
