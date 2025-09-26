@@ -505,7 +505,7 @@ Respond with only a JSON array of organization names that are clearly businesses
       const orgMatches = content.match(/"([^"]+)"/g);
       if (orgMatches) {
         return orgMatches
-          .map(match => match.replace(/"/g, ''))
+          .map((match: string) => match.replace(/"/g, ''))
           .filter((org: string) => candidates.some((c: string) => 
             normalize(org) === normalize(c)
           ))
