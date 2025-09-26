@@ -94,7 +94,7 @@ export class ScanLogger {
       context: { ...this.context, promptId, provider },
       metadata: {
         success,
-        ...(responseData && { responseData })
+        ...(responseData ? { responseData } : {})
       },
       timestamp: new Date().toISOString()
     }));

@@ -176,7 +176,7 @@ export function createEnhancedErrorResponse(
     headers: {
       ...corsHeaders,
       'Content-Type': 'application/json',
-      ...(correlationId && { 'X-Correlation-ID': correlationId })
+      ...(correlationId ? { 'X-Correlation-ID': correlationId } : {})
     },
   });
 }

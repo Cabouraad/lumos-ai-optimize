@@ -1047,7 +1047,7 @@ serve(async (req) => {
               status: 'processing',
               last_heartbeat: new Date().toISOString(),
               metadata: {
-                ...totalTasks && { total_tasks: totalTasks },
+                ...(typeof totalTasks === 'number' ? { total_tasks: totalTasks } : {}),
                 time_budget_exceeded: true,
                 elapsed_time_ms: elapsedTime,
                 processed_in_this_run: processedCount,

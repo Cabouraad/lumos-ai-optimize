@@ -184,7 +184,7 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
       p_metadata: {
         ...analysis.metadata,
         response_length: responseText.length,
-        ...(brands && { input_brands: brands })
+        ...(brands ? { input_brands: brands } : {})
       },
       p_raw_ai_response: responseText,
       p_status: 'success'
@@ -224,7 +224,7 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
   const { error: visibilityError } = await supabase
     .from('visibility_results')
     .insert({
-      prompt_run_id: promptRunData.id,
+      prompt_run_id: responseId,
       org_id: userOrgId,
       visibility_score: analysis.score,
       org_brand_present: analysis.org_brand_present,

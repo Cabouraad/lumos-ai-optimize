@@ -267,7 +267,7 @@ export class RecoLogger {
         operation,
         durationMs,
         itemsProcessed,
-        ...(throughput && { throughputPerSecond: throughput })
+        ...(throughput ? { throughputPerSecond: throughput } : {})
       },
       timestamp: new Date().toISOString()
     }));
