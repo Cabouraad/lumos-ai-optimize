@@ -342,8 +342,6 @@ export class EnhancedCompetitorDetector {
     const candidates = new Map<string, { mentions: number; first_position: number }>();
     const textLength = text.length;
     let match: RegExpExecArray | null;
-
-    let match: RegExpExecArray | null;
     
     // Pattern 1: Proper nouns (capitalized words, 2-30 chars)
     // Matches: "HubSpot", "Zoho CRM", "Google Analytics", "Microsoft Teams"

@@ -42,16 +42,16 @@ class EdgeFunctionLogger {
     });
   }
 
-  private redactSensitiveData(data: unknown): unknown {
+  private redactSensitiveData<T>(data: T): T {
     if (typeof data !== 'object' || data === null) {
-      return data;
+      return data as T;
     }
 
     if (Array.isArray(data)) {
-      return data.map((item: any) => this.redactSensitiveData(item));
+      return data.map((item: any) => this.redactSensitiveData(item)) as any;
     }
 
-    const redacted = { ...data };
+    const redacted: Record<string, any> = { ...(data as Record<string, any>) };
     const sensitiveKeys = [
       'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 
       'SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
@@ -71,11 +71,11 @@ class EdgeFunctionLogger {
       if (shouldRedact) {
         redacted[key] = '[REDACTED]';
       } else if (typeof value === 'object' && value !== null) {
-        redacted[key] = this.redactSensitiveData(value);
+        redacted[key] = this.redactSensitiveData(value as any);
       }
     }
 
-    return redacted;
+    return redacted as unknown as T;
   }
 
   private formatLog(
@@ -83,7 +83,7 @@ class EdgeFunctionLogger {
     message: string, 
     context: Partial<EdgeFunctionLogContext> = {}
   ): StructuredEdgeLog {
-    const redactedContext = this.redactSensitiveData({
+    const redactedContext: EdgeFunctionLogContext = this.redactSensitiveData<EdgeFunctionLogContext>({
       ...context,
       functionName: this.functionName,
       correlationId: this.correlationId,
@@ -142,7 +142,7 @@ class EdgeFunctionLogger {
       const duration = performance.now() - start;
       
       this.info(`${operation} completed`, {
-        ...context,
+        ...(context || {}),
         duration: Math.round(duration * 100) / 100, // Round to 2 decimal places
       });
       
@@ -150,7 +150,7 @@ class EdgeFunctionLogger {
     } catch (error: unknown) {
       const duration = performance.now() - start;
       this.error(`${operation} failed`, error as Error, {
-        ...context,
+        ...(context || {}),
         duration: Math.round(duration * 100) / 100,
       });
       throw error;
@@ -160,7 +160,7 @@ class EdgeFunctionLogger {
   // Database operation logging
   dbOperation(operation: string, table: string, context?: Partial<EdgeFunctionLogContext>): void {
     this.debug(`DB: ${operation} on ${table}`, {
-      ...context,
+      ...(context || {}),
       metadata: {
         ...(context?.metadata || {}),
         dbOperation: operation,
@@ -172,7 +172,7 @@ class EdgeFunctionLogger {
   // Security event logging
   securityEvent(event: string, context?: Partial<EdgeFunctionLogContext>): void {
     this.warn(`SECURITY: ${event}`, {
-      ...context,
+      ...(context || {}),
       metadata: {
         ...(context?.metadata || {}),
         securityEvent: event,
@@ -183,7 +183,7 @@ class EdgeFunctionLogger {
   // Business logic event logging
   businessEvent(event: string, context?: Partial<EdgeFunctionLogContext>): void {
     this.info(`BUSINESS: ${event}`, {
-      ...context,
+      ...(context || {}),
       metadata: {
         ...(context?.metadata || {}),
         businessEvent: event,
