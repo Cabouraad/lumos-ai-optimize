@@ -1,7 +1,7 @@
 export function cors(req: Request) {
   const origin = req.headers.get("origin") ?? "";
   const list = (Deno.env.get("APP_ORIGINS") ?? Deno.env.get("APP_ORIGIN") ?? "")
-    .split(",").map(s => s.trim()).filter(Boolean);
+    .split(",").map((s: string) => s.trim()).filter(Boolean);
   const allowed = list.includes(origin);
   const headers = {
     "Vary": "Origin",
@@ -22,7 +22,7 @@ const getAllowedOrigins = (): string[] => {
   const appOrigins = Deno.env.get('APP_ORIGINS');
   
   if (appOrigins) {
-    return appOrigins.split(',').map(origin => origin.trim()).filter(Boolean);
+    return appOrigins.split(',').map((origin: string) => origin.trim()).filter(Boolean);
   }
   
   // Default origins for development and production

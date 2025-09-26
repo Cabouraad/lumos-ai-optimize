@@ -10,7 +10,7 @@ function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, str
   
   let allowedOrigins: string[];
   if (appOrigins) {
-    allowedOrigins = appOrigins.split(',').map(origin => origin.trim()).filter(Boolean);
+    allowedOrigins = appOrigins.split(',').map((origin: string) => origin.trim()).filter(Boolean);
   } else {
     // Default origins for development and production
     allowedOrigins = [appOrigin, 'http://localhost:5173', 'https://llumos.app'];
@@ -48,7 +48,7 @@ function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, str
 serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
   const allowList = (Deno.env.get("APP_ORIGINS") ?? Deno.env.get("APP_ORIGIN") ?? "")
-    .split(",").map(s => s.trim()).filter(Boolean);
+    .split(",").map((s: string) => s.trim()).filter(Boolean);
   const allowed = allowList.includes(origin);
   
   const headers = {

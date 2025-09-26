@@ -155,7 +155,7 @@ function extractPotentialBrands(text: string): string[] {
   contextPatterns.forEach((pattern: RegExp) => {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
-      const terms = match[1].split(/,|\sand\s/).map(t => t.trim());
+      const terms = match[1].split(/,|\sand\s/).map((t: string) => t.trim());
       terms.forEach((term: string) => {
         if (term.length >= 3) {
           brands.add(term);

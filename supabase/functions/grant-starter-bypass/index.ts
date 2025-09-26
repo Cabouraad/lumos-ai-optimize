@@ -11,7 +11,7 @@ function checkBypassEligibility(userEmail: string): { eligible: boolean; reason?
     return { eligible: false, reason: "Billing bypass is disabled" };
   }
 
-  const allowedEmails = Deno.env.get("BILLING_BYPASS_EMAILS")?.split(",").map(email => email.trim().toLowerCase()) || [];
+  const allowedEmails = Deno.env.get("BILLING_BYPASS_EMAILS")?.split(",").map((email: string) => email.trim().toLowerCase()) || [];
   if (!allowedEmails.includes(userEmail.toLowerCase())) {
     return { eligible: false, reason: "Email not in bypass list" };
   }

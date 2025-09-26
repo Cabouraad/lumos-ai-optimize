@@ -85,7 +85,7 @@ serve(async (req) => {
         business_description: business_description || null,
         products_services: products_services || null,
         target_audience: target_audience || null,
-        keywords: keywords ? keywords.split(',').map(k => k.trim()).filter(Boolean) : []
+        keywords: keywords ? keywords.split(',').map((k: string) => k.trim()).filter(Boolean) : []
       })
       .select()
       .single();

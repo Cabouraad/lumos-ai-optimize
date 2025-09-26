@@ -823,7 +823,7 @@ function extractProblem(text: string): string | null {
   const found = problemWords.find(word => text.includes(word));
   if (found) {
     const words = text.split(' ');
-    const index = words.findIndex(w => w.includes(found));
+    const index = words.findIndex((w: string) => w.includes(found));
     return words.slice(Math.max(0, index - 1), index + 2).join(' ');
   }
   return null;
@@ -841,7 +841,7 @@ function extractBusinessFocus(productsServices: string): string {
 
 function formatTitle(title: string): string {
   // Ensure proper capitalization and length limits
-  const formatted = title.replace(/\b\w/g, l => l.toUpperCase())
+  const formatted = title.replace(/\b\w/g, (l: string) => l.toUpperCase())
     .replace(/\s+/g, ' ')
     .trim();
   
