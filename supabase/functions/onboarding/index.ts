@@ -166,7 +166,8 @@ serve(async (req) => {
     });
 
   } catch (error: unknown) {
-    logger.error("Unexpected error in onboarding", error as Error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.error("Unexpected error in onboarding", errorObj);
     return new Response(JSON.stringify({ error: "Internal server error" }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

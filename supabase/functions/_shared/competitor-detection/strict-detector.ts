@@ -113,7 +113,8 @@ export class StrictCompetitorDetector {
       });
 
     } catch (error: unknown) {
-      this.logger.error('Failed to initialize strict gazetteer', error as Error, { orgId });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.logger.error('Failed to initialize strict gazetteer', errorObj, { orgId });
       throw error;
     }
   }

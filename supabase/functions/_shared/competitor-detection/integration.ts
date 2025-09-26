@@ -24,7 +24,8 @@ export async function detectCompetitorsWithFallback(
     
     return result;
   } catch (error: unknown) {
-    logger.error('Competitor detection failed', error instanceof Error ? error : new Error(String(error)), { orgId });
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.error('Competitor detection failed', errorObj, { orgId });
     throw error;
   }
 }

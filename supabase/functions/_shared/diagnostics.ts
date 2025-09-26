@@ -75,7 +75,8 @@ export class EdgeFunctionDiagnostics {
     } catch (error: unknown) {
       const stepDuration = Date.now() - stepStart;
       const extraFailed = (details && typeof details === 'object') ? (details as Record<string, unknown>) : {};
-      this.logStep(`${step}_failed`, { ...extraFailed, duration_ms: stepDuration }, error instanceof Error ? error : new Error(String(error)));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logStep(`${step}_failed`, { ...extraFailed, duration_ms: stepDuration }, errorMessage);
       throw error;
     }
   }
@@ -114,8 +115,16 @@ export class EdgeFunctionDiagnostics {
     this.logStep('success_response', { status });
     const summary = this.getRequestSummary();
     
+    if (data && typeof data === 'object' && !Array.isArray(data) && data !== null) {
+      return Response.json({
+        ...(data as Record<string, unknown>),
+        requestId: this.context.requestId,
+        diagnostics: summary
+      }, { status });
+    }
+    
     return Response.json({
-      ...((data && typeof data === 'object') ? (data as Record<string, unknown>) : { data }),
+      data,
       requestId: this.context.requestId,
       diagnostics: summary
     }, { status });

@@ -197,6 +197,7 @@ serve(async (req) => {
     });
 
   } catch (error: unknown) {
-    return diagnostics.createErrorResponse(error as Error, 500);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    return diagnostics.createErrorResponse(errorObj, 500);
   }
 });

@@ -124,7 +124,8 @@ export class EnhancedCompetitorDetector {
         return this.normalizeResult(legacyResult, 'strict_with_fallback', performance.now() - startTime, true);
 
       } catch (error: unknown) {
-        this.logger.error('Strict detection failed, falling back to legacy', error as Error);
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        this.logger.error('Strict detection failed, falling back to legacy', errorObj);
         
         const legacyResult = await this.legacyDetector.detectCompetitors(text, orgId);
         return this.normalizeResult(legacyResult, 'strict_with_fallback', performance.now() - startTime, true);

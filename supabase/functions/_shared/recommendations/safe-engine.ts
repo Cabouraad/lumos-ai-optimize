@@ -280,7 +280,8 @@ export class SafeRecommendationEngine {
       });
 
     } catch (error: unknown) {
-      this.logger.error('Failed to persist recommendations', error as Error, { orgId });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.logger.error('Failed to persist recommendations', errorObj, { orgId });
     }
   }
 

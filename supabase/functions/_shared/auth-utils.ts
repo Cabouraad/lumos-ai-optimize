@@ -79,7 +79,8 @@ export async function authenticateUser(
       email: user.email
     };
   } catch (error: unknown) {
-    diagnostics?.logStep("auth_user_exception", undefined, error as Error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    diagnostics?.logStep("auth_user_exception", undefined, errorObj);
     throw error;
   }
 }
@@ -114,7 +115,8 @@ export async function getUserOrgId(
     diagnostics?.logStep("org_lookup_success", { orgId: data.org_id });
     return data.org_id;
   } catch (error: unknown) {
-    diagnostics?.logStep("org_lookup_exception", undefined, error as Error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    diagnostics?.logStep("org_lookup_exception", undefined, errorObj);
     throw error;
   }
 }

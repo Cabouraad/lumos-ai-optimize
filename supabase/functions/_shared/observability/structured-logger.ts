@@ -149,7 +149,8 @@ class EdgeFunctionLogger {
       return result;
     } catch (error: unknown) {
       const duration = performance.now() - start;
-      this.error(`${operation} failed`, error as Error, {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.error(`${operation} failed`, errorObj, {
         ...(context || {}),
         duration: Math.round(duration * 100) / 100,
       });
@@ -227,7 +228,8 @@ export const withRequestLogging = async <T>(
     
     return result;
   } catch (error: unknown) {
-    logger.error('Request failed', error as Error, {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.error('Request failed', errorObj, {
       functionName,
     });
     throw error;
