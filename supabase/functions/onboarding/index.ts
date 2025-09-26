@@ -91,7 +91,7 @@ serve(async (req) => {
       .single();
 
     if (orgErr) {
-      logger.error("Error creating organization", orgErr);
+      logger.error("Error creating organization", new Error(orgErr.message));
       return new Response(JSON.stringify({ error: orgErr.message }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

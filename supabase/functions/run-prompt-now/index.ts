@@ -275,21 +275,22 @@ serve(async (req) => {
       corsHeaders
     );
 
-  } catch (error) {
-    console.error('Run prompt error:', error);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Run prompt error:', err);
     
     // Determine appropriate error code
     let errorCode = ErrorCode.INTERNAL_ERROR;
-    if (error.message?.includes('Authentication')) {
+    if (err.message?.includes('Authentication')) {
       errorCode = ErrorCode.AUTH_REQUIRED;
-    } else if (error.message?.includes('No enabled providers') || error.message?.includes('No providers allowed')) {
+    } else if (err.message?.includes('No enabled providers') || err.message?.includes('No providers allowed')) {
       errorCode = ErrorCode.SUBSCRIPTION_REQUIRED;
-    } else if (error.message?.includes('Missing promptId') || error.message?.includes('Prompt not found')) {
+    } else if (err.message?.includes('Missing promptId') || err.message?.includes('Prompt not found')) {
       errorCode = ErrorCode.INVALID_INPUT;
     }
     
     return createStandardResponse(
-      createErrorResponse(errorCode, error.message, { stack: error.stack?.split('\n')[0] }, correlationId),
+      createErrorResponse(errorCode, err.message, { stack: err.stack?.split('\n')[0] }, correlationId),
       corsHeaders
     );
   }

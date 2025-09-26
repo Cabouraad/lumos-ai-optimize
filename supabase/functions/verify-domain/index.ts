@@ -130,11 +130,12 @@ async function verifyDomain(supabase: any, orgId: string, method: 'dns' | 'file'
     }
 
   } catch (error: any) {
-    logger.error('Domain verification error', error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.error('Domain verification error', errorObj);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: errorObj.message
       }),
       { 
         status: 500,
@@ -167,11 +168,12 @@ async function regenerateToken(supabase: any, orgId: string, logger: any): Promi
     );
 
   } catch (error: any) {
-    logger.error('Token regeneration error', error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.error('Token regeneration error', errorObj);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: errorObj.message
       }),
       { 
         status: 500,

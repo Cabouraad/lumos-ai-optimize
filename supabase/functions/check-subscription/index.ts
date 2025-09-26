@@ -475,10 +475,11 @@ if (customers.data.length === 0) {
       status: 200,
     });
   } catch (error: unknown) {
-    diagnostics.logStep("unexpected_error", { error: error.message, stack: error.stack });
+    const err = error instanceof Error ? error : new Error(String(error));
+    diagnostics.logStep("unexpected_error", { error: err.message, stack: err.stack });
     return new Response(JSON.stringify({ 
       success: false, 
-      error: `Subscription check failed: ${error.message}`,
+      error: `Subscription check failed: ${err.message}`,
       code: "UNEXPECTED_ERROR",
       requestId: diagnostics.getRequestSummary().requestId
     }), {
