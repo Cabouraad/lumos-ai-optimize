@@ -102,7 +102,7 @@ Only include entities with confidence >= ${confidenceThreshold}. Maximum ${maxEn
             name: nameMatch ? nameMatch[1] : '',
             confidence: 0.75 // Default confidence for fallback
           };
-        }).filter(entity => entity.name.length > 0);
+        }).filter((entity: any) => entity.name.length > 0);
       }
     }
 

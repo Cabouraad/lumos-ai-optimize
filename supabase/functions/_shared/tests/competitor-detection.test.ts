@@ -269,7 +269,7 @@ export async function runCompetitorDetectionTests() {
       confidenceThreshold: 0.5
     });
 
-    const hubspotCompetitor = result.competitors.find(c => c.name === 'HubSpot');
+    const hubspotCompetitor = result.competitors.find((c: any) => c.name === 'HubSpot');
     
     if (hubspotCompetitor) {
       assertEquals(

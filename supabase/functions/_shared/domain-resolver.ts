@@ -78,7 +78,7 @@ function applyHeuristic(domain: string): string {
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .toLowerCase()
       .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   } catch {
     return domain;

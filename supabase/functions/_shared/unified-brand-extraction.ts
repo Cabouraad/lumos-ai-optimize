@@ -233,7 +233,7 @@ export function createBrandGazetteer(brandCatalog: BrandCatalogEntry[]): string[
 export function getOrgBrandNames(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
     .filter((brand: any) => brand.is_org_brand)
-    .map(brand => brand.name);
+    .map((brand: any) => brand.name);
 }
 
 /**
@@ -242,5 +242,5 @@ export function getOrgBrandNames(brandCatalog: BrandCatalogEntry[]): string[] {
 export function getCompetitorNames(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
     .filter((brand: any) => !brand.is_org_brand)
-    .map(brand => brand.name);
+    .map((brand: any) => brand.name);
 }

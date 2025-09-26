@@ -64,7 +64,7 @@ export function analyzeContentGaps(
         "Optimize for featured snippets with structured markup"
       ],
       estLift: 0.08,
-      sourcePromptIds: topTutorials.map(t => t.prompt_id),
+      sourcePromptIds: topTutorials.map((t: any) => t.prompt_id),
       sourceRunIds: sourceRuns,
       citations: [],
       cooldownDays: 21

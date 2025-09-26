@@ -256,7 +256,7 @@ function calculateNormalizationConfidence(
  * Batch normalize multiple brand names
  */
 export function normalizeBrandNames(inputs: string[]): NormalizationResult[] {
-  return inputs.map(input => normalizeBrandName(input));
+  return inputs.map((input: string) => normalizeBrandName(input));
 }
 
 /**

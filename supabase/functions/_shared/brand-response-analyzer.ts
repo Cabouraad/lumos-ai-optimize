@@ -276,8 +276,8 @@ function extractOrgBrandVariants(brandCatalog: BrandCatalogEntry[]): string[] {
  */
 function extractCatalogCompetitors(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
-    .filter(brand => !brand.is_org_brand && brand.name.length >= 3)
-    .map(brand => brand.name);
+    .filter((brand: BrandCatalogEntry) => !brand.is_org_brand && brand.name.length >= 3)
+    .map((brand: BrandCatalogEntry) => brand.name);
 }
 
 /**
@@ -347,7 +347,7 @@ async function extractOrganizationsNER(
   console.log(`🔍 Found ${properNouns.length} proper noun candidates`);
   
   // Step 2: Filter out known brands and common words
-  const unknownCandidates = properNouns.filter(noun => 
+  const unknownCandidates = properNouns.filter((noun: string) => 
     !knownBrands.some((known: string) => normalize(known) === normalize(noun)) &&
     !isCommonWord(noun) &&
     noun.length >= 3 &&
@@ -370,7 +370,7 @@ async function extractOrganizationsNER(
   } catch (error: unknown) {
     console.log('⚠️ NER classification failed, using pattern-based fallback');
     return unknownCandidates
-      .filter(candidate => isLikelyOrganization(candidate, text))
+      .filter((candidate: string) => isLikelyOrganization(candidate, text))
       .slice(0, 10); // Limit fallback results
   }
 }
