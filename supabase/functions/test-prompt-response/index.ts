@@ -130,12 +130,13 @@ serve(async (req) => {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
             
-          } catch (error: any) {
+          } catch (error: unknown) {
             attempt++;
-            console.error(`[Perplexity:test] ${model} attempt ${attempt} error:`, error.message);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`[Perplexity:test] ${model} attempt ${attempt} error:`, errorMessage);
             
             // Don't retry on auth errors
-            if (error.message?.includes('401') || error.message?.includes('403')) {
+            if (errorMessage?.includes('401') || errorMessage?.includes('403')) {
               break;
             }
             
@@ -228,11 +229,12 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
           
-        } catch (error: any) {
-          console.error(`[Gemini:test] Attempt ${attempt} error:`, error.message);
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`[Gemini:test] Attempt ${attempt} error:`, errorMessage);
           
           // Don't retry on auth errors
-          if (error.message?.includes('401') || error.message?.includes('403')) {
+          if (errorMessage?.includes('401') || errorMessage?.includes('403')) {
             console.error('[Gemini:test] Authentication error - stopping retries');
             break;
           }

@@ -410,12 +410,13 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error: any) {
-    console.error('❌ Postcheck error:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Postcheck error:', errorMessage);
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Unknown error occurred',
+      error: errorMessage || 'Unknown error occurred',
       action: 'postcheck_failed',
       timestamp: new Date().toISOString()
     }), {

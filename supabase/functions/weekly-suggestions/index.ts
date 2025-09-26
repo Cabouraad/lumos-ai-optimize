@@ -182,7 +182,8 @@ async function generateSuggestions(orgId: string, orgName: string, domain: strin
 
     return { success: true, suggestionsCreated: 0 };
 
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
   }
 }

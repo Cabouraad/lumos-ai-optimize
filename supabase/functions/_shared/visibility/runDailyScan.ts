@@ -184,12 +184,13 @@ async function extractBrandsPerplexity(promptText: string, apiKey: string) {
           tokenOut: data.usage?.completion_tokens || 0,
         };
         
-      } catch (error: any) {
+      } catch (error: unknown) {
         attempt++;
         lastError = error;
         
+        const errorMessage = error instanceof Error ? error.message : String(error);
         // Don't retry on auth errors
-        if (error.message?.includes('401') || error.message?.includes('403')) {
+        if (errorMessage?.includes('401') || errorMessage?.includes('403')) {
           break;
         }
         
@@ -281,12 +282,13 @@ async function extractBrandsGemini(promptText: string, apiKey: string) {
         tokenOut: data.usageMetadata?.candidatesTokenCount || 0,
       };
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       attempt++;
       lastError = error;
       
+      const errorMessage = error instanceof Error ? error.message : String(error);
       // Don't retry on auth errors
-      if (error.message?.includes('401') || error.message?.includes('403')) {
+      if (errorMessage?.includes('401') || errorMessage?.includes('403')) {
         break;
       }
       
@@ -679,16 +681,17 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
               // Small delay to prevent rate limiting
               await new Promise(resolve => setTimeout(resolve, 1000));
 
-            } catch (providerError: any) {
+            } catch (providerError: unknown) {
               console.error(`Provider ${provider.name} error for prompt ${prompt.id}:`, providerError);
               
+              const errorMessage = providerError instanceof Error ? providerError.message : String(providerError);
               // Determine error status
               let status = 'error';
-              if (providerError.message?.includes('429')) {
+              if (errorMessage?.includes('429')) {
                 status = 'rate_limit';
-              } else if (providerError.message?.includes('401') || providerError.message?.includes('403')) {
+              } else if (errorMessage?.includes('401') || errorMessage?.includes('403')) {
                 status = 'auth_error';
-              } else if (providerError.message?.includes('timeout')) {
+              } else if (errorMessage?.includes('timeout')) {
                 status = 'timeout';
               }
               
@@ -728,6 +731,7 @@ export async function runDailyScan(supabase: ReturnType<typeof createClient>, or
 
   } catch (error: unknown) {
     console.error('Daily scan error:', error);
-    return { success: false, error: error.message };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
   }
 }

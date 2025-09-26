@@ -125,12 +125,13 @@ async function executeGemini(promptText: string): Promise<{ responseText: string
         tokenIn: usage.promptTokenCount || 0,
         tokenOut: usage.candidatesTokenCount || 0,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
-      console.error(`[Gemini] Attempt ${attempt}/${maxAttempts} failed:`, error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Gemini] Attempt ${attempt}/${maxAttempts} failed:`, errorMessage);
       
       // Don't retry on auth errors
-      if (error.message?.includes('401') || error.message?.includes('403')) {
+      if (errorMessage?.includes('401') || errorMessage?.includes('403')) {
         console.error('[Gemini] Authentication error detected - stopping retries');
         break;
       }
