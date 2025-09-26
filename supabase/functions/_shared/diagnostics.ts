@@ -85,7 +85,7 @@ export class EdgeFunctionDiagnostics {
       functionName: this.context.functionName,
       totalDuration,
       steps: this.steps.length,
-      errors: this.steps.filter(s => s.error).length,
+      errors: this.steps.filter((s: DiagnosticStep) => s.error).length,
       context: this.context
     };
   }

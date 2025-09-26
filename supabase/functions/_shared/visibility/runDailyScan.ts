@@ -312,7 +312,7 @@ function extractBrandsFromText(text: string): string[] {
   for (const pattern of brandPatterns) {
     const matches = text.match(pattern);
     if (matches) {
-      matches.forEach((match: any) => {
+      matches.forEach((match: string) => {
         if (!isCommonWord(match)) {
           brands.add(match);
         }

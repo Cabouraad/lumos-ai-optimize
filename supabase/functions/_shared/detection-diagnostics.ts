@@ -36,12 +36,12 @@ export function diffDetections(
   const proposedCompetitors = new Set(proposed.competitors || []);
 
   // Calculate brand differences
-  const brandAdds = Array.from(proposedBrands).filter(brand => !currentBrands.has(brand));
-  const brandDrops = Array.from(currentBrands).filter(brand => !proposedBrands.has(brand));
+  const brandAdds = Array.from(proposedBrands).filter((brand: string) => !currentBrands.has(brand));
+  const brandDrops = Array.from(currentBrands).filter((brand: string) => !proposedBrands.has(brand));
 
   // Calculate competitor differences
-  const competitorAdds = Array.from(proposedCompetitors).filter(comp => !currentCompetitors.has(comp));
-  const competitorDrops = Array.from(currentCompetitors).filter(comp => !proposedCompetitors.has(comp));
+  const competitorAdds = Array.from(proposedCompetitors).filter((comp: string) => !currentCompetitors.has(comp));
+  const competitorDrops = Array.from(currentCompetitors).filter((comp: string) => !proposedCompetitors.has(comp));
 
   return {
     brandAdds,

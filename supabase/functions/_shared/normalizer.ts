@@ -127,7 +127,7 @@ function toTitleCase(input: string): string {
   }
 
   // Standard title case with some exceptions
-  return input.replace(/\w\S*/g, (txt) => {
+  return input.replace(/\w\S*/g, (txt: string) => {
     // Keep small words lowercase in the middle
     const smallWords = ['and', 'or', 'the', 'a', 'an', 'of', 'for', 'in', 'on', 'at', 'to', 'by', 'with', 'from'];
     if (smallWords.includes(txt.toLowerCase()) && txt !== input.split(' ')[0]) {

@@ -706,8 +706,8 @@ function extractNounPhrases(text: string): string[] {
 function sanitizeTitle(title: string): string {
   return title
     .replace(/\s+/g, ' ')  // Remove extra spaces
-    .replace(/\b(how to|for)\s+\b/g, (match) => match.toLowerCase())  // Keep common words lowercase
-    .replace(/\b\w/g, (match) => match.toUpperCase())  // Capitalize first letter of words
+    .replace(/\b(how to|for)\s+\b/g, (match: string) => match.toLowerCase())  // Keep common words lowercase
+    .replace(/\b\w/g, (match: string) => match.toUpperCase())  // Capitalize first letter of words
     .trim()
     .substring(0, 100);  // Limit length
 }
@@ -813,7 +813,7 @@ function extractActionWord(text: string): string | null {
 function extractComparisonSubjects(text: string): string[] {
   const vsMatch = text.match(/(.+?)\s+(?:vs|versus|compared?\s+to)\s+(.+)/);
   if (vsMatch) {
-    return [vsMatch[1].trim(), vsMatch[2].trim()].map(s => s.replace(/[^\w\s]/g, '').trim());
+    return [vsMatch[1].trim(), vsMatch[2].trim()].map((s: string) => s.replace(/[^\w\s]/g, '').trim());
   }
   return [];
 }

@@ -96,7 +96,7 @@ async function analyzeWithV2(
       competitors: orgData.competitors,
       products_services: orgData.products_services
     },
-    brandCatalog: brandCatalog.map(bc => ({
+    brandCatalog: brandCatalog.map((bc: BrandCatalogEntry) => ({
       name: bc.name,
       is_org_brand: bc.is_org_brand,
       variants_json: bc.variants_json
@@ -167,7 +167,7 @@ async function analyzeWithV1(
   // ... keep existing V1 code (Step 1-5 from original function)
   const orgBrandVariants = extractOrgBrandVariants(brandCatalog);
   const catalogCompetitors = extractCatalogCompetitors(brandCatalog);
-  const globalCompetitors = GLOBAL_COMPETITORS.map(c => c.name);
+  const globalCompetitors = GLOBAL_COMPETITORS.map((c: any) => c.name);
   
   console.log(`🏷️ Org brand variants: ${orgBrandVariants.length}`);
   console.log(`📋 Catalog competitors: ${catalogCompetitors.length}`);
@@ -197,7 +197,7 @@ async function analyzeWithV1(
   ];
   
   const uniqueCompetitors = [...new Set(allCompetitors)]
-    .filter(comp => !orgBrandVariants.some(org => 
+    .filter((comp: string) => !orgBrandVariants.some((org: string) => 
       normalize(comp) === normalize(org)
     ))
     .slice(0, 20);
@@ -268,7 +268,7 @@ function extractOrgBrandVariants(brandCatalog: BrandCatalogEntry[]): string[] {
     }
   }
   
-  return Array.from(variants).filter(v => v.length >= 2);
+  return Array.from(variants).filter((v: string) => v.length >= 2);
 }
 
 /**
@@ -506,7 +506,7 @@ Respond with only a JSON array of organization names that are clearly businesses
       if (orgMatches) {
         return orgMatches
           .map(match => match.replace(/"/g, ''))
-          .filter((org: string) => candidates.some(c => 
+          .filter((org: string) => candidates.some((c: string) => 
             normalize(org) === normalize(c)
           ))
           .slice(0, 10);

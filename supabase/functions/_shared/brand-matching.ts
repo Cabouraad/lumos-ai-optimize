@@ -95,8 +95,8 @@ export function cleanCompetitorList(
   }
   
   return Array.from(competitorCounts.entries())
-    .map(([canonical, mentions]) => ({ canonical, mentions }))
-    .sort((a, b) => b.mentions - a.mentions);
+    .map(([canonical, mentions]: [string, number]) => ({ canonical, mentions }))
+    .sort((a: any, b: any) => b.mentions - a.mentions);
 }
 
 export function isOrgBrand(token: string, catalog: Array<{ name: string; variants_json: string[] }>): boolean {

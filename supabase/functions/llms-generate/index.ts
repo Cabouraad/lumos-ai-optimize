@@ -194,7 +194,7 @@ async function discoverPages(baseUrl: string): Promise<string[]> {
       const urlMatches = sitemapText.match(/<loc>(.*?)<\/loc>/g);
       
       if (urlMatches) {
-        urlMatches.forEach((match: any) => {
+        urlMatches.forEach((match: string) => {
           const url = match.replace('<loc>', '').replace('</loc>', '');
           if (url.startsWith(baseUrl)) {
             pages.add(url);
