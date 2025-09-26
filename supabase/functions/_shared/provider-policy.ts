@@ -33,7 +33,7 @@ export function isProviderAllowed(provider: ProviderName, tier: SubscriptionTier
  */
 export function filterAllowedProviders(providers: ProviderName[], tier: SubscriptionTier): ProviderName[] {
   const allowedProviders = getAllowedProviders(tier);
-  return providers.filter((provider: any) => allowedProviders.includes(provider));
+  return providers.filter(provider => allowedProviders.includes(provider));
 }
 
 /**
@@ -41,7 +41,7 @@ export function filterAllowedProviders(providers: ProviderName[], tier: Subscrip
  */
 export function getBlockedProviders(providers: ProviderName[], tier: SubscriptionTier): ProviderName[] {
   const allowedProviders = getAllowedProviders(tier);
-  return providers.filter((provider: any) => !allowedProviders.includes(provider));
+  return providers.filter(provider => !allowedProviders.includes(provider));
 }
 
 /**

@@ -67,7 +67,7 @@ export async function executeGoogleAio(
  * Extract brand citations from Google AIO result
  */
 export function extractAioCitations(aioResult: GoogleAioResult) {
-  return aioResult.citations.map((citation: any) => ({
+  return aioResult.citations.map(citation => ({
     type: 'url' as const,
     value: citation.link,
     hostname: citation.domain,

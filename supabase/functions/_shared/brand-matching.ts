@@ -3,9 +3,9 @@
  */
 
 export interface BrandCatalogEntry {
-  id: string;
+  id?: string;
   name: string;
-  variants_json: string[];
+  variants_json?: string[];
   is_org_brand: boolean;
 }
 

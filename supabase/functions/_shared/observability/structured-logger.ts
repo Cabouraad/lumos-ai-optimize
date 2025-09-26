@@ -48,7 +48,7 @@ class EdgeFunctionLogger {
     }
 
     if (Array.isArray(data)) {
-      return data.map((item: any) => this.redactSensitiveData(item));
+      return data.map(item => this.redactSensitiveData(item));
     }
 
     const redacted = { ...data };

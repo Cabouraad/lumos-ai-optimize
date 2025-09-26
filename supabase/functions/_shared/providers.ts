@@ -201,10 +201,10 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
         attempt++;
         lastError = error;
         
-        console.error(`Perplexity ${model} attempt ${attempt}/${maxAttempts} failed:`, error.message);
+        console.error(`Perplexity ${model} attempt ${attempt}/${maxAttempts} failed:`, toErrorMessage(error));
         
         // Don't retry on auth errors
-        if (error.message?.includes('401') || error.message?.includes('403')) {
+        if (toErrorMessage(error).includes('401') || toErrorMessage(error).includes('403')) {
           break;
         }
         
@@ -268,7 +268,7 @@ export async function extractBusinessContextOpenAI(websiteContent: string, apiKe
   const data = encoder.encode(websiteContent);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const analysis_hash = hashArray.map((b: any) => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+  const analysis_hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
 
   const analysisPrompt = `Analyze this website content and extract specific business information. Return ONLY a valid JSON object with this exact structure:
 
@@ -407,12 +407,12 @@ Return only the JSON object, no other text:`;
       const result = {
         keywords: Array.isArray(businessContext.keywords) ? 
           businessContext.keywords
-            .filter((k: any) => k && typeof k === 'string' && k.trim().length > 0)
+            .filter(k => k && typeof k === 'string' && k.trim().length > 0)
             .map((k: string) => k.trim())
             .slice(0, 10) : [],
         competitors: Array.isArray(businessContext.competitors) ? 
           businessContext.competitors
-            .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
+            .filter(c => c && typeof c === 'string' && c.trim().length > 0)
             .map((c: string) => c.trim())
             .slice(0, 8) : [],
         business_description: typeof businessContext.business_description === 'string' ? 
@@ -430,7 +430,7 @@ Return only the JSON object, no other text:`;
       return result;
 
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       console.error(`${name} attempt failed:`, message);
       lastError = error instanceof Error ? error : new Error(message);
       continue;
@@ -486,7 +486,7 @@ Return format: ["keyword1", "keyword2", ...]`;
     if (content) {
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) {
-        return parsed.filter((k: any) => k && typeof k === 'string').slice(0, 8);
+        return parsed.filter(k => k && typeof k === 'string').slice(0, 8);
       }
     }
     return [];
@@ -504,8 +504,8 @@ export function extractMetaKeywords(html: string): string[] {
   if (metaMatch && metaMatch[1]) {
     return metaMatch[1]
       .split(',')
-      .map((k: any) => k.trim())
-      .filter((k: any) => k.length > 0)
+      .map(k => k.trim())
+      .filter(k => k.length > 0)
       .slice(0, 8);
   }
   return [];
@@ -519,7 +519,7 @@ export function extractHeuristicKeywords(text: string): string[] {
   const words = text.toLowerCase()
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
-    .filter((w: any) => w.length > 3 && w.length < 20);
+    .filter(w => w.length > 3 && w.length < 20);
 
   // Count word frequencies
   const freq: Record<string, number> = {};
@@ -534,5 +534,5 @@ export function extractHeuristicKeywords(text: string): string[] {
     .sort(([,a], [,b]) => b - a)
     .slice(0, 6)
     .map(([word]) => word)
-    .filter((w: any) => !['website', 'company', 'business', 'service', 'product'].includes(w));
+    .filter(w => !['website', 'company', 'business', 'service', 'product'].includes(w));
 }

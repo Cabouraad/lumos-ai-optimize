@@ -34,11 +34,11 @@ export function renderAuditHTML(run: AuditRun, events: AuditEvent[]): string {
 
   // Group events by phase for summary
   const phases = ['signup', 'org', 'pricing', 'checkout', 'entitlement', 'onboarding', 'dashboard'];
-  const phaseStats = phases.map((phase: any) => {
-    const phaseEvents = events.filter((e: any) => e.phase === phase);
+  const phaseStats = phases.map(phase => {
+    const phaseEvents = events.filter(e => e.phase === phase);
     const hasError = phaseEvents.some(e => e.level === 'error');
     const duration = phaseEvents.length > 0 
-      ? Math.max(...phaseEvents.map((e: any) => (e.data as any)?.latency_ms || 0))
+      ? Math.max(...phaseEvents.map(e => (e.data as any)?.latency_ms || 0))
       : 0;
     return {
       name: phase,
@@ -239,7 +239,7 @@ export function renderAuditHTML(run: AuditRun, events: AuditEvent[]): string {
         <div class="section">
             <div class="section-header">Phase Summary</div>
             <div class="phase-grid">
-                ${phaseStats.map((phase: any) => `
+                ${phaseStats.map(phase => `
                     <div class="phase-card">
                         <div class="phase-info">
                             <h3>${phase.name}</h3>
@@ -268,7 +268,7 @@ export function renderAuditHTML(run: AuditRun, events: AuditEvent[]): string {
                         </tr>
                     </thead>
                     <tbody>
-                        ${events.map((event: any) => `
+                        ${events.map(event => `
                             <tr>
                                 <td>${new Date(event.ts).toLocaleTimeString()}</td>
                                 <td>${event.phase || '-'}</td>

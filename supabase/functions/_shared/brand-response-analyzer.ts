@@ -51,9 +51,10 @@ export interface OrgData {
 }
 
 export interface BrandCatalogEntry {
+  id?: string;
   name: string;
-  is_org_brand: boolean;
   variants_json?: string[];
+  is_org_brand: boolean;
 }
 
 /**
@@ -166,7 +167,7 @@ async function analyzeWithV1(
   // ... keep existing V1 code (Step 1-5 from original function)
   const orgBrandVariants = extractOrgBrandVariants(brandCatalog);
   const catalogCompetitors = extractCatalogCompetitors(brandCatalog);
-  const globalCompetitors = GLOBAL_COMPETITORS.map((c: any) => c.name);
+  const globalCompetitors = GLOBAL_COMPETITORS.map(c => c.name);
   
   console.log(`🏷️ Org brand variants: ${orgBrandVariants.length}`);
   console.log(`📋 Catalog competitors: ${catalogCompetitors.length}`);
@@ -196,7 +197,7 @@ async function analyzeWithV1(
   ];
   
   const uniqueCompetitors = [...new Set(allCompetitors)]
-    .filter((comp: any) => !orgBrandVariants.some(org => 
+    .filter(comp => !orgBrandVariants.some(org => 
       normalize(comp) === normalize(org)
     ))
     .slice(0, 20);
@@ -267,7 +268,7 @@ function extractOrgBrandVariants(brandCatalog: BrandCatalogEntry[]): string[] {
     }
   }
   
-  return Array.from(variants).filter((v: any) => v.length >= 2);
+  return Array.from(variants).filter(v => v.length >= 2);
 }
 
 /**
@@ -275,8 +276,8 @@ function extractOrgBrandVariants(brandCatalog: BrandCatalogEntry[]): string[] {
  */
 function extractCatalogCompetitors(brandCatalog: BrandCatalogEntry[]): string[] {
   return brandCatalog
-    .filter((brand: any) => !brand.is_org_brand && brand.name.length >= 3)
-    .map((brand: any) => brand.name);
+    .filter(brand => !brand.is_org_brand && brand.name.length >= 3)
+    .map(brand => brand.name);
 }
 
 /**
@@ -346,7 +347,7 @@ async function extractOrganizationsNER(
   console.log(`🔍 Found ${properNouns.length} proper noun candidates`);
   
   // Step 2: Filter out known brands and common words
-  const unknownCandidates = properNouns.filter((noun: any) => 
+  const unknownCandidates = properNouns.filter(noun => 
     !knownBrands.some(known => normalize(known) === normalize(noun)) &&
     !isCommonWord(noun) &&
     noun.length >= 3 &&
@@ -369,7 +370,7 @@ async function extractOrganizationsNER(
   } catch (error: unknown) {
     console.log('⚠️ NER classification failed, using pattern-based fallback');
     return unknownCandidates
-      .filter((candidate: any) => isLikelyOrganization(candidate, text))
+      .filter(candidate => isLikelyOrganization(candidate, text))
       .slice(0, 10); // Limit fallback results
   }
 }
