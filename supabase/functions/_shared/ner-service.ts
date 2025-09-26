@@ -3,6 +3,8 @@
  * Lightweight NER service using OpenAI for organization entity extraction
  */
 
+import { toError } from './error-utils.ts';
+
 export interface NEREntity {
   text: string;
   label: string;
@@ -150,7 +152,7 @@ Only include entities with confidence >= ${confidenceThreshold}. Maximum ${maxEn
 
   } catch (error: unknown) {
     console.error('❌ NER extraction failed:', error);
-    throw error;
+    throw toError(error);
   }
 }
 

@@ -90,7 +90,7 @@ export async function updateOrgOverlay(orgId: string, updates: Partial<OrgOverla
     console.log(`✅ Updated org overlay for ${orgId} (cache only)`);
   } catch (error: unknown) {
     console.error('Error updating org overlay:', error);
-    throw error;
+    throw toError(error);
   }
 }
 

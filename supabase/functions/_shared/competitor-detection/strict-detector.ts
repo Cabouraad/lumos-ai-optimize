@@ -5,6 +5,7 @@
  */
 
 import { createEdgeLogger } from '../observability/structured-logger.ts';
+import { toError } from '../error-utils.ts';
 
 export interface StrictCompetitorMatch {
   name: string;
@@ -76,7 +77,7 @@ export class StrictCompetitorDetector {
         .select('name, is_org_brand, variants_json')
         .eq('org_id', orgId);
 
-      if (error) throw error;
+      if (error) throw toError(error);
 
       if (brandCatalog) {
         for (const brand of brandCatalog) {

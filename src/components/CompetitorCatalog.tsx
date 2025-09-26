@@ -413,7 +413,7 @@ export function CompetitorCatalog() {
                         </div>
                         {competitor.total_appearances > 0 && (
                           <div>
-                            Avg. score: {competitor.average_score.toFixed(1)}
+                            Avg. score: {competitor.average_score?.toFixed(1) ?? 'N/A'}
                           </div>
                         )}
                       </div>

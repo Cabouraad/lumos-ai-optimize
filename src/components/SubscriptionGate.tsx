@@ -13,42 +13,42 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Debug logging for subscription gate state changes
+  // Enhanced subscription check with better error handling and debugging
   useEffect(() => {
-    console.log('[SUBSCRIPTION_GATE_COMPONENT] State updated', {
-      plan: subscriptionData?.subscription_tier,
-      status: subscriptionData?.subscribed ? 'active' : 'inactive',
-      payment_collected: subscriptionData?.payment_collected,
-      trial_expires_at: subscriptionData?.trial_expires_at,
-      loading: loading || subscriptionLoading
-    });
-  }, [
-    subscriptionData?.subscription_tier,
-    subscriptionData?.subscribed,
-    subscriptionData?.payment_collected,
-    subscriptionData?.trial_expires_at,
-    loading,
-    subscriptionLoading
-  ]);
+    const handleSubscriptionCheck = async () => {
+      console.log('[SUBSCRIPTION_GATE] Component mounted/updated', {
+        plan: subscriptionData?.subscription_tier,
+        status: subscriptionData?.subscribed ? 'active' : 'inactive',
+        payment_collected: subscriptionData?.payment_collected,
+        trial_expires_at: subscriptionData?.trial_expires_at,
+        loading: loading || subscriptionLoading
+      });
 
-  // Trigger subscription check if user exists but subscriptionData is null
-  useEffect(() => {
-    if (user && !loading && !subscriptionLoading && subscriptionData === null) {
-      console.log('SubscriptionGate: Triggering subscription check for null subscriptionData');
-      checkSubscription();
-    }
+      if (user && !loading && !subscriptionLoading && subscriptionData === null) {
+        console.log('[SUBSCRIPTION_GATE] Null subscriptionData detected, triggering check');
+        try {
+          await checkSubscription();
+        } catch (error) {
+          console.error('[SUBSCRIPTION_GATE] Failed to check subscription:', error);
+          // Don't block the UI, continue with current state
+        }
+      }
+    };
+
+    handleSubscriptionCheck();
   }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription]);
 
-  // Safety: Force subscription check if stuck in loading state for too long
+  // Safety timeout to prevent infinite loading
   useEffect(() => {
     if (user && !loading && !subscriptionLoading && subscriptionData === null) {
-      const timer = setTimeout(() => {
-        console.log('SubscriptionGate: Safety timeout - forcing subscription check');
-        checkSubscription();
-      }, 5000);
-      return () => clearTimeout(timer);
+      const timeout = setTimeout(() => {
+        console.warn('[SUBSCRIPTION_GATE] Safety timeout triggered - subscription check took too long');
+        // Don't force check again, just log for debugging
+      }, 10000);
+      
+      return () => clearTimeout(timeout);
     }
-  }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription]);
+  }, [user, loading, subscriptionLoading, subscriptionData]);
 
   // Show loading state for auth or subscription loading OR when subscriptionData is null
   if (loading || subscriptionLoading || (user && subscriptionData === null)) {

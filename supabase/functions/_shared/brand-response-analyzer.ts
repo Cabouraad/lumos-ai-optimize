@@ -7,6 +7,7 @@
 
 import { GLOBAL_COMPETITORS, findGlobalCompetitor } from './global-competitors-gazetteer.ts';
 import { analyzeResponseV2, type AnalyzerV2Result, type AnalyzerV2Context } from './analyzer-v2.ts';
+import { toError } from './error-utils.ts';
 
 export interface BrandAnalysisResult {
   org_brand_present: boolean;
@@ -516,7 +517,7 @@ Respond with only a JSON array of organization names that are clearly businesses
     return [];
   } catch (error: unknown) {
     console.error('NER classification error:', error);
-    throw error;
+    throw toError(error);
   }
 }
 

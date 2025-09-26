@@ -143,15 +143,15 @@ export async function extractBrandsPerplexity(promptText: string, apiKey: string
           
           // Don't retry on authentication errors
           if (response.status === 401 || response.status === 403) {
-            throw error;
+            throw toError(error);
           }
           
           // Don't retry on bad request errors
           if (response.status === 400) {
-            throw error;
+            throw toError(error);
           }
           
-          throw error;
+          throw toError(error);
         }
 
         const data = await response.json();

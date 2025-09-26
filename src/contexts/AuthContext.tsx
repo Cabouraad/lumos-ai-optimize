@@ -87,17 +87,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
     
-    devLog('Starting subscription check', { email: currentSession.user.email });
+    devLog('Starting subscription check', { 
+      email: currentSession.user.email,
+      userId: currentSession.user.id 
+    });
+    console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Starting subscription check', {
+      email: currentSession.user.email,
+      userId: currentSession.user.id,
+      sessionValid: !!currentSession
+    });
     setSubscriptionLoading(true);
     lastSubscriptionCheckRef.current = Date.now();
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        console.log(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Attempt ${attempt + 1}/${maxRetries + 1}`);
         const { data, error } = await EdgeFunctionClient.checkSubscription();
 
         if (error) {
+          console.error('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Edge function error:', error);
           throw error;
         }
+
+        console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Success:', {
+          subscribed: data.subscribed,
+          tier: data.subscription_tier,
+          requires_subscription: data.requires_subscription
+        });
 
         setSubscriptionData({
           subscribed: data.subscribed,
@@ -118,9 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         retryAttemptsRef.current = 0; // Reset retry counter on success
         break;
       } catch (err) {
+        console.error(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Attempt ${attempt + 1} failed:`, err);
         if (attempt === maxRetries) {
           // Final attempt - try fallback
           try {
+            console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Trying fallback RPC');
             const { data: rows, error: rpcError } = await supabase.rpc('get_user_subscription_status');
             if (rpcError) throw rpcError;
             
@@ -129,6 +147,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const trialValid = !!row.trial_expires_at && new Date(row.trial_expires_at) > new Date();
             const requires_subscription = !(row.subscribed || trialValid);
+
+            console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Fallback RPC success:', {
+              subscribed: !!row.subscribed,
+              requires_subscription
+            });
 
             setSubscriptionData({
               subscribed: !!row.subscribed,
@@ -144,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             devLog('Subscription data updated via fallback RPC');
             break;
           } catch (fallbackErr) {
-            console.error('All subscription check attempts failed:', fallbackErr);
+            console.error('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] All attempts failed:', fallbackErr);
             // Keep previous state instead of nullifying
           }
         } else {
@@ -157,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     setSubscriptionLoading(false);
+    console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Subscription loading set to false');
   }, [session, devLog]);
 
   // Debounced subscription check with error recovery

@@ -384,12 +384,12 @@ async function sendResultsEmail(email: string, companyName: string, domain: stri
     });
 
     if (error) {
-      throw error;
+      throw toError(error);
     }
 
     console.log('Results email sent successfully to:', email);
   } catch (error: unknown) {
     console.error('Email sending failed:', error);
-    throw error;
+    throw toError(error);
   }
 }

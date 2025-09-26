@@ -1,6 +1,7 @@
 /**
  * Enhanced diagnostics and logging utilities for edge functions
  */
+import { toError } from './error-utils.ts';
 
 export interface RequestContext {
   requestId: string;
@@ -77,7 +78,7 @@ export class EdgeFunctionDiagnostics {
       const extraFailed = (details && typeof details === 'object') ? (details as Record<string, unknown>) : {};
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logStep(`${step}_failed`, { ...extraFailed, duration_ms: stepDuration }, errorMessage);
-      throw error;
+      throw toError(error);
     }
   }
 

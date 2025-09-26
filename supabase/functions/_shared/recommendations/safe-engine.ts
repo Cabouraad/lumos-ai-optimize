@@ -5,6 +5,7 @@
  */
 
 import { createEdgeLogger } from '../observability/structured-logger.ts';
+import { toError } from '../error-utils.ts';
 
 export interface SafeRecommendation {
   id: string;
@@ -91,7 +92,7 @@ export class SafeRecommendationEngine {
         .lt('created_at', `${date}T23:59:59.999Z`)
         .eq('status', 'open');
 
-      if (error) throw error;
+      if (error) throw toError(error);
 
       return (data || []).map(this.mapDbToReco);
     } catch (error: unknown) {
@@ -272,7 +273,7 @@ export class SafeRecommendationEngine {
         .from('recommendations')
         .insert(dbRecos);
 
-      if (error) throw error;
+      if (error) throw toError(error);
 
       this.logger.info('Persisted daily recommendations', { 
         orgId, 
