@@ -6,6 +6,7 @@
 
 import { EnhancedCompetitorDetector } from './enhanced-detector.ts';
 import { createEdgeLogger } from '../observability/structured-logger.ts';
+import { toError } from '../error-utils.ts';
 
 export async function detectCompetitorsWithFallback(
   text: string, 
@@ -24,8 +25,8 @@ export async function detectCompetitorsWithFallback(
     
     return result;
   } catch (error: unknown) {
-    const errorObj = error instanceof Error ? error : new Error(String(error));
+    const errorObj = toError(error);
     logger.error('Competitor detection failed', errorObj, { orgId });
-    throw error;
+    throw errorObj;
   }
 }

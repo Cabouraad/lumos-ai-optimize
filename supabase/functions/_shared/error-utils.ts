@@ -23,3 +23,7 @@ export function formatError(e: unknown, prefix = 'Error'): string {
   const stack = toErrorStack(e);
   return stack ? `${prefix}: ${msg}\n${stack}` : `${prefix}: ${msg}`;
 }
+
+export function toError(e: unknown): Error {
+  return e instanceof Error ? e : new Error(toErrorMessage(e));
+}

@@ -3,6 +3,7 @@
  */
 
 import type { EdgeFunctionDiagnostics } from "./diagnostics.ts";
+import { toError } from "./error-utils.ts";
 
 export interface AuthenticatedUser {
   id: string;
@@ -79,9 +80,9 @@ export async function authenticateUser(
       email: user.email
     };
   } catch (error: unknown) {
-    const errorObj = error instanceof Error ? error : new Error(String(error));
+    const errorObj = toError(error);
     diagnostics?.logStep("auth_user_exception", undefined, errorObj);
-    throw error;
+    throw errorObj;
   }
 }
 
@@ -115,9 +116,9 @@ export async function getUserOrgId(
     diagnostics?.logStep("org_lookup_success", { orgId: data.org_id });
     return data.org_id;
   } catch (error: unknown) {
-    const errorObj = error instanceof Error ? error : new Error(String(error));
+    const errorObj = toError(error);
     diagnostics?.logStep("org_lookup_exception", undefined, errorObj);
-    throw error;
+    throw errorObj;
   }
 }
 
