@@ -161,7 +161,8 @@ serve(async (req) => {
     try {
       sanitizedName = sanitizeCompetitorName(competitorName);
     } catch (error: unknown) {
-      return createErrorResponse(422, 'INVALID_INPUT', error.message);
+      const msg = error instanceof Error ? error.message : String(error);
+      return createErrorResponse(422, 'INVALID_INPUT', msg);
     }
 
     // Get user's organization and role
