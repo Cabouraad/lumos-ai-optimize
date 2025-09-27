@@ -1,10 +1,10 @@
 /**
  * @deprecated Legacy AuthContext - redirects to new modular auth system
- * Use specific hooks instead: useAuth, useUser, useSubscription, usePermissions
+ * Use specific hooks instead: useAuthNew, useUser, useSubscription, usePermissions
  */
 
 // Re-export new auth hooks with backward compatibility
-export { useAuth } from './AuthProvider';
+export { useAuth as useAuthNew } from './AuthProvider';
 export { useUser } from './UserProvider';
 export { useSubscription } from './SubscriptionProvider';
 export { usePermissions } from '../hooks/usePermissions';
@@ -14,20 +14,37 @@ import { useAuth as useAuthNew } from './AuthProvider';
 import { useUser } from './UserProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useMemo } from 'react';
+import { User, Session } from '@supabase/supabase-js';
 
-export function useAuthLegacy() {
+// Legacy interface for backward compatibility
+interface LegacyAuthContextType {
+  user: User | null;
+  session: Session | null;
+  orgData: any;
+  orgStatus: 'loading' | 'success' | 'error' | 'not_found';
+  subscriptionData: any;
+  loading: boolean;
+  subscriptionLoading: boolean;
+  ready: boolean;
+  isChecking: boolean;
+  subscriptionError: string | null;
+  checkSubscription: () => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+export function useAuthLegacy(): LegacyAuthContextType {
   const { user, session, loading: authLoading, ready, signOut } = useAuthNew();
   const { userData, loading: userLoading, error: userError, refreshUserData } = useUser();
   const { subscriptionData, loading: subscriptionLoading, error: subscriptionError, hasAccess, refreshSubscription } = useSubscription();
 
   // Map to legacy format
-  const legacyData = useMemo(() => ({
+  const legacyData = useMemo((): LegacyAuthContextType => ({
     user,
     session,
     orgData: userData,
-    orgStatus: userError ? 'error' : 
+    orgStatus: (userError ? 'error' : 
                !userData && userLoading ? 'loading' :
-               userData ? 'success' : 'not_found',
+               userData ? 'success' : 'not_found') as 'loading' | 'success' | 'error' | 'not_found',
     subscriptionData: subscriptionData ? {
       ...subscriptionData,
       requires_subscription: !hasAccess

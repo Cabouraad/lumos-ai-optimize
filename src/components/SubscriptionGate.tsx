@@ -1,5 +1,7 @@
 import { ReactNode, useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
+import { useUser } from '@/contexts/UserProvider';
+import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,88 +12,110 @@ interface SubscriptionGateProps {
 }
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
+  const { user, loading, ready } = useAuth();
+  const { userData: orgData, loading: userLoading, error: userError } = useUser();
   const { 
-    user, 
-    orgData, 
-    orgStatus,
     subscriptionData, 
-    loading, 
-    subscriptionLoading, 
-    ready, 
-    isChecking,
-    subscriptionError,
-    checkSubscription 
-  } = useAuth();
+    loading: subscriptionLoading, 
+    error: subscriptionError,
+    hasAccess,
+    refreshSubscription 
+  } = useSubscription();
+  
+  const orgStatus = userError ? 'error' : 
+                   !orgData && userLoading ? 'loading' :
+                   orgData ? 'success' : 'not_found';
+  const isChecking = userLoading || subscriptionLoading;
+  
   const location = useLocation();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [lastRetryTime, setLastRetryTime] = useState<number | null>(null);
   const [orgDataLoading, setOrgDataLoading] = useState(false);
+  
   const [forceAccess, setForceAccess] = useState(false);
   const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
 
-  // Debug logging for org data
-  useEffect(() => {
-    if (user) {
-      console.log('[SUBSCRIPTION_GATE] Org data debug:', {
-        userId: user.id,
-        userEmail: user.email,
-        orgData: orgData,
-        orgDataType: typeof orgData,
-        orgDataKeys: orgData ? Object.keys(orgData) : 'null',
-        orgId: orgData?.organizations?.id,
-        orgName: orgData?.organizations?.name,
-        hasOrganizations: !!orgData?.organizations,
-        loading,
-        ready,
-        subscriptionLoading
-      });
-    }
-  }, [user, orgData, loading, ready, subscriptionLoading]);
-
-  // Simplified subscription monitoring - rely on AuthContext bootstrap
-  useEffect(() => {
-    console.log('[SUBSCRIPTION_GATE] Component state update', {
-      plan: subscriptionData?.subscription_tier,
-      status: subscriptionData?.subscribed ? 'active' : 'inactive',
-      payment_collected: subscriptionData?.payment_collected,
-      trial_expires_at: subscriptionData?.trial_expires_at,
-      loading: loading || subscriptionLoading,
-      authError: authError,
-      retryCount: retryCount,
-      orgStatus: orgStatus
-    });
-
-    // Clear previous auth errors when we have valid subscription data
-    if (subscriptionData !== null && authError) {
-      setAuthError(null);
-      setRetryCount(0);
-    }
-  }, [user, loading, subscriptionLoading, subscriptionData, authError, retryCount, orgStatus]);
-
-  // Aggressive timeout to prevent infinite loading
+  // Emergency timeout - prevent infinite loading
   useEffect(() => {
     const timeout = setTimeout(() => {
-      console.warn('[SUBSCRIPTION_GATE] Aggressive timeout reached - forcing access');
+      console.warn('[SUBSCRIPTION_GATE] Loading timeout reached - forcing access');
       setLoadingTimeoutReached(true);
-      setAuthError('Loading timed out. You can continue to use the app, but some features may not work properly.');
-    }, 8000); // Shorter timeout
+      setForceAccess(true);
+    }, 60000); // 60 seconds
     
     return () => clearTimeout(timeout);
   }, []);
 
-  // Emergency fallback timeout
+  // Emergency fallback after aggressive timeout
   useEffect(() => {
-    if (user && !loading && !subscriptionLoading && subscriptionData === null) {
-      const timeout = setTimeout(() => {
-        console.warn('[SUBSCRIPTION_GATE] Emergency timeout - allowing access with defaults');
-        setForceAccess(true);
-      }, 15000);
-      
-      return () => clearTimeout(timeout);
+    const aggressiveTimeout = setTimeout(() => {
+      console.warn('[SUBSCRIPTION_GATE] Aggressive timeout reached - forcing access immediately');
+      setLoadingTimeoutReached(true);
+      setForceAccess(true);
+    }, 30000); // 30 seconds
+    
+    return () => clearTimeout(aggressiveTimeout);
+  }, []);
+
+  // Debug effect - logs the status periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('[SUBSCRIPTION_GATE] Status check:', {
+        user: !!user,
+        orgData: !!orgData,
+        orgStatus,
+        subscriptionData: !!subscriptionData,
+        loading,
+        subscriptionLoading,
+        ready,
+        hasAccess,
+        forceAccess,
+        loadingTimeoutReached
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [user, orgData, orgStatus, subscriptionData, loading, subscriptionLoading, ready, hasAccess, forceAccess, loadingTimeoutReached]);
+
+  // Monitor subscription status changes
+  useEffect(() => {
+    if (subscriptionData) {
+      console.log('[SUBSCRIPTION_GATE] Subscription status:', {
+        subscribed: subscriptionData.subscribed,
+        trial_expires_at: subscriptionData.trial_expires_at,
+        payment_collected: subscriptionData.payment_collected,
+        hasAccess
+      });
     }
-  }, [user, loading, subscriptionLoading, subscriptionData]);
+  }, [subscriptionData, hasAccess]);
+
+  // Aggressive timeout if we get stuck
+  useEffect(() => {
+    if (user && ready && !loadingTimeoutReached) {
+      const aggressiveTimer = setTimeout(() => {
+        if (loading || isChecking) {
+          console.warn('[SUBSCRIPTION_GATE] Still loading after 15s - forcing access');
+          setForceAccess(true);
+        }
+      }, 15000);
+
+      return () => clearTimeout(aggressiveTimer);
+    }
+  }, [user, ready, loading, isChecking, loadingTimeoutReached]);
+
+  // Emergency fallback - if we don't get subscription data within 20s and have user/org, allow access
+  useEffect(() => {
+    if (user && orgData && !subscriptionData && !subscriptionError && ready) {
+      const emergencyTimer = setTimeout(() => {
+        console.warn('[SUBSCRIPTION_GATE] Emergency access granted - no subscription data after 20s');
+        setForceAccess(true);
+      }, 20000);
+
+      return () => clearTimeout(emergencyTimer);
+    }
+  }, [user, orgData, subscriptionData, subscriptionError, ready]);
 
   // Manual retry function for users - uses bootstrap
   const handleManualRetry = useCallback(async () => {
@@ -110,14 +134,12 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     console.log('[SUBSCRIPTION_GATE] Manual retry initiated', { retryCount: retryCount + 1 });
     
     try {
-      await checkSubscription(); // This now calls bootstrap
+      await refreshSubscription();
     } catch (error) {
       console.error('[SUBSCRIPTION_GATE] Manual retry failed:', error);
       setAuthError(error instanceof Error ? error.message : 'Retry failed');
     }
-  }, [checkSubscription, lastRetryTime, retryCount]);
-
-  // Removed fallback org data fetch - now handled in AuthContext
+  }, [refreshSubscription, lastRetryTime, retryCount]);
 
   // Debug current loading states
   console.log('[SUBSCRIPTION_GATE] Loading states:', {
@@ -144,142 +166,107 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">
-            {loading ? 'Loading authentication...' :
-             subscriptionLoading ? 'Checking subscription...' :
-             'Verifying access...'}
-          </p>
-          
-          {/* Show detailed debug info after 5 seconds */}
-          {loadingTimeoutReached && (
-            <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg max-w-md mx-auto">
-              <p className="text-sm text-orange-800 dark:text-orange-200 mb-3">
-                Loading is taking longer than expected. Debug info:
-              </p>
-              <div className="text-xs text-left space-y-1 text-orange-700 dark:text-orange-300">
-                <div>Auth loading: {loading ? 'Yes' : 'No'}</div>
-                <div>Subscription loading: {subscriptionLoading ? 'Yes' : 'No'}</div>
-                <div>Ready: {ready ? 'Yes' : 'No'}</div>
-                <div>Has user: {user ? 'Yes' : 'No'}</div>
-                <div>Has subscription data: {subscriptionData ? 'Yes' : 'No'}</div>
-                <div>Has org data: {orgData ? 'Yes' : 'No'}</div>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-3"
-                onClick={() => setForceAccess(true)}
-              >
-                Continue Anyway
-              </Button>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Loading...</p>
+            <div className="max-w-md mx-auto text-xs text-muted-foreground space-y-1">
+              <div>Auth: {loading ? 'Loading...' : ready ? 'Ready' : 'Not ready'}</div>
+              <div>User: {user ? '✓ Signed in' : '✗ Not signed in'}</div>
+              <div>Org: {orgStatus}</div>
+              <div>Subscription: {subscriptionLoading ? 'Loading...' : subscriptionData ? '✓ Loaded' : subscriptionError ? `✗ ${subscriptionError}` : '⏳ Waiting'}</div>
             </div>
-          )}
-          
-          {/* Show error message and retry option if there's a subscription error */}
-          {subscriptionError && (
-            <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-md mx-auto">
-              <p className="text-sm text-destructive mb-3">
-                {subscriptionError}
-              </p>
-              <div className="space-y-2">
+            
+            {(retryCount > 0 || authError) && (
+              <div className="mt-4 space-y-2">
+                {authError && (
+                  <p className="text-xs text-red-600">{authError}</p>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={handleManualRetry}
-                  disabled={retryCount >= 3}
+                  disabled={lastRetryTime && Date.now() - lastRetryTime < 3000}
                 >
-                  {retryCount >= 3 ? 'Max retries reached' : `Retry (${retryCount}/3)`}
-                </Button>
-                
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  onClick={() => setForceAccess(true)}
-                >
-                  Continue Anyway
+                  Retry ({retryCount})
                 </Button>
               </div>
-              
-              {retryCount >= 3 && (
-                <div className="mt-3 text-xs text-muted-foreground">
-                  <p>Still having issues? Please refresh the page or contact support.</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Auto-timeout message */}
-          {user && subscriptionData === null && !subscriptionError && !loadingTimeoutReached && (
-            <div className="mt-6 text-xs text-muted-foreground">
-              <p>This is taking longer than usual...</p>
-            </div>
-          )}
+            )}
+            
+            {/* Show retry button after 10 seconds */}
+            {ready && (
+              <div className="mt-4">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleManualRetry}
+                >
+                  Retry Connection
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  // Not authenticated - redirect to auth
+  // If not authenticated, redirect to auth
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Only redirect to onboarding if we're certain there's no organization
-  if (user && orgStatus === 'not_found' && ready && !shouldShowLoading && !forceAccess) {
-    console.log('[SubscriptionGate] Redirecting to onboarding - confirmed no org');
+  // If no org data and status indicates error, redirect to onboarding
+  if (orgStatus === 'not_found' || (orgStatus === 'error' && !orgData)) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Show non-blocking warning for org fetch errors but allow continuing
-  if (user && orgStatus === 'error' && ready && !forceAccess && !shouldShowLoading) {
+  // If org loading failed with error but we might be able to recover
+  if (orgStatus === 'error' && userError && !orgDataLoading && !forceAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-4">
-          <Card className="border-orange-200 dark:border-orange-800">
-            <CardHeader>
-              <CardTitle className="text-orange-800 dark:text-orange-200">
-                Connection Issue
-              </CardTitle>
-              <CardDescription>
-                We're having trouble loading your organization data. This might be a temporary network issue.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Button 
-                  onClick={handleManualRetry}
-                  disabled={retryCount >= 3}
-                  className="w-full"
-                >
-                  {retryCount >= 3 ? 'Max retries reached' : `Try Again (${retryCount}/3)`}
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  onClick={() => setForceAccess(true)}
-                  className="w-full"
-                >
-                  Continue Anyway
-                </Button>
-              </div>
-              
-              <p className="text-xs text-muted-foreground text-center">
-                You can continue to use the app, but some features may not work properly.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="w-full max-w-md border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Connection Issue</CardTitle>
+            <CardDescription>
+              Unable to load your organization data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">{userError}</p>
+            <div className="space-y-2">
+              <Button 
+                onClick={handleManualRetry}
+                className="w-full"
+                disabled={orgDataLoading}
+              >
+                {orgDataLoading ? 'Retrying...' : 'Retry'}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setForceAccess(true)}
+                className="w-full"
+              >
+                Continue Anyway
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => navigate('/auth')}
+                className="w-full"
+              >
+                Sign Out and Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   // Check if subscription is required - with fallback for forced access
-  const hasValidSubscription = forceAccess || subscriptionData?.subscribed || 
-    (subscriptionData?.trial_expires_at && new Date(subscriptionData.trial_expires_at) > new Date() && subscriptionData?.payment_collected === true);
+  const hasValidSubscription = forceAccess || hasAccess;
 
   // If user requires subscription and doesn't have one, show subscription required page (unless forced)
-  if (!forceAccess && (subscriptionData?.requires_subscription || !hasValidSubscription)) {
+  if (!forceAccess && !hasValidSubscription) {
     // Don't block access to pricing page
     if (location.pathname === '/pricing') {
       return <>{children}</>;
@@ -295,17 +282,16 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>No free tier available.</strong> All plans require a payment method, but the Starter plan includes a 7-day free trial.
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                You need an active subscription or trial to access Llumos features.
               </p>
             </div>
-            
             <Button 
               className="w-full" 
               onClick={() => navigate('/pricing')}
             >
-              Choose Your Plan
+              View Pricing Plans
             </Button>
           </CardContent>
         </Card>
