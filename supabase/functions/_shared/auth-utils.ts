@@ -131,14 +131,47 @@ export async function authenticateRequest(
   diagnostics?: EdgeFunctionDiagnostics,
   requireOrg = false
 ): Promise<AuthenticatedUser> {
-  const token = extractBearerToken(request, diagnostics);
-  const user = await authenticateUser(supabaseClient, token, diagnostics);
-  
-  if (requireOrg) {
-    user.orgId = await getUserOrgId(supabaseClient, user.id, diagnostics);
+  try {
+    // Enhanced debugging for authentication issues
+    const authHeader = request.headers.get("Authorization");
+    diagnostics?.logStep("auth_request_start", { 
+      hasAuthHeader: !!authHeader,
+      authHeaderLength: authHeader?.length || 0,
+      authHeaderPrefix: authHeader?.substring(0, 10) || "none",
+      userAgent: request.headers.get("User-Agent"),
+      origin: request.headers.get("Origin")
+    });
+
+    const token = extractBearerToken(request, diagnostics);
+    
+    // Add token validation logging (first/last few chars only for security)
+    diagnostics?.logStep("auth_token_details", {
+      tokenLength: token.length,
+      tokenStart: token.substring(0, 8),
+      tokenEnd: token.substring(token.length - 8),
+      isJWT: token.includes('.')
+    });
+
+    const user = await authenticateUser(supabaseClient, token, diagnostics);
+    
+    if (requireOrg) {
+      user.orgId = await getUserOrgId(supabaseClient, user.id, diagnostics);
+    }
+    
+    diagnostics?.logStep("auth_request_complete", { 
+      userId: user.id,
+      hasOrgId: !!user.orgId 
+    });
+    
+    return user;
+  } catch (error: unknown) {
+    const errorObj = toError(error);
+    diagnostics?.logStep("auth_request_failed", { 
+      error: errorObj.message,
+      errorType: errorObj.constructor.name 
+    });
+    throw errorObj;
   }
-  
-  return user;
 }
 
 /**

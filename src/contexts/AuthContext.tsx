@@ -1,15 +1,11 @@
-import { useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
-import { createSafeContext } from './SafeContexts';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  loading: boolean; // legacy loading for org/subscription fetches
-  ready?: boolean;   // initial auth session resolved (authenticated or not)
-  subscriptionLoading: boolean;
   orgData: any | null;
   subscriptionData: {
     subscribed: boolean;
@@ -19,34 +15,45 @@ interface AuthContextType {
     trial_started_at?: string;
     payment_collected?: boolean;
     requires_subscription?: boolean;
-    metadata?: any; // Include metadata for bypass tracking
+    metadata?: any;
   } | null;
+  loading: boolean;
+  subscriptionLoading: boolean;
+  ready: boolean;
   checkSubscription: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-// Create a default loading state for auth context
-const defaultAuthState: AuthContextType = {
+const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
-  loading: true,
-  ready: false,
-  subscriptionLoading: true,
   orgData: null,
   subscriptionData: null,
+  loading: true,
+  subscriptionLoading: false,
+  ready: false,
   checkSubscription: async () => {},
-  signOut: async () => {}
+  signOut: async () => {},
+});
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
 };
 
-// Create safe context with validation and default loading state
-const { Context: AuthContext, Provider: AuthContextProvider, useContext: useAuthContext } = createSafeContext<AuthContextType>('AuthContext', defaultAuthState);
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [ready, setReady] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const [orgData, setOrgData] = useState<any | null>(null);
   const [subscriptionData, setSubscriptionData] = useState<{
     subscribed: boolean;
@@ -56,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     trial_started_at?: string;
     payment_collected?: boolean;
     requires_subscription?: boolean;
-    metadata?: any; // Include metadata for bypass tracking
+    metadata?: any;
   } | null>(null);
 
   // Debouncing and error recovery state
@@ -72,116 +79,136 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const checkSubscriptionStatusWithRetry = useCallback(async () => {
-    // Re-fetch session if it appears to be null but we might have missed an update
-    let currentSession = session;
-    if (!currentSession?.user) {
-      const { data: { session: freshSession } } = await supabase.auth.getSession();
-      currentSession = freshSession;
-      if (!currentSession?.user) {
-        devLog('No session available for subscription check');
+  const checkSubscriptionStatusWithRetry = useCallback(async (maxAttempts = 4) => {
+    if (!user || !user.email) {
+      devLog('No user available for subscription check');
+      return;
+    }
+
+    // Validate session before making requests
+    if (!session?.access_token) {
+      devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] No valid session token, refreshing session first');
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshData.session) {
+          devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Session refresh failed', refreshError);
+          setSubscriptionLoading(false);
+          return;
+        }
+        devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Session refreshed successfully');
+      } catch (refreshException) {
+        devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Session refresh exception', refreshException);
+        setSubscriptionLoading(false);
         return;
       }
     }
     
-    const maxRetries = 3;
-    const baseDelay = 1000; // 1 second base delay
+    devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Starting subscription check', {
+      email: user.email,
+      userId: user.id,
+      sessionValid: !!session,
+      hasAccessToken: !!session?.access_token
+    });
+
+    let lastError: Error | null = null;
     
-    devLog('Starting subscription check', { 
-      email: currentSession.user.email,
-      userId: currentSession.user.id 
-    });
-    console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Starting subscription check', {
-      email: currentSession.user.email,
-      userId: currentSession.user.id,
-      sessionValid: !!currentSession
-    });
-    setSubscriptionLoading(true);
-    lastSubscriptionCheckRef.current = Date.now();
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      devLog(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Attempt ${attempt}/${maxAttempts}`);
+      
       try {
-        console.log(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Attempt ${attempt + 1}/${maxRetries + 1}`);
-        const { data, error } = await EdgeFunctionClient.checkSubscription();
-
+        // Add timeout to prevent hanging requests
+        const checkPromise = supabase.functions.invoke('check-subscription');
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 15000)
+        );
+        
+        const { data, error } = await Promise.race([checkPromise, timeoutPromise]) as any;
+        
         if (error) {
-          console.error('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Edge function error:', error);
-          throw error;
-        }
-
-        console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Success:', {
-          subscribed: data.subscribed,
-          tier: data.subscription_tier,
-          requires_subscription: data.requires_subscription
-        });
-
-        setSubscriptionData({
-          subscribed: data.subscribed,
-          subscription_tier: data.subscription_tier,
-          subscription_end: data.subscription_end,
-          trial_expires_at: data.trial_expires_at,
-          trial_started_at: data.trial_started_at,
-          payment_collected: data.payment_collected,
-          requires_subscription: data.requires_subscription,
-          metadata: data.metadata,
-        });
-        
-        devLog('Subscription data updated via edge function', {
-          subscribed: data.subscribed,
-          subscription_tier: data.subscription_tier,
-        });
-        
-        retryAttemptsRef.current = 0; // Reset retry counter on success
-        break;
-      } catch (err) {
-        console.error(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Attempt ${attempt + 1} failed:`, err);
-        if (attempt === maxRetries) {
-          // Final attempt - try fallback
-          try {
-            console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Trying fallback RPC');
-            const { data: rows, error: rpcError } = await supabase.rpc('get_user_subscription_status');
-            if (rpcError) throw rpcError;
-            
-            const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-            if (!row) return; // Keep previous state
-
-            const trialValid = !!row.trial_expires_at && new Date(row.trial_expires_at) > new Date();
-            const requires_subscription = !(row.subscribed || trialValid);
-
-            console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Fallback RPC success:', {
-              subscribed: !!row.subscribed,
-              requires_subscription
-            });
-
-            setSubscriptionData({
-              subscribed: !!row.subscribed,
-              subscription_tier: row.subscription_tier ?? null,
-              subscription_end: row.subscription_end ?? null,
-              trial_expires_at: row.trial_expires_at ?? undefined,
-              trial_started_at: undefined,
-              payment_collected: row.payment_collected ?? undefined,
-              requires_subscription,
-              metadata: undefined,
-            });
-            
-            devLog('Subscription data updated via fallback RPC');
-            break;
-          } catch (fallbackErr) {
-            console.error('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] All attempts failed:', fallbackErr);
-            // Keep previous state instead of nullifying
+          lastError = new Error(`Edge function error (${error.message || 'unknown'})`);
+          devLog(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Attempt ${attempt} failed:`, error);
+          
+          // For authentication errors, try session refresh
+          if (error.message?.includes('401') || error.message?.includes('Authentication failed')) {
+            devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Authentication error detected, refreshing session');
+            try {
+              await supabase.auth.refreshSession();
+              devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Session refreshed after auth error');
+            } catch (refreshErr) {
+              devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Session refresh failed after auth error', refreshErr);
+            }
+          }
+          
+          if (attempt < maxAttempts) {
+            // Wait before retry with exponential backoff
+            const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000);
+            devLog(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Waiting ${delay}ms before retry`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
           }
         } else {
-          // Wait before retry with exponential backoff
-          const delay = baseDelay * Math.pow(2, attempt);
-          devLog(`Subscription check attempt ${attempt + 1} failed, retrying in ${delay}ms`);
+          devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Success:', {
+            subscribed: data?.subscribed,
+            tier: data?.subscription_tier,
+            requires_subscription: data?.requires_subscription
+          });
+          
+          setSubscriptionData(data);
+          setSubscriptionLoading(false);
+          devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Subscription loading set to false');
+          return;
+        }
+      } catch (networkError: any) {
+        lastError = networkError;
+        devLog(`[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Network error on attempt ${attempt}:`, networkError);
+        
+        if (attempt < maxAttempts) {
+          const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000);
           await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
         }
       }
     }
     
-    setSubscriptionLoading(false);
-    console.log('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Subscription loading set to false');
-  }, [session, devLog]);
+    // All attempts failed - fall back to RPC with timeout
+    devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] All edge function attempts failed, trying RPC fallback');
+    console.warn('Edge function check-subscription failed after retries, attempting RPC fallback:', lastError);
+    
+    try {
+      const rpcPromise = supabase.rpc('get_user_subscription_status');
+      const rpcTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC timeout')), 10000)
+      );
+      
+      const { data: rpcData, error: rpcError } = await Promise.race([rpcPromise, rpcTimeout]) as any;
+      
+      if (rpcError) {
+        console.error('RPC fallback also failed:', rpcError);
+        devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] RPC fallback failed');
+        throw rpcError;
+      }
+      
+      devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] RPC fallback successful');
+      setSubscriptionData(rpcData);
+    } catch (rpcFinalError) {
+      console.error('Both edge function and RPC failed:', rpcFinalError);
+      devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Both methods failed, setting defaults');
+      
+      // Set safe defaults when both methods fail
+      setSubscriptionData({
+        subscribed: false,
+        subscription_tier: null,
+        subscription_end: null,
+        trial_expires_at: null,
+        trial_started_at: null,
+        payment_collected: false,
+        requires_subscription: true
+      });
+    } finally {
+      setSubscriptionLoading(false);
+      devLog('[AUTH_CONTEXT_SUBSCRIPTION_CHECK] Final subscription loading set to false');
+    }
+  }, [user, session, devLog, supabase]);
 
   // Debounced subscription check with error recovery
   const debouncedCheckSubscription = useCallback(async (delay = 500, force = false) => {
@@ -348,66 +375,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (error) {
                 console.error('Error fetching org data:', error);
               }
-              
               setOrgData(data);
-              await debouncedCheckSubscription(100); // Quick initial check
-              setLoading(false);
+              
+              // Trigger subscription check on sign in
+              debouncedCheckSubscription(1000, true);
             } catch (err) {
-              if (!mountedRef.current) return;
-              console.error('Exception in org data fetch:', err);
-              setOrgData(null);
-              setLoading(false);
+              console.error('Error in sign-in handler:', err);
             }
           }, 0);
         } else if (event === 'SIGNED_OUT') {
+          // Clear all data on sign out
           setOrgData(null);
           setSubscriptionData(null);
           setSubscriptionLoading(false);
-          setLoading(false);
         }
-        // Do NOTHING on TOKEN_REFRESHED, USER_UPDATED, etc.
       }
     );
 
-    // Initialize auth state
+    // Start initialization
     initializeAuth();
 
-    // Emergency fallback: If auth hasn't resolved after 15 seconds, force ready=true
-    const emergencyTimeout = setTimeout(() => {
-      if (mountedRef.current && !ready) {
-        console.warn('Auth initialization timeout - forcing ready=true to prevent infinite loading');
-        devLog('Emergency timeout triggered - forcing ready=true');
-        setReady(true);
-        setLoading(false);
-        setSubscriptionLoading(false);
+    return () => {
+      mountedRef.current = false;
+      subscription.unsubscribe();
+      if (subscriptionCheckTimeoutRef.current) {
+        clearTimeout(subscriptionCheckTimeoutRef.current);
       }
-    }, 15000);
+    };
+  }, [debouncedCheckSubscription, checkSubscriptionStatusWithRetry, devLog]);
 
-     return () => {
-       mountedRef.current = false;
-       subscription.unsubscribe();
-       clearTimeout(emergencyTimeout);
-       if (subscriptionCheckTimeoutRef.current) {
-         clearTimeout(subscriptionCheckTimeoutRef.current);
-       }
-     };
-   }, []); // Empty dependency array to prevent re-running
+  const signOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  }, []);
 
-  const checkSubscription = useCallback(async () => {
-    // Call directly to avoid debouncing races for manual checks
-    await checkSubscriptionStatusWithRetry();
-  }, [checkSubscriptionStatusWithRetry]);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const value: AuthContextType = {
+    user,
+    session,
+    orgData,
+    subscriptionData,
+    loading,
+    subscriptionLoading,
+    ready,
+    checkSubscription: checkSubscriptionStatusWithRetry,
+    signOut,
   };
 
   return (
-    <AuthContextProvider value={{ user, session, loading, ready, subscriptionLoading, orgData, subscriptionData, checkSubscription, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
-    </AuthContextProvider>
+    </AuthContext.Provider>
   );
 }
-
-// Export the safe hook
-export const useAuth = useAuthContext;

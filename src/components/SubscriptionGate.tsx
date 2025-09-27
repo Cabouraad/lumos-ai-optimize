@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,9 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const { user, orgData, subscriptionData, loading, subscriptionLoading, checkSubscription } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastRetryTime, setLastRetryTime] = useState<number | null>(null);
 
   // Enhanced subscription check with better error handling and debugging
   useEffect(() => {
@@ -21,42 +24,114 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
         status: subscriptionData?.subscribed ? 'active' : 'inactive',
         payment_collected: subscriptionData?.payment_collected,
         trial_expires_at: subscriptionData?.trial_expires_at,
-        loading: loading || subscriptionLoading
+        loading: loading || subscriptionLoading,
+        authError: authError,
+        retryCount: retryCount
       });
+
+      // Clear previous auth errors when we have valid subscription data
+      if (subscriptionData !== null && authError) {
+        setAuthError(null);
+        setRetryCount(0);
+      }
 
       if (user && !loading && !subscriptionLoading && subscriptionData === null) {
         console.log('[SUBSCRIPTION_GATE] Null subscriptionData detected, triggering check');
         try {
           await checkSubscription();
+          // Clear error on successful check
+          setAuthError(null);
+          setRetryCount(0);
         } catch (error) {
           console.error('[SUBSCRIPTION_GATE] Failed to check subscription:', error);
+          setAuthError(error instanceof Error ? error.message : 'Unknown subscription check error');
           // Don't block the UI, continue with current state
         }
       }
     };
 
     handleSubscriptionCheck();
-  }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription]);
+  }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription, authError, retryCount]);
 
-  // Safety timeout to prevent infinite loading
+  // Safety timeout to prevent infinite loading with better error recovery
   useEffect(() => {
     if (user && !loading && !subscriptionLoading && subscriptionData === null) {
       const timeout = setTimeout(() => {
         console.warn('[SUBSCRIPTION_GATE] Safety timeout triggered - subscription check took too long');
-        // Don't force check again, just log for debugging
-      }, 10000);
+        setAuthError('Subscription check timed out. Please try refreshing the page.');
+        // Set default subscription data to prevent infinite loading
+        // Note: This won't actually update the context, but helps with UI state
+      }, 12000); // Increased timeout to allow for retries
       
       return () => clearTimeout(timeout);
     }
   }, [user, loading, subscriptionLoading, subscriptionData]);
 
+  // Manual retry function for users
+  const handleManualRetry = useCallback(async () => {
+    const now = Date.now();
+    
+    // Prevent too frequent retries
+    if (lastRetryTime && now - lastRetryTime < 3000) {
+      console.log('[SUBSCRIPTION_GATE] Retry too soon, ignoring');
+      return;
+    }
+    
+    setLastRetryTime(now);
+    setRetryCount(prev => prev + 1);
+    setAuthError(null);
+    
+    console.log('[SUBSCRIPTION_GATE] Manual retry initiated', { retryCount: retryCount + 1 });
+    
+    try {
+      await checkSubscription();
+    } catch (error) {
+      console.error('[SUBSCRIPTION_GATE] Manual retry failed:', error);
+      setAuthError(error instanceof Error ? error.message : 'Retry failed');
+    }
+  }, [checkSubscription, lastRetryTime, retryCount]);
+
   // Show loading state for auth or subscription loading OR when subscriptionData is null
   if (loading || subscriptionLoading || (user && subscriptionData === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">
+            {loading ? 'Loading authentication...' :
+             subscriptionLoading ? 'Checking subscription...' :
+             'Verifying access...'}
+          </p>
+          
+          {/* Show error message and retry option if there's an auth error */}
+          {authError && (
+            <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-md mx-auto">
+              <p className="text-sm text-destructive mb-3">
+                {authError}
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleManualRetry}
+                disabled={retryCount >= 3}
+              >
+                {retryCount >= 3 ? 'Max retries reached' : `Retry (${retryCount}/3)`}
+              </Button>
+              
+              {retryCount >= 3 && (
+                <div className="mt-3 text-xs text-muted-foreground">
+                  <p>Still having issues? Please refresh the page or contact support.</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Auto-timeout message */}
+          {user && subscriptionData === null && !authError && (
+            <div className="mt-6 text-xs text-muted-foreground">
+              <p>This is taking longer than usual...</p>
+            </div>
+          )}
         </div>
       </div>
     );
