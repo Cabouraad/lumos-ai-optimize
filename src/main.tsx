@@ -3,9 +3,9 @@ import * as ReactDOM from 'react-dom/client';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { QueryProvider } from './app/providers/QueryProvider';
 import { HelmetProvider } from 'react-helmet-async';
-import { AuthProvider } from './contexts/AuthContext';
+import { AppProviders } from './contexts/AppProviders';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { SafeAuthProvider } from './components/SafeAuthProvider';
+import { AuthErrorBoundary } from './components/auth/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { EnvGate } from '@/components/EnvGate';
@@ -31,13 +31,13 @@ ReactDOM.createRoot(rootEl).render(
           <QueryProvider>
             <ThemeProvider defaultTheme="dark">
               <EnvGate />
-              <SafeAuthProvider>
-                <AuthProvider>
-                   <QueryAuthBridge />
-                    <App />
-                    <Toaster />
-                </AuthProvider>
-              </SafeAuthProvider>
+              <AuthErrorBoundary>
+                <AppProviders>
+                  <QueryAuthBridge />
+                  <App />
+                  <Toaster />
+                </AppProviders>
+              </AuthErrorBoundary>
             </ThemeProvider>
           </QueryProvider>
         </Router>

@@ -1,7 +1,6 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route } from "react-router-dom";
-import { SubscriptionGate } from "@/components/SubscriptionGate";
-import { AuthGuard } from "@/components/auth/AuthGuard";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
 import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
@@ -83,105 +82,83 @@ const App = () => {
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/auth" element={
-            <AuthGuard requireAuth={false}>
+            <ProtectedRoute requireAuth={false}>
               <Auth />
-            </AuthGuard>
+            </ProtectedRoute>
           } />
           <Route path="/auth/processing" element={<AuthProcessing />} />
           
-          {/* Protected routes - require authentication */}
+          {/* Protected routes - require authentication and subscription */}
           <Route path="/onboarding" element={
-            <AuthGuard requireAuth={true}>
+            <ProtectedRoute requireSubscription={false}>
               <Onboarding />
-            </AuthGuard>
+            </ProtectedRoute>
           } />
           <Route path="/dashboard" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <ChunkErrorBoundary chunkName="Dashboard">
-                  <Dashboard />
-                </ChunkErrorBoundary>
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="Dashboard">
+                <Dashboard />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
           } />
           <Route path="/prompts" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <ChunkErrorBoundary chunkName="Prompts">
-                  <Prompts />
-                </ChunkErrorBoundary>
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="Prompts">
+                <Prompts />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
           } />
           <Route path="/competitors" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <ChunkErrorBoundary chunkName="Competitors">
-                  <Competitors />
-                </ChunkErrorBoundary>
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="Competitors">
+                <Competitors />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
           } />
           <Route path="/llms-txt" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <ChunkErrorBoundary chunkName="LLMsText">
-                  <LLMsText />
-                </ChunkErrorBoundary>
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="LLMsText">
+                <LLMsText />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
           } />
           <Route path="/optimizations" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <ChunkErrorBoundary chunkName="Optimizations">
-                  <Optimizations />
-                </ChunkErrorBoundary>
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="Optimizations">
+                <Optimizations />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
           } />
           <Route path="/reports" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <Reports />
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
           } />
           <Route path="/settings" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <Settings />
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
           } />
           <Route path="/domain-verification" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <DomainVerification />
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <DomainVerification />
+            </ProtectedRoute>
           } />
           <Route path="/bypass-test" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <BypassTestPage />
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <BypassTestPage />
+            </ProtectedRoute>
           } />
           <Route path="/labs" element={
-            <AuthGuard requireAuth={true}>
-              <SubscriptionGate>
-                <Labs />
-              </SubscriptionGate>
-            </AuthGuard>
+            <ProtectedRoute>
+              <Labs />
+            </ProtectedRoute>
           } />
           {isFeatureEnabled('AUDIT_UI') && (
             <Route path="/admin/audit-runs" element={
-              <AuthGuard requireAuth={true}>
-                <SubscriptionGate>
-                  <AuditRuns />
-                </SubscriptionGate>
-              </AuthGuard>
+              <ProtectedRoute>
+                <AuditRuns />
+              </ProtectedRoute>
             } />
           )}
           <Route path="*" element={<NotFound />} />
