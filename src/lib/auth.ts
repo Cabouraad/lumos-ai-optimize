@@ -1,10 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getOrgIdSafe } from './org-id';
 
-export async function getOrgId(): Promise<string> {
-  const { data, error } = await supabase.rpc('get_current_user_org_id');
-  console.log('🔍 Debug getOrgId RPC:', { data, error });
-  if (error || !data) {
-    throw new Error("Onboarding incomplete: no org membership");
-  }
-  return data as string;
-}
+/**
+ * @deprecated Use getOrgIdSafe() from './org-id' instead
+ * This export is maintained for backward compatibility
+ */
+export const getOrgId = getOrgIdSafe;

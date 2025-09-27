@@ -101,6 +101,19 @@ serve(async (req) => {
         .maybeSingle()
     );
 
+    // Backfill missing user_id to improve client-side RPC access
+    if (existingSubscriber && !existingSubscriber.user_id) {
+      try {
+        await supabaseClient
+          .from('subscribers')
+          .update({ user_id: user.id })
+          .eq('email', user.email);
+        diagnostics.logStep("backfilled_subscriber_user_id", { email: user.email, user_id: user.id });
+      } catch (e) {
+        diagnostics.logStep("backfill_user_id_failed", { error: (e as Error).message });
+      }
+    }
+
 // Manual override: honor existing active subscription or active trial in DB
 const now = new Date();
 const manualSubscribed = !!existingSubscriber?.subscribed;
