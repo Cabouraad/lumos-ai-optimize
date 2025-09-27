@@ -3,18 +3,39 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SubscriptionGateProps {
   children: ReactNode;
 }
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
-  const { user, orgData, subscriptionData, loading, subscriptionLoading, checkSubscription } = useAuth();
+  const { user, orgData, subscriptionData, loading, subscriptionLoading, checkSubscription, ready } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [lastRetryTime, setLastRetryTime] = useState<number | null>(null);
+  const [orgDataLoading, setOrgDataLoading] = useState(false);
+
+  // Debug logging for org data
+  useEffect(() => {
+    if (user) {
+      console.log('[SUBSCRIPTION_GATE] Org data debug:', {
+        userId: user.id,
+        userEmail: user.email,
+        orgData: orgData,
+        orgDataType: typeof orgData,
+        orgDataKeys: orgData ? Object.keys(orgData) : 'null',
+        orgId: orgData?.organizations?.id,
+        orgName: orgData?.organizations?.name,
+        hasOrganizations: !!orgData?.organizations,
+        loading,
+        ready,
+        subscriptionLoading
+      });
+    }
+  }, [user, orgData, loading, ready, subscriptionLoading]);
 
   // Enhanced subscription check with better error handling and debugging
   useEffect(() => {
@@ -91,8 +112,50 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [checkSubscription, lastRetryTime, retryCount]);
 
-  // Show loading state for auth or subscription loading OR when subscriptionData is null
-  if (loading || subscriptionLoading || (user && subscriptionData === null)) {
+  // Add fallback org data fetch if needed
+  const fetchOrgDataFallback = useCallback(async () => {
+    if (!user || orgData !== null || orgDataLoading) return;
+    
+    console.log('[SUBSCRIPTION_GATE] Attempting fallback org data fetch');
+    setOrgDataLoading(true);
+    
+    try {
+      // Try direct RPC call first
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_current_user_org_id');
+      
+      if (rpcError) {
+        console.error('[SUBSCRIPTION_GATE] RPC fallback failed:', rpcError);
+      } else if (rpcData) {
+        console.log('[SUBSCRIPTION_GATE] RPC fallback found org ID:', rpcData);
+        // If we found an org ID, create minimal org data structure
+        const mockOrgData = {
+          id: user.id,
+          org_id: rpcData,
+          organizations: {
+            id: rpcData,
+            name: 'Organization'
+          }
+        };
+        // Note: This won't update the AuthContext, but helps with debugging
+        console.log('[SUBSCRIPTION_GATE] Would use fallback org data:', mockOrgData);
+      }
+    } catch (error) {
+      console.error('[SUBSCRIPTION_GATE] Exception in fallback org fetch:', error);
+    } finally {
+      setOrgDataLoading(false);
+    }
+  }, [user, orgData, orgDataLoading]);
+
+  // Trigger fallback fetch if needed
+  useEffect(() => {
+    if (ready && user && !loading && !subscriptionLoading && orgData === null && !orgDataLoading) {
+      console.log('[SUBSCRIPTION_GATE] Triggering fallback org data fetch');
+      fetchOrgDataFallback();
+    }
+  }, [ready, user, loading, subscriptionLoading, orgData, orgDataLoading, fetchOrgDataFallback]);
+
+  // Show loading state for auth or subscription loading OR when subscriptionData is null OR waiting for org data
+  if (loading || subscriptionLoading || orgDataLoading || !ready || (user && subscriptionData === null) || (user && orgData === null && ready)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -142,8 +205,15 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // No org data - needs onboarding
-  if (!orgData?.organizations?.id) {
+  // No org data - needs onboarding (but wait for auth to be ready and org data loading to complete)
+  if (ready && !orgDataLoading && !orgData?.organizations?.id) {
+    console.log('[SUBSCRIPTION_GATE] Redirecting to onboarding - no org found', {
+      ready,
+      orgDataLoading,
+      orgData,
+      hasOrgData: !!orgData,
+      hasOrgId: !!orgData?.organizations?.id
+    });
     return <Navigate to="/onboarding" replace />;
   }
 

@@ -283,10 +283,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 timeoutPromise
               ]) as any;
               
+              devLog('Org data fetch result:', {
+                userId: data.session.user.id,
+                userEmail: data.session.user.email,
+                error: userError,
+                userData: userData,
+                hasOrganizations: userData?.organizations ? 'yes' : 'no',
+                orgId: userData?.organizations?.id,
+                orgName: userData?.organizations?.name
+              });
+              
               if (userError) {
                 console.error('Error fetching org data:', userError);
-                devLog('Org data fetch failed, continuing without org data');
-                setOrgData(null);
+                devLog('Org data fetch failed, trying fallback RPC');
+                
+                // Try fallback RPC call
+                try {
+                  const { data: fallbackOrgId, error: rpcError } = await supabase.rpc('get_current_user_org_id');
+                  
+                  devLog('Fallback RPC result:', {
+                    fallbackOrgId,
+                    rpcError
+                  });
+                  
+                  if (rpcError) {
+                    console.error('Fallback RPC also failed:', rpcError);
+                    setOrgData(null);
+                  } else if (fallbackOrgId) {
+                    // Create minimal org data structure
+                    const fallbackOrgData = {
+                      id: data.session.user.id,
+                      org_id: fallbackOrgId,
+                      email: data.session.user.email,
+                      organizations: {
+                        id: fallbackOrgId,
+                        name: 'Organization' // Placeholder name
+                      }
+                    };
+                    devLog('Using fallback org data:', fallbackOrgData);
+                    setOrgData(fallbackOrgData);
+                  } else {
+                    devLog('No fallback org data available');
+                    setOrgData(null);
+                  }
+                } catch (rpcException) {
+                  console.error('Exception in fallback RPC:', rpcException);
+                  setOrgData(null);
+                }
               } else {
                 devLog('Org data fetched successfully');
                 setOrgData(userData);
