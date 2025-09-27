@@ -50,43 +50,25 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [user, orgData, loading, ready, subscriptionLoading]);
 
-  // Enhanced subscription check with better error handling and debugging
+  // Simplified subscription monitoring - rely on AuthContext bootstrap
   useEffect(() => {
-    const handleSubscriptionCheck = async () => {
-      console.log('[SUBSCRIPTION_GATE] Component mounted/updated', {
-        plan: subscriptionData?.subscription_tier,
-        status: subscriptionData?.subscribed ? 'active' : 'inactive',
-        payment_collected: subscriptionData?.payment_collected,
-        trial_expires_at: subscriptionData?.trial_expires_at,
-        loading: loading || subscriptionLoading,
-        authError: authError,
-        retryCount: retryCount
-      });
+    console.log('[SUBSCRIPTION_GATE] Component state update', {
+      plan: subscriptionData?.subscription_tier,
+      status: subscriptionData?.subscribed ? 'active' : 'inactive',
+      payment_collected: subscriptionData?.payment_collected,
+      trial_expires_at: subscriptionData?.trial_expires_at,
+      loading: loading || subscriptionLoading,
+      authError: authError,
+      retryCount: retryCount,
+      orgStatus: orgStatus
+    });
 
-      // Clear previous auth errors when we have valid subscription data
-      if (subscriptionData !== null && authError) {
-        setAuthError(null);
-        setRetryCount(0);
-      }
-
-      // Only trigger subscription check if not already checking and no data
-      if (user && !loading && !subscriptionLoading && !isChecking && subscriptionData === null) {
-        console.log('[SUBSCRIPTION_GATE] Null subscriptionData detected, triggering check');
-        try {
-          await checkSubscription();
-          // Clear error on successful check
-          setAuthError(null);
-          setRetryCount(0);
-        } catch (error) {
-          console.error('[SUBSCRIPTION_GATE] Failed to check subscription:', error);
-          setAuthError(error instanceof Error ? error.message : 'Unknown subscription check error');
-          // Don't block the UI, continue with current state
-        }
-      }
-    };
-
-    handleSubscriptionCheck();
-  }, [user, loading, subscriptionLoading, isChecking, subscriptionData, checkSubscription, authError, retryCount]);
+    // Clear previous auth errors when we have valid subscription data
+    if (subscriptionData !== null && authError) {
+      setAuthError(null);
+      setRetryCount(0);
+    }
+  }, [user, loading, subscriptionLoading, subscriptionData, authError, retryCount, orgStatus]);
 
   // Aggressive timeout to prevent infinite loading
   useEffect(() => {
@@ -111,7 +93,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [user, loading, subscriptionLoading, subscriptionData]);
 
-  // Manual retry function for users
+  // Manual retry function for users - uses bootstrap
   const handleManualRetry = useCallback(async () => {
     const now = Date.now();
     
@@ -128,7 +110,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     console.log('[SUBSCRIPTION_GATE] Manual retry initiated', { retryCount: retryCount + 1 });
     
     try {
-      await checkSubscription();
+      await checkSubscription(); // This now calls bootstrap
     } catch (error) {
       console.error('[SUBSCRIPTION_GATE] Manual retry failed:', error);
       setAuthError(error instanceof Error ? error.message : 'Retry failed');

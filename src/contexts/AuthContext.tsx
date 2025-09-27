@@ -82,16 +82,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isChecking, setIsChecking] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
-  // Simplified subscription check with better error handling
-  const checkSubscriptionStatusWithRetry = useCallback(async () => {
+  // Simplified bootstrap auth function that calls our new edge functions
+  const bootstrapAuth = useCallback(async () => {
     if (!user || !user.email) {
-      console.log('[AuthContext] No user available for subscription check');
+      console.log('[AuthContext] No user available for bootstrap');
       return;
     }
 
     // Prevent concurrent checks
     if (isCheckingRef.current) {
-      console.log('[AuthContext] Subscription check already in progress, skipping');
+      console.log('[AuthContext] Bootstrap auth already in progress, skipping');
       return;
     }
 
@@ -101,87 +101,84 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setSubscriptionError(null);
 
     try {
-      console.log('[AuthContext] Starting subscription check for user:', user.email);
+      console.log('[AuthContext] Starting bootstrap auth for user:', user.email);
       
-      // Try edge function with simple timeout
-      const checkPromise = supabase.functions.invoke('check-subscription');
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Edge function timeout')), 10000)
-      );
+      // First ensure user record exists
+      const { data: ensureData, error: ensureError } = await supabase.functions.invoke('ensure-user-record');
       
-      const { data, error } = await Promise.race([checkPromise, timeoutPromise]) as any;
-      
-      if (!error && data) {
-        console.log('[AuthContext] Subscription check success:', {
-          subscribed: data.subscribed,
-          tier: data.subscription_tier
-        });
-        setSubscriptionData(data);
-        setSubscriptionError(null);
-        return;
+      if (ensureError) {
+        console.warn('[AuthContext] Ensure user record failed:', ensureError);
+        // Continue anyway - not critical
+      } else {
+        console.log('[AuthContext] User record ensured:', ensureData);
       }
       
-      // If edge function fails, try RPC fallback
-      console.log('[AuthContext] Edge function failed, trying RPC fallback');
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_subscription_status');
+      // Then bootstrap complete auth state
+      const { data: bootstrapData, error: bootstrapError } = await supabase.functions.invoke('bootstrap-auth');
       
-      if (!rpcError && rpcData) {
-        const normalizedData = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        const subscriptionResult = {
-          subscribed: !!(normalizedData as any)?.subscribed,
-          subscription_tier: (normalizedData as any)?.subscription_tier || 'starter',
-          subscription_end: (normalizedData as any)?.subscription_end,
-          trial_expires_at: (normalizedData as any)?.trial_expires_at,
-          trial_started_at: (normalizedData as any)?.trial_started_at || null,
-          payment_collected: (normalizedData as any)?.payment_collected ?? false,
-          requires_subscription: !(normalizedData as any)?.subscribed,
-          metadata: (normalizedData as any)?.metadata || null
-        };
+      if (!bootstrapError && bootstrapData?.success) {
+        console.log('[AuthContext] Bootstrap auth success:', bootstrapData);
         
-        console.log('[AuthContext] RPC fallback success:', subscriptionResult);
-        setSubscriptionData(subscriptionResult);
+        // Set org data
+        if (bootstrapData.org_id) {
+          setOrgData({
+            id: bootstrapData.user_id,
+            org_id: bootstrapData.org_id,
+            email: bootstrapData.email,
+            organizations: bootstrapData.org
+          });
+          setOrgStatus('success');
+        } else {
+          setOrgData(null);
+          setOrgStatus('not_found');
+        }
+        
+        // Set subscription data
+        setSubscriptionData(bootstrapData.subscription);
         setSubscriptionError(null);
         return;
       }
       
-      // Both failed - set safe defaults
-      console.log('[AuthContext] Both subscription methods failed, using safe defaults');
-        setSubscriptionData({
-          subscribed: false,
-          subscription_tier: 'starter',
-          subscription_end: null,
-          trial_expires_at: null,
-          trial_started_at: null,
-          payment_collected: false,
-          requires_subscription: true,
-          metadata: null
-        });
+      // Bootstrap failed - fall back to safe defaults
+      console.log('[AuthContext] Bootstrap failed, using safe defaults');
+      setSubscriptionData({
+        subscribed: false,
+        subscription_tier: 'starter',
+        subscription_end: null,
+        trial_expires_at: null,
+        trial_started_at: null,
+        payment_collected: false,
+        requires_subscription: true,
+        metadata: null
+      });
+      setOrgData(null);
+      setOrgStatus('error');
       
     } catch (error: any) {
-      console.warn('[AuthContext] Subscription check error:', error);
+      console.warn('[AuthContext] Bootstrap auth error:', error);
       // Set safe defaults on error
-      if (!subscriptionData) {
-        setSubscriptionData({
-          subscribed: false,
-          subscription_tier: 'starter',
-          subscription_end: null,
-          trial_expires_at: null,
-          trial_started_at: null,
-          payment_collected: false,
-          requires_subscription: true,
-          metadata: null
-        });
-      }
-      setSubscriptionError(error.message || 'Subscription check failed');
+      setSubscriptionData({
+        subscribed: false,
+        subscription_tier: 'starter',
+        subscription_end: null,
+        trial_expires_at: null,
+        trial_started_at: null,
+        payment_collected: false,
+        requires_subscription: true,
+        metadata: null
+      });
+      setOrgData(null);
+      setOrgStatus('error');
+      setSubscriptionError(error.message || 'Authentication bootstrap failed');
     } finally {
       isCheckingRef.current = false;
       setIsChecking(false);
       setSubscriptionLoading(false);
     }
-  }, [user, subscriptionData]);
+  }, [user]);
 
-  // Simplified debounced subscription check
-  const debouncedCheckSubscription = useCallback(async (delay = 500) => {
+  // Simplified debounced bootstrap check
+  const debouncedBootstrap = useCallback(async (delay = 500) => {
     if (subscriptionCheckTimeoutRef.current) {
       clearTimeout(subscriptionCheckTimeoutRef.current);
     }
@@ -192,9 +189,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     subscriptionCheckTimeoutRef.current = setTimeout(() => {
-      checkSubscriptionStatusWithRetry();
+      bootstrapAuth();
     }, delay);
-  }, [checkSubscriptionStatusWithRetry]);
+  }, [bootstrapAuth]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -263,11 +260,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 setOrgStatus('not_found');
               }
               
-              // Start subscription check (but don't wait for it)
+              // Start bootstrap auth (but don't wait for it)
               setTimeout(() => {
                 if (mountedRef.current) {
-                  checkSubscriptionStatusWithRetry().catch(err => 
-                    console.warn('[AuthContext] Initial subscription check failed:', err)
+                  bootstrapAuth().catch(err => 
+                    console.warn('[AuthContext] Initial bootstrap failed:', err)
                   );
                 }
               }, 100);
@@ -333,8 +330,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
               setOrgData(data);
               
-              // Trigger subscription check on sign in
-              debouncedCheckSubscription(1000);
+              // Trigger bootstrap on sign in
+              debouncedBootstrap(1000);
             } catch (err) {
               console.error('Error in sign-in handler:', err);
             }
@@ -358,7 +355,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         clearTimeout(subscriptionCheckTimeoutRef.current);
       }
     };
-  }, [debouncedCheckSubscription, checkSubscriptionStatusWithRetry]);
+  }, [debouncedBootstrap, bootstrapAuth]);
 
   const signOut = useCallback(async () => {
     try {
@@ -379,7 +376,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     ready,
     isChecking,
     subscriptionError,
-    checkSubscription: debouncedCheckSubscription,
+    checkSubscription: debouncedBootstrap,
     signOut,
   };
 

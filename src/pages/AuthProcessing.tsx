@@ -30,7 +30,7 @@ export default function AuthProcessing() {
       return;
     }
 
-    // Exchange code for session
+    // Exchange code for session and bootstrap user
     const exchangeCodeForSession = async () => {
       try {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -39,9 +39,36 @@ export default function AuthProcessing() {
           throw error;
         }
 
+        // Ensure user record exists
+        try {
+          await supabase.functions.invoke('ensure-user-record');
+        } catch (ensureError) {
+          console.warn('Ensure user record failed:', ensureError);
+          // Not critical, continue
+        }
+
+        // Bootstrap to determine where to redirect
+        try {
+          const { data: bootstrapData, error: bootstrapError } = await supabase.functions.invoke('bootstrap-auth');
+          
+          if (!bootstrapError && bootstrapData?.success) {
+            // Redirect based on org status
+            if (bootstrapData.org_id) {
+              setTimeout(() => navigate('/dashboard'), 1000);
+            } else {
+              setTimeout(() => navigate('/onboarding'), 1000);
+            }
+          } else {
+            // Default to dashboard if bootstrap fails
+            setTimeout(() => navigate('/dashboard'), 1000);
+          }
+        } catch (bootstrapError) {
+          console.warn('Bootstrap failed:', bootstrapError);
+          // Default to dashboard
+          setTimeout(() => navigate('/dashboard'), 1000);
+        }
+
         setStatus('success');
-        // Redirect to dashboard after successful authentication
-        setTimeout(() => navigate('/dashboard'), 1000);
       } catch (err) {
         console.error('Error exchanging code for session:', err);
         setStatus('error');

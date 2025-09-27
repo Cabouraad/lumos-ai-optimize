@@ -39,11 +39,14 @@ const Terms = lazy(() => loadChunkWithRetry(() => import("./pages/Terms")));
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 const App = () => {
-  // Prefetch Onboarding chunk when idle to prevent chunk load failures
+  // Prefetch critical chunks to prevent load failures
   useEffect(() => {
-    const prefetchOnboarding = () => {
+    const prefetchCriticalChunks = () => {
       try {
+        // Prefetch common pages
         import("./pages/Onboarding");
+        import("./pages/Dashboard");
+        import("./pages/Pricing");
       } catch (error) {
         // Silently ignore prefetch errors
       }
@@ -52,9 +55,9 @@ const App = () => {
     // Use requestIdleCallback if available, otherwise use setTimeout
     if (typeof window !== 'undefined') {
       if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(prefetchOnboarding);
+        window.requestIdleCallback(prefetchCriticalChunks);
       } else {
-        setTimeout(prefetchOnboarding, 2000);
+        setTimeout(prefetchCriticalChunks, 2000);
       }
     }
   }, []);

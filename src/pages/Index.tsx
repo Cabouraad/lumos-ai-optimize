@@ -6,9 +6,9 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight } from 'lucide-react';
 
 const Index = () => {
-  const { user, loading, orgData } = useAuth();
+  const { user, loading, orgData, orgStatus, ready } = useAuth();
 
-  if (loading) {
+  if (loading || !ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -19,11 +19,13 @@ const Index = () => {
     );
   }
 
-  if (user && orgData) {
+  // Only redirect to dashboard if we confirmed the user has an org
+  if (user && orgData && orgStatus === 'success') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (user && !orgData) {
+  // Only redirect to onboarding if we confirmed there's no org (not on loading or error)
+  if (user && orgStatus === 'not_found') {
     return <Navigate to="/onboarding" replace />;
   }
 
