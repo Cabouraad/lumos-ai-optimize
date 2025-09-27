@@ -14,27 +14,27 @@ const AuthProcessing = lazy(() => loadChunkWithRetry(() => import("./pages/AuthP
 const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboarding")));
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
 const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
-const Optimizations = lazy(() => import("./pages/Optimizations"));
-const Competitors = lazy(() => import("./pages/Competitors"));
-const LLMsText = lazy(() => import("./pages/LLMsText"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Pricing = lazy(() => import("./pages/Pricing"));
-const Features = lazy(() => import("./pages/Features"));
-const BrandVisibility = lazy(() => import("./pages/features/BrandVisibility"));
-const CompetitiveAnalysis = lazy(() => import("./pages/features/CompetitiveAnalysis"));
-const ActionableRecommendations = lazy(() => import("./pages/features/ActionableRecommendations"));
-const Resources = lazy(() => import("./pages/Resources"));
-const BlogPost = lazy(() => import("./pages/BlogPost"));
-const TrialSuccess = lazy(() => import("./pages/TrialSuccess"));
-const DomainVerification = lazy(() => import("./pages/DomainVerification"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Reports = lazy(() => import("./pages/Reports"));
-const BypassTestPage = lazy(() => import("./pages/BypassTestPage"));
-const Labs = lazy(() => import("./pages/Labs"));
-const AuditRuns = lazy(() => import("./pages/admin/AuditRuns"));
-const FreeChecker = lazy(() => import("./pages/FreeChecker"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
+const Optimizations = lazy(() => loadChunkWithRetry(() => import("./pages/Optimizations")));
+const Competitors = lazy(() => loadChunkWithRetry(() => import("./pages/Competitors")));
+const LLMsText = lazy(() => loadChunkWithRetry(() => import("./pages/LLMsText")));
+const Settings = lazy(() => loadChunkWithRetry(() => import("./pages/Settings")));
+const Pricing = lazy(() => loadChunkWithRetry(() => import("./pages/Pricing")));
+const Features = lazy(() => loadChunkWithRetry(() => import("./pages/Features")));
+const BrandVisibility = lazy(() => loadChunkWithRetry(() => import("./pages/features/BrandVisibility")));
+const CompetitiveAnalysis = lazy(() => loadChunkWithRetry(() => import("./pages/features/CompetitiveAnalysis")));
+const ActionableRecommendations = lazy(() => loadChunkWithRetry(() => import("./pages/features/ActionableRecommendations")));
+const Resources = lazy(() => loadChunkWithRetry(() => import("./pages/Resources")));
+const BlogPost = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPost")));
+const TrialSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/TrialSuccess")));
+const DomainVerification = lazy(() => loadChunkWithRetry(() => import("./pages/DomainVerification")));
+const NotFound = lazy(() => loadChunkWithRetry(() => import("./pages/NotFound")));
+const Reports = lazy(() => loadChunkWithRetry(() => import("./pages/Reports")));
+const BypassTestPage = lazy(() => loadChunkWithRetry(() => import("./pages/BypassTestPage")));
+const Labs = lazy(() => loadChunkWithRetry(() => import("./pages/Labs")));
+const AuditRuns = lazy(() => loadChunkWithRetry(() => import("./pages/admin/AuditRuns")));
+const FreeChecker = lazy(() => loadChunkWithRetry(() => import("./pages/FreeChecker")));
+const Privacy = lazy(() => loadChunkWithRetry(() => import("./pages/Privacy")));
+const Terms = lazy(() => loadChunkWithRetry(() => import("./pages/Terms")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -95,7 +95,9 @@ const App = () => {
           <Route path="/dashboard" element={
             <AuthGuard requireAuth={true}>
               <SubscriptionGate>
-                <Dashboard />
+                <ChunkErrorBoundary chunkName="Dashboard">
+                  <Dashboard />
+                </ChunkErrorBoundary>
               </SubscriptionGate>
             </AuthGuard>
           } />
@@ -111,21 +113,27 @@ const App = () => {
           <Route path="/competitors" element={
             <AuthGuard requireAuth={true}>
               <SubscriptionGate>
-                <Competitors />
+                <ChunkErrorBoundary chunkName="Competitors">
+                  <Competitors />
+                </ChunkErrorBoundary>
               </SubscriptionGate>
             </AuthGuard>
           } />
           <Route path="/llms-txt" element={
             <AuthGuard requireAuth={true}>
               <SubscriptionGate>
-                <LLMsText />
+                <ChunkErrorBoundary chunkName="LLMsText">
+                  <LLMsText />
+                </ChunkErrorBoundary>
               </SubscriptionGate>
             </AuthGuard>
           } />
           <Route path="/optimizations" element={
             <AuthGuard requireAuth={true}>
               <SubscriptionGate>
-                <Optimizations />
+                <ChunkErrorBoundary chunkName="Optimizations">
+                  <Optimizations />
+                </ChunkErrorBoundary>
               </SubscriptionGate>
             </AuthGuard>
           } />
