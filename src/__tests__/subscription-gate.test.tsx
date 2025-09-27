@@ -61,6 +61,7 @@ describe('SubscriptionGate', () => {
         },
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -94,6 +95,7 @@ describe('SubscriptionGate', () => {
         },
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -129,6 +131,7 @@ describe('SubscriptionGate', () => {
         },
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -162,6 +165,7 @@ describe('SubscriptionGate', () => {
         },
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -193,6 +197,7 @@ describe('SubscriptionGate', () => {
         },
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -219,6 +224,7 @@ describe('SubscriptionGate', () => {
         subscriptionData: null,
         loading: true,
         subscriptionLoading: false,
+        ready: false,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -242,6 +248,7 @@ describe('SubscriptionGate', () => {
         subscriptionData: null,
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -266,6 +273,7 @@ describe('SubscriptionGate', () => {
         subscriptionData: null,
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -301,6 +309,7 @@ describe('SubscriptionGate', () => {
         },
         loading: false,
         subscriptionLoading: false,
+        ready: true,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
