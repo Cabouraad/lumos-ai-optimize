@@ -62,6 +62,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -96,6 +98,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -132,6 +136,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -166,6 +172,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -198,6 +206,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -225,6 +235,8 @@ describe('SubscriptionGate', () => {
         loading: true,
         subscriptionLoading: false,
         ready: false,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -249,6 +261,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -274,6 +288,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });
@@ -310,6 +326,8 @@ describe('SubscriptionGate', () => {
         loading: false,
         subscriptionLoading: false,
         ready: true,
+        isChecking: false,
+        subscriptionError: null,
         checkSubscription: vi.fn(),
         signOut: vi.fn()
       });

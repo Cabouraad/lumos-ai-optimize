@@ -10,7 +10,17 @@ interface SubscriptionGateProps {
 }
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
-  const { user, orgData, subscriptionData, loading, subscriptionLoading, checkSubscription, ready } = useAuth();
+  const { 
+    user, 
+    orgData, 
+    subscriptionData, 
+    loading, 
+    subscriptionLoading, 
+    ready, 
+    isChecking,
+    subscriptionError,
+    checkSubscription 
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
@@ -178,15 +188,14 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     loadingTimeoutReached
   });
 
-  // Show loading state - but with emergency exits
-  const shouldShowLoading = !forceAccess && !loadingTimeoutReached && (
-    loading || 
-    subscriptionLoading || 
-    orgDataLoading || 
-    !ready || 
-    (user && subscriptionData === null) || 
-    (user && orgData === null && ready)
-  );
+  // Extract orgId from orgData structure (handle both formats)
+  const orgId = orgData?.organizations?.id || orgData?.org_id;
+  
+  // Determine if we should show loading screen - don't block if we have last-known data
+  const shouldShowLoading = (loading || !ready || 
+    (user && subscriptionData === null && !subscriptionError && !forceAccess) || 
+    (user && !orgId && ready && !forceAccess) ||
+    orgDataLoading) && !loadingTimeoutReached;
 
   if (shouldShowLoading) {
     return (
@@ -224,11 +233,11 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
             </div>
           )}
           
-          {/* Show error message and retry option if there's an auth error */}
-          {authError && (
+          {/* Show error message and retry option if there's a subscription error */}
+          {subscriptionError && (
             <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-md mx-auto">
               <p className="text-sm text-destructive mb-3">
-                {authError}
+                {subscriptionError}
               </p>
               <div className="space-y-2">
                 <Button 
@@ -258,7 +267,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
           )}
           
           {/* Auto-timeout message */}
-          {user && subscriptionData === null && !authError && !loadingTimeoutReached && (
+          {user && subscriptionData === null && !subscriptionError && !loadingTimeoutReached && (
             <div className="mt-6 text-xs text-muted-foreground">
               <p>This is taking longer than usual...</p>
             </div>
@@ -273,15 +282,9 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // No org data - needs onboarding (but wait for auth to be ready and org data loading to complete)
-  if (ready && !orgDataLoading && !orgData?.organizations?.id) {
-    console.log('[SUBSCRIPTION_GATE] Redirecting to onboarding - no org found', {
-      ready,
-      orgDataLoading,
-      orgData,
-      hasOrgData: !!orgData,
-      hasOrgId: !!orgData?.organizations?.id
-    });
+  // Redirect to onboarding if user is ready but has no organization ID (more robust check)
+  if (user && !orgId && ready && !shouldShowLoading && !forceAccess) {
+    console.log('[SubscriptionGate] Redirecting to onboarding - user has no org ID');
     return <Navigate to="/onboarding" replace />;
   }
 
