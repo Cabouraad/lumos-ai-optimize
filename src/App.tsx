@@ -4,14 +4,16 @@ import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
+import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
+import { loadChunkWithRetry } from "@/utils/chunk-loader";
 
-// Lazy load all page components to reduce initial bundle size
-const Index = lazy(() => import("./pages/Index"));
-const Auth = lazy(() => import("./pages/Auth"));
-const AuthProcessing = lazy(() => import("./pages/AuthProcessing"));
-const Onboarding = lazy(() => import("./pages/Onboarding"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Prompts = lazy(() => import("./pages/Prompts"));
+// Lazy load all page components with retry logic to handle chunk loading failures
+const Index = lazy(() => loadChunkWithRetry(() => import("./pages/Index")));
+const Auth = lazy(() => loadChunkWithRetry(() => import("./pages/Auth")));
+const AuthProcessing = lazy(() => loadChunkWithRetry(() => import("./pages/AuthProcessing")));
+const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboarding")));
+const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
+const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
 const Optimizations = lazy(() => import("./pages/Optimizations"));
 const Competitors = lazy(() => import("./pages/Competitors"));
 const LLMsText = lazy(() => import("./pages/LLMsText"));
@@ -100,7 +102,9 @@ const App = () => {
           <Route path="/prompts" element={
             <AuthGuard requireAuth={true}>
               <SubscriptionGate>
-                <Prompts />
+                <ChunkErrorBoundary chunkName="Prompts">
+                  <Prompts />
+                </ChunkErrorBoundary>
               </SubscriptionGate>
             </AuthGuard>
           } />
