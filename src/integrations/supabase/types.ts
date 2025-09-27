@@ -1599,13 +1599,7 @@ export type Database = {
       }
       get_user_subscription_status: {
         Args: Record<PropertyKey, never>
-        Returns: {
-          payment_collected: boolean
-          subscribed: boolean
-          subscription_end: string
-          subscription_tier: string
-          trial_expires_at: string
-        }[]
+        Returns: Json
       }
       get_week_boundaries: {
         Args: { input_date: string }
