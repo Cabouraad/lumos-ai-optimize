@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   orgData: any | null;
+  orgStatus: 'idle' | 'loading' | 'success' | 'not_found' | 'error';
   subscriptionData: {
     subscribed: boolean;
     subscription_tier: string | null;
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   orgData: null,
+  orgStatus: 'idle',
   subscriptionData: null,
   loading: true,
   subscriptionLoading: false,
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [orgData, setOrgData] = useState<any | null>(null);
+  const [orgStatus, setOrgStatus] = useState<'idle' | 'loading' | 'success' | 'not_found' | 'error'>('idle');
   const [subscriptionData, setSubscriptionData] = useState<{
     subscribed: boolean;
     subscription_tier: string | null;
@@ -301,6 +304,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // Fetch user's org data with timeout and fallback
             try {
               devLog('Fetching user org data');
+              setOrgStatus('loading');
               
               // Add a timeout to prevent hanging on network issues
               const orgDataPromise = supabase
@@ -346,7 +350,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   
                   if (rpcError) {
                     console.error('Fallback RPC also failed:', rpcError);
-                    setOrgData(null);
+                    // Only set orgData to null and mark as error if we don't have existing data
+                    if (!orgData) {
+                      setOrgData(null);
+                    }
+                    setOrgStatus('error');
                   } else if (fallbackOrgId) {
                     // Create minimal org data structure with proper org ID mapping
                     const fallbackOrgData = {
@@ -360,17 +368,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     };
                     devLog('Using fallback org data:', fallbackOrgData);
                     setOrgData(fallbackOrgData);
+                    setOrgStatus('success');
                   } else {
                     devLog('No fallback org data available');
                     setOrgData(null);
+                    setOrgStatus('not_found');
                   }
                 } catch (rpcException) {
                   console.error('Exception in fallback RPC:', rpcException);
-                  setOrgData(null);
+                  // Keep existing orgData if we have it, otherwise set to null
+                  if (!orgData) {
+                    setOrgData(null);
+                  }
+                  setOrgStatus('error');
                 }
-              } else {
+              } else if (userData) {
                 devLog('Org data fetched successfully');
                 setOrgData(userData);
+                setOrgStatus('success');
+              } else {
+                // No user data found (positive result: user exists but no org)
+                devLog('No user data found');
+                setOrgData(null);
+                setOrgStatus('not_found');
               }
               
               // Initial subscription check with timeout - call directly to decouple from debounced version
@@ -391,12 +411,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             } catch (err) {
               console.error('Exception in org data fetch:', err);
               devLog('Exception in user data setup, continuing gracefully');
-              setOrgData(null);
+              // Keep existing orgData if we have it, otherwise set to null
+              if (!orgData) {
+                setOrgData(null);
+              }
+              setOrgStatus('error');
               setLoading(false);
             }
           } else {
             devLog('No user session, setting defaults');
             setOrgData(null);
+            setOrgStatus('idle');
             setSubscriptionData(null);
             setSubscriptionLoading(false);
             setLoading(false);
@@ -412,6 +437,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setSession(null);
         setUser(null);
         setOrgData(null);
+        setOrgStatus('error');
         setSubscriptionData(null);
         setLoading(false);
         setSubscriptionLoading(false);
@@ -497,13 +523,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     session,
     orgData,
+    orgStatus,
     subscriptionData,
     loading,
     subscriptionLoading,
     ready,
     isChecking,
     subscriptionError,
-    checkSubscription: checkSubscriptionStatusWithRetry,
+    checkSubscription: debouncedCheckSubscription,
     signOut,
   };
 

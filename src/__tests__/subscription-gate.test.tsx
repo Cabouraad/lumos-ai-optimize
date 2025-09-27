@@ -51,6 +51,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: { organizations: { id: 'org1' } },
+        orgStatus: 'success' as const,
         subscriptionData: {
           subscribed: true,
           subscription_tier: 'pro',
@@ -87,6 +88,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: { organizations: { id: 'org1' } },
+        orgStatus: 'success' as const,
         subscriptionData: {
           subscribed: false,
           subscription_tier: 'starter',
@@ -125,6 +127,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: { organizations: { id: 'org1' } },
+        orgStatus: 'success' as const,
         subscriptionData: {
           subscribed: false,
           subscription_tier: 'starter',
@@ -161,6 +164,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: { organizations: { id: 'org1' } },
+        orgStatus: 'success' as const,
         subscriptionData: {
           subscribed: false,
           subscription_tier: 'starter',
@@ -195,6 +199,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: { organizations: { id: 'org1' } },
+        orgStatus: 'success' as const,
         subscriptionData: {
           subscribed: false,
           subscription_tier: null,
@@ -231,6 +236,7 @@ describe('SubscriptionGate', () => {
         user: null,
         session: null,
         orgData: null,
+        orgStatus: 'idle' as const,
         subscriptionData: null,
         loading: true,
         subscriptionLoading: false,
@@ -257,6 +263,7 @@ describe('SubscriptionGate', () => {
         user: null,
         session: null,
         orgData: null,
+        orgStatus: 'idle' as const,
         subscriptionData: null,
         loading: false,
         subscriptionLoading: false,
@@ -284,6 +291,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: null,
+        orgStatus: 'not_found' as const,
         subscriptionData: null,
         loading: false,
         subscriptionLoading: false,
@@ -315,6 +323,7 @@ describe('SubscriptionGate', () => {
         user: createMockUser(),
         session: { user: createMockUser() } as any,
         orgData: { organizations: { id: 'org1' } },
+        orgStatus: 'success' as const,
         subscriptionData: {
           subscribed: false,
           subscription_tier: null,

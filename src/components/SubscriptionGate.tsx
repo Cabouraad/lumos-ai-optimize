@@ -13,6 +13,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const { 
     user, 
     orgData, 
+    orgStatus,
     subscriptionData, 
     loading, 
     subscriptionLoading, 
@@ -68,7 +69,8 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
         setRetryCount(0);
       }
 
-      if (user && !loading && !subscriptionLoading && subscriptionData === null) {
+      // Only trigger subscription check if not already checking and no data
+      if (user && !loading && !subscriptionLoading && !isChecking && subscriptionData === null) {
         console.log('[SUBSCRIPTION_GATE] Null subscriptionData detected, triggering check');
         try {
           await checkSubscription();
@@ -84,7 +86,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     };
 
     handleSubscriptionCheck();
-  }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription, authError, retryCount]);
+  }, [user, loading, subscriptionLoading, isChecking, subscriptionData, checkSubscription, authError, retryCount]);
 
   // Aggressive timeout to prevent infinite loading
   useEffect(() => {
@@ -133,57 +135,17 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [checkSubscription, lastRetryTime, retryCount]);
 
-  // Add fallback org data fetch if needed
-  const fetchOrgDataFallback = useCallback(async () => {
-    if (!user || orgData !== null || orgDataLoading) return;
-    
-    console.log('[SUBSCRIPTION_GATE] Attempting fallback org data fetch');
-    setOrgDataLoading(true);
-    
-    try {
-      // Try direct RPC call first
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_current_user_org_id');
-      
-      if (rpcError) {
-        console.error('[SUBSCRIPTION_GATE] RPC fallback failed:', rpcError);
-      } else if (rpcData) {
-        console.log('[SUBSCRIPTION_GATE] RPC fallback found org ID:', rpcData);
-        // If we found an org ID, create minimal org data structure
-        const mockOrgData = {
-          id: user.id,
-          org_id: rpcData,
-          organizations: {
-            id: rpcData,
-            name: 'Organization'
-          }
-        };
-        // Note: This won't update the AuthContext, but helps with debugging
-        console.log('[SUBSCRIPTION_GATE] Would use fallback org data:', mockOrgData);
-      }
-    } catch (error) {
-      console.error('[SUBSCRIPTION_GATE] Exception in fallback org fetch:', error);
-    } finally {
-      setOrgDataLoading(false);
-    }
-  }, [user, orgData, orgDataLoading]);
-
-  // Trigger fallback fetch if needed
-  useEffect(() => {
-    if (ready && user && !loading && !subscriptionLoading && orgData === null && !orgDataLoading) {
-      console.log('[SUBSCRIPTION_GATE] Triggering fallback org data fetch');
-      fetchOrgDataFallback();
-    }
-  }, [ready, user, loading, subscriptionLoading, orgData, orgDataLoading, fetchOrgDataFallback]);
+  // Removed fallback org data fetch - now handled in AuthContext
 
   // Debug current loading states
   console.log('[SUBSCRIPTION_GATE] Loading states:', {
     loading,
     subscriptionLoading,
-    orgDataLoading,
     ready,
     hasUser: !!user,
     hasSubscriptionData: !!subscriptionData,
     hasOrgData: !!orgData,
+    orgStatus,
     forceAccess,
     loadingTimeoutReached
   });
@@ -194,8 +156,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   // Determine if we should show loading screen - don't block if we have last-known data
   const shouldShowLoading = (loading || !ready || 
     (user && subscriptionData === null && !subscriptionError && !forceAccess) || 
-    (user && !orgId && ready && !forceAccess) ||
-    orgDataLoading) && !loadingTimeoutReached;
+    (user && orgStatus === 'loading' && !forceAccess)) && !loadingTimeoutReached;
 
   if (shouldShowLoading) {
     return (
@@ -282,10 +243,53 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Redirect to onboarding if user is ready but has no organization ID (more robust check)
-  if (user && !orgId && ready && !shouldShowLoading && !forceAccess) {
-    console.log('[SubscriptionGate] Redirecting to onboarding - user has no org ID');
+  // Only redirect to onboarding if we're certain there's no organization
+  if (user && orgStatus === 'not_found' && ready && !shouldShowLoading && !forceAccess) {
+    console.log('[SubscriptionGate] Redirecting to onboarding - confirmed no org');
     return <Navigate to="/onboarding" replace />;
+  }
+
+  // Show non-blocking warning for org fetch errors but allow continuing
+  if (user && orgStatus === 'error' && ready && !forceAccess && !shouldShowLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-4">
+          <Card className="border-orange-200 dark:border-orange-800">
+            <CardHeader>
+              <CardTitle className="text-orange-800 dark:text-orange-200">
+                Connection Issue
+              </CardTitle>
+              <CardDescription>
+                We're having trouble loading your organization data. This might be a temporary network issue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Button 
+                  onClick={handleManualRetry}
+                  disabled={retryCount >= 3}
+                  className="w-full"
+                >
+                  {retryCount >= 3 ? 'Max retries reached' : `Try Again (${retryCount}/3)`}
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={() => setForceAccess(true)}
+                  className="w-full"
+                >
+                  Continue Anyway
+                </Button>
+              </div>
+              
+              <p className="text-xs text-muted-foreground text-center">
+                You can continue to use the app, but some features may not work properly.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   // Check if subscription is required - with fallback for forced access

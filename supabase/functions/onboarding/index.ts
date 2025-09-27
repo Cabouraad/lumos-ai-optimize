@@ -5,7 +5,7 @@ import { withRequestLogging } from "../_shared/observability/structured-logger.t
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -100,19 +100,20 @@ serve(async (req) => {
 
     logger.info("Organization created", { metadata: { orgId: org.id } });
 
-    // 2) Insert user row as owner (users table is write-locked to service role)
+    // 2) Upsert user row as owner (users table is write-locked to service role)
     const { error: userErr } = await supa
       .from("users")
-      .insert({ 
+      .upsert({ 
         id: userId, 
         org_id: org.id, 
         role: "owner", 
         email: email ?? "unknown@example.com" 
+      }, { 
+        onConflict: "id" 
       });
 
-    // Allow idempotency if the row already exists
-    if (userErr && !/duplicate key/i.test(userErr.message)) {
-      console.error("Error creating user:", userErr);
+    if (userErr) {
+      console.error("Error upserting user:", userErr);
       return new Response(JSON.stringify({ error: userErr.message }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
