@@ -17,6 +17,8 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [lastRetryTime, setLastRetryTime] = useState<number | null>(null);
   const [orgDataLoading, setOrgDataLoading] = useState(false);
+  const [forceAccess, setForceAccess] = useState(false);
+  const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
 
   // Debug logging for org data
   useEffect(() => {
@@ -74,15 +76,24 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     handleSubscriptionCheck();
   }, [user, loading, subscriptionLoading, subscriptionData, checkSubscription, authError, retryCount]);
 
-  // Safety timeout to prevent infinite loading with better error recovery
+  // Aggressive timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.warn('[SUBSCRIPTION_GATE] Aggressive timeout reached - forcing access');
+      setLoadingTimeoutReached(true);
+      setAuthError('Loading timed out. You can continue to use the app, but some features may not work properly.');
+    }, 8000); // Shorter timeout
+    
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Emergency fallback timeout
   useEffect(() => {
     if (user && !loading && !subscriptionLoading && subscriptionData === null) {
       const timeout = setTimeout(() => {
-        console.warn('[SUBSCRIPTION_GATE] Safety timeout triggered - subscription check took too long');
-        setAuthError('Subscription check timed out. Please try refreshing the page.');
-        // Set default subscription data to prevent infinite loading
-        // Note: This won't actually update the context, but helps with UI state
-      }, 12000); // Increased timeout to allow for retries
+        console.warn('[SUBSCRIPTION_GATE] Emergency timeout - allowing access with defaults');
+        setForceAccess(true);
+      }, 15000);
       
       return () => clearTimeout(timeout);
     }
@@ -154,8 +165,30 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [ready, user, loading, subscriptionLoading, orgData, orgDataLoading, fetchOrgDataFallback]);
 
-  // Show loading state for auth or subscription loading OR when subscriptionData is null OR waiting for org data
-  if (loading || subscriptionLoading || orgDataLoading || !ready || (user && subscriptionData === null) || (user && orgData === null && ready)) {
+  // Debug current loading states
+  console.log('[SUBSCRIPTION_GATE] Loading states:', {
+    loading,
+    subscriptionLoading,
+    orgDataLoading,
+    ready,
+    hasUser: !!user,
+    hasSubscriptionData: !!subscriptionData,
+    hasOrgData: !!orgData,
+    forceAccess,
+    loadingTimeoutReached
+  });
+
+  // Show loading state - but with emergency exits
+  const shouldShowLoading = !forceAccess && !loadingTimeoutReached && (
+    loading || 
+    subscriptionLoading || 
+    orgDataLoading || 
+    !ready || 
+    (user && subscriptionData === null) || 
+    (user && orgData === null && ready)
+  );
+
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -166,20 +199,55 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
              'Verifying access...'}
           </p>
           
+          {/* Show detailed debug info after 5 seconds */}
+          {loadingTimeoutReached && (
+            <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg max-w-md mx-auto">
+              <p className="text-sm text-orange-800 dark:text-orange-200 mb-3">
+                Loading is taking longer than expected. Debug info:
+              </p>
+              <div className="text-xs text-left space-y-1 text-orange-700 dark:text-orange-300">
+                <div>Auth loading: {loading ? 'Yes' : 'No'}</div>
+                <div>Subscription loading: {subscriptionLoading ? 'Yes' : 'No'}</div>
+                <div>Ready: {ready ? 'Yes' : 'No'}</div>
+                <div>Has user: {user ? 'Yes' : 'No'}</div>
+                <div>Has subscription data: {subscriptionData ? 'Yes' : 'No'}</div>
+                <div>Has org data: {orgData ? 'Yes' : 'No'}</div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+                onClick={() => setForceAccess(true)}
+              >
+                Continue Anyway
+              </Button>
+            </div>
+          )}
+          
           {/* Show error message and retry option if there's an auth error */}
           {authError && (
             <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-md mx-auto">
               <p className="text-sm text-destructive mb-3">
                 {authError}
               </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleManualRetry}
-                disabled={retryCount >= 3}
-              >
-                {retryCount >= 3 ? 'Max retries reached' : `Retry (${retryCount}/3)`}
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleManualRetry}
+                  disabled={retryCount >= 3}
+                >
+                  {retryCount >= 3 ? 'Max retries reached' : `Retry (${retryCount}/3)`}
+                </Button>
+                
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={() => setForceAccess(true)}
+                >
+                  Continue Anyway
+                </Button>
+              </div>
               
               {retryCount >= 3 && (
                 <div className="mt-3 text-xs text-muted-foreground">
@@ -190,7 +258,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
           )}
           
           {/* Auto-timeout message */}
-          {user && subscriptionData === null && !authError && (
+          {user && subscriptionData === null && !authError && !loadingTimeoutReached && (
             <div className="mt-6 text-xs text-muted-foreground">
               <p>This is taking longer than usual...</p>
             </div>
@@ -217,12 +285,12 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Check if subscription is required
-  const hasValidSubscription = subscriptionData?.subscribed || 
+  // Check if subscription is required - with fallback for forced access
+  const hasValidSubscription = forceAccess || subscriptionData?.subscribed || 
     (subscriptionData?.trial_expires_at && new Date(subscriptionData.trial_expires_at) > new Date() && subscriptionData?.payment_collected === true);
 
-  // If user requires subscription and doesn't have one, show subscription required page
-  if (subscriptionData?.requires_subscription || !hasValidSubscription) {
+  // If user requires subscription and doesn't have one, show subscription required page (unless forced)
+  if (!forceAccess && (subscriptionData?.requires_subscription || !hasValidSubscription)) {
     // Don't block access to pricing page
     if (location.pathname === '/pricing') {
       return <>{children}</>;
