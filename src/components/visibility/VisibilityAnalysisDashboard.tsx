@@ -103,56 +103,6 @@ export function VisibilityAnalysisDashboard() {
         </Card>
       </div>
 
-      {/* Biggest Gaps */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingDown className="h-5 w-5 text-destructive" />
-            Biggest Visibility Gaps
-          </CardTitle>
-          <CardDescription>
-            Prompts with the lowest visibility that need immediate attention
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {analysis.biggest_gaps.map((gap, index) => (
-              <div key={gap.prompt_id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="destructive">#{index + 1}</Badge>
-                    <span className="font-medium">
-                      {gap.visibility_gap}% visibility gap
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {gap.prompt_text}
-                  </p>
-                  {gap.missed_opportunities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      <span className="text-xs text-muted-foreground">Losing to:</span>
-                      {gap.missed_opportunities.map((competitor, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {competitor}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="ml-4">
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-destructive">
-                      {(100 - gap.visibility_gap)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">current</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Competitor Analysis */}
       <Card>
         <CardHeader>
@@ -193,42 +143,6 @@ export function VisibilityAnalysisDashboard() {
         </CardContent>
       </Card>
 
-      {/* Content Opportunities */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Content Opportunities
-          </CardTitle>
-          <CardDescription>
-            High-impact content types that could improve your visibility
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analysis.content_opportunities.map((opportunity) => (
-              <div key={opportunity.content_type} className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium capitalize">
-                    {opportunity.content_type.replace('_', ' ')}
-                  </h4>
-                  <Badge variant="secondary">
-                    +{opportunity.potential_impact}% impact
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Could help {opportunity.affected_prompts} prompts improve visibility
-                </p>
-                <Progress 
-                  value={opportunity.potential_impact} 
-                  className="mt-3" 
-                  max={50}
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
