@@ -121,49 +121,47 @@ export function useBatchGenerateOptimizations() {
   return useMutation({
     mutationFn: async ({ 
       orgContext,
-      maxPrompts = 10 
+      maxPrompts = 5 
     }: { 
       orgContext: { name: string; description?: string };
       maxPrompts?: number;
     }) => {
-      // Get prompts under 100% visibility
-      const promptsData = await analyzePromptVisibility(userData?.org_id!);
-      const targetPrompts = promptsData
-        .sort((a, b) => a.visibility_percentage - b.visibility_percentage) // Lowest visibility first
-        .slice(0, maxPrompts);
-
-      const allOptimizations: ContentOptimization[] = [];
-      
-      // Generate optimizations for each prompt
-      for (const promptData of targetPrompts) {
-        try {
-          const result = await generateContentOptimizations(promptData, orgContext);
-          
-          // Save optimizations
-          for (const optimization of result.optimizations) {
-            try {
-              const optimizationId = await saveOptimization(optimization);
-              allOptimizations.push({
-                ...optimization,
-                id: optimizationId,
-                created_at: new Date().toISOString()
-              });
-            } catch (error) {
-              console.error('Failed to save optimization for prompt:', promptData.id, error);
-            }
-          }
-          
-          // Add delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-        } catch (error) {
-          console.error('Failed to generate optimizations for prompt:', promptData.id, error);
+      // Call the edge function directly for batch processing
+      const { data, error } = await supabase.functions.invoke('generate-optimizations', {
+        body: {
+          batch: true,
+          category: 'low_visibility' // Focus on prompts that need improvement
         }
+      });
+
+      if (error) {
+        console.error('Error calling batch generate-optimizations:', error);
+        throw error;
       }
       
+      const optimizations = (data?.optimizations || []).map((opt: any) => ({
+        id: crypto.randomUUID(),
+        type: opt.content_type || 'social_post',
+        title: opt.title || 'Optimization',
+        description: opt.body || '',
+        content_specifications: opt.implementation_details || {},
+        distribution_strategy: opt.resources || [],
+        impact_assessment: opt.success_metrics || {},
+        implementation_plan: {
+          steps: opt.implementation_details?.steps || [],
+          timeline: opt.timeline_weeks || 4,
+          difficulty: opt.difficulty_level || 'medium'
+        },
+        content_strategy: opt.reddit_strategy || {},
+        priority_score: opt.impact_score || 50,
+        status: 'pending' as const,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      
       return { 
-        optimizations: allOptimizations,
-        promptsProcessed: targetPrompts.length
+        optimizations,
+        promptsProcessed: data?.promptsProcessed || 0
       };
     },
     onSuccess: (data) => {

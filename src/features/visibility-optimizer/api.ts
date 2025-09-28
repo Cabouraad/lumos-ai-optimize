@@ -111,17 +111,42 @@ export async function generateContentOptimizations(
   promptData: PromptVisibilityData,
   orgContext: { name: string; description?: string }
 ): Promise<{ optimizations: ContentOptimization[] }> {
-  // Call our new edge function for AI-powered optimization generation
-  const { data, error } = await supabase.functions.invoke('generate-visibility-optimizations', {
+  // Call the correct edge function (generate-optimizations, not generate-visibility-optimizations)
+  const { data, error } = await supabase.functions.invoke('generate-optimizations', {
     body: {
-      prompt: promptData,
-      org: orgContext,
-      mode: 'specific' // for targeted, actionable recommendations
+      promptId: promptData.id,
+      batch: false,
+      category: promptData.visibility_percentage < 50 ? 'low_visibility' : 'general'
     }
   });
 
-  if (error) throw error;
-  return data || { optimizations: [] };
+  if (error) {
+    console.error('Error calling generate-optimizations:', error);
+    throw error;
+  }
+  
+  // Transform the response to match our expected format
+  const optimizations = (data?.optimizations || []).map((opt: any) => ({
+    id: crypto.randomUUID(),
+    type: opt.content_type || 'social_post',
+    title: opt.title || 'Optimization',
+    description: opt.body || '',
+    content_specifications: opt.implementation_details || {},
+    distribution_strategy: opt.resources || [],
+    impact_assessment: opt.success_metrics || {},
+    implementation_plan: {
+      steps: opt.implementation_details?.steps || [],
+      timeline: opt.timeline_weeks || 4,
+      difficulty: opt.difficulty_level || 'medium'
+    },
+    content_strategy: opt.reddit_strategy || {},
+    priority_score: opt.impact_score || 50,
+    status: 'pending' as const,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }));
+
+  return { optimizations };
 }
 
 export async function getVisibilityAnalysis(orgId: string): Promise<VisibilityAnalysis> {
