@@ -16,8 +16,8 @@ import { PromptVisibilityData, ContentOptimization, VisibilityAnalysis } from '.
  */
 
 export function usePromptVisibilityAnalysis() {
-  const { user } = useUser();
-  const orgId = user?.org_id;
+  const { userData } = useUser();
+  const orgId = userData?.org_id;
 
   return useQuery({
     queryKey: ['prompt-visibility-analysis', orgId],
@@ -29,8 +29,8 @@ export function usePromptVisibilityAnalysis() {
 }
 
 export function useVisibilityAnalysis() {
-  const { user } = useUser();
-  const orgId = user?.org_id;
+  const { userData } = useUser();
+  const orgId = userData?.org_id;
 
   return useQuery({
     queryKey: ['visibility-analysis', orgId],
@@ -42,8 +42,8 @@ export function useVisibilityAnalysis() {
 }
 
 export function useContentOptimizations() {
-  const { user } = useUser();
-  const orgId = user?.org_id;
+  const { userData } = useUser();
+  const orgId = userData?.org_id;
 
   return useQuery({
     queryKey: ['content-optimizations', orgId],
@@ -64,7 +64,7 @@ export function usePromptOptimizations(promptId: string) {
 
 export function useGenerateOptimizations() {
   const queryClient = useQueryClient();
-  const { user } = useUser();
+  const { userData } = useUser();
 
   return useMutation({
     mutationFn: async ({ 
@@ -116,7 +116,7 @@ export function useGenerateOptimizations() {
 
 export function useBatchGenerateOptimizations() {
   const queryClient = useQueryClient();
-  const { user } = useUser();
+  const { userData } = useUser();
 
   return useMutation({
     mutationFn: async ({ 
@@ -127,7 +127,7 @@ export function useBatchGenerateOptimizations() {
       maxPrompts?: number;
     }) => {
       // Get prompts under 100% visibility
-      const promptsData = await analyzePromptVisibility(user?.org_id!);
+      const promptsData = await analyzePromptVisibility(userData?.org_id!);
       const targetPrompts = promptsData
         .sort((a, b) => a.visibility_percentage - b.visibility_percentage) // Lowest visibility first
         .slice(0, maxPrompts);

@@ -30,15 +30,15 @@ const contentTypeFilters = [
 export function OptimizationsGrid() {
   const { data: optimizations = [], isLoading, error } = useContentOptimizations();
   const batchGenerate = useBatchGenerateOptimizations();
-  const { user } = useUser();
+  const { userData } = useUser();
 
   const handleBatchGenerate = async () => {
-    if (!user?.org_id) return;
+    if (!userData?.org_id) return;
     
     await batchGenerate.mutateAsync({
       orgContext: {
-        name: user.organizations?.name || 'Your Company',
-        description: user.organizations?.business_description
+        name: userData.organizations?.name || 'Your Company',
+        description: undefined // Remove non-existent property
       },
       maxPrompts: 5 // Generate for top 5 lowest visibility prompts
     });

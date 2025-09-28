@@ -1247,6 +1247,71 @@ export type Database = {
           },
         ]
       }
+      visibility_optimizations: {
+        Row: {
+          completed_at: string | null
+          content_specifications: Json
+          content_strategy: Json
+          created_at: string
+          description: string
+          difficulty_level: string
+          distribution_strategy: Json
+          id: string
+          impact_assessment: Json
+          implementation_plan: Json
+          optimization_type: string
+          priority_score: number
+          prompt_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          content_specifications?: Json
+          content_strategy?: Json
+          created_at?: string
+          description: string
+          difficulty_level?: string
+          distribution_strategy?: Json
+          id?: string
+          impact_assessment?: Json
+          implementation_plan?: Json
+          optimization_type: string
+          priority_score?: number
+          prompt_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          content_specifications?: Json
+          content_strategy?: Json
+          created_at?: string
+          description?: string
+          difficulty_level?: string
+          distribution_strategy?: Json
+          id?: string
+          impact_assessment?: Json
+          implementation_plan?: Json
+          optimization_type?: string
+          priority_score?: number
+          prompt_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visibility_optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events: {
         Row: {
           created_at: string

@@ -14,6 +14,7 @@ const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboardin
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
 const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
 const Optimizations = lazy(() => loadChunkWithRetry(() => import("./pages/Optimizations")));
+const NewOptimizations = lazy(() => loadChunkWithRetry(() => import("./pages/NewOptimizations")));
 const Competitors = lazy(() => loadChunkWithRetry(() => import("./pages/Competitors")));
 const LLMsText = lazy(() => loadChunkWithRetry(() => import("./pages/LLMsText")));
 const Settings = lazy(() => loadChunkWithRetry(() => import("./pages/Settings")));
@@ -124,8 +125,8 @@ const App = () => {
           } />
           <Route path="/optimizations" element={
             <ProtectedRoute>
-              <ChunkErrorBoundary chunkName="Optimizations">
-                <Optimizations />
+              <ChunkErrorBoundary chunkName="NewOptimizations">
+                <NewOptimizations />
               </ChunkErrorBoundary>
             </ProtectedRoute>
           } />
