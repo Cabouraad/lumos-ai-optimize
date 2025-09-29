@@ -142,17 +142,19 @@ Make sure localized prompts sound natural and are relevant to the business type.
       }
     } else {
       locationInstructions = `
-LOCALIZATION DISABLED: This business has NOT enabled localized prompts. Do NOT include any location-specific terms, city names, state names, or geographic references in any of the generated prompts. Keep all prompts generic and location-neutral.
+LOCALIZATION DISABLED: This business has DISABLED localized prompts. You MUST NOT include any location-specific terms, city names, state names, geographic references, or "near me" type queries.
 
-Examples of what to AVOID:
-- "best [service] in [city]"
-- "top [industry] companies in [state]" 
+STRICTLY AVOID:
+- "best [service] in [city/state]"
+- "top [industry] companies in [location]" 
 - "[service type] near [location]"
-- Any mention of specific cities, states, or regions
+- "where to find [solution] in [place]"
+- Any mention of specific cities, states, regions, or countries
+- Terms like "local", "nearby", "in my area", "near me"
 
-Generate only generic, location-neutral prompts that could apply to businesses anywhere.`;
+ONLY generate completely generic, location-neutral prompts that could apply to any business anywhere in the world.`;
       
-      console.log(`Generating non-localized prompts for org ${userData.org_id}`);
+      console.log(`Generating NON-LOCALIZED prompts for org ${userData.org_id} - localization is DISABLED`);
     }
 
     const systemPrompt = `You are an expert at generating natural search prompts that real users would type into AI assistants like ChatGPT, Claude, or Perplexity when looking for business solutions.
