@@ -186,8 +186,8 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
     },
     gemini: {
       apiKey: geminiKey,
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
-      model: 'gemini-1.5-flash-latest',
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+      model: 'gemini-2.0-flash-lite',
       buildRequest: (prompt: string) => ({
         contents: [{
           parts: [{
