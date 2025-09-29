@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Entry validated: diag function entrypoint present
 // Inlined CORS utility to avoid shared import packaging issues
@@ -45,7 +44,7 @@ function getStrictCorsHeaders(requestOrigin?: string | null): Record<string, str
   };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
   const allowList = (Deno.env.get("APP_ORIGINS") ?? Deno.env.get("APP_ORIGIN") ?? "")
     .split(",").map((s: string) => s.trim()).filter(Boolean);
