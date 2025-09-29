@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -14,7 +13,7 @@ const logStep = (step: string, details?: any) => {
   console.log(`[DAILY-SUB-CHECK] ${step}${detailsStr}`);
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

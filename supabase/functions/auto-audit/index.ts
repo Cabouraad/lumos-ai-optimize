@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { renderAuditHTML, AuditRun, AuditEvent } from "../_shared/audit_report.ts";
 
 const corsHeaders = {
@@ -10,7 +9,7 @@ const corsHeaders = {
 const AUDIT_TIMEOUT = 4 * 60 * 1000; // 4 minutes
 const STEP_TIMEOUT = 15 * 1000; // 15 seconds per step
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

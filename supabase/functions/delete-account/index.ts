@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
@@ -9,7 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   console.log('Delete account function invoked');
   
   if (req.method === 'OPTIONS') {

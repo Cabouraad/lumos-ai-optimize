@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { detectBrandMentions } from '../_shared/citations-enhanced.ts';
 import { enrichCitation } from '../_shared/domain-resolver.ts';
@@ -12,7 +12,7 @@ const corsHeaders = {
 const urlCache = new Map<string, { content: string; expires: number; hasMention: boolean; confidence: number }>();
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

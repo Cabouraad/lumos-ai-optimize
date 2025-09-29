@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
 // Dynamic CORS origin handling for multiple domains similar to check-subscription
 function getCorsHeaders(requestOrigin: string | null) {
@@ -36,7 +35,7 @@ interface CrawlResult {
   source?: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
