@@ -691,12 +691,34 @@ Deno.serve(async (req) => {
       let quotaStatus = { allowed: true, error: null };
       
       // Get active prompts count
-      const { data: promptData } = await supabase
+      const { data: promptData, error: promptError } = await supabase
         .from('prompts')
         .select('id')
         .eq('org_id', orgId)
         .eq('active', true);
-      
+
+      if (promptError) {
+        console.error(`❌ Failed to fetch prompts for org ${orgId}:`, promptError);
+        return new Response(JSON.stringify({
+          success: false,
+          action: 'preflight',
+          correlationId,
+          error: 'Failed to fetch prompts: ' + promptError.message,
+          providers: {
+            available: availableProviders,
+            missing: Object.keys(configs).filter(p => !configs[p]?.apiKey),
+            total: Object.keys(configs).length
+          },
+          quota: quotaStatus,
+          expectedTasks: 0,
+          promptCount: 0
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`✅ Found ${promptData?.length || 0} active prompts for org ${orgId}`);
       const expectedTasks = (promptData?.length || 0) * availableProviders.length;
       
       return new Response(JSON.stringify({
@@ -710,7 +732,10 @@ Deno.serve(async (req) => {
         },
         quota: quotaStatus,
         expectedTasks,
-        promptCount: promptData?.length || 0
+        promptCount: promptData?.length || 0,
+        prompts: {
+          count: promptData?.length || 0
+        }
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

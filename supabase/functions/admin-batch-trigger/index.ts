@@ -151,10 +151,15 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const promptCount = preflightData?.prompts?.count || 0;
+        const promptCount = preflightData?.prompts?.count || preflightData?.promptCount || 0;
         const availableProviders = preflightData?.providers?.available || [];
         const expectedTasks = preflightData?.expectedTasks || 0;
         const quotaAllowed = preflightData?.quota?.allowed || false;
+
+        // Log if preflight returned an error
+        if (!preflightData?.success || preflightData?.error) {
+          console.error(`❌ Preflight returned error for org ${org.name}:`, preflightData?.error);
+        }
 
         // Check if we should skip this org
         let skipReason = null;
