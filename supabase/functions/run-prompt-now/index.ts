@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { extractPerplexityCitations, extractOpenAICitations, extractGeminiCitations } from '../_shared/citations-enhanced.ts';
@@ -21,7 +20,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const correlationId = crypto.randomUUID();
   const corsHeaders = getStrictCorsHeaders(req.headers.get('origin'), correlationId);
   

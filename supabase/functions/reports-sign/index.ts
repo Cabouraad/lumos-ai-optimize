@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { getStrictCorsHeaders } from "../_shared/cors.ts";
 
 // CORS headers will be computed per request
@@ -10,7 +9,7 @@ const logStep = (step: string, details?: any) => {
   console.log(`[REPORTS-SIGN] ${step}${detailsStr}`);
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Compute CORS headers for this specific request
   const requestOrigin = req.headers.get('origin');
   const corsHeaders = getStrictCorsHeaders(requestOrigin);

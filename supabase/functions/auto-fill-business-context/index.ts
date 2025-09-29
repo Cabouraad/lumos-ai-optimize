@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
 import { extractBusinessContextOpenAI, generateKeywordsOnly, extractMetaKeywords, extractHeuristicKeywords, type BusinessContextExtraction } from '../_shared/providers.ts'
 
 const corsHeaders = {

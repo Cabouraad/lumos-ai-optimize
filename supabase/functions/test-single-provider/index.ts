@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { computeVisibilityScore } from "../_shared/scoring.ts";
 import { getOrgSubscriptionTier, isProviderAllowed, auditProviderFilter } from '../_shared/provider-policy.ts';
 
@@ -238,7 +237,7 @@ async function analyzeResponse(responseText: string, orgName: string) {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
