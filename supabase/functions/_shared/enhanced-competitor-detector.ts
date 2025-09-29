@@ -3,7 +3,7 @@
  * Implements strict rules for proper noun detection and competitor identification
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { isBlacklisted, getAllBlacklistedTerms } from './stopwords-blacklist.ts';
 import { findGlobalCompetitor, createGlobalCompetitorsMap } from './global-competitors-gazetteer.ts';
 import { extractOrganizations } from './ner-service.ts';

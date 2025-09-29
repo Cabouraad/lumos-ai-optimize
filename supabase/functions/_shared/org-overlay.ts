@@ -4,7 +4,7 @@
  * Note: Uses a simple JSON field approach for now - in production would use dedicated tables
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
