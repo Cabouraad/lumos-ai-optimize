@@ -44,6 +44,7 @@ verify_jwt = true
 
 [functions.robust-batch-processor]
 verify_jwt = false
+
 [functions.robust-batch-processor.env]
 ENABLE_GOOGLE_AIO = "true"
 
