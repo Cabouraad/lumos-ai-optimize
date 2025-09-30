@@ -886,33 +886,6 @@ export type Database = {
         }
         Relationships: []
       }
-      prompt_visibility_14d: {
-        Row: {
-          org_id: string
-          presence_rate: number
-          prompt_id: string
-          prompt_text: string
-          runs_14d: number
-          updated_at: string
-        }
-        Insert: {
-          org_id: string
-          presence_rate?: number
-          prompt_id: string
-          prompt_text: string
-          runs_14d?: number
-          updated_at?: string
-        }
-        Update: {
-          org_id?: string
-          presence_rate?: number
-          prompt_id?: string
-          prompt_text?: string
-          runs_14d?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       prompts: {
         Row: {
           active: boolean
@@ -1654,6 +1627,18 @@ export type Database = {
           text: string
         }[]
       }
+      get_prompt_visibility_realtime: {
+        Args: { p_days?: number; p_org_id: string }
+        Returns: {
+          last_run_at: string
+          org_id: string
+          presence_rate: number
+          prompt_id: string
+          prompt_text: string
+          provider_breakdown: Json
+          runs_total: number
+        }[]
+      }
       get_today_key_ny: {
         Args: { d?: string }
         Returns: string
@@ -1714,10 +1699,6 @@ export type Database = {
         Returns: undefined
       }
       refresh_dashboard_metrics: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      refresh_prompt_visibility_14d: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

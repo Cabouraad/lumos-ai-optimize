@@ -75,6 +75,7 @@ export async function getJob(jobId: string) {
 }
 
 export async function getLowVisibilityPrompts(orgId?: string) {
+  // Now uses real-time view that calculates from latest responses
   let query = supabase
     .from('low_visibility_prompts')
     .select('*')
@@ -87,6 +88,23 @@ export async function getLowVisibilityPrompts(orgId?: string) {
   }
     
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error('[getLowVisibilityPrompts] Error:', error);
+    throw error;
+  }
+  return data ?? [];
+}
+
+// Helper to get real-time visibility for all prompts
+export async function getRealtimeVisibility(orgId: string, days: number = 14) {
+  const { data, error } = await supabase.rpc('get_prompt_visibility_realtime', {
+    p_org_id: orgId,
+    p_days: days
+  });
+  
+  if (error) {
+    console.error('[getRealtimeVisibility] Error:', error);
+    throw error;
+  }
   return data ?? [];
 }

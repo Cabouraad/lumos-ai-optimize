@@ -26,7 +26,9 @@ export function useOrgOptimizations() {
   return useQuery({ 
     queryKey: ['optimizations', 'org', orgData?.organizations?.id], 
     queryFn: () => listOptimizationsByOrg(orgData?.organizations?.id!),
-    enabled: !!orgData?.organizations?.id
+    enabled: !!orgData?.organizations?.id,
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
   });
 }
 
@@ -37,7 +39,8 @@ export function useLowVisibilityPrompts() {
     queryKey: ['low-visibility-prompts', orgData?.organizations?.id],
     queryFn: () => getLowVisibilityPrompts(orgData?.organizations?.id),
     enabled: !!orgData?.organizations?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - now using real-time view
+    refetchOnWindowFocus: true, // Refetch when user returns
   });
 }
 
@@ -88,13 +91,21 @@ export function useGenerateForOrg() {
     },
     onSuccess: async (data) => {
       console.log('[useGenerateForOrg] Generated optimizations:', data);
+      
+      const count = data?.inserted || 0;
+      const processed = data?.promptsProcessed || 0;
+      
       toast({
-        title: "Success",
-        description: `Generated ${data?.inserted || 0} optimizations`,
+        title: "✅ Optimizations Generated",
+        description: `Successfully created ${count} new optimizations across ${processed} prompts using latest response data`,
       });
-      // Immediately invalidate queries to show new results
-      await queryClient.invalidateQueries({ queryKey: ['optimizations', 'org'] });
-      await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
+      
+      // Invalidate all optimization-related queries to show fresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['optimizations'] }),
+        queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] }),
+        queryClient.invalidateQueries({ queryKey: ['prompt-visibility'] }),
+      ]);
     },
     onError: (error) => {
       console.error('[useGenerateForOrg] Error generating optimizations:', error);
