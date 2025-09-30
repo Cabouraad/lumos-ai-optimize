@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
 function jsonRepair(s: string) {
   const start = s.indexOf("{");
@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
 
         console.log(`[generate-optimizations] Prompt ${pid}: ${existingTitles.length} existing optimizations`);
 
-        // Call Lovable AI
+        // Call OpenAI
         const promptInput = optimizerUserPrompt({
           brand: org?.name || "Your brand",
           promptText: prompt.text,
@@ -307,16 +307,17 @@ Deno.serve(async (req) => {
           existingTitles
         });
 
-        console.log('[generate-optimizations] Calling Lovable AI (Gemini 2.5 Flash)');
-        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        console.log('[generate-optimizations] Calling OpenAI API (gpt-5-mini)');
+        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { 
-            "authorization": `Bearer ${lovableApiKey}`, 
-            "content-type": "application/json" 
+            "Authorization": `Bearer ${openaiApiKey}`, 
+            "Content-Type": "application/json" 
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "gpt-5-mini-2025-08-07",
             response_format: { type: "json_object" },
+            max_completion_tokens: 4000,
             messages: [
               { role: "system", content: optimizerSystem() },
               { role: "user", content: promptInput }
@@ -326,7 +327,7 @@ Deno.serve(async (req) => {
 
         if (!resp.ok) {
           const errorText = await resp.text();
-          console.error('[generate-optimizations] Lovable AI error:', resp.status, errorText);
+          console.error('[generate-optimizations] OpenAI API error:', resp.status, errorText);
           
           if (resp.status === 429) {
             console.warn('[generate-optimizations] Rate limited - waiting 5s');
