@@ -6,9 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
 
 function jsonRepair(s: string) {
   const start = s.indexOf("{");
@@ -60,9 +60,20 @@ function optimizerUserPrompt(args: {
   brand: string; promptText: string; presenceRate: number;
   competitors: string[]; citations: { domain: string; title?: string; link: string }[];
   category: 'low_visibility' | 'general';
+  existingTitles?: string[];
+  uniquenessHint?: string;
 }) {
   const cites = args.citations.slice(0,8).map((c: any) => `- ${c.domain}${c.title?` — ${c.title}`:''} (${c.link})`).join("\n");
   const comp  = args.competitors.slice(0,8).join(", ") || "None observed";
+  
+  // Add deduplication instruction
+  const dedupInstruction = args.existingTitles && args.existingTitles.length > 0
+    ? `\n\nIMPORTANT - AVOID DUPLICATES: These optimization titles already exist for this prompt. Create COMPLETELY DIFFERENT strategies with fresh angles:\n${args.existingTitles.map(t => `- "${t}"`).join('\n')}\n\nYour new optimizations MUST have distinct titles and approaches. Do not repeat these concepts.`
+    : '';
+  
+  const uniqueHint = args.uniquenessHint 
+    ? `\n\nGeneration ID: ${args.uniquenessHint} (use this to ensure fresh perspectives)`
+    : '';
   
   if (args.category === 'low_visibility') {
     return `BRAND: ${args.brand}
@@ -70,9 +81,9 @@ LOW-VISIBILITY PROMPT: "${args.promptText}"
 CURRENT PRESENCE: ${args.presenceRate.toFixed(1)}% (needs improvement)
 COMPETITORS IN RESPONSES: ${comp}
 TOP CITATION DOMAINS:
-${cites}
+${cites}${dedupInstruction}${uniqueHint}
 
-GOAL: Create 3-4 targeted optimizations to improve visibility for this specific prompt.
+GOAL: Create 3-4 NEW, DISTINCT targeted optimizations to improve visibility for this specific prompt.
 
 REQUIREMENTS:
 1) SOCIAL POST: Professional thought leadership post that naturally addresses the prompt topic. Include step-by-step posting instructions, optimal timing, hashtag strategy.
@@ -85,16 +96,18 @@ For each optimization include:
 - Required tools and resources  
 - Success metrics and timeline
 - Specific Reddit subreddits with posting strategies
-- Impact score (1-10) and difficulty level`;
+- Impact score (1-10) and difficulty level
+
+CRITICAL: Each strategy must be UNIQUE and different from existing optimizations listed above.`;
   } else {
     return `BRAND: ${args.brand}
 GENERAL BRAND VISIBILITY OPTIMIZATION
 CURRENT PROMPT CONTEXT: "${args.promptText}"
 MARKET COMPETITORS: ${comp}
 INDUSTRY CITATION SOURCES:
-${cites}
+${cites}${dedupInstruction}${uniqueHint}
 
-GOAL: Create 4-5 comprehensive brand visibility strategies for general market presence.
+GOAL: Create 4-5 NEW, comprehensive brand visibility strategies for general market presence.
 
 REQUIREMENTS:
 1) SOCIAL POST: Thought leadership content, speaking opportunities, industry positioning
@@ -104,7 +117,9 @@ REQUIREMENTS:
 5) CTA SNIPPETS: Long-term subreddit engagement, value-first contributions
 
 Focus on scalable strategies that build long-term brand authority and visibility across AI search results.
-Include detailed implementation guides, resource requirements, and projected ROI.`;
+Include detailed implementation guides, resource requirements, and projected ROI.
+
+CRITICAL: Each strategy must be UNIQUE and different from existing optimizations listed above.`;
   }
 }
 
@@ -175,16 +190,37 @@ Deno.serve(async (req) => {
     if (promptId) {
       promptIds = [promptId];
     } else if (doBatch) {
-      // FIXED: Get ALL low-visibility prompts for batch processing, not just limit 10
-      const limit = category === 'low_visibility' ? 50 : 20; // Increased limit
-      const { data: lows } = await supabase
-        .from("low_visibility_prompts")
-        .select("prompt_id")
-        .eq("org_id", orgId)
-        .order("presence_rate", { ascending: true }) // Process lowest visibility first
-        .limit(limit);
-      promptIds = (lows ?? []).map((r: any) => r.prompt_id);
-      console.log('[generate-optimizations] Batch mode: processing', promptIds.length, 'prompts');
+      console.log('[generate-optimizations] Fetching ALL active prompts for org:', orgId);
+      
+      // Get ALL active prompts
+      const { data: allPrompts } = await supabase
+        .from('prompts')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('active', true);
+      
+      // Get visibility data for all prompts
+      const { data: visibilityData } = await supabase
+        .from('prompt_visibility_14d')
+        .select('prompt_id, presence_rate')
+        .eq('org_id', orgId);
+      
+      // Build presence rate map
+      const presenceMap = new Map(
+        (visibilityData || []).map((v: any) => [v.prompt_id, Number(v.presence_rate) || 0])
+      );
+      
+      // Filter to only prompts with < 100% visibility (or missing data = 0%)
+      promptIds = (allPrompts || [])
+        .filter((p: any) => {
+          const rate = presenceMap.get(p.id) ?? 0;
+          return rate < 100;
+        })
+        .map((p: any) => p.id);
+      
+      console.log('[generate-optimizations] Total active prompts:', allPrompts?.length || 0);
+      console.log('[generate-optimizations] Prompts with <100% visibility:', promptIds.length);
+      console.log('[generate-optimizations] Processing ALL under-100% prompts (no limit)');
     }
 
     if (promptIds.length === 0) {
@@ -196,7 +232,7 @@ Deno.serve(async (req) => {
 
     console.log('[generate-optimizations] Processing prompts', { count: promptIds.length, promptIds });
 
-    // FIXED: Process ALL prompts in batch mode, not just the first one
+    // Process ALL prompts in batch mode
     let totalInserted = 0;
     const allOptimizations = [];
 
@@ -255,26 +291,53 @@ Deno.serve(async (req) => {
           }))
           .filter((c: any) => c.domain && c.link);
 
-        // Call OpenAI for this prompt
+        // Fetch existing optimizations for this prompt to avoid duplicates
+        const { data: existingOpts } = await supabase
+          .from('optimizations')
+          .select('title, content_type, created_at')
+          .eq('org_id', orgId)
+          .eq('prompt_id', pid)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        const existingTitles = (existingOpts || [])
+          .map((o: any) => o.title)
+          .filter(Boolean);
+
+        const existingTypes = new Set(
+          (existingOpts || []).map((o: any) => o.content_type)
+        );
+
+        console.log('[generate-optimizations] Existing optimizations for prompt', pid, ':', {
+          count: existingOpts?.length || 0,
+          titles: existingTitles,
+          types: Array.from(existingTypes)
+        });
+
+        // Add uniqueness hint to encourage varied outputs
+        const uniquenessHint = `${new Date().toISOString().split('T')[0]}-${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`;
+
+        // Call Lovable AI (Gemini 2.5 Flash) for this prompt
         const promptInput = optimizerUserPrompt({
           brand: org?.name || "Your brand",
           promptText: prompt.text,
           presenceRate: presence,
           competitors,
           citations,
-          category
+          category,
+          existingTitles,
+          uniquenessHint
         });
 
-        console.log('[generate-optimizations] Calling OpenAI for prompt:', pid);
-        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+        console.log('[generate-optimizations] Calling Lovable AI (Gemini 2.5 Flash) for prompt:', pid);
+        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { 
-            "authorization": `Bearer ${openAIApiKey}`, 
+            "authorization": `Bearer ${lovableApiKey}`, 
             "content-type": "application/json" 
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
-            temperature: 0.3,
+            model: "google/gemini-2.5-flash",
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: optimizerSystem() },
@@ -285,7 +348,14 @@ Deno.serve(async (req) => {
 
         if (!resp.ok) {
           const errorText = await resp.text();
-          console.error('[generate-optimizations] OpenAI error for prompt', pid, ':', errorText);
+          console.error('[generate-optimizations] Lovable AI error for prompt', pid, ':', errorText);
+          
+          // Check for rate limiting
+          if (resp.status === 429) {
+            console.warn('[generate-optimizations] Rate limited - adding delay before next prompt');
+            await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second backoff
+          }
+          
           continue; // Skip this prompt but continue with others
         }
 
@@ -305,10 +375,10 @@ Deno.serve(async (req) => {
         }
 
         // Normalize & insert optimization rows from new structure
-        const toInsert: any[] = [];
+        let toInsert: any[] = [];
         
         (parsed.optimizations ?? []).forEach((opt: any) => {
-          // FIXED: Map content types to valid constraint values
+          // Map content types to valid constraint values
           let validContentType = 'social_post'; // default
           const rawType = (opt.content_type || '').toLowerCase();
           
@@ -345,6 +415,104 @@ Deno.serve(async (req) => {
           });
         });
 
+        // FALLBACK: If LLM returned empty or failed, generate default optimizations
+        if (toInsert.length === 0) {
+          console.warn('[generate-optimizations] LLM returned no optimizations for prompt', pid, '- using fallback');
+          
+          const brandName = org?.name || "your brand";
+          const promptText = prompt.text;
+          
+          toInsert = [
+            {
+              org_id: orgId,
+              prompt_id: pid,
+              optimization_category: category,
+              content_type: 'social_post',
+              title: `LinkedIn Thought Leadership: ${promptText.slice(0, 50)}`,
+              body: `Share insights about ${promptText} on LinkedIn:\n1. Create a post addressing this topic\n2. Tag relevant industry leaders\n3. Include 3-5 relevant hashtags\n4. Post during business hours for max visibility\n5. Engage with comments within first 2 hours`,
+              sources: citations,
+              score_before: presence,
+              projected_impact: "Improved visibility expected within 2-3 weeks",
+              provider: 'optimizer',
+              implementation_details: { steps: ["Draft post", "Review and edit", "Schedule posting", "Monitor engagement"] },
+              resources: [],
+              success_metrics: { primary: "Post engagement rate", timeline: "2 weeks" },
+              reddit_strategy: {},
+              impact_score: 6,
+              difficulty_level: 'easy',
+              timeline_weeks: 2
+            },
+            {
+              org_id: orgId,
+              prompt_id: pid,
+              optimization_category: category,
+              content_type: 'blog_outline',
+              title: `SEO-Optimized Article: ${promptText.slice(0, 50)}`,
+              body: `Article outline:\n1. Introduction - Address the main question\n2. Current market landscape\n3. How ${brandName} provides a solution\n4. Key benefits and features\n5. Case studies or examples\n6. Conclusion and CTA`,
+              sources: citations,
+              score_before: presence,
+              projected_impact: "Increased organic search visibility in 4-6 weeks",
+              provider: 'optimizer',
+              implementation_details: { steps: ["Research keywords", "Draft article", "Optimize for SEO", "Publish and promote"] },
+              resources: [],
+              success_metrics: { primary: "Organic search rankings", timeline: "6 weeks" },
+              reddit_strategy: {},
+              impact_score: 7,
+              difficulty_level: 'medium',
+              timeline_weeks: 4
+            },
+            {
+              org_id: orgId,
+              prompt_id: pid,
+              optimization_category: category,
+              content_type: 'talking_points',
+              title: `Key Talking Points: ${promptText.slice(0, 50)}`,
+              body: `Key messages for ${promptText}:\n1. ${brandName} addresses this need by...\n2. Our unique approach includes...\n3. Customer results show...\n4. Industry trends support...\n5. Get started with...`,
+              sources: citations,
+              score_before: presence,
+              projected_impact: "Consistent messaging in interviews and content",
+              provider: 'optimizer',
+              implementation_details: { steps: ["Review and memorize key points", "Practice delivery", "Use in presentations"] },
+              resources: [],
+              success_metrics: { primary: "Message consistency", timeline: "Immediate" },
+              reddit_strategy: {},
+              impact_score: 5,
+              difficulty_level: 'easy',
+              timeline_weeks: 1
+            },
+            {
+              org_id: orgId,
+              prompt_id: pid,
+              optimization_category: category,
+              content_type: 'reddit_strategy',
+              title: `Reddit Community Engagement: ${promptText.slice(0, 40)}`,
+              body: `Identify and engage in relevant Reddit communities discussing ${promptText}. Focus on providing value before promoting ${brandName}.`,
+              sources: citations,
+              score_before: presence,
+              projected_impact: "Community credibility built over 6-8 weeks",
+              provider: 'optimizer',
+              implementation_details: { 
+                steps: ["Find relevant subreddits", "Read rules and lurk", "Provide value-first comments", "Share expertise naturally"] 
+              },
+              resources: [],
+              success_metrics: { primary: "Community karma and engagement", timeline: "8 weeks" },
+              reddit_strategy: {
+                subreddits: [
+                  { name: "r/entrepreneur", audience: "Business owners", rules: "No self-promotion in posts" },
+                  { name: "r/startups", audience: "Startup founders", rules: "Must provide value first" }
+                ],
+                post_types: ["helpful comment", "expertise sharing", "case study"],
+                content_approach: "Focus on helping others solve problems related to this topic"
+              },
+              impact_score: 6,
+              difficulty_level: 'medium',
+              timeline_weeks: 6
+            }
+          ];
+          
+          console.log('[generate-optimizations] Generated', toInsert.length, 'fallback optimizations');
+        }
+
         console.log('[generate-optimizations] Ready to insert for prompt', pid, ':', { count: toInsert.length });
         
         if (toInsert.length) {
@@ -377,7 +545,11 @@ Deno.serve(async (req) => {
     // Refresh visibility data
     await supabase.rpc('refresh_prompt_visibility_14d');
 
-    console.log('[generate-optimizations] Batch complete:', { totalInserted, promptsProcessed: promptIds.length });
+    console.log('[generate-optimizations] ===== BATCH SUMMARY =====');
+    console.log('[generate-optimizations] Prompts processed:', promptIds.length);
+    console.log('[generate-optimizations] Total optimizations inserted:', totalInserted);
+    console.log('[generate-optimizations] Average per prompt:', (totalInserted / Math.max(promptIds.length, 1)).toFixed(1));
+    console.log('[generate-optimizations] ========================');
 
     return new Response(JSON.stringify({ 
       inserted: totalInserted, 
