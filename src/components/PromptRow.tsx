@@ -270,7 +270,6 @@ export function PromptRow({
                         {Object.entries(promptDetails.providers)
                           .filter(([provider, response]: [string, any]) => {
                             // Filter providers based on subscription tier
-                            const { limits } = useSubscriptionGate();
                             const allowedProviders = limits.allowedProviders || [];
                             return response && allowedProviders.includes(provider);
                           })
