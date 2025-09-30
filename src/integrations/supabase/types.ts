@@ -14,6 +14,79 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_visibility_recommendations: {
+        Row: {
+          channel: string
+          citations_used: Json | null
+          created_at: string
+          id: string
+          must_include: Json | null
+          org_id: string
+          outline: Json | null
+          posting_instructions: string | null
+          prompt_id: string
+          score_before: number | null
+          subtype: string
+          success_metrics: Json | null
+          title: string
+          where_to_publish: Json | null
+        }
+        Insert: {
+          channel: string
+          citations_used?: Json | null
+          created_at?: string
+          id?: string
+          must_include?: Json | null
+          org_id: string
+          outline?: Json | null
+          posting_instructions?: string | null
+          prompt_id: string
+          score_before?: number | null
+          subtype: string
+          success_metrics?: Json | null
+          title: string
+          where_to_publish?: Json | null
+        }
+        Update: {
+          channel?: string
+          citations_used?: Json | null
+          created_at?: string
+          id?: string
+          must_include?: Json | null
+          org_id?: string
+          outline?: Json | null
+          posting_instructions?: string | null
+          prompt_id?: string
+          score_before?: number | null
+          subtype?: string
+          success_metrics?: Json | null
+          title?: string
+          where_to_publish?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_visibility_recommendations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string | null
@@ -731,6 +804,13 @@ export type Database = {
             foreignKeyName: "optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
           },
@@ -1280,6 +1360,13 @@ export type Database = {
             foreignKeyName: "visibility_optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "visibility_optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompts"
             referencedColumns: ["id"]
           },
@@ -1403,6 +1490,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brand_catalog_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_visibility_14d: {
+        Row: {
+          org_id: string | null
+          presence_rate: number | null
+          prompt_id: string | null
+          prompt_text: string | null
+          runs_14d: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"

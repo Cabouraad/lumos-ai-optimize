@@ -10,12 +10,13 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { 
-  Zap, 
+  Sparkles, 
   TrendingDown, 
   Activity,
   Loader2
 } from 'lucide-react';
-import { useLowVisibilityPrompts, useGenerateForPrompt } from '@/features/optimizations/hooks';
+import { useLowVisibilityPrompts } from '@/features/optimizations/hooks';
+import { useGenerateVisibilityRecs } from '@/features/visibility-recommendations/hooks';
 
 export function LowVisibilityPromptsTable() {
   const { data: prompts, isLoading } = useLowVisibilityPrompts();
@@ -93,7 +94,7 @@ export function LowVisibilityPromptsTable() {
 }
 
 function PromptRow({ prompt }: { prompt: any }) {
-  const generateMutation = useGenerateForPrompt(prompt.prompt_id);
+  const generateMutation = useGenerateVisibilityRecs(prompt.prompt_id);
 
   const handleGenerate = () => {
     generateMutation.mutate();
@@ -131,7 +132,7 @@ function PromptRow({ prompt }: { prompt: any }) {
           {generateMutation.isPending ? (
             <Loader2 className="h-3 w-3 animate-spin mr-1" />
           ) : (
-            <Zap className="h-3 w-3 mr-1" />
+            <Sparkles className="h-3 w-3 mr-1" />
           )}
           {generateMutation.isPending ? 'Generating...' : 'Generate'}
         </Button>
