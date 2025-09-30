@@ -281,10 +281,10 @@ async function callProviderAPI(
         // Gemini uses API key as query parameter
         apiUrl += `?key=${config.apiKey}`;
       } else if (provider === 'google_ai_overview') {
-        // Google AIO uses internal edge function with CRON authentication
-        const cronSecret = Deno.env.get('CRON_SECRET');
-        if (cronSecret) {
-          headers['Authorization'] = `Bearer ${cronSecret}`;
+        // Google AIO uses internal edge function with service role authentication
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (serviceKey) {
+          headers['Authorization'] = `Bearer ${serviceKey}`;
         }
       }
 

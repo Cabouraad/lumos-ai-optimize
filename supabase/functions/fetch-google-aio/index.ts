@@ -39,20 +39,24 @@ Deno.serve(async (req) => {
 
     // Validate authorization
     const auth = req.headers.get('authorization') || '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Check if it's an internal edge function call using service role key
+    const isServiceRole = auth === `Bearer ${supabaseServiceKey}`;
     const isCronRequest = auth === `Bearer ${CRON_SECRET}` && CRON_SECRET;
     
-    if (!isCronRequest && !auth.startsWith('Bearer ')) {
+    if (!isServiceRole && !isCronRequest && !auth.startsWith('Bearer ')) {
       return new Response('Unauthorized', { 
         status: 401, 
         headers: corsHeaders 
       });
     }
 
-    // For non-cron requests, validate user authentication
-    if (!isCronRequest) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey, {
+    // For non-service-role and non-cron requests, validate user authentication
+    if (!isServiceRole && !isCronRequest) {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: auth } }
       });
 
