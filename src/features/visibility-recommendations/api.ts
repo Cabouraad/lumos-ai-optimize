@@ -5,6 +5,9 @@ export async function generateVisibilityRecommendations(promptId: string) {
     body: { promptId }
   });
   if (error) throw error;
+  if ((data as any)?.error) {
+    throw new Error(`${(data as any).error}${(data as any).detail ? ': ' + (data as any).detail : ''}`);
+  }
   return data as { inserted: number; recommendations: any[] };
 }
 
