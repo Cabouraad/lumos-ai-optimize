@@ -32,6 +32,7 @@ const Reports = lazy(() => loadChunkWithRetry(() => import("./pages/Reports")));
 const BypassTestPage = lazy(() => loadChunkWithRetry(() => import("./pages/BypassTestPage")));
 const Labs = lazy(() => loadChunkWithRetry(() => import("./pages/Labs")));
 const AuditRuns = lazy(() => loadChunkWithRetry(() => import("./pages/admin/AuditRuns")));
+const TestDashboard = lazy(() => loadChunkWithRetry(() => import("./pages/TestDashboard")));
 const FreeChecker = lazy(() => loadChunkWithRetry(() => import("./pages/FreeChecker")));
 const Privacy = lazy(() => loadChunkWithRetry(() => import("./pages/Privacy")));
 const Terms = lazy(() => loadChunkWithRetry(() => import("./pages/Terms")));
@@ -153,6 +154,11 @@ const App = () => {
           <Route path="/labs" element={
             <ProtectedRoute>
               <Labs />
+            </ProtectedRoute>
+          } />
+          <Route path="/tests" element={
+            <ProtectedRoute>
+              <TestDashboard />
             </ProtectedRoute>
           } />
           {isFeatureEnabled('AUDIT_UI') && (

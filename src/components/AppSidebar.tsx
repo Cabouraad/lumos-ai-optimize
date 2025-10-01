@@ -27,7 +27,8 @@ import {
   LogOut,
   Crown,
   Calendar,
-  Beaker
+  Beaker,
+  TestTube2
 } from 'lucide-react';
 
 export function AppSidebar() {
@@ -49,7 +50,10 @@ export function AppSidebar() {
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
     { name: 'Reports', href: '/reports', icon: Calendar },
     { name: 'Settings', href: '/settings', icon: Settings },
-    ...(isAdmin ? [{ name: 'Labs', href: '/labs', icon: Beaker }] : []),
+    ...(isAdmin ? [
+      { name: 'Labs', href: '/labs', icon: Beaker },
+      { name: 'Tests', href: '/tests', icon: TestTube2 }
+    ] : []),
   ];
 
   return (

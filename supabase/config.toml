@@ -178,3 +178,6 @@ daily_prompt_execution = { schedule = "0 5 * * *", endpoint = "/daily-batch-trig
 
 [functions.scheduled-prompt-executor]
 verify_jwt = false
+
+[functions.run-tests]
+verify_jwt = true
