@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,40 +25,11 @@ interface TestSummary {
 }
 
 export default function TestDashboard() {
-  const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin, isLoading } = useAdminAccess();
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [summary, setSummary] = useState<TestSummary | null>(null);
   const [selectedTest, setSelectedTest] = useState<TestResult | null>(null);
-
-  useEffect(() => {
-    checkAdminAccess();
-  }, [user]);
-
-  const checkAdminAccess = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('role, org_id')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-      setIsAdmin(userData.role === 'owner');
-    } catch (error) {
-      console.error('Error checking admin access:', error);
-      setIsAdmin(false);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const runTests = async (suite: 'quick' | 'all') => {
     setRunning(true);
@@ -95,7 +65,7 @@ export default function TestDashboard() {
     }
   };
 
-  if (!user || loading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center">
