@@ -181,3 +181,6 @@ verify_jwt = false
 
 [functions.run-tests]
 verify_jwt = true
+
+[functions.fetch-google-aio]
+verify_jwt = false
