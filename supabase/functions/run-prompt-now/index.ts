@@ -239,7 +239,8 @@ Deno.serve(async (req) => {
         totalRuns++;
 
       } catch (providerError) {
-        console.error(`Provider ${provider.name} error:`, providerError);
+        const errorMessage = providerError instanceof Error ? providerError.message : String(providerError);
+        console.error(`Provider ${provider.name} error:`, errorMessage);
         
         // Log failed run
         await supabase
@@ -252,6 +253,41 @@ Deno.serve(async (req) => {
             token_out: 0,
             cost_est: 0
           });
+
+        // Also store error in prompt_provider_responses so UI can show it
+        const providerModel = provider.name === 'openai' 
+          ? 'gpt-4o-mini' 
+          : provider.name === 'perplexity' 
+            ? 'sonar' 
+            : provider.name === 'google_ai_overview'
+              ? 'google-aio'
+              : 'gemini-2.0-flash-lite';
+
+        await supabase
+          .from('prompt_provider_responses')
+          .insert({
+            org_id: orgId,
+            prompt_id: promptId,
+            provider: provider.name,
+            model: providerModel,
+            status: 'error',
+            error: errorMessage,
+            score: 0,
+            org_brand_present: false,
+            org_brand_prominence: null,
+            competitors_count: 0,
+            competitors_json: [],
+            brands_json: [],
+            token_in: 0,
+            token_out: 0,
+            raw_ai_response: null,
+            raw_evidence: null,
+            metadata: {
+              error_type: providerError instanceof Error ? providerError.constructor.name : 'UnknownError',
+              timestamp: new Date().toISOString()
+            }
+          });
+          
         totalRuns++;
       }
     }

@@ -59,31 +59,42 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     try {
       console.log('[SubscriptionProvider] Fetching subscription data for:', user.email);
       
-      // Try to get subscription data from subscribers table
-      const { data: subscriberData, error: subError } = await supabase
-        .from('subscribers')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Get both subscriber data and org plan_tier
+      const [{ data: subscriberData, error: subError }, { data: orgData }] = await Promise.all([
+        supabase
+          .from('subscribers')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('users')
+          .select('org_id, organizations(plan_tier)')
+          .eq('id', user.id)
+          .single()
+      ]);
 
       let finalSubscriptionData: SubscriptionData;
 
+      // Get plan tier from org as authoritative source
+      const orgPlanTier = (orgData?.organizations as any)?.plan_tier || 'free';
+
       if (subError) {
         console.warn('[SubscriptionProvider] Error fetching subscription:', subError);
-        // Use safe defaults
+        // Use org plan tier as fallback
         finalSubscriptionData = {
-          subscribed: false,
-          subscription_tier: 'starter',
+          subscribed: orgPlanTier !== 'free',
+          subscription_tier: orgPlanTier,
           subscription_end: null,
           trial_expires_at: null,
           trial_started_at: null,
-          payment_collected: false,
+          payment_collected: orgPlanTier !== 'free',
           metadata: null
         };
       } else if (subscriberData) {
+        // Use subscriber data but prefer org plan tier for subscription_tier
         finalSubscriptionData = {
           subscribed: subscriberData.subscribed || false,
-          subscription_tier: subscriberData.subscription_tier || 'starter',
+          subscription_tier: orgPlanTier || subscriberData.subscription_tier || 'free',
           subscription_end: subscriberData.subscription_end,
           trial_expires_at: subscriberData.trial_expires_at,
           trial_started_at: subscriberData.trial_started_at,
@@ -101,7 +112,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         if (!emailError && subscriberByEmail) {
           finalSubscriptionData = {
             subscribed: subscriberByEmail.subscribed || false,
-            subscription_tier: subscriberByEmail.subscription_tier || 'starter',
+            subscription_tier: orgPlanTier || subscriberByEmail.subscription_tier || 'free',
             subscription_end: subscriberByEmail.subscription_end,
             trial_expires_at: subscriberByEmail.trial_expires_at,
             trial_started_at: subscriberByEmail.trial_started_at,
@@ -117,28 +128,35 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
               .eq('email', user.email!);
           }
         } else {
-          // No subscription record found, use defaults
+          // No subscription record found, use org plan tier
           finalSubscriptionData = {
-            subscribed: false,
-            subscription_tier: 'starter',
+            subscribed: orgPlanTier !== 'free',
+            subscription_tier: orgPlanTier,
             subscription_end: null,
             trial_expires_at: null,
             trial_started_at: null,
-            payment_collected: false,
+            payment_collected: orgPlanTier !== 'free',
             metadata: null
           };
         }
       }
+
+      console.log('[SubscriptionProvider] Final subscription data:', {
+        tier: finalSubscriptionData.subscription_tier,
+        subscribed: finalSubscriptionData.subscribed,
+        orgPlanTier,
+        source: subscriberData ? 'subscriber' : 'org_fallback'
+      });
 
       setSubscriptionData(finalSubscriptionData);
       setError(null);
     } catch (err) {
       console.error('[SubscriptionProvider] Error fetching subscription data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load subscription data');
-      // Set safe defaults on error
+      // Set free tier defaults on error
       setSubscriptionData({
         subscribed: false,
-        subscription_tier: 'starter',
+        subscription_tier: 'free',
         subscription_end: null,
         trial_expires_at: null,
         trial_started_at: null,
