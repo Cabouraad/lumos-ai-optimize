@@ -9,7 +9,8 @@ export default defineConfig({
     include: [
       'src/__tests__/**/*.{test,spec}.{ts,tsx}',
       'src/__tests__/critical-flows/**/*.{test,spec}.{ts,tsx}',
-      'src/__tests__/integration/**/*.{test,spec}.{ts,tsx}'
+      'src/__tests__/integration/**/*.{test,spec}.{ts,tsx}',
+      'src/features/**/__tests__/**/*.{test,spec}.{ts,tsx}'
     ],
     coverage: {
       reporter: ['text', 'json', 'html'],
