@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { toast } from 'sonner';
-import { Play, CheckCircle2, XCircle, Clock, Loader2, Terminal } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, Clock, Loader2, Terminal, AlertTriangle, Users } from 'lucide-react';
 
 interface TestResult {
   name: string;
@@ -25,10 +27,39 @@ interface TestSummary {
 
 export default function TestDashboard() {
   const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [summary, setSummary] = useState<TestSummary | null>(null);
   const [selectedTest, setSelectedTest] = useState<TestResult | null>(null);
+
+  useEffect(() => {
+    checkAdminAccess();
+  }, [user]);
+
+  const checkAdminAccess = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('role, org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      setIsAdmin(userData.role === 'owner');
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      setIsAdmin(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const runTests = async (suite: 'quick' | 'all') => {
     setRunning(true);
@@ -63,6 +94,29 @@ export default function TestDashboard() {
       setRunning(false);
     }
   };
+
+  if (!user || loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Alert>
+          <Users className="h-4 w-4" />
+          <AlertDescription>
+            Test Dashboard access is restricted to organization owners only.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
