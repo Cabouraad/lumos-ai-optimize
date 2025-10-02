@@ -1659,15 +1659,24 @@ export type Database = {
       get_latest_prompt_provider_responses: {
         Args: { p_org_id: string }
         Returns: {
+          brands_json: Json
+          citations_json: Json
+          competitors_count: number
+          competitors_json: Json
           error_message: string
           full_text: string
           id: string
           metadata: Json
           model: string
+          org_brand_present: boolean
+          org_brand_prominence: number
           prompt_id: string
           provider: string
           run_at: string
+          score: number
           status: string
+          token_in: number
+          token_out: number
         }[]
       }
       get_latest_prompt_provider_responses_catalog_only: {
