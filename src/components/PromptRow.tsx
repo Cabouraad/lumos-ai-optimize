@@ -262,20 +262,23 @@ export function PromptRow({
                 <CollapsibleContent className="space-y-4 mt-3">
                   {/* Provider Response Cards */}
                   {promptDetails?.providers && (() => {
-                    // 🐛 DEBUG: Log filtering logic
-                    const allProviders = Object.entries(promptDetails.providers);
-                    const allowedProviders = limits.allowedProviders || [];
-                    const providersWithData = allProviders.filter(([_, response]) => response !== null);
-                    const filteredProviders = allProviders.filter(([provider, response]: [string, any]) => {
-                      return response && allowedProviders.includes(provider);
-                    });
+                    // Always show all allowed providers, even if they don't have data yet
+                    const allowedProviders: Array<"openai" | "gemini" | "perplexity" | "google_ai_overview"> = 
+                      ['openai', 'gemini', 'perplexity', 'google_ai_overview'];
                     
-                    console.log('🔍 [PromptRow] Provider filtering:', {
+                    const subscriptionAllowed = limits.allowedProviders || [];
+                    
+                    // Filter to only subscription-allowed providers
+                    const displayProviders = allowedProviders.filter(p => 
+                      subscriptionAllowed.includes(p)
+                    );
+                    
+                    console.log('🔍 [PromptRow] Provider display:', {
                       promptId: prompt.id,
-                      allProviders: allProviders.map(([p]) => p),
-                      providersWithData: providersWithData.map(([p]) => p),
-                      allowedProviders,
-                      filteredProviders: filteredProviders.map(([p]) => p)
+                      displayProviders,
+                      providersWithData: Object.entries(promptDetails.providers)
+                        .filter(([_, r]) => r !== null)
+                        .map(([p]) => p)
                     });
                     
                     return (
@@ -284,11 +287,11 @@ export function PromptRow({
                           Provider Results
                         </h4>
                         <div className="grid gap-2">
-                          {filteredProviders.map(([provider, response]: [string, any]) => (
+                          {displayProviders.map((provider) => (
                             <ProviderResponseCard
                               key={provider}
-                              provider={provider as "openai" | "gemini" | "perplexity" | "google_ai_overview"}
-                              response={response}
+                              provider={provider}
+                              response={promptDetails.providers[provider] || null}
                               promptText={prompt.text}
                             />
                           ))}

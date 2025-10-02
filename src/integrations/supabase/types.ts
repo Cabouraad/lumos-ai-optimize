@@ -1663,8 +1663,7 @@ export type Database = {
           citations_json: Json
           competitors_count: number
           competitors_json: Json
-          error_message: string
-          full_text: string
+          error: string
           id: string
           metadata: Json
           model: string
@@ -1672,6 +1671,7 @@ export type Database = {
           org_brand_prominence: number
           prompt_id: string
           provider: string
+          raw_ai_response: string
           run_at: string
           score: number
           status: string
