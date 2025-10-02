@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOrgBrands } from '@/hooks/useOrgBrands';
 import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
 import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
+import { getOrgId } from '@/lib/auth';
 
 interface ProviderResponse {
   id: string;
@@ -78,9 +79,10 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
 
         setResults((data as unknown as ProviderResponse[]) || []);
       } else {
-        // Get latest results per provider with all detected competitors
+        // Get latest results per provider for this org, then filter by prompt
+        const orgId = await getOrgId();
         const { data, error } = await supabase
-          .rpc('get_latest_prompt_provider_responses', { p_prompt_id: promptId });
+          .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId });
 
         if (error) {
           console.error('Error fetching latest results:', error);
@@ -88,7 +90,17 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
           return;
         }
 
-        setResults((data as unknown as ProviderResponse[]) || []);
+        // Filter results for this specific prompt
+        const filteredData = (data || []).filter((r: any) => r.prompt_id === promptId);
+        
+        console.log('[PromptVisibilityResults] Latest responses:', {
+          total: data?.length || 0,
+          filtered: filteredData.length,
+          promptId,
+          providers: filteredData.map((r: any) => r.provider)
+        });
+
+        setResults((filteredData as unknown as ProviderResponse[]) || []);
       }
     } catch (error) {
       console.error('Error fetching results:', error);
