@@ -35,7 +35,20 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
   try {
     logger.info('Fetching unified dashboard data via RPC', { component: 'unified-rpc-fetcher' });
     
-    const { data, error } = await supabase.rpc('get_unified_dashboard_data');
+    // Get current user's org_id
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('org_id')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+    
+    if (userError || !userData?.org_id) {
+      throw new Error('Could not fetch user organization');
+    }
+    
+    const { data, error } = await supabase.rpc('get_unified_dashboard_data', {
+      p_org_id: userData.org_id
+    });
     
     const fetchTime = Date.now() - startTime;
     
