@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ProviderResponseCard } from './ProviderResponseCard';
 import { PromptTopCitations } from './PromptTopCitations';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { getAllowedProviders } from '@/lib/providers/tier-policy';
 import { getPromptCategory, getCategoryColor } from '@/lib/prompt-utils';
 import { 
   Calendar, 
@@ -68,7 +69,7 @@ export function PromptRow({
   onSelect
 }: PromptRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { limits } = useSubscriptionGate();
+  const { limits, currentTier } = useSubscriptionGate();
 
 
   const handleToggleActive = () => {
@@ -262,26 +263,8 @@ export function PromptRow({
                 <CollapsibleContent className="space-y-4 mt-3">
                   {/* Provider Response Cards */}
                   {promptDetails?.providers && (() => {
-                    // Always show all allowed providers, even if they don't have data yet
-                    const allowedProviders: Array<"openai" | "gemini" | "perplexity" | "google_ai_overview"> = 
-                      ['openai', 'gemini', 'perplexity', 'google_ai_overview'];
-                    
-                    const subscriptionAllowed = (limits as any)?.allowedProviders || [];
-                    
-                    // Filter to only subscription-allowed providers
-                    const displayProviders = allowedProviders.filter(p => 
-                      subscriptionAllowed.includes(p)
-                    );
-                    
-                     console.log('🔍 [PromptRow] Provider display:', {
-                       promptId: prompt.id,
-                       displayProviders,
-                       allowedProviders: limits?.allowedProviders,
-                       currentTier: (limits as any)?.currentTier,
-                       providersWithData: Object.entries(promptDetails.providers)
-                         .filter(([_, r]) => r !== null)
-                         .map(([p]) => p)
-                     });
+                    // Get allowed providers directly from tier policy
+                    const displayProviders = getAllowedProviders(currentTier as any);
                     
                     return (
                       <div className="space-y-2">
