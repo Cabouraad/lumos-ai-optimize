@@ -470,7 +470,6 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     const [latestResponsesResult, sevenDayResult] = await Promise.all([
       supabase
         .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId }),
-        
       supabase
         .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
     ]);
@@ -483,8 +482,34 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       sampleResponse: latestResponsesResult.data?.[0]
     });
 
-    const rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
+    let rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
     const sevenDayData = sevenDayResult.data || [];
+
+    // If RPC errored or returned no rows, fallback to direct table select (temporary resilience)
+    if ((latestResponsesResult.error || rawLatestResponses.length === 0)) {
+      console.warn('🔍 [unified-fetcher] RPC failed or empty, using fallback select for latest provider responses', {
+        error: latestResponsesResult.error?.message,
+      });
+      const { data: fallbackRows, error: fallbackError } = await supabase
+        .from('prompt_provider_responses')
+        .select('id, prompt_id, provider, model, status, run_at, raw_ai_response, error, metadata, score, org_brand_present, org_brand_prominence, competitors_count, competitors_json, brands_json, citations_json, token_in, token_out')
+        .in('prompt_id', promptIds)
+        .order('run_at', { ascending: false })
+        .limit(400);
+      if (!fallbackError && fallbackRows) {
+        // Pick latest per (prompt_id, normalized_provider)
+        const seen = new Set<string>();
+        const normalized: any[] = [];
+        for (const row of fallbackRows) {
+          const providerNorm = row.provider === 'perplexity_ai' ? 'perplexity' : (row.provider === 'google_aio' ? 'google_ai_overview' : row.provider);
+          const key = `${row.prompt_id}-${providerNorm}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          normalized.push({ ...row, provider: providerNorm });
+        }
+        rawLatestResponses = normalized.filter((r: any) => promptIds.includes(r.prompt_id));
+      }
+    }
     
     // Normalize provider names to canonical forms
     const normalizeProvider = (provider: string | undefined): string | null => {

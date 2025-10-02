@@ -266,20 +266,22 @@ export function PromptRow({
                     const allowedProviders: Array<"openai" | "gemini" | "perplexity" | "google_ai_overview"> = 
                       ['openai', 'gemini', 'perplexity', 'google_ai_overview'];
                     
-                    const subscriptionAllowed = limits.allowedProviders || [];
+                    const subscriptionAllowed = (limits as any)?.allowedProviders || [];
                     
                     // Filter to only subscription-allowed providers
                     const displayProviders = allowedProviders.filter(p => 
                       subscriptionAllowed.includes(p)
                     );
                     
-                    console.log('🔍 [PromptRow] Provider display:', {
-                      promptId: prompt.id,
-                      displayProviders,
-                      providersWithData: Object.entries(promptDetails.providers)
-                        .filter(([_, r]) => r !== null)
-                        .map(([p]) => p)
-                    });
+                     console.log('🔍 [PromptRow] Provider display:', {
+                       promptId: prompt.id,
+                       displayProviders,
+                       allowedProviders: limits?.allowedProviders,
+                       currentTier: (limits as any)?.currentTier,
+                       providersWithData: Object.entries(promptDetails.providers)
+                         .filter(([_, r]) => r !== null)
+                         .map(([p]) => p)
+                     });
                     
                     return (
                       <div className="space-y-2">

@@ -28,11 +28,22 @@ export function useSubscriptionGate() {
     reportsPerMonth: currentTier === 'starter' ? 1 : currentTier === 'growth' ? 10 : 100,
     competitorTracking: currentTier === 'starter' ? 5 : currentTier === 'growth' ? 25 : 100,
     providersPerPrompt: currentTier === 'starter' ? 2 : currentTier === 'growth' ? 5 : 10,
-    allowedProviders: currentTier === 'starter' ? ['openai'] : 
-                     currentTier === 'growth' ? ['openai', 'anthropic'] : 
-                     ['openai', 'anthropic', 'gemini'],
-    hasRecommendations: currentTier === 'growth' || currentTier === 'enterprise',
-    hasCompetitorAnalysis: currentTier === 'growth' || currentTier === 'enterprise',
+    // Use canonical provider policies
+    allowedProviders: (() => {
+      try {
+        // Lazy import to avoid circular deps at module init
+        const { getAllowedProviders } = require('@/lib/providers/tier-policy');
+        return getAllowedProviders((currentTier as any) || 'free');
+      } catch (_e) {
+        // Safe fallback
+        if (currentTier === 'starter') return ['openai'];
+        if (currentTier === 'growth') return ['openai', 'perplexity', 'gemini'];
+        if (currentTier === 'pro' || currentTier === 'enterprise') return ['openai', 'perplexity', 'gemini', 'google_ai_overview'];
+        return ['openai'];
+      }
+    })(),
+    hasRecommendations: currentTier === 'growth' || currentTier === 'enterprise' || currentTier === 'pro',
+    hasCompetitorAnalysis: currentTier === 'growth' || currentTier === 'enterprise' || currentTier === 'pro',
     hasPrioritySupport: currentTier === 'enterprise'
   };
 

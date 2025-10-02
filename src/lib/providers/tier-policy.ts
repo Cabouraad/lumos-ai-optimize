@@ -3,12 +3,13 @@
  */
 
 export type ProviderName = 'openai' | 'perplexity' | 'gemini' | 'google_ai_overview';
-export type SubscriptionTier = 'starter' | 'growth' | 'pro' | 'free';
-
+export type SubscriptionTier = 'starter' | 'growth' | 'pro' | 'free' | 'enterprise';
+ 
 const PROVIDER_TIER_POLICIES: Record<SubscriptionTier, ProviderName[]> = {
-  starter: ['openai', 'perplexity'],
-  growth: ['openai', 'perplexity', 'gemini'], 
+  starter: ['openai'],
+  growth: ['openai', 'perplexity', 'gemini'],
   pro: ['openai', 'perplexity', 'gemini', 'google_ai_overview'],
+  enterprise: ['openai', 'perplexity', 'gemini', 'google_ai_overview'],
   free: ['openai'] // Fallback for unsubscribed users
 };
 
