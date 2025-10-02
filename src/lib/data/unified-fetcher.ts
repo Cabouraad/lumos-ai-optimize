@@ -483,17 +483,51 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
       sampleResponse: latestResponsesResult.data?.[0]
     });
 
-    const latestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
+    const rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
     const sevenDayData = sevenDayResult.data || [];
     
-    // 🐛 DEBUG: Log filtered responses
-    console.log('🔍 [unified-fetcher] Filtered latest responses:', {
-      totalFiltered: latestResponses.length,
+    // Normalize provider names to canonical forms
+    const normalizeProvider = (provider: string | undefined): string | null => {
+      if (!provider) {
+        console.warn('🔍 [unified-fetcher] Missing provider field in response');
+        return null;
+      }
+      const normalized = provider.toLowerCase().trim();
+      
+      // Provider name mappings
+      const providerMap: Record<string, string> = {
+        'perplexity_ai': 'perplexity',
+        'perplexity ai': 'perplexity',
+        'google': 'google_ai_overview',
+        'google_aio': 'google_ai_overview',
+        'google aio': 'google_ai_overview',
+        'googleaio': 'google_ai_overview',
+      };
+      
+      return providerMap[normalized] || normalized;
+    };
+
+    // Apply normalization to all responses and filter out any without valid provider
+    const latestResponses = rawLatestResponses
+      .map((r: any) => ({
+        ...r,
+        provider: normalizeProvider(r.provider) || r.provider
+      }))
+      .filter((r: any) => r.provider); // Remove any without provider
+    
+    // 🐛 DEBUG: Log filtered and normalized responses
+    console.log('🔍 [unified-fetcher] Filtered and normalized latest responses:', {
+      originalCount: rawLatestResponses.length,
+      normalizedCount: latestResponses.length,
+      originalProviders: [...new Set(rawLatestResponses.map((r: any) => r.provider))],
+      normalizedProviders: [...new Set(latestResponses.map((r: any) => r.provider))],
       byProvider: latestResponses.reduce((acc: any, r: any) => {
         acc[r.provider] = (acc[r.provider] || 0) + 1;
         return acc;
       }, {}),
-      promptIdsChecked: promptIds.length
+      promptIdsChecked: promptIds.length,
+      sampleOriginal: rawLatestResponses[0],
+      sampleNormalized: latestResponses[0]
     });
 
     // Process detailed prompt data
