@@ -8,6 +8,7 @@ interface DashboardMetricsProps {
     trend?: number;
     totalPrompts?: number;
     activePrompts?: number;
+    inactivePrompts?: number;
     promptCount?: number;
     totalRuns?: number;
     recentRunsCount?: number;
@@ -98,7 +99,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
         <CardContent>
           <div className="text-2xl font-bold text-accent">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
           <p className="text-xs text-muted-foreground">
-            {metrics?.activePrompts || 0} active
+            {metrics?.inactivePrompts || 0} inactive
           </p>
         </CardContent>
       </Card>

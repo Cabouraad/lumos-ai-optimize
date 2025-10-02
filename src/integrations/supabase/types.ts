@@ -1749,7 +1749,7 @@ export type Database = {
         Returns: string
       }
       get_unified_dashboard_data: {
-        Args: { p_org_id?: string }
+        Args: { p_org_id: string }
         Returns: Json
       }
       get_user_subscription_status: {

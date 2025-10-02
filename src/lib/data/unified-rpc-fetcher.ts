@@ -18,6 +18,8 @@ export interface UnifiedDashboardResponse {
     overallScore: number;
     trend: number;
     promptCount: number;
+    activePrompts: number;
+    inactivePrompts: number;
     totalRuns: number;
     recentRunsCount: number;
   };
@@ -87,6 +89,8 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
             overallScore: Number(result.metrics.overallScore) || 0,
             trend: Number(result.metrics.trend) || 0,
             promptCount: Number(result.metrics.promptCount) || 0,
+            activePrompts: Number(result.metrics.activePrompts) || 0,
+            inactivePrompts: Number(result.metrics.inactivePrompts) || 0,
             totalRuns: Number(result.metrics.totalRuns) || 0,
             recentRunsCount: Number(result.metrics.recentRunsCount) || 0
           }
@@ -95,6 +99,8 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
             overallScore: 0,
             trend: 0,
             promptCount: 0,
+            activePrompts: 0,
+            inactivePrompts: 0,
             totalRuns: 0,
             recentRunsCount: 0
           },
@@ -134,6 +140,8 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
         overallScore: 0,
         trend: 0,
         promptCount: 0,
+        activePrompts: 0,
+        inactivePrompts: 0,
         totalRuns: 0,
         recentRunsCount: 0
       },
