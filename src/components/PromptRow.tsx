@@ -261,19 +261,30 @@ export function PromptRow({
 
                 <CollapsibleContent className="space-y-4 mt-3">
                   {/* Provider Response Cards */}
-                  {promptDetails?.providers && (
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-medium text-muted-foreground border-b border-border/50 pb-1">
-                        Provider Results
-                      </h4>
-                      <div className="grid gap-2">
-                        {Object.entries(promptDetails.providers)
-                          .filter(([provider, response]: [string, any]) => {
-                            // Filter providers based on subscription tier
-                            const allowedProviders = limits.allowedProviders || [];
-                            return response && allowedProviders.includes(provider);
-                          })
-                          .map(([provider, response]: [string, any]) => (
+                  {promptDetails?.providers && (() => {
+                    // 🐛 DEBUG: Log filtering logic
+                    const allProviders = Object.entries(promptDetails.providers);
+                    const allowedProviders = limits.allowedProviders || [];
+                    const providersWithData = allProviders.filter(([_, response]) => response !== null);
+                    const filteredProviders = allProviders.filter(([provider, response]: [string, any]) => {
+                      return response && allowedProviders.includes(provider);
+                    });
+                    
+                    console.log('🔍 [PromptRow] Provider filtering:', {
+                      promptId: prompt.id,
+                      allProviders: allProviders.map(([p]) => p),
+                      providersWithData: providersWithData.map(([p]) => p),
+                      allowedProviders,
+                      filteredProviders: filteredProviders.map(([p]) => p)
+                    });
+                    
+                    return (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-medium text-muted-foreground border-b border-border/50 pb-1">
+                          Provider Results
+                        </h4>
+                        <div className="grid gap-2">
+                          {filteredProviders.map(([provider, response]: [string, any]) => (
                             <ProviderResponseCard
                               key={provider}
                               provider={provider as "openai" | "gemini" | "perplexity" | "google_ai_overview"}
@@ -281,9 +292,10 @@ export function PromptRow({
                               promptText={prompt.text}
                             />
                           ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Citations Section */}
                   <div className="border-t border-border/50 pt-3">

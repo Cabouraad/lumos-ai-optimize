@@ -420,10 +420,18 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     const orgId = await getOrgId();
     const cacheKey = `prompt-data-${orgId}`;
     
+    // 🐛 DEBUG: Force clear cache to get fresh data
+    console.log('🔍 [unified-fetcher] Clearing prompt data cache for fresh fetch', { orgId, cacheKey });
+    advancedCache.invalidate(cacheKey);
+    
     if (useCache) {
       // Check Phase 2 advanced cache first
       const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
       if (cached && isValidPromptData(cached)) {
+        console.log('🔍 [unified-fetcher] Using cached prompt data', { 
+          promptCount: cached.prompts.length,
+          detailsCount: cached.promptDetails.length 
+        });
         return cached;
       }
       // If cached data is invalid, clear it
@@ -467,8 +475,26 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
     ]);
 
+    // 🐛 DEBUG: Log RPC response details
+    console.log('🔍 [unified-fetcher] RPC get_latest_prompt_provider_responses result:', {
+      error: latestResponsesResult.error,
+      totalResponses: latestResponsesResult.data?.length || 0,
+      providers: [...new Set((latestResponsesResult.data || []).map((r: any) => r.provider))],
+      sampleResponse: latestResponsesResult.data?.[0]
+    });
+
     const latestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
     const sevenDayData = sevenDayResult.data || [];
+    
+    // 🐛 DEBUG: Log filtered responses
+    console.log('🔍 [unified-fetcher] Filtered latest responses:', {
+      totalFiltered: latestResponses.length,
+      byProvider: latestResponses.reduce((acc: any, r: any) => {
+        acc[r.provider] = (acc[r.provider] || 0) + 1;
+        return acc;
+      }, {}),
+      promptIdsChecked: promptIds.length
+    });
 
     // Process detailed prompt data
     const promptDetails = safePrompts.map(prompt => {
@@ -480,6 +506,17 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         perplexity: promptResponses.find(r => r.provider === 'perplexity') as ProviderResponseData || null,
         google_ai_overview: promptResponses.find(r => r.provider === 'google_ai_overview') as ProviderResponseData || null,
       };
+      
+      // 🐛 DEBUG: Log provider data for first prompt
+      if (prompt.id === safePrompts[0]?.id) {
+        console.log('🔍 [unified-fetcher] Provider data for first prompt:', {
+          promptId: prompt.id,
+          totalResponsesForPrompt: promptResponses.length,
+          providersFound: Object.entries(providerData)
+            .filter(([_, data]) => data !== null)
+            .map(([provider, data]) => ({ provider, status: data?.status, runAt: data?.run_at }))
+        });
+      }
 
       // Calculate overall score
       const scores = Object.values(providerData)

@@ -142,10 +142,31 @@ export default function Prompts() {
 
       const attemptFetch = async () => {
         const unifiedData = await getUnifiedPromptData(!isFirstLoad);
-        console.log('🔍 Debug: Unified data received:', {
+        
+        // 🐛 DEBUG: Log detailed provider data received
+        console.log('🔍 [Prompts] Unified data received:', {
           promptsCount: unifiedData.prompts?.length || 0,
-          detailsCount: unifiedData.promptDetails?.length || 0
+          detailsCount: unifiedData.promptDetails?.length || 0,
+          samplePromptDetail: unifiedData.promptDetails?.[0] ? {
+            promptId: unifiedData.promptDetails[0].promptId,
+            providers: Object.keys(unifiedData.promptDetails[0].providers),
+            providersWithData: Object.entries(unifiedData.promptDetails[0].providers)
+              .filter(([_, data]) => data !== null)
+              .map(([provider]) => provider)
+          } : 'No details'
         });
+        
+        // 🐛 DEBUG: Count provider responses across all prompts
+        const providerCounts = unifiedData.promptDetails?.reduce((acc: any, detail: any) => {
+          Object.entries(detail.providers).forEach(([provider, data]) => {
+            if (data !== null) {
+              acc[provider] = (acc[provider] || 0) + 1;
+            }
+          });
+          return acc;
+        }, {});
+        console.log('🔍 [Prompts] Provider responses by type:', providerCounts);
+        
         setRawPrompts(unifiedData.prompts);
         setProviderData(unifiedData.promptDetails);
         setError(null);
