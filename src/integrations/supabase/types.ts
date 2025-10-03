@@ -677,6 +677,7 @@ export type Database = {
           started_at: string | null
           status: string
           target_week: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -692,6 +693,7 @@ export type Database = {
           started_at?: string | null
           status?: string
           target_week?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -707,6 +709,7 @@ export type Database = {
           started_at?: string | null
           status?: string
           target_week?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -724,6 +727,7 @@ export type Database = {
           content_type: string
           created_at: string
           difficulty_level: string | null
+          fingerprint: string | null
           id: string
           impact_score: number | null
           implementation_details: Json | null
@@ -746,6 +750,7 @@ export type Database = {
           content_type: string
           created_at?: string
           difficulty_level?: string | null
+          fingerprint?: string | null
           id?: string
           impact_score?: number | null
           implementation_details?: Json | null
@@ -768,6 +773,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           difficulty_level?: string | null
+          fingerprint?: string | null
           id?: string
           impact_score?: number | null
           implementation_details?: Json | null
