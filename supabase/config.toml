@@ -66,6 +66,9 @@ verify_jwt = true
 [functions.run-prompt-now]
 verify_jwt = true
 
+[functions.run-prompt-now.env]
+ENABLE_GOOGLE_AIO = "true"
+
 [functions.suggest-prompts-now]
 verify_jwt = true
 
@@ -184,3 +187,6 @@ verify_jwt = true
 
 [functions.fetch-google-aio]
 verify_jwt = false
+
+[functions.fetch-google-aio.env]
+ENABLE_GOOGLE_AIO = "true"

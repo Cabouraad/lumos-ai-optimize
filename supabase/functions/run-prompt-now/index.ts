@@ -564,10 +564,12 @@ async function executeGoogleAio(promptText: string) {
   try {
     const url = new URL('https://serpapi.com/search');
     url.searchParams.set('api_key', apiKey);
-    url.searchParams.set('engine', 'google');
+    url.searchParams.set('engine', 'google_ai_mode');
     url.searchParams.set('q', promptText);
     url.searchParams.set('gl', 'us');
     url.searchParams.set('hl', 'en');
+    
+    console.log('[Google AIO] Calling SerpAPI with google_ai_mode engine');
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -583,6 +585,8 @@ async function executeGoogleAio(promptText: string) {
     }
 
     const data = await response.json();
+    console.log('[Google AIO] Response received, parsing AI overview...');
+    
     const aiOverview = data.ai_overview;
     
     if (!aiOverview) {
@@ -595,18 +599,34 @@ async function executeGoogleAio(promptText: string) {
       };
     }
 
-    // Extract citations from the AI overview
-    const citations = (aiOverview.links || []).map((link: any) => ({
-      title: link.title || '',
-      link: link.link || '',
-      domain: link.link ? new URL(link.link).hostname : '',
-      source_provider: 'google_ai_overview'
-    }));
+    // Extract citations - normalize field names to match fetch-google-aio function
+    const citations = (aiOverview.citations || []).map((citation: any) => {
+      const link = citation.link || citation.url || '';
+      let domain = '';
+      
+      if (link) {
+        try {
+          domain = new URL(link).hostname.replace(/^www\./, '');
+        } catch {
+          domain = link.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+        }
+      }
+      
+      return {
+        title: citation.title || citation.snippet || '',
+        link,
+        domain,
+        source_provider: 'google_ai_overview'
+      };
+    }).filter((c: any) => c.link);
 
-    console.log(`[Google AIO] Success - Summary length: ${aiOverview.summary?.length || 0}, Citations: ${citations.length}`);
+    // Extract summary text - try multiple field names
+    const summaryText = aiOverview.text || aiOverview.answer || aiOverview.snippet || 'No summary available';
+
+    console.log(`[Google AIO] Success - Summary length: ${summaryText.length}, Citations: ${citations.length}`);
 
     return {
-      text: aiOverview.summary || 'No summary available',
+      text: summaryText,
       tokenIn: 0, // SerpAPI doesn't provide token counts
       tokenOut: 0,
       citations

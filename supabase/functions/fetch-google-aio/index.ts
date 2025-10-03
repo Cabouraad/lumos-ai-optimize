@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     // Call SerpApi for Google AI Overviews
     const url = new URL('https://serpapi.com/search');
-    url.searchParams.set('engine', 'google');
+    url.searchParams.set('engine', 'google_ai_mode');
     url.searchParams.set('q', query);
     url.searchParams.set('gl', gl);
     url.searchParams.set('hl', hl);
