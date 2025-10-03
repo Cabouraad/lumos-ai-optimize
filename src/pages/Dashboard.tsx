@@ -41,8 +41,14 @@ export default function Dashboard() {
 
   // Memoize chart data to prevent unnecessary re-renders
   const memoizedChartData = useMemo(() => {
-    console.log('[Dashboard] Chart data memoized:', dashboardData?.chartData?.length || 0, 'points');
-    return dashboardData?.chartData || [];
+    const chartData = dashboardData?.chartData || [];
+    console.log('[Dashboard] Chart data memoized:', {
+      length: chartData.length,
+      sampleData: chartData.slice(0, 3),
+      scores: chartData.map(d => d.score),
+      hasValidScores: chartData.some(d => d.score != null && !isNaN(d.score))
+    });
+    return chartData;
   }, [dashboardData?.chartData]);
 
   // Compute brand presence stats from existing data
@@ -459,7 +465,7 @@ export default function Dashboard() {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
         <div className="container mx-auto p-6 space-y-8">
-          {showTrialBanner && (
+          {!!showTrialBanner && (
             <TrialBanner daysRemaining={appAccess.daysRemainingInTrial!} />
           )}
           

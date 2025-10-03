@@ -52,9 +52,14 @@ export function DashboardChart({
       </CardHeader>
       <CardContent>
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            {chartView === 'score' ? (
-              <LineChart data={chartData}>
+          {chartView === 'score' && (!chartData || chartData.length === 0 || !chartData.some(d => d.score != null)) ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              No visibility data available yet. Run some prompts to see trends.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              {chartView === 'score' ? (
+                <LineChart data={chartData}>
                 <XAxis 
                   dataKey="date" 
                   axisLine={false}
@@ -66,7 +71,8 @@ export function DashboardChart({
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12 }}
-                  domain={[0, 10]}
+                  domain={[0, 'dataMax + 1']}
+                  allowDataOverflow={false}
                 />
                 <Tooltip 
                   labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
@@ -143,7 +149,8 @@ export function DashboardChart({
                 ))}
               </LineChart>
             )}
-          </ResponsiveContainer>
+            </ResponsiveContainer>
+          )}
         </div>
       </CardContent>
     </Card>
