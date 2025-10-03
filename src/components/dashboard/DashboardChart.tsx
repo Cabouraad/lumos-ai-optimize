@@ -52,14 +52,9 @@ export function DashboardChart({
       </CardHeader>
       <CardContent>
         <div className="h-80">
-          {chartView === 'score' && (!chartData || chartData.length === 0 || !chartData.some(d => d.score != null)) ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              No visibility data available yet. Run some prompts to see trends.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              {chartView === 'score' ? (
-                <LineChart data={chartData}>
+          <ResponsiveContainer width="100%" height="100%">
+            {chartView === 'score' ? (
+              <LineChart data={chartData}>
                 <XAxis 
                   dataKey="date" 
                   axisLine={false}
@@ -89,7 +84,7 @@ export function DashboardChart({
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="score" 
+                  dataKey="avgScore" 
                   stroke="hsl(var(--primary))" 
                   strokeWidth={3}
                   dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
@@ -149,8 +144,7 @@ export function DashboardChart({
                 ))}
               </LineChart>
             )}
-            </ResponsiveContainer>
-          )}
+          </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
