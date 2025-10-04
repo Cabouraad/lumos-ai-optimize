@@ -137,6 +137,7 @@ export interface ProviderResponseData {
   error: string | null;
   token_in: number;
   token_out: number;
+  metadata?: { reason?: string; [key: string]: any };
 }
 
 /**

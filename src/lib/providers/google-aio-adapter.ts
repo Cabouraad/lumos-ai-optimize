@@ -62,17 +62,16 @@ export async function isGoogleAioAvailable(): Promise<boolean> {
       return false;
     }
 
-    // Make a test call to check availability
+    // Make a dry_run call to check availability without burning SerpApi quota
     const response = await supabase.functions.invoke('fetch-google-aio', {
-      body: { query: 'test' },
+      body: { dry_run: true },
       headers: {
         'Authorization': `Bearer ${session.access_token}`
       }
     });
 
-    // 204 means disabled, 401 means auth issues, 200 means available
-    // Check if the response is successful and doesn't contain an error indicating unavailability
-    return !response.error && response.data !== null;
+    // Check if enabled field is true in response data
+    return !response.error && !!response.data?.enabled;
     
   } catch {
     return false;

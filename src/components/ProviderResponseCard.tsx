@@ -269,6 +269,32 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                 </div>
               </div>
             )}
+
+            {/* Show gentle message for no AI overview (Google AIO specific) */}
+            {provider === 'google_ai_overview' && !response.raw_ai_response && response.status === 'success' && (
+              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
+                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">No AI Overview Available</p>
+                  <p className="text-amber-700 mt-0.5">
+                    Google didn't show an AI Overview for this query right now. This can happen for certain topics or regions.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Show rate limit message */}
+            {response.metadata?.reason === 'rate_limited' && (
+              <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded p-2 flex items-start gap-2">
+                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Rate Limited</p>
+                  <p className="text-rose-700 mt-0.5">
+                    SerpApi rate limit exceeded. Please try again later.
+                  </p>
+                </div>
+              </div>
+            )}
           </>
         )}
       </CardContent>

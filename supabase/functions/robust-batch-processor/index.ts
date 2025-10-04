@@ -213,11 +213,12 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
         hl: 'en'
       }),
       extractResponse: (data: any) => {
-        if (data?.summary) {
-          return data.summary;
+        // Normalize: summary || text || ""
+        const text = data?.summary ?? data?.text ?? "";
+        if (!text) {
+          console.log('⚠️ Google AIO: No AI overview in response, reason:', data?.reason || 'unknown');
         }
-        console.log('⚠️ Google AIO: No summary in response:', JSON.stringify(data, null, 2));
-        return '';
+        return text;
       }
     }
   };
@@ -297,6 +298,14 @@ async function callProviderAPI(
 
       clearTimeout(timeoutId);
 
+      // Handle rate limiting specifically for Google AIO
+      if (!response.ok && response.status === 429 && provider === 'google_ai_overview') {
+        const data = await response.json().catch(() => ({}));
+        const retryAfter = data.retry_after || 3600;
+        console.error(`⚠️ ${provider} rate limited, retry after ${retryAfter}s`);
+        throw new Error(`rate_limited: retry after ${retryAfter}s`);
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         const error = new Error(`HTTP ${response.status}: ${errorText}`);
@@ -312,6 +321,18 @@ async function callProviderAPI(
 
       const data = await response.json();
       const extractedResponse = config.extractResponse(data);
+
+      // For Google AIO, empty response with reason is valid (no_ai_overview)
+      if (!extractedResponse && provider === 'google_ai_overview') {
+        const reason = data?.reason || 'no_ai_overview';
+        console.log(`ℹ️ Google AIO returned empty response, reason: ${reason}`);
+        return {
+          success: true,
+          response: '',
+          tokenIn: 0,
+          tokenOut: 0
+        };
+      }
 
       if (!extractedResponse) {
         throw new Error('No valid response content extracted');
@@ -344,10 +365,12 @@ async function callProviderAPI(
         };
       }
       
-      // Exponential backoff
+      // Exponential backoff with jitter
       const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-      console.log(`⏳ Waiting ${backoffMs}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, backoffMs));
+      const jitter = Math.floor(Math.random() * 300);
+      const sleepMs = backoffMs + jitter;
+      console.log(`⏳ Waiting ${sleepMs}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, sleepMs));
     }
   }
   

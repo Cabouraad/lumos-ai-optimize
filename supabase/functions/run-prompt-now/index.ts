@@ -546,90 +546,45 @@ async function executeGemini(promptText: string) {
 
 // Google AI Overview execution function
 async function executeGoogleAio(promptText: string) {
-  console.log('[Google AIO] Starting execution');
+  console.log('[Google AIO] Starting execution via edge function');
   
-  // Check if Google AIO is enabled
-  const isEnabled = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
-  if (!isEnabled) {
-    console.log('[Google AIO] Disabled via ENABLE_GOOGLE_AIO');
-    throw new Error('Google AI Overviews is disabled');
-  }
-
-  const apiKey = Deno.env.get('SERPAPI_KEY');
-  if (!apiKey) {
-    console.error('[Google AIO] SERPAPI_KEY not found');
-    throw new Error('SerpAPI key not configured for Google AI Overviews');
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase configuration for Google AIO');
   }
 
   try {
-    const url = new URL('https://serpapi.com/search');
-    url.searchParams.set('api_key', apiKey);
-    url.searchParams.set('engine', 'google_ai_mode');
-    url.searchParams.set('q', promptText);
-    url.searchParams.set('gl', 'us');
-    url.searchParams.set('hl', 'en');
-    
-    console.log('[Google AIO] Calling SerpAPI with google_ai_mode engine');
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/fetch-google-aio`, {
+      method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-      }
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query: promptText, gl: 'us', hl: 'en' })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Google AIO] API Error:', { status: response.status, error: errorText });
-      throw new Error(`SerpAPI error: ${response.status} - ${errorText}`);
+      console.error('[Google AIO] Edge function error:', { status: response.status, error: errorText });
+      throw new Error(`Google AIO edge function error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('[Google AIO] Response received, parsing AI overview...');
     
-    const aiOverview = data.ai_overview;
+    // Normalize: summary || text || ""
+    const text = data.summary ?? data.text ?? "";
+    const reason = data.reason || (text ? "ok" : "no_ai_overview");
     
-    if (!aiOverview) {
-      console.log('[Google AIO] No AI Overview found in response');
-      return {
-        text: 'No AI Overview available for this query.',
-        tokenIn: 0,
-        tokenOut: 0,
-        citations: []
-      };
-    }
-
-    // Extract citations - normalize field names to match fetch-google-aio function
-    const citations = (aiOverview.citations || []).map((citation: any) => {
-      const link = citation.link || citation.url || '';
-      let domain = '';
-      
-      if (link) {
-        try {
-          domain = new URL(link).hostname.replace(/^www\./, '');
-        } catch {
-          domain = link.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-        }
-      }
-      
-      return {
-        title: citation.title || citation.snippet || '',
-        link,
-        domain,
-        source_provider: 'google_ai_overview'
-      };
-    }).filter((c: any) => c.link);
-
-    // Extract summary text - try multiple field names
-    const summaryText = aiOverview.text || aiOverview.answer || aiOverview.snippet || 'No summary available';
-
-    console.log(`[Google AIO] Success - Summary length: ${summaryText.length}, Citations: ${citations.length}`);
+    console.log(`[Google AIO] Success - Text length: ${text.length}, Citations: ${data.citations?.length || 0}, Reason: ${reason}`);
 
     return {
-      text: summaryText,
+      text,
       tokenIn: 0, // SerpAPI doesn't provide token counts
       tokenOut: 0,
-      citations
+      citations: data.citations || [],
+      metadata: { reason, enabled: data.enabled }
     };
 
   } catch (error) {
