@@ -20,7 +20,7 @@ export default function OptimizationsV2() {
 
   const handleGenerate = async () => {
     try {
-      const result = await generateMutation.mutateAsync({ scope: 'org' });
+      const result = await generateMutation.mutateAsync({});
       setActiveJobId(result.jobId);
       toast({
         title: "Generation started",

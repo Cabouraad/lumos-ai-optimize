@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { invokeEdge } from '@/lib/supabase/invoke';
 import * as api from './api-v2';
 
 /**
@@ -50,19 +51,44 @@ export function useGenerateOptimizations() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: api.generateOptimizations,
+    mutationFn: async (params?: { promptIds?: string[] }) => {
+      console.log('[useGenerateOptimizations] Starting generation with params:', params);
+      
+      const { data, error } = await invokeEdge('generate-optimizations-v2', {
+        body: {
+          scope: params?.promptIds ? 'batch' : 'organization',
+          promptIds: params?.promptIds,
+        }
+      });
+
+      console.log('[useGenerateOptimizations] Response:', { data, error });
+
+      if (error) {
+        console.error('[useGenerateOptimizations] Error:', error);
+        throw new Error(error.message || 'Failed to start generation');
+      }
+      
+      if (!data?.success) {
+        throw new Error(data?.error || 'Generation failed');
+      }
+
+      return data;
+    },
     onSuccess: (data) => {
+      console.log('[useGenerateOptimizations] Success:', data);
       queryClient.invalidateQueries({ queryKey: ['optimizations-v2'] });
       queryClient.invalidateQueries({ queryKey: ['generation-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
       
       toast({
-        title: "Generation started",
-        description: `Job ${data.jobId} created. Generating ${data.optimizationsCreated || 0} optimizations...`,
+        title: "Optimization generation started",
+        description: `Job ${data.jobId} is processing in background.`,
       });
     },
     onError: (error: Error) => {
+      console.error('[useGenerateOptimizations] Mutation error:', error);
       toast({
-        title: "Generation failed",
+        title: "Failed to generate optimizations",
         description: error.message,
         variant: "destructive",
       });
