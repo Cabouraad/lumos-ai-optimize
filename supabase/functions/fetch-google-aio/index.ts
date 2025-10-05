@@ -5,10 +5,15 @@ const ENABLE_GOOGLE_AIO = (Deno.env.get("ENABLE_GOOGLE_AIO") || "").toLowerCase(
 const SERPAPI_KEY = Deno.env.get("SERPAPI_KEY") || "";
 const DEBUG = (Deno.env.get("DEBUG_AIO") || "").toLowerCase() === "true";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" }
+    headers: { "content-type": "application/json", ...corsHeaders }
   });
 }
 
@@ -41,6 +46,10 @@ async function callSerp(query: string, gl = "us", hl = "en") {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
   try {
     const auth = req.headers.get("authorization") || "";
     // Allow: service role (internal), cron, or user JWT (bearer anything)
