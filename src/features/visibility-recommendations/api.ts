@@ -1,18 +1,42 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
-export async function generateVisibilityRecommendations(promptId: string) {
-  const { data, error } = await supabase.functions.invoke('generate-visibility-recommendations', {
-    body: { promptId }
-  });
-  if (error) throw error;
-  if ((data as any)?.error) {
-    throw new Error(`${(data as any).error}${(data as any).detail ? ': ' + (data as any).detail : ''}`);
+export type GenerateRecsResponse = {
+  inserted?: number;
+  items?: any[];
+  jobId?: string;
+  message?: string;
+  error?: string;
+  detail?: string;
+};
+
+export async function generateVisibilityRecommendations(promptId: string): Promise<GenerateRecsResponse> {
+  const sb = getSupabaseBrowserClient();
+
+  // Ensure we have a session before invoking
+  const { data: sess } = await sb.auth.getSession();
+  const token = sess?.session?.access_token;
+  if (!token) {
+    return { error: 'unauthenticated', detail: 'You must be signed in to generate recommendations.' };
   }
-  return data as { inserted: number; recommendations: any[] };
+
+  // IMPORTANT: Pass Authorization header explicitly
+  const { data, error } = await sb.functions.invoke('generate-visibility-recommendations', {
+    body: { promptId },
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (error) {
+    // Bubble a consistent error shape to the UI
+    return { error: 'invoke_failed', detail: error.message || String(error) };
+  }
+
+  // Edge function already returns structured JSON; pass it through
+  return (data ?? {}) as GenerateRecsResponse;
 }
 
 export async function listVisibilityRecommendations(promptId: string) {
-  const { data, error } = await supabase
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb
     .from('ai_visibility_recommendations')
     .select('*')
     .eq('prompt_id', promptId)
@@ -23,10 +47,11 @@ export async function listVisibilityRecommendations(promptId: string) {
 }
 
 export async function listAllOrgRecommendations() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const sb = getSupabaseBrowserClient();
+  const { data: { user } } = await sb.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { data: userData } = await supabase
+  const { data: userData } = await sb
     .from('users')
     .select('org_id')
     .eq('id', user.id)
@@ -34,7 +59,7 @@ export async function listAllOrgRecommendations() {
 
   if (!userData?.org_id) throw new Error('No organization found');
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('ai_visibility_recommendations')
     .select(`
       *,

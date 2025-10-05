@@ -1,16 +1,23 @@
+// deno-lint-ignore-file no-explicit-any
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const MAX_SYNC = 1;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+function j(body: any, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...corsHeaders }
+  });
+}
 
 function safeJSON(s: string) {
   try { return JSON.parse(s); } catch { return null; }
@@ -270,244 +277,238 @@ async function openaiJSON(messages: any[], tries = 2): Promise<any> {
   };
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('[generate-visibility-recommendations] Function called');
-    
     const auth = req.headers.get("authorization") || "";
     if (!auth.startsWith("Bearer ")) {
-      console.error('[generate-visibility-recommendations] Missing or invalid authorization');
-      return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      return j({ error: "unauthorized", detail: "Missing Bearer token." }, 401);
+    }
+    const jwt = auth.slice("Bearer ".length);
+
+    if (!OPENAI_API_KEY) {
+      return j({ error: "misconfigured", detail: "OPENAI_API_KEY is not configured on this project." }, 500);
     }
 
-    const jwt = auth.slice("Bearer ".length);
-    const userClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
+    const userSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } }
     });
     const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const body = await req.json().catch(() => ({}));
-    const promptId: string | undefined = body?.promptId;
-    const batch: boolean = !!body?.batch;
-
-    console.log('[generate-visibility-recommendations] Request:', { promptId, batch });
-
-    const { data: me, error: userError } = await userClient.auth.getUser();
-    if (userError || !me?.user) {
-      console.error('[generate-visibility-recommendations] Auth failed:', userError);
-      return new Response("Auth failed", { status: 401, headers: corsHeaders });
+    // Ensure user is valid
+    const { data: authUser, error: authErr } = await userSupabase.auth.getUser();
+    if (authErr || !authUser?.user) {
+      return j({ error: "unauthorized", detail: "Invalid or expired session." }, 401);
     }
 
-    const { data: user } = await service
+    const { promptId } = await req.json().catch(() => ({}));
+    if (!promptId) return j({ error: "bad_request", detail: "promptId is required." }, 400);
+
+    // Resolve org context
+    const { data: user, error: userErr } = await service
       .from("users")
-      .select("id, org_id, email")
-      .eq("id", me.user.id)
+      .select("id, org_id")
+      .eq("id", authUser.user.id)
       .single();
-      
-    if (!user?.org_id) {
-      console.error('[generate-visibility-recommendations] No org found for user');
-      return new Response("No org", { status: 403, headers: corsHeaders });
+
+    if (userErr || !user?.org_id) {
+      return j({ error: "forbidden", detail: "No organization found for user." }, 403);
     }
 
+    // Get organization details
     const { data: org } = await service
       .from("organizations")
-      .select("id, name")
+      .select("name")
       .eq("id", user.org_id)
       .single();
 
-    // Determine target prompts
-    let promptIds: string[] = [];
-    if (promptId) {
-      promptIds = [promptId];
-    } else if (batch) {
-      const { data: lows } = await service
-        .from("prompt_visibility_14d")
-        .select("prompt_id")
-        .eq("org_id", user.org_id)
-        .lt("presence_rate", 50)
-        .order("presence_rate", { ascending: true })
-        .limit(20);
-      promptIds = (lows ?? []).map((r: any) => r.prompt_id);
-    }
-
-    if (promptIds.length === 0) {
-      console.log('[generate-visibility-recommendations] No prompts to process');
-      return new Response(
-        JSON.stringify({ inserted: 0, recommendations: [] }), 
-        { headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
-
-    // For now, only process single prompt synchronously
-    if (promptIds.length > MAX_SYNC) {
-      console.log('[generate-visibility-recommendations] Batch queuing not implemented yet, processing first prompt only');
-      promptIds = [promptIds[0]];
-    }
-
-    const pid = promptIds[0];
-    console.log('[generate-visibility-recommendations] Processing prompt:', pid);
-
-    // Get prompt details
+    // Fetch prompt
     const { data: prompt } = await service
       .from("prompts")
       .select("id, text, org_id")
-      .eq("id", pid)
+      .eq("id", promptId)
       .eq("org_id", user.org_id)
       .single();
-      
-    if (!prompt) {
-      console.error('[generate-visibility-recommendations] Prompt not found');
-      return new Response("Prompt not found", { status: 404, headers: corsHeaders });
-    }
 
-    // Get visibility stats
+    if (!prompt) return j({ error: "not_found", detail: "Prompt not found in your organization." }, 404);
+
+    // Pull visibility
     const { data: vis } = await service
       .from("prompt_visibility_14d")
-      .select("presence_rate")
+      .select("presence_rate, prompt_id")
       .eq("org_id", user.org_id)
-      .eq("prompt_id", pid)
+      .eq("prompt_id", promptId)
       .maybeSingle();
-    const presence = pick(vis?.presence_rate, 0);
 
-    console.log('[generate-visibility-recommendations] Presence rate:', presence);
+    const presence = vis?.presence_rate ?? 0;
 
-    // Get recent citations
+    // Collect recent citations from prompt_provider_responses
     const { data: responses } = await service
       .from("prompt_provider_responses")
       .select("citations_json")
       .eq("org_id", user.org_id)
-      .eq("prompt_id", pid)
+      .eq("prompt_id", promptId)
       .not("citations_json", "is", null)
       .order("run_at", { ascending: false })
-      .limit(20);
+      .limit(5);
 
-    const citations: {domain: string; link: string; title?: string}[] = [];
+    const citations: any[] = [];
     (responses ?? []).forEach((r: any) => {
-      if (r.citations_json && Array.isArray(r.citations_json)) {
+      if (Array.isArray(r.citations_json)) {
         r.citations_json.forEach((c: any) => {
-          if (c.url || c.link) {
-            try {
-              const url = c.url || c.link;
-              const domain = c.domain || new URL(url).hostname;
-              citations.push({
-                domain,
-                link: url,
-                title: c.title || null
-              });
-            } catch (e) {
-              console.warn('[generate-visibility-recommendations] Invalid citation URL:', c);
-            }
-          }
+          citations.push({
+            domain: c.domain || (c.url ? new URL(c.url).hostname : ""),
+            link: c.url,
+            title: c.title || null,
+          });
         });
       }
     });
 
-    console.log('[generate-visibility-recommendations] Found citations:', citations.length);
+    // Existing recommendations to avoid duplicates
+    const { data: existing } = await service
+      .from("optimizations")
+      .select("id, content_type, title")
+      .eq("org_id", user.org_id)
+      .eq("prompt_id", promptId)
+      .order("created_at", { ascending: false })
+      .limit(30);
 
-    // Call OpenAI with retry and fallback
-    const messages = [
-      { role: "system", content: SYSTEM },
-      { 
-        role: "user", 
-        content: userPrompt({
-          brand: org?.name || "Your Brand",
-          promptText: prompt.text,
-          presenceRate: presence,
-          citations
-        })
-      }
-    ];
+    const avoid = (existing ?? []).map((r: any) => `${r.content_type}:${(r.title || "").toLowerCase()}`).slice(0, 12);
 
-    console.log('[generate-visibility-recommendations] Calling OpenAI');
-    const json = await openaiJSON(messages, 2);
-    
-    const content = Array.isArray(json?.content) ? json.content : [];
-    const social = Array.isArray(json?.social) ? json.social : [];
-    const projectedImpact = typeof json?.projected_impact === "string" ? json.projected_impact : null;
+    // Build prompt for the LLM
+    const system = "You are an AI Search Visibility strategist for B2B SaaS. Respond with strict JSON only.";
+    const citesList = citations.slice(0, 8).map(c => `- ${c.domain}${c.title ? ` — ${c.title}` : ""} (${c.link})`).join("\n");
+    const avoidList = avoid.join("\n");
 
-    console.log('[generate-visibility-recommendations] Generated:', { content: content.length, social: social.length });
+    const userPrompt = `
+BRAND: ${org?.name || "Your Brand"}
+TRACKED PROMPT: "${prompt.text}"
+WINDOW: last 14 days
+CURRENT PRESENCE: ${presence.toFixed(1)}%
 
-    // Build insert rows
-    const rows: any[] = [];
-    
-    content.forEach((c: any) => {
-      rows.push({
-        org_id: user.org_id,
-        prompt_id: pid,
-        channel: "content",
-        subtype: c.subtype || "blog_post",
-        title: c.title || "Untitled",
-        outline: c.outline || null,
-        posting_instructions: c.posting_instructions || "",
-        must_include: c.must_include || {},
-        where_to_publish: c.where_to_publish || {},
-        citations_used: citations.slice(0, 10),
-        success_metrics: c.success_metrics || (projectedImpact ? [projectedImpact] : []),
-        score_before: presence
-      });
+TOP CITATIONS:
+${citesList || "(none)"}
+
+AVOID DUPLICATES:
+${avoidList || "(none)"}
+
+Create content + social recommendations in JSON:
+{
+ "content":[{"subtype":"blog_post|resource_hub|landing_page","title":"...","outline":[{"h2":"...","h3":["..."]}],
+   "must_include":{"entities":["..."],"keywords":["..."],"faqs":["..."],"schema":["FAQPage"]},
+   "where_to_publish":{"path":"/blog/...","update_existing":false},
+   "posting_instructions":"...", "citations_used":[{"domain":"...","link":"..."}], "success_metrics":["..."]}],
+ "social":[{"subtype":"linkedin_post|x_post","title":"hook","body_bullets":["..."],"cta":"...",
+   "where_to_publish":{"platform":"LinkedIn|X","profile":"company"},
+   "must_include":{"entities":["..."],"keywords":["..."]}, "posting_instructions":"...", "success_metrics":["..."]}],
+ "projected_impact":"..."
+}
+JSON ONLY.`.trim();
+
+    // Call OpenAI
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${OPENAI_API_KEY}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.25,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userPrompt }
+        ]
+      })
     });
 
-    social.forEach((s: any) => {
-      rows.push({
-        org_id: user.org_id,
-        prompt_id: pid,
-        channel: "social",
-        subtype: s.subtype || "linkedin_post",
-        title: s.title || "Untitled",
-        outline: { body_bullets: s.body_bullets || [] },
-        posting_instructions: s.posting_instructions || "",
-        must_include: s.must_include || {},
-        where_to_publish: s.where_to_publish || {},
-        citations_used: citations.slice(0, 5),
-        success_metrics: s.success_metrics || (projectedImpact ? [projectedImpact] : []),
-        score_before: presence
-      });
-    });
-
-    // Insert recommendations
-    if (rows.length > 0) {
-      const { data: inserted, error: insertError } = await service
-        .from("ai_visibility_recommendations")
-        .insert(rows)
-        .select();
-
-      if (insertError) {
-        console.error('[generate-visibility-recommendations] Insert error:', insertError);
-        return new Response(
-          JSON.stringify({ error: `Insert failed: ${insertError.message}` }),
-          { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
-
-      console.log('[generate-visibility-recommendations] Successfully inserted:', inserted?.length || 0);
-
-      return new Response(
-        JSON.stringify({ 
-          inserted: inserted?.length || 0, 
-          recommendations: inserted || [] 
-        }),
-        { headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
+    if (!resp.ok) {
+      const t = await resp.text();
+      return j({ error: "llm_error", detail: t }, 502);
     }
 
-    return new Response(
-      JSON.stringify({ inserted: 0, recommendations: [] }),
-      { headers: { ...corsHeaders, "content-type": "application/json" } }
-    );
+    const raw = await resp.json();
+    const content = raw?.choices?.[0]?.message?.content ?? "{}";
+    let json: any;
+    try { json = JSON.parse(content); } catch { json = null; }
 
-  } catch (error) {
-    console.error('[generate-visibility-recommendations] Fatal error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error",
-        inserted: 0,
-        recommendations: []
+    // Fallback minimal plan if JSON parse fails
+    if (!json) {
+      json = {
+        content: [{
+          subtype: "resource_hub",
+          title: `Resource Hub: ${prompt.text}`,
+          outline: [{ h2: "What buyers need", h3: ["Key terms", "Comparison", "Pricing"] }],
+          must_include: { entities: [org?.name || "Your Brand"], keywords: ["guide","comparison"] },
+          where_to_publish: { path: "/resources/" },
+          posting_instructions: "Add FAQ schema and 2 internal links.",
+          success_metrics: ["Presence +20% in 14d"]
+        }],
+        social: [{
+          subtype: "linkedin_post",
+          title: `Most teams miss this about ${prompt.text}`,
+          body_bullets: ["One key insight", "Practical step", "Link to hub"],
+          cta: "Read the full guide",
+          where_to_publish: { platform: "LinkedIn", profile: "company" },
+          must_include: { entities: [org?.name || "Your Brand"] },
+          success_metrics: [">2k impressions"]
+        }]
+      };
+    }
+
+    // Normalize rows and insert into optimizations table
+    const rows: any[] = [];
+    const presenceScore = presence ?? 0;
+
+    (Array.isArray(json.content) ? json.content : []).forEach((c: any) => rows.push({
+      org_id: user.org_id,
+      prompt_id: promptId,
+      content_type: c.subtype || "blog_post",
+      title: c.title || "Untitled",
+      body: JSON.stringify({
+        outline: c.outline || [],
+        must_include: c.must_include || {},
+        where_to_publish: c.where_to_publish || {},
+        posting_instructions: c.posting_instructions || "",
+        success_metrics: c.success_metrics || []
       }),
-      { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } }
-    );
+      sources: citations.length > 0 ? citations : null,
+      score_before: presenceScore,
+      projected_impact: json.projected_impact || null
+    }));
+
+    (Array.isArray(json.social) ? json.social : []).forEach((s: any) => rows.push({
+      org_id: user.org_id,
+      prompt_id: promptId,
+      content_type: "social_post",
+      title: s.title || "Untitled",
+      body: JSON.stringify({
+        subtype: s.subtype || "linkedin_post",
+        bullets: s.body_bullets || [],
+        cta: s.cta || "",
+        where_to_publish: s.where_to_publish || {},
+        must_include: s.must_include || {},
+        success_metrics: s.success_metrics || []
+      }),
+      sources: citations.length > 0 ? citations : null,
+      score_before: presenceScore,
+      projected_impact: json.projected_impact || null
+    }));
+
+    let inserted = 0;
+    for (const r of rows) {
+      const { error } = await service.from("optimizations").insert(r);
+      if (!error) inserted++;
+    }
+
+    return j({ inserted, items: rows, message: inserted ? "Recommendations generated." : "No new items (possible duplicates)." }, 200);
+  } catch (e) {
+    console.error("Error in generate-visibility-recommendations:", e);
+    return j({ error: "crash", detail: String(e) }, 500);
   }
 });
