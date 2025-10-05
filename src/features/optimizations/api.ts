@@ -108,3 +108,61 @@ export async function getRealtimeVisibility(orgId: string, days: number = 14) {
   }
   return data ?? [];
 }
+
+// NEW: Queue-based optimization job API (for CORS-free processing)
+export async function enqueueOptimizationJob(promptId?: string) {
+  // Get current user and org
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('org_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData?.org_id) throw new Error('No organization found');
+
+  // Create input hash for deduplication
+  const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+  const inputHash = `${userData.org_id}_${promptId || 'org'}_${weekNum}`;
+
+  // Insert job into queue
+  const { data, error } = await supabase
+    .from('optimization_jobs')
+    .insert({
+      org_id: userData.org_id,
+      requested_by: user.id,
+      scope: promptId ? 'prompt' : 'org',
+      prompt_ids: promptId ? [promptId] : null,
+      status: 'queued',
+      input_hash: inputHash,
+      model_version: 'v1'
+    })
+    .select('id, status')
+    .single();
+
+  if (error) throw error;
+
+  return { 
+    jobId: data.id, 
+    status: data.status 
+  };
+}
+
+export async function pollJobStatus(jobId: string) {
+  const { data, error } = await supabase
+    .from('optimization_jobs')
+    .select('id, status, error_text, finished_at, created_at')
+    .eq('id', jobId)
+    .single();
+
+  if (error) throw error;
+
+  return {
+    status: data.status,
+    error_text: data.error_text,
+    finished_at: data.finished_at,
+    created_at: data.created_at
+  };
+}
