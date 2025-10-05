@@ -1,6 +1,6 @@
 /**
  * Optimizations V2 Generation Engine
- * Uses Lovable AI (Gemini 2.5 Flash) for high-quality, cost-effective generation
+ * Uses OpenAI GPT-4o-mini for high-quality optimization recommendations
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -8,11 +8,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 interface GenerationRequest {
@@ -125,7 +126,7 @@ serve(async (req) => {
 
     console.log(`[generate-optimizations-v2] Processing ${lowVisPrompts.length} prompts`);
 
-    // Generate optimizations using Lovable AI
+    // Generate optimizations using OpenAI
     const optimizations = [];
     let totalTokens = 0;
 
@@ -134,7 +135,7 @@ serve(async (req) => {
         const result = await generateOptimization(
           promptData,
           org,
-          LOVABLE_API_KEY
+          OPENAI_API_KEY
         );
 
         if (result.success) {
@@ -234,25 +235,25 @@ Return JSON array with this structure for each recommendation:
   ]
 }`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Generate optimization recommendations:" }
+        { role: "user", content: "Generate optimization recommendations as a JSON array:" }
       ],
-      response_format: { type: "json_object" }
+      temperature: 0.7
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Lovable AI error: ${response.status} ${errorText}`);
+    throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
@@ -281,7 +282,7 @@ Return JSON array with this structure for each recommendation:
       avg_score: promptData.avg_score_when_present
     },
     content_hash: await createContentHash(rec.title + rec.description + rec.content_type),
-    llm_model: 'google/gemini-2.5-flash',
+    llm_model: 'gpt-4o-mini',
     llm_tokens_used: data.usage?.total_tokens || 0,
     generation_confidence: 0.85
   }));
