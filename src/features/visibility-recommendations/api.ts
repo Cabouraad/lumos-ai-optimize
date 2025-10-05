@@ -36,9 +36,10 @@ export async function generateVisibilityRecommendations(promptId?: string) {
 export async function listVisibilityRecommendations(promptId: string) {
   const sb = getSupabaseBrowserClient();
   const { data, error } = await sb
-    .from('ai_visibility_recommendations')
+    .from('optimizations_v2')
     .select('*')
     .eq('prompt_id', promptId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
     
   if (error) throw error;
@@ -59,12 +60,13 @@ export async function listAllOrgRecommendations() {
   if (!userData?.org_id) throw new Error('No organization found');
 
   const { data, error } = await sb
-    .from('ai_visibility_recommendations')
+    .from('optimizations_v2')
     .select(`
       *,
       prompts!inner(text)
     `)
     .eq('org_id', userData.org_id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(50);
     

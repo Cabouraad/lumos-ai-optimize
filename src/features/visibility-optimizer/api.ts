@@ -246,59 +246,68 @@ export async function getOptimizationsForPrompt(promptId: string): Promise<Conte
 
 export async function getOptimizationsForOrg(orgId: string): Promise<ContentOptimization[]> {
   const { data, error } = await supabase
-    .from('ai_visibility_recommendations')
+    .from('optimizations_v2')
     .select('*')
     .eq('org_id', orgId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(20);
 
   if (error) throw error;
 
-  // Map database fields to ContentOptimization format
-  return (data || []).map(rec => ({
-    id: rec.id,
-    prompt_id: rec.prompt_id,
-    type: (rec.channel === 'blog_post' ? 'blog_post' : 
-           rec.channel === 'social_media' ? 'social_post' : 
-           'community_answer') as ContentOptimization['type'],
-    title: rec.title,
-    description: rec.posting_instructions || rec.subtype || '',
-    priority_score: rec.score_before ? Math.round(100 - (rec.score_before * 10)) : 50,
-    difficulty_level: determineDifficulty(rec.channel),
-    created_at: rec.created_at,
-    content_specifications: {
+  // Map new optimizations_v2 fields to ContentOptimization format
+  return (data || []).map(opt => ({
+    id: opt.id,
+    prompt_id: opt.prompt_id || undefined,
+    type: (opt.content_type || 'blog_post') as ContentOptimization['type'],
+    title: opt.title,
+    description: opt.description,
+    priority_score: opt.priority_score,
+    difficulty_level: opt.difficulty_level as 'easy' | 'medium' | 'hard',
+    created_at: opt.created_at,
+    content_specifications: typeof opt.content_specs === 'object' ? opt.content_specs as any : {
       word_count: 1500,
-      key_sections: (rec.outline as any)?.sections || [],
-      required_keywords: (rec.must_include as string[]) || [],
+      key_sections: [],
+      required_keywords: [],
       target_audience: 'Marketing professionals',
       tone: 'Professional and actionable'
     },
     distribution: {
-      primary_channel: (rec.where_to_publish as any)?.[0] || 'Company blog',
-      additional_channels: ((rec.where_to_publish as any[]) || []).slice(1),
+      primary_channel: Array.isArray(opt.distribution_channels) && opt.distribution_channels.length > 0 
+        ? opt.distribution_channels[0] as string 
+        : 'Company blog',
+      additional_channels: Array.isArray(opt.distribution_channels) 
+        ? opt.distribution_channels.slice(1).map(c => String(c)) 
+        : [],
       posting_schedule: 'As soon as ready',
       optimal_timing: 'Weekday morning'
     },
     implementation: {
-      research_hours: 4,
-      writing_hours: 6,
-      review_hours: 2,
-      total_timeline_days: 5,
+      research_hours: opt.estimated_hours ? Math.ceil(opt.estimated_hours * 0.3) : 4,
+      writing_hours: opt.estimated_hours ? Math.ceil(opt.estimated_hours * 0.5) : 6,
+      review_hours: opt.estimated_hours ? Math.ceil(opt.estimated_hours * 0.2) : 2,
+      total_timeline_days: opt.estimated_hours ? Math.ceil(opt.estimated_hours / 8) : 5,
       required_resources: ['Content writer', 'Subject matter expert'],
-      content_brief: rec.posting_instructions || 'Follow outlined strategy'
+      content_brief: Array.isArray(opt.implementation_steps) && opt.implementation_steps.length > 0 
+        ? opt.implementation_steps.map(s => String(s)).join('\n') 
+        : 'Follow outlined strategy'
     },
     impact_assessment: {
       estimated_visibility_increase: 20,
-      target_prompts: [rec.prompt_id],
+      target_prompts: opt.prompt_id ? [opt.prompt_id] : [],
       confidence_level: 'medium',
       expected_timeline_weeks: 4,
-      success_metrics: (rec.success_metrics as string[]) || []
+      success_metrics: typeof opt.success_metrics === 'object' && opt.success_metrics !== null 
+        ? Object.values(opt.success_metrics).map(m => String(m))
+        : []
     },
     content_strategy: {
-      main_angle: rec.subtype || 'Thought leadership',
+      main_angle: opt.optimization_category || 'Thought leadership',
       unique_value_proposition: 'Direct response to AI query patterns',
       competitor_differentiation: 'Focus on specific use cases',
-      supporting_data_points: []
+      supporting_data_points: Array.isArray(opt.citations_used) 
+        ? opt.citations_used.map(c => String(c))
+        : []
     }
   }));
 }
