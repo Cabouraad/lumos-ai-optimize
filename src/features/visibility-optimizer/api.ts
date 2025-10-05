@@ -245,127 +245,66 @@ export async function getOptimizationsForPrompt(promptId: string): Promise<Conte
 }
 
 export async function getOptimizationsForOrg(orgId: string): Promise<ContentOptimization[]> {
-  // Mock implementation - in the future this would query the database
-  // For now, return some sample data to demonstrate the UI
-  const mockOptimizations: ContentOptimization[] = [
-    {
-      id: 'opt_1',
-      prompt_id: 'prompt_1',
-      type: 'blog_post',
-      title: 'Complete Guide to AI-Powered Marketing Analytics',
-      description: 'Create a comprehensive blog post that positions your brand as the leading solution for AI marketing analytics, targeting the specific prompt about marketing measurement.',
-      content_specifications: {
-        word_count: 2500,
-        key_sections: [
-          'Introduction to AI Marketing Analytics',
-          'Key Metrics and KPIs',
-          'Implementation Strategies',
-          'Case Studies and Results',
-          'Future Trends'
-        ],
-        required_keywords: ['AI marketing', 'analytics', 'measurement', 'ROI', 'attribution'],
-        target_audience: 'Marketing directors and CMOs',
-        tone: 'Professional and authoritative'
-      },
-      distribution: {
-        primary_channel: 'Company blog',
-        additional_channels: ['LinkedIn', 'Medium', 'Industry newsletters'],
-        posting_schedule: 'Publish Tuesday 9am EST',
-        optimal_timing: 'Tuesday morning for maximum B2B engagement'
-      },
-      implementation: {
-        research_hours: 8,
-        writing_hours: 12,
-        review_hours: 4,
-        total_timeline_days: 7,
-        required_resources: ['Content writer', 'Marketing analytics expert', 'SEO specialist'],
-        content_brief: 'Focus on practical implementation with real-world examples. Include original research or data where possible. Ensure the content directly addresses the pain points mentioned in the target prompt.'
-      },
-      impact_assessment: {
-        estimated_visibility_increase: 25,
-        target_prompts: ['prompt_1'],
-        confidence_level: 'high',
-        expected_timeline_weeks: 4,
-        success_metrics: [
-          'Increase in branded search traffic',
-          'Higher ranking for target keywords',
-          'Improved AI model citations',
-          'Lead generation from content'
-        ]
-      },
-      content_strategy: {
-        main_angle: 'Authority-building thought leadership',
-        unique_value_proposition: 'Only platform combining real-time AI insights with predictive analytics',
-        competitor_differentiation: 'Focus on implementation ease vs competitor complexity',
-        supporting_data_points: [
-          'Customer success metrics',
-          'Industry benchmarks',
-          'Original research findings'
-        ]
-      },
-      priority_score: 85,
-      difficulty_level: 'medium',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 'opt_2',
-      prompt_id: 'prompt_2',
-      type: 'case_study',
-      title: 'How [Company X] Increased ROI by 340% with AI Marketing',
-      description: 'Detailed case study showcasing measurable results achieved through AI marketing implementation, perfect for addressing customer success queries.',
-      content_specifications: {
-        word_count: 1800,
-        key_sections: [
-          'Challenge Overview',
-          'Solution Implementation',
-          'Results and Metrics',
-          'Key Takeaways'
-        ],
-        required_keywords: ['ROI improvement', 'AI marketing results', 'customer success'],
-        target_audience: 'Potential customers and decision makers',
-        tone: 'Results-focused and credible'
-      },
-      distribution: {
-        primary_channel: 'Website case studies section',
-        additional_channels: ['Sales collateral', 'LinkedIn', 'Email campaigns'],
-        posting_schedule: 'Immediate after completion',
-        optimal_timing: 'Weekday morning for professional audience'
-      },
-      implementation: {
-        research_hours: 6,
-        writing_hours: 8,
-        review_hours: 3,
-        total_timeline_days: 5,
-        required_resources: ['Case study writer', 'Customer success manager', 'Data analyst'],
-        content_brief: 'Work directly with the customer to gather authentic data and quotes. Focus on specific, measurable outcomes that can be verified.'
-      },
-      impact_assessment: {
-        estimated_visibility_increase: 35,
-        target_prompts: ['prompt_2'],
-        confidence_level: 'high',
-        expected_timeline_weeks: 2,
-        success_metrics: [
-          'Increased case study page views',
-          'Higher conversion rates',
-          'More qualified leads',
-          'Improved close rates'
-        ]
-      },
-      content_strategy: {
-        main_angle: 'Proof of concept through customer success',
-        unique_value_proposition: 'Demonstrable ROI with specific metrics',
-        competitor_differentiation: 'Real customer data vs theoretical benefits',
-        supporting_data_points: [
-          '340% ROI increase',
-          'Implementation timeline',
-          'Specific tool usage metrics'
-        ]
-      },
-      priority_score: 92,
-      difficulty_level: 'easy',
-      created_at: new Date().toISOString()
-    }
-  ];
+  const { data, error } = await supabase
+    .from('ai_visibility_recommendations')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(20);
 
-  return mockOptimizations;
+  if (error) throw error;
+
+  // Map database fields to ContentOptimization format
+  return (data || []).map(rec => ({
+    id: rec.id,
+    prompt_id: rec.prompt_id,
+    type: (rec.channel === 'blog_post' ? 'blog_post' : 
+           rec.channel === 'social_media' ? 'social_post' : 
+           'community_answer') as ContentOptimization['type'],
+    title: rec.title,
+    description: rec.posting_instructions || rec.subtype || '',
+    priority_score: rec.score_before ? Math.round(100 - (rec.score_before * 10)) : 50,
+    difficulty_level: determineDifficulty(rec.channel),
+    created_at: rec.created_at,
+    content_specifications: {
+      word_count: 1500,
+      key_sections: (rec.outline as any)?.sections || [],
+      required_keywords: (rec.must_include as string[]) || [],
+      target_audience: 'Marketing professionals',
+      tone: 'Professional and actionable'
+    },
+    distribution: {
+      primary_channel: (rec.where_to_publish as any)?.[0] || 'Company blog',
+      additional_channels: ((rec.where_to_publish as any[]) || []).slice(1),
+      posting_schedule: 'As soon as ready',
+      optimal_timing: 'Weekday morning'
+    },
+    implementation: {
+      research_hours: 4,
+      writing_hours: 6,
+      review_hours: 2,
+      total_timeline_days: 5,
+      required_resources: ['Content writer', 'Subject matter expert'],
+      content_brief: rec.posting_instructions || 'Follow outlined strategy'
+    },
+    impact_assessment: {
+      estimated_visibility_increase: 20,
+      target_prompts: [rec.prompt_id],
+      confidence_level: 'medium',
+      expected_timeline_weeks: 4,
+      success_metrics: (rec.success_metrics as string[]) || []
+    },
+    content_strategy: {
+      main_angle: rec.subtype || 'Thought leadership',
+      unique_value_proposition: 'Direct response to AI query patterns',
+      competitor_differentiation: 'Focus on specific use cases',
+      supporting_data_points: []
+    }
+  }));
+}
+
+function determineDifficulty(channel: string): 'easy' | 'medium' | 'hard' {
+  if (channel === 'social_media' || channel === 'reddit') return 'easy';
+  if (channel === 'blog_post') return 'medium';
+  return 'medium';
 }

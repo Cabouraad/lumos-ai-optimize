@@ -19,13 +19,14 @@ import { isFeatureEnabled } from '@/lib/config/feature-flags';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { DashboardChart } from '@/components/dashboard/DashboardChart';
 import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
+import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 
 export default function Dashboard() {
   const { user, orgData } = useAuth();
   const navigate = useNavigate();
   const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
-  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const { data: optimizations = [] } = useContentOptimizations();
   const [latestReport, setLatestReport] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [chartView, setChartView] = useState<'score' | 'competitors'>('score');
@@ -153,7 +154,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (orgData?.organizations?.id) {
-      loadRecommendations();
       if (isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
         loadLatestReport();
       }
@@ -174,52 +174,20 @@ export default function Dashboard() {
     }
   }, [error, toast]);
 
-  const loadRecommendations = async () => {
-    try {
-      const orgId = orgData?.organizations?.id;
-      if (!orgId) return;
-
-      const { data, error } = await supabase
-        .from('recommendations')
-        .select('*')
-        .eq('org_id', orgId)
-        .in('status', ['open', 'snoozed', 'done', 'dismissed'])
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Filter for high impact recommendations first, then fall back to others if needed
-      const allRecommendations = (data || []) as any[];
-      
-      // First try to get high impact recommendations
-      let highImpactRecs = allRecommendations.filter(rec => {
-        const metadata = rec.metadata as any;
-        return metadata?.impact === 'high' && rec.status === 'open';
-      });
-
-      // If we don't have at least 3 high impact, add medium impact ones
-      if (highImpactRecs.length < 3) {
-        const mediumImpactRecs = allRecommendations.filter(rec => {
-          const metadata = rec.metadata as any;
-          return metadata?.impact === 'medium' && rec.status === 'open';
-        });
-        highImpactRecs = [...highImpactRecs, ...mediumImpactRecs];
-      }
-
-      // If still not enough, add any open recommendations
-      if (highImpactRecs.length < 3) {
-        const otherOpenRecs = allRecommendations.filter(rec => 
-          rec.status === 'open' && !highImpactRecs.some(h => h.id === rec.id)
-        );
-        highImpactRecs = [...highImpactRecs, ...otherOpenRecs];
-      }
-
-      // Take exactly 3 recommendations
-      setRecommendations(highImpactRecs.slice(0, 3));
-    } catch (error) {
-      console.error('Error loading recommendations:', error);
-    }
-  };
+  // Transform optimizations for Quick Wins display
+  const quickWins = useMemo(() => {
+    return optimizations
+      .sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
+      .slice(0, 3)
+      .map(opt => ({
+        id: opt.id,
+        title: opt.title,
+        rationale: opt.description,
+        metadata: {
+          impact: opt.priority_score > 70 ? 'high' : opt.priority_score > 40 ? 'medium' : 'low'
+        }
+      }));
+  }, [optimizations]);
 
   const loadLatestReport = async () => {
     try {
@@ -522,8 +490,8 @@ export default function Dashboard() {
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {recommendations.length > 0 ? (
-                  recommendations.map((rec) => (
+                {quickWins.length > 0 ? (
+                  quickWins.map((rec) => (
                     <div key={rec.id} className="border-l-4 border-l-primary pl-4 py-2 rounded-r bg-primary/5">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-sm">{rec.title}</h4>
