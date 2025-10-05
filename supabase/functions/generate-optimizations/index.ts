@@ -8,21 +8,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runOptimizationEngine } from "../_shared/optimizations/engine.ts";
 import { WINDOW_DAYS } from "../_shared/optimizations/constants.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
+
+function cors() {
+  return {
+    "access-control-allow-origin": ORIGIN,
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+  };
+}
 
 function jres(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'content-type': 'application/json', ...corsHeaders }
+    headers: { 'content-type': 'application/json', ...cors() }
   });
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { status: 204, headers: cors() });
   }
 
   console.log("[generate-optimizations] Request received");
@@ -31,7 +36,7 @@ serve(async (req) => {
     const auth = req.headers.get("authorization") || "";
     if (!auth.startsWith("Bearer ")) {
       console.warn("[generate-optimizations] Missing or invalid authorization header");
-      return jres({ error: "unauthorized" }, 401);
+      return jres({ code: "unauthorized", detail: "Missing Bearer token" }, 200);
     }
     const jwt = auth.slice("Bearer ".length);
 
@@ -41,19 +46,18 @@ serve(async (req) => {
 
     console.log("[generate-optimizations] Params:", { promptId, batch });
 
+    // Service client for system writes
     const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const userClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       global: { headers: { Authorization: `Bearer ${jwt}` } }
     });
 
-    // Authenticate user
     const { data: me } = await userClient.auth.getUser();
     if (!me?.user) {
       console.warn("[generate-optimizations] Invalid user token");
-      return jres({ error: "auth" }, 401);
+      return jres({ code: "unauthorized", detail: "Invalid token" }, 200);
     }
 
-    // Get user's org
     const { data: user } = await service
       .from("users")
       .select("id,org_id")
@@ -62,7 +66,7 @@ serve(async (req) => {
       
     if (!user?.org_id) {
       console.warn("[generate-optimizations] User has no org");
-      return jres({ error: "no-org" }, 403);
+      return jres({ code: "forbidden", detail: "No organization found" }, 200);
     }
 
     // Get org details
@@ -89,7 +93,7 @@ serve(async (req) => {
     
     if (promptIds.length === 0) {
       console.log("[generate-optimizations] No prompts to process");
-      return jres({ inserted: 0, items: [], windowDays: WINDOW_DAYS });
+      return jres({ code: "nothing_to_do", detail: "No prompts to process", inserted: 0, items: [], windowDays: WINDOW_DAYS }, 200);
     }
 
     console.log(`[generate-optimizations] Processing ${promptIds.length} prompts`);
@@ -106,9 +110,9 @@ serve(async (req) => {
     const inserted = results.reduce((a, b) => a + b.inserted, 0);
     console.log(`[generate-optimizations] Complete: ${inserted} insertions`);
     
-    return jres({ inserted, results, windowDays: WINDOW_DAYS });
+    return jres({ code: "success", inserted, results, windowDays: WINDOW_DAYS }, 200);
   } catch (e) {
     console.error("[generate-optimizations] Error:", e);
-    return jres({ error: "crash", detail: String(e) }, 500);
+    return jres({ code: "crash", detail: String(e) }, 200);
   }
 });

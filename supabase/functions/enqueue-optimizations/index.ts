@@ -1,10 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { createHash } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
+
+function cors() {
+  return {
+    "access-control-allow-origin": ORIGIN,
+    "access-control-allow-headers": "authorization, content-type, x-client-info, apikey",
+    "access-control-allow-methods": "POST, OPTIONS",
+  };
+}
+
+function ok(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...cors() },
+  });
+}
 
 interface EnqueueRequest {
   scope: 'org' | 'prompt';
@@ -12,68 +24,55 @@ interface EnqueueRequest {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { status: 204, headers: cors() });
   }
 
   try {
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get user from auth header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Authorization required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const auth = req.headers.get("authorization") || "";
+    if (!auth.startsWith("Bearer ")) {
+      return ok({ code: "unauthorized", detail: "Missing Bearer token." }, 200);
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Service client for system writes (bypasses RLS)
+    const svc = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // User-bound client for reads
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { authorization: auth } }
+    });
+
+    const token = auth.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ code: "unauthorized", detail: "Invalid token" }, 200);
     }
 
-    // Get user's org_id
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await svc
       .from('users')
       .select('org_id')
       .eq('id', user.id)
       .single();
 
     if (userError || !userData?.org_id) {
-      return new Response(JSON.stringify({ error: 'User organization not found' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ code: "forbidden", detail: "User organization not found" }, 200);
     }
 
     const orgId = userData.org_id;
 
-    // Parse request body
-    const body: EnqueueRequest = await req.json();
+    const body: EnqueueRequest = await req.json().catch(() => ({}));
     const { scope, promptIds } = body;
 
     if (!scope || !['org', 'prompt'].includes(scope)) {
-      return new Response(JSON.stringify({ error: 'Invalid scope' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ code: "invalid_input", detail: "Invalid scope" }, 200);
     }
 
     if (scope === 'prompt' && (!promptIds || promptIds.length === 0)) {
-      return new Response(JSON.stringify({ error: 'promptIds required for prompt scope' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ code: "invalid_input", detail: "promptIds required for prompt scope" }, 200);
     }
 
     // Generate input hash for deduplication
@@ -85,8 +84,7 @@ Deno.serve(async (req) => {
 
     console.log('[enqueue-optimizations] Generated hash:', inputHash, 'for input:', hashInput);
 
-    // Check for existing recent job with same hash (last 24h)
-    const { data: existingJob, error: checkError } = await supabase
+    const { data: existingJob, error: checkError } = await svc
       .from('optimization_jobs')
       .select('id, status, created_at')
       .eq('org_id', orgId)
@@ -98,38 +96,30 @@ Deno.serve(async (req) => {
 
     if (checkError) {
       console.error('[enqueue-optimizations] Error checking existing job:', checkError);
-      return new Response(JSON.stringify({ error: 'Database error' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ code: "db_error", detail: "Database error checking jobs" }, 200);
     }
 
-    // If recent job exists and is done, return it (idempotent)
     if (existingJob && existingJob.status === 'done') {
       console.log('[enqueue-optimizations] Returning existing completed job:', existingJob.id);
-      return new Response(JSON.stringify({ 
+      return ok({ 
+        code: "queued",
         jobId: existingJob.id, 
         status: 'done', 
         message: 'Using existing results from last 24h' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }, 200);
     }
 
-    // If job is running, return it
     if (existingJob && (existingJob.status === 'queued' || existingJob.status === 'running')) {
       console.log('[enqueue-optimizations] Returning existing running job:', existingJob.id);
-      return new Response(JSON.stringify({ 
+      return ok({ 
+        code: "queued",
         jobId: existingJob.id, 
         status: existingJob.status,
         message: 'Job already in progress' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }, 200);
     }
 
-    // Create new job
-    const { data: newJob, error: insertError } = await supabase
+    const { data: newJob, error: insertError } = await svc
       .from('optimization_jobs')
       .insert({
         org_id: orgId,
@@ -146,27 +136,20 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('[enqueue-optimizations] Error creating job:', insertError);
-      return new Response(JSON.stringify({ error: 'Failed to create job' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ code: "db_error", detail: "Failed to create job" }, 200);
     }
 
     console.log('[enqueue-optimizations] Created new job:', newJob.id);
 
-    return new Response(JSON.stringify({ 
+    return ok({ 
+      code: "queued",
       jobId: newJob.id, 
       status: 'queued',
       message: 'Optimization job queued successfully' 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }, 200);
 
   } catch (error: unknown) {
     console.error('[enqueue-optimizations] Unexpected error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return ok({ code: "crash", detail: String(error) }, 200);
   }
 });

@@ -7,15 +7,20 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
+
+function cors() {
+  return {
+    "access-control-allow-origin": ORIGIN,
+    "access-control-allow-headers": "authorization, content-type, x-client-info, apikey",
+    "access-control-allow-methods": "POST, OPTIONS",
+  };
+}
 
 function j(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...corsHeaders }
+    headers: { "content-type": "application/json", ...cors() }
   });
 }
 
@@ -279,35 +284,36 @@ async function openaiJSON(messages: any[], tries = 2): Promise<any> {
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { status: 204, headers: cors() });
   }
 
   try {
     const auth = req.headers.get("authorization") || "";
     if (!auth.startsWith("Bearer ")) {
-      return j({ error: "unauthorized", detail: "Missing Bearer token." }, 401);
+      return j({ code: "unauthorized", detail: "Missing Bearer token." }, 200);
     }
     const jwt = auth.slice("Bearer ".length);
 
     if (!OPENAI_API_KEY) {
-      return j({ error: "misconfigured", detail: "OPENAI_API_KEY is not configured on this project." }, 500);
+      return j({ code: "misconfigured_env", detail: "OPENAI_API_KEY is not configured on this project." }, 200);
     }
 
+    // Service client for system writes (bypasses RLS)
+    const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // User-bound client for auth
     const userSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       global: { headers: { Authorization: `Bearer ${jwt}` } }
     });
-    const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Ensure user is valid
     const { data: authUser, error: authErr } = await userSupabase.auth.getUser();
     if (authErr || !authUser?.user) {
-      return j({ error: "unauthorized", detail: "Invalid or expired session." }, 401);
+      return j({ code: "unauthorized", detail: "Invalid or expired session." }, 200);
     }
 
     const { promptId } = await req.json().catch(() => ({}));
-    if (!promptId) return j({ error: "bad_request", detail: "promptId is required." }, 400);
+    if (!promptId) return j({ code: "invalid_input", detail: "promptId is required." }, 200);
 
-    // Resolve org context
     const { data: user, error: userErr } = await service
       .from("users")
       .select("id, org_id")
@@ -315,17 +321,15 @@ serve(async (req: Request) => {
       .single();
 
     if (userErr || !user?.org_id) {
-      return j({ error: "forbidden", detail: "No organization found for user." }, 403);
+      return j({ code: "forbidden", detail: "No organization found for user." }, 200);
     }
 
-    // Get organization details
     const { data: org } = await service
       .from("organizations")
       .select("name")
       .eq("id", user.org_id)
       .single();
 
-    // Fetch prompt
     const { data: prompt } = await service
       .from("prompts")
       .select("id, text, org_id")
@@ -333,7 +337,7 @@ serve(async (req: Request) => {
       .eq("org_id", user.org_id)
       .single();
 
-    if (!prompt) return j({ error: "not_found", detail: "Prompt not found in your organization." }, 404);
+    if (!prompt) return j({ code: "not_found", detail: "Prompt not found in your organization." }, 200);
 
     // Pull visibility
     const { data: vis } = await service
@@ -379,13 +383,13 @@ serve(async (req: Request) => {
 
     const avoid = (existing ?? []).map((r: any) => `${r.content_type}:${(r.title || "").toLowerCase()}`).slice(0, 12);
 
-    // Build prompt for the LLM
-    const system = "You are an AI Search Visibility strategist for B2B SaaS. Respond with strict JSON only.";
+    const brandName = org?.name || "Your Brand";
     const citesList = citations.slice(0, 8).map(c => `- ${c.domain}${c.title ? ` — ${c.title}` : ""} (${c.link})`).join("\n");
     const avoidList = avoid.join("\n");
 
+    const system = "You are an AI Search Visibility strategist for B2B SaaS. Respond with strict JSON only.";
     const userPrompt = `
-BRAND: ${org?.name || "Your Brand"}
+BRAND: ${brandName}
 TRACKED PROMPT: "${prompt.text}"
 WINDOW: last 14 days
 CURRENT PRESENCE: ${presence.toFixed(1)}%
@@ -429,7 +433,7 @@ JSON ONLY.`.trim();
 
     if (!resp.ok) {
       const t = await resp.text();
-      return j({ error: "llm_error", detail: t }, 502);
+      return j({ code: "llm_error", detail: t }, 200);
     }
 
     const raw = await resp.json();
@@ -437,14 +441,13 @@ JSON ONLY.`.trim();
     let json: any;
     try { json = JSON.parse(content); } catch { json = null; }
 
-    // Fallback minimal plan if JSON parse fails
     if (!json) {
       json = {
         content: [{
           subtype: "resource_hub",
           title: `Resource Hub: ${prompt.text}`,
           outline: [{ h2: "What buyers need", h3: ["Key terms", "Comparison", "Pricing"] }],
-          must_include: { entities: [org?.name || "Your Brand"], keywords: ["guide","comparison"] },
+          must_include: { entities: [brandName], keywords: ["guide","comparison"] },
           where_to_publish: { path: "/resources/" },
           posting_instructions: "Add FAQ schema and 2 internal links.",
           success_metrics: ["Presence +20% in 14d"]
@@ -455,7 +458,7 @@ JSON ONLY.`.trim();
           body_bullets: ["One key insight", "Practical step", "Link to hub"],
           cta: "Read the full guide",
           where_to_publish: { platform: "LinkedIn", profile: "company" },
-          must_include: { entities: [org?.name || "Your Brand"] },
+          must_include: { entities: [brandName] },
           success_metrics: [">2k impressions"]
         }]
       };
@@ -506,9 +509,14 @@ JSON ONLY.`.trim();
       if (!error) inserted++;
     }
 
-    return j({ inserted, items: rows, message: inserted ? "Recommendations generated." : "No new items (possible duplicates)." }, 200);
+    return j({ 
+      code: inserted > 0 ? "success" : "nothing_to_do",
+      inserted, 
+      items: rows, 
+      message: inserted ? "Recommendations generated." : "No new items (possible duplicates)." 
+    }, 200);
   } catch (e) {
     console.error("Error in generate-visibility-recommendations:", e);
-    return j({ error: "crash", detail: String(e) }, 500);
+    return j({ code: "crash", detail: String(e) }, 200);
   }
 });

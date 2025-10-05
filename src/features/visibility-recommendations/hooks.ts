@@ -44,8 +44,12 @@ export function useGenerateVisibilityRecs(promptId?: string) {
       toast.success("Optimizations queued / generated.");
     },
     onError: (err: any) => {
-      const msg = err?.message || String(err);
-      toast.error("Batch Generation Failed", { description: msg });
+      const status = err?.status ?? "n/a";
+      const detail =
+        err?.response?.detail || err?.response?.error || err?.message || String(err);
+      toast.error("Batch Generation Failed", {
+        description: `Status ${status}: ${detail}`,
+      });
     }
   });
 }
