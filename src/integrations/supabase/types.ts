@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_visibility_recommendations: {
+      ai_visibility_recommendations_legacy: {
         Row: {
           channel: string
           citations_used: Json | null
@@ -70,6 +70,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "mv_low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
           },
           {
             foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
@@ -662,7 +669,81 @@ export type Database = {
         }
         Relationships: []
       }
-      optimization_jobs: {
+      optimization_generation_jobs: {
+        Row: {
+          category: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          input_hash: string
+          llm_model: string | null
+          optimizations_created: number | null
+          optimizations_skipped: number | null
+          org_id: string
+          requested_by: string
+          scope: string
+          started_at: string | null
+          status: string
+          target_prompt_ids: string[] | null
+          total_tokens_used: number | null
+          updated_at: string
+          week_key: string | null
+        }
+        Insert: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_hash: string
+          llm_model?: string | null
+          optimizations_created?: number | null
+          optimizations_skipped?: number | null
+          org_id: string
+          requested_by: string
+          scope: string
+          started_at?: string | null
+          status?: string
+          target_prompt_ids?: string[] | null
+          total_tokens_used?: number | null
+          updated_at?: string
+          week_key?: string | null
+        }
+        Update: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_hash?: string
+          llm_model?: string | null
+          optimizations_created?: number | null
+          optimizations_skipped?: number | null
+          org_id?: string
+          requested_by?: string
+          scope?: string
+          started_at?: string | null
+          status?: string
+          target_prompt_ids?: string[] | null
+          total_tokens_used?: number | null
+          updated_at?: string
+          week_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimization_generation_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      optimization_jobs_legacy: {
         Row: {
           created_at: string
           error_text: string | null
@@ -721,7 +802,7 @@ export type Database = {
           },
         ]
       }
-      optimizations: {
+      optimizations_legacy: {
         Row: {
           body: string | null
           content_type: string
@@ -796,7 +877,7 @@ export type Database = {
             foreignKeyName: "optimizations_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
-            referencedRelation: "optimization_jobs"
+            referencedRelation: "optimization_jobs_legacy"
             referencedColumns: ["id"]
           },
           {
@@ -810,11 +891,134 @@ export type Database = {
             foreignKeyName: "optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "mv_low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompt_visibility_14d"
             referencedColumns: ["prompt_id"]
           },
           {
             foreignKeyName: "optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      optimizations_v2: {
+        Row: {
+          citations_used: Json | null
+          completed_at: string | null
+          content_hash: string
+          content_specs: Json
+          content_type: string
+          created_at: string
+          deleted_at: string | null
+          description: string
+          difficulty_level: string
+          dismissed_at: string | null
+          distribution_channels: Json
+          estimated_hours: number | null
+          generation_confidence: number | null
+          id: string
+          implementation_steps: Json
+          llm_model: string | null
+          llm_tokens_used: number | null
+          optimization_category: string
+          org_id: string
+          priority_score: number
+          prompt_context: Json | null
+          prompt_id: string | null
+          status: string
+          success_metrics: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          citations_used?: Json | null
+          completed_at?: string | null
+          content_hash: string
+          content_specs?: Json
+          content_type: string
+          created_at?: string
+          deleted_at?: string | null
+          description: string
+          difficulty_level?: string
+          dismissed_at?: string | null
+          distribution_channels?: Json
+          estimated_hours?: number | null
+          generation_confidence?: number | null
+          id?: string
+          implementation_steps?: Json
+          llm_model?: string | null
+          llm_tokens_used?: number | null
+          optimization_category?: string
+          org_id: string
+          priority_score?: number
+          prompt_context?: Json | null
+          prompt_id?: string | null
+          status?: string
+          success_metrics?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          citations_used?: Json | null
+          completed_at?: string | null
+          content_hash?: string
+          content_specs?: Json
+          content_type?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          difficulty_level?: string
+          dismissed_at?: string | null
+          distribution_channels?: Json
+          estimated_hours?: number | null
+          generation_confidence?: number | null
+          id?: string
+          implementation_steps?: Json
+          llm_model?: string | null
+          llm_tokens_used?: number | null
+          optimization_category?: string
+          org_id?: string
+          priority_score?: number
+          prompt_context?: Json | null
+          prompt_id?: string | null
+          status?: string
+          success_metrics?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimizations_v2_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "optimizations_v2_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "mv_low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_v2_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_v2_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
             referencedRelation: "prompts"
@@ -1366,6 +1570,13 @@ export type Database = {
             foreignKeyName: "visibility_optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "mv_low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "visibility_optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompt_visibility_14d"
             referencedColumns: ["prompt_id"]
           },
@@ -1458,6 +1669,28 @@ export type Database = {
           runs: number | null
         }
         Relationships: []
+      }
+      mv_low_visibility_prompts: {
+        Row: {
+          avg_score_when_present: number | null
+          last_checked_at: string | null
+          org_id: string | null
+          presence_rate: number | null
+          present_count: number | null
+          prompt_id: string | null
+          prompt_text: string | null
+          top_citations: Json | null
+          total_runs: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_competitor_analytics: {
         Row: {
@@ -1709,6 +1942,25 @@ export type Database = {
           token_out: number
         }[]
       }
+      get_optimization_recommendations: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_org_id: string
+          p_status?: string
+        }
+        Returns: {
+          content_type: string
+          created_at: string
+          description: string
+          difficulty_level: string
+          id: string
+          priority_score: number
+          prompt_text: string
+          status: string
+          title: string
+        }[]
+      }
       get_org_competitor_summary: {
         Args: { p_days?: number; p_org_id?: string }
         Returns: {
@@ -1828,6 +2080,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_dashboard_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_low_visibility_prompts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
