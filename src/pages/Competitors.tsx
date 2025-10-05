@@ -30,6 +30,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompetitorCatalog } from '@/components/CompetitorCatalog';
 import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';
+import { useCompetitors } from '@/features/competitors/hooks';
+import FilterBar from '@/features/competitors/FilterBar';
+import CompetitorCard from '@/features/competitors/CompetitorCard';
 
 interface CompetitorData {
   competitor_name: string;
@@ -472,6 +475,91 @@ export default function Competitors() {
   const nearestCompetitors = getNearestCompetitors();
   const upcomingBrands = getUpcomingBrands();
 
+  // Optimized view component with filters
+  const OptimizedCompetitorsView = () => {
+    const [filters, setFilters] = useState({ days: 30, providers: [] as string[] });
+    const { data, isLoading, isError, error } = useCompetitors({
+      days: filters.days,
+      providers: filters.providers.length ? filters.providers : undefined,
+      limit: 50,
+      offset: 0,
+    });
+
+    if (isLoading) {
+      return (
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (isError) {
+      return (
+        <Card className="border-destructive">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-destructive mb-2">
+              <AlertCircle className="w-5 h-5" />
+              <h3 className="font-semibold">Unable to load competitors</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {(error as any)?.message || String(error)}
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (!data || data.length === 0) {
+      return (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">No competitors found</h3>
+            <p className="text-sm text-muted-foreground">
+              No competitors detected in the last {filters.days} days. Try expanding the time window or adding brands to your catalog.
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <FilterBar value={filters} onChange={setFilters} />
+        
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">All Competitors</h2>
+              <p className="text-sm text-muted-foreground">
+                {data.length} competitors found in the last {filters.days} days
+                {filters.providers.length > 0 && ` (filtered by ${filters.providers.length} provider${filters.providers.length > 1 ? 's' : ''})`}
+              </p>
+            </div>
+            <Badge variant="outline" className="text-sm">
+              Total Share: {data.reduce((sum, c) => sum + (c.share_pct ?? 0), 0).toFixed(1)}%
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.map((competitor, index) => (
+              <CompetitorCard 
+                key={competitor.competitor_name} 
+                competitor={competitor} 
+                rank={index + 1} 
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <TooltipProvider>
       <Layout>
@@ -543,8 +631,9 @@ export default function Competitors() {
 
             {/* Tabs for different competitor views */}
             <Tabs defaultValue="competitors" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsList className="grid w-full grid-cols-3 max-w-2xl">
                 <TabsTrigger value="competitors">Competitors</TabsTrigger>
+                <TabsTrigger value="optimized">Optimized View</TabsTrigger>
                 <TabsTrigger value="potential">Potential Competitors</TabsTrigger>
               </TabsList>
 
@@ -688,6 +777,11 @@ export default function Competitors() {
                 <div>
                   <CompetitorCatalog />
                 </div>
+              </TabsContent>
+
+              {/* Optimized View Tab */}
+              <TabsContent value="optimized" className="space-y-6">
+                <OptimizedCompetitorsView />
               </TabsContent>
 
               {/* Potential Competitors Tab */}

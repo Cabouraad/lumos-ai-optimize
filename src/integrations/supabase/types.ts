@@ -1720,6 +1720,25 @@ export type Database = {
           total_mentions: number
         }[]
       }
+      get_org_competitor_summary_v2: {
+        Args: {
+          p_days?: number
+          p_limit?: number
+          p_offset?: number
+          p_org_id?: string
+          p_providers?: string[]
+        }
+        Returns: {
+          avg_score: number
+          competitor_name: string
+          distinct_prompts: number
+          first_seen: string
+          last_seen: string
+          share_pct: number
+          total_mentions: number
+          trend_score: number
+        }[]
+      }
       get_prompt_competitors: {
         Args: { p_days?: number; p_prompt_id: string } | { p_prompt_id: string }
         Returns: {
