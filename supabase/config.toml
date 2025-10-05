@@ -90,6 +90,9 @@ verify_jwt = false
 [functions.generate-optimizations]
 verify_jwt = true
 
+[functions.generate-optimizations-v2]
+verify_jwt = true
+
 [functions.generate-visibility-recommendations]
 verify_jwt = true
 

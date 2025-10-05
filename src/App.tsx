@@ -13,7 +13,7 @@ const AuthProcessing = lazy(() => loadChunkWithRetry(() => import("./pages/AuthP
 const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboarding")));
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
 const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
-const Optimizations = lazy(() => loadChunkWithRetry(() => import("./pages/Optimizations")));
+const OptimizationsV2 = lazy(() => loadChunkWithRetry(() => import("./pages/OptimizationsV2")));
 const NewOptimizations = lazy(() => loadChunkWithRetry(() => import("./pages/NewOptimizations")));
 const Competitors = lazy(() => loadChunkWithRetry(() => import("./pages/Competitors")));
 const LLMsText = lazy(() => loadChunkWithRetry(() => import("./pages/LLMsText")));
@@ -125,6 +125,13 @@ const App = () => {
             </ProtectedRoute>
           } />
           <Route path="/optimizations" element={
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="OptimizationsV2">
+                <OptimizationsV2 />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/optimizations-legacy" element={
             <ProtectedRoute>
               <ChunkErrorBoundary chunkName="NewOptimizations">
                 <NewOptimizations />

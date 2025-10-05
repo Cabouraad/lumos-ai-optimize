@@ -15,7 +15,7 @@ import {
   Activity,
   Loader2
 } from 'lucide-react';
-import { useLowVisibilityPrompts } from '@/features/optimizations/hooks';
+import { useLowVisibilityPrompts } from '@/features/optimizations/hooks-v2';
 import { useGenerateVisibilityRecs } from '@/features/visibility-recommendations/hooks';
 
 export function LowVisibilityPromptsTable() {
