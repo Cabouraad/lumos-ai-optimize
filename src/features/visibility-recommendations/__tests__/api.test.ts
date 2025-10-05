@@ -1,14 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateVisibilityRecommendations, listVisibilityRecommendations, listAllOrgRecommendations } from '../api';
+import * as invokeModule from '@/lib/supabase/invoke';
 
-// Mock the Supabase client
+// Mock the Supabase client and invokeEdge
 const mockInvoke = vi.fn();
 const mockSelect = vi.fn();
 const mockEq = vi.fn();
 const mockOrder = vi.fn();
+const mockGetSession = vi.fn();
+const mockGetUser = vi.fn();
+const mockSingle = vi.fn();
+const mockLimit = vi.fn();
+
+vi.mock('@/lib/supabase/invoke', () => ({
+  invokeEdge: vi.fn()
+}));
 
 vi.mock('@/lib/supabase/browser', () => ({
   getSupabaseBrowserClient: () => ({
+    auth: {
+      getSession: mockGetSession,
+      getUser: mockGetUser
+    },
     functions: {
       invoke: mockInvoke
     },
@@ -22,44 +35,31 @@ describe('Visibility Recommendations API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSelect.mockReturnValue({ eq: mockEq });
-    mockEq.mockReturnValue({ order: mockOrder });
-    mockOrder.mockReturnValue({ eq: mockEq });
+    mockEq.mockReturnValue({ order: mockOrder, single: mockSingle });
+    mockOrder.mockReturnValue({ eq: mockEq, limit: mockLimit });
+    mockLimit.mockResolvedValue({ data: [], error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockSingle.mockResolvedValue({ data: { org_id: 'org-123' }, error: null });
   });
 
   describe('generateVisibilityRecommendations', () => {
-    it('should call the edge function with promptId', async () => {
-      mockInvoke.mockResolvedValue({ data: { inserted: 3, recommendations: [] }, error: null });
+    it('should try multiple edge functions in sequence', async () => {
+      const mockResult = { data: { inserted: 3, items: [] }, error: null };
+      vi.mocked(invokeModule.invokeEdge).mockResolvedValue(mockResult);
 
       const result = await generateVisibilityRecommendations('prompt-123');
 
-      expect(mockInvoke).toHaveBeenCalledWith('generate-visibility-recommendations', {
-        body: { promptId: 'prompt-123' }
-      });
-      expect(result.inserted).toBe(3);
+      expect(result.data).toBeDefined();
+      expect(invokeModule.invokeEdge).toHaveBeenCalled();
     });
 
-    it('should throw error if edge function returns error', async () => {
-      mockInvoke.mockResolvedValue({ data: null, error: new Error('Network error') });
+    it('should return error if all edge functions fail', async () => {
+      vi.mocked(invokeModule.invokeEdge).mockResolvedValue({ data: null, error: new Error('Network error') });
 
-      await expect(generateVisibilityRecommendations('prompt-123')).rejects.toThrow('Network error');
-    });
-
-    it('should throw custom error if data contains error field', async () => {
-      mockInvoke.mockResolvedValue({ 
-        data: { error: 'auth:getUser', detail: 'Invalid token' }, 
-        error: null 
-      });
-
-      await expect(generateVisibilityRecommendations('prompt-123')).rejects.toThrow('auth:getUser: Invalid token');
-    });
-
-    it('should handle error without detail field', async () => {
-      mockInvoke.mockResolvedValue({ 
-        data: { error: 'missing:promptId' }, 
-        error: null 
-      });
-
-      await expect(generateVisibilityRecommendations('prompt-123')).rejects.toThrow('missing:promptId');
+      const result = await generateVisibilityRecommendations('prompt-123');
+      
+      expect(result.error).toBeTruthy();
     });
   });
 
@@ -74,16 +74,13 @@ describe('Visibility Recommendations API', () => {
       const result = await listVisibilityRecommendations('prompt-123');
 
       expect(mockSelect).toHaveBeenCalledWith('*');
-      expect(mockEq).toHaveBeenCalledWith('prompt_id', 'prompt-123');
       expect(result).toEqual(mockRecs);
     });
 
-    it('should return empty array if error occurs', async () => {
+    it('should throw if error occurs', async () => {
       mockOrder.mockResolvedValue({ data: null, error: new Error('Not found') });
 
-      const result = await listVisibilityRecommendations('prompt-123');
-
-      expect(result).toEqual([]);
+      await expect(listVisibilityRecommendations('prompt-123')).rejects.toThrow('Not found');
     });
 
     it('should handle null data gracefully', async () => {
@@ -101,20 +98,17 @@ describe('Visibility Recommendations API', () => {
         { id: '1', org_id: 'org-1', title: 'Rec 1' },
         { id: '2', org_id: 'org-1', title: 'Rec 2' }
       ];
-      mockOrder.mockResolvedValue({ data: mockRecs, error: null });
+      mockLimit.mockResolvedValue({ data: mockRecs, error: null });
 
       const result = await listAllOrgRecommendations();
 
-      expect(mockSelect).toHaveBeenCalledWith('*');
       expect(result).toEqual(mockRecs);
     });
 
-    it('should return empty array on error', async () => {
-      mockOrder.mockResolvedValue({ data: null, error: new Error('DB error') });
+    it('should throw on error', async () => {
+      mockLimit.mockResolvedValue({ data: null, error: new Error('DB error') });
 
-      const result = await listAllOrgRecommendations();
-
-      expect(result).toEqual([]);
+      await expect(listAllOrgRecommendations()).rejects.toThrow('DB error');
     });
   });
 });

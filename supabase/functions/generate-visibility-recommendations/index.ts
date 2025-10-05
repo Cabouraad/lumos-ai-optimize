@@ -279,7 +279,7 @@ async function openaiJSON(messages: any[], tries = 2): Promise<any> {
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
   try {

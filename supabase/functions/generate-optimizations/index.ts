@@ -8,17 +8,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runOptimizationEngine } from "../_shared/optimizations/engine.ts";
 import { WINDOW_DAYS } from "../_shared/optimizations/constants.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 function jres(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'content-type': 'application/json' }
+    headers: { 'content-type': 'application/json', ...corsHeaders }
   });
 }
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders, status: 204 });
+  }
+
   console.log("[generate-optimizations] Request received");
   
   try {

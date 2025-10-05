@@ -20,33 +20,32 @@ export function useAllVisibilityRecommendations() {
   });
 }
 
-export function useGenerateVisibilityRecs(promptId: string) {
+"use client";
+
+export function useGenerateVisibilityRecs(promptId?: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationKey: ['generate-visibility-recs', promptId],
     mutationFn: async () => {
-      const res = await generateVisibilityRecommendations(promptId);
-      if (res.error) {
-        throw new Error(res.detail || res.error);
-      }
-      return res;
+      const { data, error } = await generateVisibilityRecommendations(promptId);
+      if (error) throw error;
+      return data;
     },
-    onSuccess: async (res) => {
-      // Refresh relevant views
-      await queryClient.invalidateQueries({ queryKey: ['visibility-recs', promptId] });
-      await queryClient.invalidateQueries({ queryKey: ['visibility-recs', 'all'] });
-      await queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
-      await queryClient.invalidateQueries({ queryKey: ['optimizations'] });
-
-      toast.success('Recommendations generated', {
-        description: res.message || "We've added fresh optimizations for this prompt."
-      });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['optimizations'] }),
+        promptId ? queryClient.invalidateQueries({ queryKey: ['optimizations', promptId] }) : Promise.resolve(),
+        queryClient.invalidateQueries({ queryKey: ['visibility_prompts'] }),
+        queryClient.invalidateQueries({ queryKey: ['visibility-recs', promptId] }),
+        queryClient.invalidateQueries({ queryKey: ['visibility-recs', 'all'] }),
+        queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] }),
+      ]);
+      toast.success("Optimizations queued / generated.");
     },
     onError: (err: any) => {
-      toast.error('Could not generate recommendations', {
-        description: String(err?.message || err)
-      });
+      const msg = err?.message || String(err);
+      toast.error("Batch Generation Failed", { description: msg });
     }
   });
 }

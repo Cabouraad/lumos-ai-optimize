@@ -13,6 +13,10 @@ vi.mock('sonner', () => ({
   }
 }));
 
+vi.mock('@/lib/supabase/invoke', () => ({
+  invokeEdge: vi.fn()
+}));
+
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -70,8 +74,8 @@ describe('Visibility Recommendations Hooks', () => {
     });
 
     it('should call API when mutate is invoked', () => {
-      const mockResult = { inserted: 3, recommendations: [] };
-      vi.mocked(api.generateVisibilityRecommendations).mockResolvedValue(mockResult);
+      const mockResult = { data: { inserted: 3, recommendations: [] }, error: null };
+      vi.mocked(api.generateVisibilityRecommendations).mockResolvedValue(mockResult as any);
 
       const { result } = renderHook(() => useGenerateVisibilityRecs('prompt-123'), {
         wrapper: createWrapper()

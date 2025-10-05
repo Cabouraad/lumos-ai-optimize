@@ -1,3 +1,5 @@
+"use client";
+import { invokeEdge } from "@/lib/supabase/invoke";
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 export type GenerateRecsResponse = {
@@ -9,29 +11,26 @@ export type GenerateRecsResponse = {
   detail?: string;
 };
 
-export async function generateVisibilityRecommendations(promptId: string): Promise<GenerateRecsResponse> {
-  const sb = getSupabaseBrowserClient();
+export async function generateVisibilityRecommendations(promptId?: string) {
+  // Try batch queue first (org scope), then direct generator (prompt scope),
+  // then the recommendations generator as a final fallback.
+  // This keeps compatibility with your existing dual-path architecture.
+  const bodyOrg = { scope: "org" as const, category: "low_visibility" as const };
+  const bodyPrompt = { promptId, batch: false, category: "low_visibility" as const };
 
-  // Ensure we have a session before invoking
-  const { data: sess } = await sb.auth.getSession();
-  const token = sess?.session?.access_token;
-  if (!token) {
-    return { error: 'unauthenticated', detail: 'You must be signed in to generate recommendations.' };
+  // 1) Enqueue (primary)
+  const a = await invokeEdge("enqueue-optimizations", { body: bodyOrg });
+  if (!a.error && a.data) return a;
+
+  // 2) Direct generation (prompt)
+  if (promptId) {
+    const b = await invokeEdge("generate-optimizations", { body: bodyPrompt });
+    if (!b.error && b.data) return b;
   }
 
-  // IMPORTANT: Pass Authorization header explicitly
-  const { data, error } = await sb.functions.invoke('generate-visibility-recommendations', {
-    body: { promptId },
-    headers: { Authorization: `Bearer ${token}` }
-  });
-
-  if (error) {
-    // Bubble a consistent error shape to the UI
-    return { error: 'invoke_failed', detail: error.message || String(error) };
-  }
-
-  // Edge function already returns structured JSON; pass it through
-  return (data ?? {}) as GenerateRecsResponse;
+  // 3) Visibility recs (fallback)
+  const c = await invokeEdge("generate-visibility-recommendations", { body: { promptId } });
+  return c;
 }
 
 export async function listVisibilityRecommendations(promptId: string) {
