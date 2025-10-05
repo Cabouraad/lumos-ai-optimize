@@ -16,6 +16,10 @@ export async function invokeEdge(functionName: string, opts: InvokeOptions = {})
   if (!url || !anon) {
     return { data: null, error: new Error("Supabase env missing (URL or ANON).") };
   }
+  
+  if (!url.startsWith("https://")) {
+    return { data: null, error: new Error("Supabase URL must start with https://") };
+  }
 
   const { data: sess } = await sb.auth.getSession();
   const token = sess?.session?.access_token;
