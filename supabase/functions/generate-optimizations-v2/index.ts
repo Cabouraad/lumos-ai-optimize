@@ -1,6 +1,6 @@
 /**
  * Optimizations V2 Generation Engine
- * Uses Lovable AI (Gemini 2.5 Flash) with tool calling for guaranteed structured output
+ * Uses OpenAI (GPT-4o-mini) with tool calling for guaranteed structured output
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -130,7 +130,7 @@ serve(async (req) => {
         target_prompt_ids: body.promptIds || (body.promptId ? [body.promptId] : []),
         status: "queued",
         input_hash: inputHash,
-        llm_model: "google/gemini-2.5-flash",
+        llm_model: "gpt-4o-mini",
       })
       .select()
       .single();
@@ -359,7 +359,7 @@ async function processJobInBackground(
         const result = await generateOptimizationWithRetry(
           promptData,
           org,
-          LOVABLE_API_KEY,
+          OPENAI_API_KEY,
           MAX_RETRIES
         );
 
@@ -553,14 +553,14 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
     }
   }];
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: "Analyze this prompt and generate optimization recommendations." }
@@ -576,17 +576,17 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
     
     // Surface rate limit and payment errors
     if (status === 429) {
-      const err: any = new Error('Rate limit exceeded. Please try again later.');
+      const err: any = new Error('OpenAI rate limit exceeded. Please try again later.');
       err.status = 429;
       throw err;
     }
     if (status === 402) {
-      const err: any = new Error('Credits exhausted. Please add funds to continue.');
+      const err: any = new Error('OpenAI credits exhausted. Please add funds to continue.');
       err.status = 402;
       throw err;
     }
     
-    throw new Error(`Lovable AI error: ${status} - ${errorText}`);
+    throw new Error(`OpenAI API error: ${status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -621,7 +621,7 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
       avg_score: promptData.avg_score_when_present
     },
     content_hash: await createContentHash(rec.title + rec.description + rec.content_type),
-    llm_model: 'google/gemini-2.5-flash',
+    llm_model: 'gpt-4o-mini',
     llm_tokens_used: data.usage?.total_tokens || 0,
     generation_confidence: 0.9,
     status: 'open',
