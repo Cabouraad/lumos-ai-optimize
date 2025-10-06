@@ -18,8 +18,15 @@ interface RecommendationOutput {
     priority_score: number;
     difficulty_level: string;
     estimated_hours: number;
-    implementation_steps: string[];
-    distribution_channels: string[];
+    implementation_steps: Array<{
+      step: number;
+      action: string;
+      time?: string;
+    }>;
+    distribution_channels: Array<{
+      channel: string;
+      posting_tips?: string;
+    }>;
     success_metrics: Record<string, string>;
   }>;
 }
@@ -126,6 +133,11 @@ Generate 2-3 actionable content recommendations to improve visibility for this s
 2. Formats that perform well in AI search (articles, guides, comparisons)
 3. Distribution channels that reach AI training data sources
 
+IMPORTANT OUTPUT FORMAT:
+- implementation_steps: Provide numbered steps with specific actions and time estimates (e.g., "2 hours", "1 week")
+- distribution_channels: List specific channels with tailored posting strategies for each
+- success_metrics: Include measurable KPIs with targets and timeframes
+
 Each recommendation should be specific, actionable, and tailored to this prompt.`;
 
         // Call OpenAI with tool calling for structured output
@@ -169,11 +181,26 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
                             estimated_hours: { type: "number" },
                             implementation_steps: {
                               type: "array",
-                              items: { type: "string" },
+                              items: {
+                                type: "object",
+                                properties: {
+                                  step: { type: "number" },
+                                  action: { type: "string" },
+                                  time: { type: "string" }
+                                },
+                                required: ["step", "action"]
+                              }
                             },
                             distribution_channels: {
                               type: "array",
-                              items: { type: "string" },
+                              items: {
+                                type: "object",
+                                properties: {
+                                  channel: { type: "string" },
+                                  posting_tips: { type: "string" }
+                                },
+                                required: ["channel"]
+                              }
                             },
                             success_metrics: {
                               type: "object",
