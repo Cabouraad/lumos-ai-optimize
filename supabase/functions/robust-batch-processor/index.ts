@@ -30,7 +30,17 @@ async function scheduleBackgroundResume(
     console.log(`🔄 Attempting background resume ${attempt}/${MAX_RESUME_ATTEMPTS} for job ${jobId}, correlation_id: ${correlationId}`);
     
     // Call ourselves recursively to resume processing with authentication
-    const cronSecret = Deno.env.get('CRON_SECRET');
+    // Try environment variable first, fallback to database
+    let cronSecret = Deno.env.get('CRON_SECRET');
+    if (!cronSecret) {
+      const { data: secretData } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'cron_secret')
+        .single();
+      cronSecret = secretData?.value;
+    }
+    
     const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
       body: { 
         action: 'resume', 
