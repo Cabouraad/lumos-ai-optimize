@@ -141,9 +141,6 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
                       <span className="font-medium text-primary">{step.step}.</span>
                       <div className="flex-1">
                         <p>{step.action}</p>
-                        {step.time && (
-                          <p className="text-xs text-muted-foreground mt-1">Est. time: {step.time}</p>
-                        )}
                       </div>
                     </li>
                   ))}
