@@ -159,7 +159,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
                             description: { type: "string" },
                             content_type: {
                               type: "string",
-                              enum: ["blog_post", "guide", "case_study", "comparison", "tutorial", "whitepaper"],
+                              enum: ["blog_post", "guide", "case_study", "video", "podcast", "infographic", "webinar", "whitepaper", "social_post", "reddit_post", "quora_answer"],
                             },
                             priority_score: { type: "number", minimum: 1, maximum: 100 },
                             difficulty_level: {
