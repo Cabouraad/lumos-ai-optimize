@@ -81,8 +81,8 @@ export function useGenerateOptimizations() {
       queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
       
       toast({
-        title: "Optimization generation started",
-        description: `Job ${data.jobId} is processing in background.`,
+        title: "Generation started",
+        description: "Your optimization recommendations are being generated.",
       });
     },
     onError: (error: Error) => {

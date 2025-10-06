@@ -1,6 +1,6 @@
 /**
  * Optimizations V2 Generation Engine
- * Uses OpenAI GPT-4o-mini with tool calling for guaranteed structured output
+ * Uses Lovable AI (Gemini 2.5 Flash) with tool calling for guaranteed structured output
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +106,16 @@ serve(async (req) => {
 
     const inputHash = createInputHash(orgId, { ...body, scope: normalizedScope });
 
+    // Cancel any active jobs before starting new one
+    console.log('[generate-optimizations-v2] Cancelling active jobs for org:', orgId);
+    const { data: cancelResult } = await serviceClient.rpc('cancel_active_batch_jobs', {
+      p_org_id: orgId,
+      p_reason: 'New generation request initiated'
+    });
+    if (cancelResult) {
+      console.log('[generate-optimizations-v2] Cancelled jobs:', cancelResult);
+    }
+
     // Create job record using service client with normalized scope
     const { data: job, error: jobError } = await serviceClient
       .from("optimization_generation_jobs")
@@ -116,7 +126,7 @@ serve(async (req) => {
         target_prompt_ids: body.promptIds || (body.promptId ? [body.promptId] : []),
         status: "queued",
         input_hash: inputHash,
-        llm_model: "gpt-4o-mini",
+        llm_model: "google/gemini-2.5-flash",
       })
       .select()
       .single();
@@ -141,13 +151,14 @@ serve(async (req) => {
         }
 
         if (existing) {
-          const staleFailed = (existing.status === 'failed' || existing.status === 'completed')
-            && (existing.optimizations_created ?? 0) === 0
-            && !!existing.error_message;
+          // Restart job if it's completed/failed with 0 optimizations (likely stale)
+          const shouldRestart = (
+            (existing.status === 'completed' || existing.status === 'failed') &&
+            (existing.optimizations_created ?? 0) === 0
+          );
 
-          if (staleFailed) {
-            console.log(`[generate-optimizations-v2] Resuming stale job ${existing.id} after dedup`);
-            // Reset job to queued and kick off background processing again
+          if (shouldRestart) {
+            console.log(`[generate-optimizations-v2] Restarting stale job ${existing.id}`);
             await updateJob(serviceClient, existing.id, {
               status: 'queued',
               error_message: null,
@@ -168,16 +179,16 @@ serve(async (req) => {
               success: true,
               jobId: existing.id,
               status: 'queued',
-              message: "Resuming previous failed job",
+              message: "Restarting previous job",
             });
           }
 
-          console.log(`[generate-optimizations-v2] Returning existing job ${existing.id} due to dedup`);
+          console.log(`[generate-optimizations-v2] Returning existing job ${existing.id}`);
           return jsonResponse({
             success: true,
             jobId: existing.id,
             status: existing.status ?? 'queued',
-            message: "Job already exists, using existing job",
+            message: "Using existing job",
           });
         }
       }
@@ -240,11 +251,12 @@ async function processJobInBackground(
       });
 
     if (promptsError) {
-      console.error("[generate-optimizations-v2] Failed to fetch low visibility prompts:", promptsError);
+      const errMsg = `Failed to fetch prompts: ${promptsError.message || JSON.stringify(promptsError)}`;
+      console.error("[generate-optimizations-v2] Prompt fetch error:", promptsError);
       await updateJob(serviceClient, jobId, {
         status: "failed",
         completed_at: new Date().toISOString(),
-        error_message: `Prompt fetch error: ${promptsError.message || JSON.stringify(promptsError)}`,
+        error_message: errMsg,
       });
       return;
     }
@@ -273,7 +285,7 @@ async function processJobInBackground(
         const result = await generateOptimizationWithRetry(
           promptData,
           org,
-          OPENAI_API_KEY,
+          LOVABLE_API_KEY,
           MAX_RETRIES
         );
 
@@ -286,8 +298,17 @@ async function processJobInBackground(
         if (i < lowVisPrompts.length - 1) {
           await sleep(RATE_LIMIT_DELAY_MS);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`[generate-optimizations-v2] Error for prompt ${promptData.prompt_id}:`, error);
+        // Surface critical errors (rate limits, credits)
+        if (error.status === 429 || error.status === 402) {
+          await updateJob(serviceClient, jobId, {
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: error.message,
+          });
+          return;
+        }
       }
     }
 
@@ -333,8 +354,14 @@ async function generateOptimizationWithRetry(
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await generateOptimization(promptData, org, apiKey);
-    } catch (error) {
+    } catch (error: any) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on rate limit or payment errors
+      if (error.status === 429 || error.status === 402) {
+        throw error;
+      }
+      
       console.warn(`[generate-optimizations-v2] Attempt ${attempt + 1}/${maxRetries} failed:`, lastError.message);
       
       if (attempt < maxRetries - 1) {
@@ -431,34 +458,48 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
     }
   }];
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: "Analyze this prompt and generate optimization recommendations." }
       ],
       tools,
       tool_choice: { type: "function", function: { name: "propose_optimizations" } },
-      temperature: 0.7,
     }),
   });
 
   if (!response.ok) {
+    const status = response.status;
     const errorText = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+    
+    // Surface rate limit and payment errors
+    if (status === 429) {
+      const err: any = new Error('Rate limit exceeded. Please try again later.');
+      err.status = 429;
+      throw err;
+    }
+    if (status === 402) {
+      const err: any = new Error('Credits exhausted. Please add funds to continue.');
+      err.status = 402;
+      throw err;
+    }
+    
+    throw new Error(`Lovable AI error: ${status} - ${errorText}`);
   }
 
   const data = await response.json();
   const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
   if (!toolCall || toolCall.function.name !== "propose_optimizations") {
-    throw new Error("No valid tool call in response");
+    console.error("[generate-optimizations-v2] No valid tool call:", JSON.stringify(data, null, 2));
+    throw new Error("No valid recommendations returned from AI");
   }
 
   const args = JSON.parse(toolCall.function.arguments);
@@ -466,6 +507,10 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
 
   if (!recommendations || !Array.isArray(recommendations)) {
     throw new Error("Invalid recommendations format");
+  }
+
+  if (recommendations.length === 0) {
+    console.warn("[generate-optimizations-v2] AI returned 0 recommendations for prompt:", promptData.prompt_id);
   }
 
   // Transform to database format
@@ -490,7 +535,7 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
       avg_score: promptData.avg_score_when_present
     },
     content_hash: await createContentHash(rec.title + rec.description + rec.content_type),
-    llm_model: 'gpt-4o-mini',
+    llm_model: 'google/gemini-2.5-flash',
     llm_tokens_used: data.usage?.total_tokens || 0,
     generation_confidence: 0.9,
     status: 'open',
@@ -504,28 +549,29 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
   };
 }
 
-async function createContentHash(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
-}
-
-function createInputHash(orgId: string, body: GenerationRequest): string {
-  const key = `${orgId}-${body.scope}-${(body.promptIds || []).sort().join(',')}`;
-  return key.substring(0, 64);
-}
-
-async function updateJob(supabase: any, jobId: string, updates: any) {
-  const { error } = await supabase
+// Helper functions
+async function updateJob(client: any, jobId: string, updates: any) {
+  const { error } = await client
     .from("optimization_generation_jobs")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", jobId);
   
   if (error) {
-    console.error("[generate-optimizations-v2] Job update error:", error);
+    console.error(`[updateJob] Failed to update job ${jobId}:`, error);
   }
+}
+
+async function createContentHash(content: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function createInputHash(orgId: string, params: any): string {
+  const normalized = JSON.stringify({ orgId, ...params }, Object.keys({ orgId, ...params }).sort());
+  return btoa(normalized).substring(0, 64);
 }
 
 function sleep(ms: number): Promise<void> {

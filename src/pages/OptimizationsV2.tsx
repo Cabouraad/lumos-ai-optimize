@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,7 @@ import { OptimizationCard } from "@/components/optimizations-v2/OptimizationCard
 import { LowVisibilityTable } from "@/components/optimizations-v2/LowVisibilityTable";
 import { useOptimizations, useGenerateOptimizations, useGenerationJob } from "@/features/optimizations/hooks-v2";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function OptimizationsV2() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -17,6 +18,22 @@ export default function OptimizationsV2() {
   const generateMutation = useGenerateOptimizations();
   const { data: job } = useGenerationJob(activeJobId);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const previousJobStatusRef = useRef<string | null>(null);
+
+  // Auto-refresh when job completes
+  useEffect(() => {
+    if (job && previousJobStatusRef.current !== job.status) {
+      if (job.status === 'completed' && previousJobStatusRef.current === 'running') {
+        queryClient.invalidateQueries({ queryKey: ['optimizations-v2'] });
+        toast({
+          title: "Recommendations ready",
+          description: "New optimization recommendations have been generated.",
+        });
+      }
+      previousJobStatusRef.current = job.status;
+    }
+  }, [job, queryClient, toast]);
 
   const handleGenerate = async () => {
     try {
@@ -24,7 +41,7 @@ export default function OptimizationsV2() {
       setActiveJobId(result.jobId);
       toast({
         title: "Generation started",
-        description: `Job ${result.jobId} is processing your optimizations...`,
+        description: "Processing your optimization recommendations...",
       });
     } catch (error) {
       console.error("Generation error:", error);
