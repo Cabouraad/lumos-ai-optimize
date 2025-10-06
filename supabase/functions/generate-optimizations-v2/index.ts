@@ -1,5 +1,9 @@
 /**
  * Optimizations V2 Generation Engine
+ * 
+ * CRITICAL: This function MUST ONLY use OpenAI's API
+ * NEVER use Lovable AI API for this function
+ * 
  * Uses OpenAI (GPT-4o-mini) with tool calling for guaranteed structured output
  */
 
@@ -8,7 +12,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+
+// CRITICAL: This function requires OpenAI API key - DO NOT use LOVABLE_API_KEY
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+if (!OPENAI_API_KEY) {
+  console.error("[generate-optimizations-v2] FATAL: OPENAI_API_KEY not configured");
+  throw new Error("OPENAI_API_KEY environment variable is required");
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -468,11 +478,22 @@ async function generateOptimizationWithRetry(
   throw lastError || new Error("All retry attempts failed");
 }
 
+/**
+ * Generate optimization recommendations using OpenAI API
+ * 
+ * CRITICAL: This function ONLY uses OpenAI's API (api.openai.com)
+ * DO NOT modify to use Lovable AI or any other AI service
+ */
 async function generateOptimization(
   promptData: any,
   org: any,
   apiKey: string
 ): Promise<{ success: boolean; optimizations?: any[]; tokensUsed?: number }> {
+  
+  // Validate that we're using OpenAI API key
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error("OpenAI API key is required");
+  }
   
   const systemPrompt = `You are an AI visibility optimization expert. Generate actionable content recommendations to improve visibility in AI responses.
 
@@ -553,7 +574,11 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
     }
   }];
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  // CRITICAL: ONLY call OpenAI API - DO NOT change this endpoint
+  // DO NOT use Lovable AI gateway or any other service
+  const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
+  
+  const response = await fetch(OPENAI_ENDPOINT, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
