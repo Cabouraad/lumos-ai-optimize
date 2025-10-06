@@ -21,7 +21,7 @@ const MAX_RETRIES = 3;
 const RATE_LIMIT_DELAY_MS = 1000;
 
 interface GenerationRequest {
-  scope: "organization" | "prompt" | "batch";
+  scope: "organization" | "org" | "prompt" | "batch";
   promptId?: string;
   promptIds?: string[];
 }
@@ -91,20 +91,28 @@ serve(async (req) => {
 
     const body: GenerationRequest = await req.json();
     
-    // Validate request
-    if (!["organization", "prompt", "batch"].includes(body.scope)) {
-      return jsonResponse({ error: "Invalid scope" }, 400);
+    // Normalize and validate scope
+    const normalizedScope = (() => {
+      const raw = (body.scope || '').toLowerCase();
+      if (raw === 'organization' || raw === 'org') return 'org' as const;
+      if (raw === 'prompt') return 'prompt' as const;
+      if (raw === 'batch') return 'batch' as const;
+      return null;
+    })();
+
+    if (!normalizedScope) {
+      return jsonResponse({ error: "Invalid scope. Use 'org', 'prompt', or 'batch'." }, 400);
     }
 
-    const inputHash = createInputHash(orgId, body);
+    const inputHash = createInputHash(orgId, { ...body, scope: normalizedScope });
 
-    // Create job record using service client
+    // Create job record using service client with normalized scope
     const { data: job, error: jobError } = await serviceClient
       .from("optimization_generation_jobs")
       .insert({
         org_id: orgId,
         requested_by: user.id,
-        scope: body.scope,
+        scope: normalizedScope,
         target_prompt_ids: body.promptIds || (body.promptId ? [body.promptId] : []),
         status: "queued",
         input_hash: inputHash,
@@ -114,7 +122,35 @@ serve(async (req) => {
       .single();
 
     if (jobError || !job) {
+      const code = (jobError as any)?.code;
       console.error("[generate-optimizations-v2] Job creation error:", jobError);
+
+      // Dedup: return existing job for same input
+      if (code === '23505') {
+        const { data: existing } = await serviceClient
+          .from("optimization_generation_jobs")
+          .select("id,status")
+          .eq("org_id", orgId)
+          .eq("input_hash", inputHash)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existing) {
+          console.log(`[generate-optimizations-v2] Returning existing job ${existing.id} due to dedup`);
+          return jsonResponse({
+            success: true,
+            jobId: existing.id,
+            status: existing.status ?? 'queued',
+            message: "Job already exists, using existing job",
+          });
+        }
+      }
+
+      // Scope constraint violation
+      if (code === '23514') {
+        return jsonResponse({ error: "Scope violates constraint. Use 'org', 'prompt', or 'batch'." }, 400);
+      }
+
       return jsonResponse({ error: "Failed to create job" }, 500);
     }
 
@@ -156,7 +192,7 @@ async function processJobInBackground(
 ) {
   try {
     await updateJob(serviceClient, jobId, {
-      status: "processing",
+      status: "running",
       started_at: new Date().toISOString(),
     });
 

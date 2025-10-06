@@ -56,7 +56,7 @@ export function useGenerateOptimizations() {
       
       const { data, error } = await invokeEdge('generate-optimizations-v2', {
         body: {
-          scope: params?.promptIds ? 'batch' : 'organization',
+          scope: params?.promptIds ? 'batch' : 'org',
           promptIds: params?.promptIds,
         }
       });
