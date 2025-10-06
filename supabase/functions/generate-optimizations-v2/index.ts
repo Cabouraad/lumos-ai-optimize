@@ -4,7 +4,7 @@
  * CRITICAL: This function MUST ONLY use OpenAI's API
  * NEVER use Lovable AI API for this function
  * 
- * Uses OpenAI (GPT-4o-mini) with tool calling for guaranteed structured output
+ * Uses OpenAI (GPT-5-mini) with tool calling for guaranteed structured output
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -140,7 +140,7 @@ serve(async (req) => {
         target_prompt_ids: body.promptIds || (body.promptId ? [body.promptId] : []),
         status: "queued",
         input_hash: inputHash,
-        llm_model: "gpt-4o-mini",
+        llm_model: "gpt-5-mini",
       })
       .select()
       .single();
@@ -585,7 +585,7 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: "Analyze this prompt and generate optimization recommendations." }
@@ -646,7 +646,7 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
       avg_score: promptData.avg_score_when_present
     },
     content_hash: await createContentHash(rec.title + rec.description + rec.content_type),
-    llm_model: 'gpt-4o-mini',
+    llm_model: 'gpt-5-mini',
     llm_tokens_used: data.usage?.total_tokens || 0,
     generation_confidence: 0.9,
     status: 'open',
