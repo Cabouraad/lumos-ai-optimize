@@ -14,86 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_visibility_recommendations_legacy: {
-        Row: {
-          channel: string
-          citations_used: Json | null
-          created_at: string
-          id: string
-          must_include: Json | null
-          org_id: string
-          outline: Json | null
-          posting_instructions: string | null
-          prompt_id: string
-          score_before: number | null
-          subtype: string
-          success_metrics: Json | null
-          title: string
-          where_to_publish: Json | null
-        }
-        Insert: {
-          channel: string
-          citations_used?: Json | null
-          created_at?: string
-          id?: string
-          must_include?: Json | null
-          org_id: string
-          outline?: Json | null
-          posting_instructions?: string | null
-          prompt_id: string
-          score_before?: number | null
-          subtype: string
-          success_metrics?: Json | null
-          title: string
-          where_to_publish?: Json | null
-        }
-        Update: {
-          channel?: string
-          citations_used?: Json | null
-          created_at?: string
-          id?: string
-          must_include?: Json | null
-          org_id?: string
-          outline?: Json | null
-          posting_instructions?: string | null
-          prompt_id?: string
-          score_before?: number | null
-          subtype?: string
-          success_metrics?: Json | null
-          title?: string
-          where_to_publish?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_visibility_recommendations_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "mv_low_visibility_prompts"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompt_visibility_14d"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "ai_visibility_recommendations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       app_settings: {
         Row: {
           created_at: string | null
@@ -189,206 +109,6 @@ export type Database = {
           started_at?: string
           status?: string
           summary?: Json | null
-        }
-        Relationships: []
-      }
-      batch_jobs: {
-        Row: {
-          cancellation_requested: boolean
-          completed_at: string | null
-          completed_tasks: number
-          created_at: string
-          failed_tasks: number
-          id: string
-          last_heartbeat: string | null
-          metadata: Json | null
-          org_id: string
-          runner_id: string | null
-          started_at: string | null
-          status: string
-          total_tasks: number
-        }
-        Insert: {
-          cancellation_requested?: boolean
-          completed_at?: string | null
-          completed_tasks?: number
-          created_at?: string
-          failed_tasks?: number
-          id?: string
-          last_heartbeat?: string | null
-          metadata?: Json | null
-          org_id: string
-          runner_id?: string | null
-          started_at?: string | null
-          status?: string
-          total_tasks?: number
-        }
-        Update: {
-          cancellation_requested?: boolean
-          completed_at?: string | null
-          completed_tasks?: number
-          created_at?: string
-          failed_tasks?: number
-          id?: string
-          last_heartbeat?: string | null
-          metadata?: Json | null
-          org_id?: string
-          runner_id?: string | null
-          started_at?: string | null
-          status?: string
-          total_tasks?: number
-        }
-        Relationships: []
-      }
-      batch_jobs_archive: {
-        Row: {
-          archived_at: string
-          archived_reason: string
-          cancellation_requested: boolean
-          completed_at: string | null
-          completed_tasks: number
-          created_at: string
-          failed_tasks: number
-          id: string
-          last_heartbeat: string | null
-          metadata: Json | null
-          org_id: string
-          runner_id: string | null
-          started_at: string | null
-          status: string
-          total_tasks: number
-        }
-        Insert: {
-          archived_at?: string
-          archived_reason?: string
-          cancellation_requested?: boolean
-          completed_at?: string | null
-          completed_tasks?: number
-          created_at: string
-          failed_tasks?: number
-          id: string
-          last_heartbeat?: string | null
-          metadata?: Json | null
-          org_id: string
-          runner_id?: string | null
-          started_at?: string | null
-          status: string
-          total_tasks?: number
-        }
-        Update: {
-          archived_at?: string
-          archived_reason?: string
-          cancellation_requested?: boolean
-          completed_at?: string | null
-          completed_tasks?: number
-          created_at?: string
-          failed_tasks?: number
-          id?: string
-          last_heartbeat?: string | null
-          metadata?: Json | null
-          org_id?: string
-          runner_id?: string | null
-          started_at?: string | null
-          status?: string
-          total_tasks?: number
-        }
-        Relationships: []
-      }
-      batch_tasks: {
-        Row: {
-          attempts: number
-          batch_job_id: string
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          prompt_id: string
-          provider: string
-          result: Json | null
-          started_at: string | null
-          status: string
-        }
-        Insert: {
-          attempts?: number
-          batch_job_id: string
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          prompt_id: string
-          provider: string
-          result?: Json | null
-          started_at?: string | null
-          status?: string
-        }
-        Update: {
-          attempts?: number
-          batch_job_id?: string
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          prompt_id?: string
-          provider?: string
-          result?: Json | null
-          started_at?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batch_tasks_batch_job_id_fkey"
-            columns: ["batch_job_id"]
-            isOneToOne: false
-            referencedRelation: "batch_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      batch_tasks_archive: {
-        Row: {
-          archived_at: string
-          archived_reason: string
-          attempts: number
-          batch_job_id: string
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          prompt_id: string
-          provider: string
-          result: Json | null
-          started_at: string | null
-          status: string
-        }
-        Insert: {
-          archived_at?: string
-          archived_reason?: string
-          attempts?: number
-          batch_job_id: string
-          completed_at?: string | null
-          created_at: string
-          error_message?: string | null
-          id: string
-          prompt_id: string
-          provider: string
-          result?: Json | null
-          started_at?: string | null
-          status: string
-        }
-        Update: {
-          archived_at?: string
-          archived_reason?: string
-          attempts?: number
-          batch_job_id?: string
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          prompt_id?: string
-          provider?: string
-          result?: Json | null
-          started_at?: string | null
-          status?: string
         }
         Relationships: []
       }
@@ -669,250 +389,6 @@ export type Database = {
         }
         Relationships: []
       }
-      optimization_generation_jobs: {
-        Row: {
-          category: string | null
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          execution_time_ms: number | null
-          id: string
-          input_hash: string
-          llm_model: string | null
-          logs_json: Json | null
-          optimizations_created: number | null
-          optimizations_skipped: number | null
-          org_id: string
-          requested_by: string
-          scope: string
-          started_at: string | null
-          status: string
-          target_prompt_ids: string[] | null
-          total_tokens_used: number | null
-          updated_at: string
-          week_key: string | null
-        }
-        Insert: {
-          category?: string | null
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          execution_time_ms?: number | null
-          id?: string
-          input_hash: string
-          llm_model?: string | null
-          logs_json?: Json | null
-          optimizations_created?: number | null
-          optimizations_skipped?: number | null
-          org_id: string
-          requested_by: string
-          scope: string
-          started_at?: string | null
-          status?: string
-          target_prompt_ids?: string[] | null
-          total_tokens_used?: number | null
-          updated_at?: string
-          week_key?: string | null
-        }
-        Update: {
-          category?: string | null
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          execution_time_ms?: number | null
-          id?: string
-          input_hash?: string
-          llm_model?: string | null
-          logs_json?: Json | null
-          optimizations_created?: number | null
-          optimizations_skipped?: number | null
-          org_id?: string
-          requested_by?: string
-          scope?: string
-          started_at?: string | null
-          status?: string
-          target_prompt_ids?: string[] | null
-          total_tokens_used?: number | null
-          updated_at?: string
-          week_key?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "optimization_generation_jobs_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      optimization_jobs_legacy: {
-        Row: {
-          created_at: string
-          error_text: string | null
-          finished_at: string | null
-          id: string
-          input_hash: string
-          model_version: string | null
-          org_id: string
-          prompt_ids: string[] | null
-          requested_by: string
-          scope: string
-          started_at: string | null
-          status: string
-          target_week: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          error_text?: string | null
-          finished_at?: string | null
-          id?: string
-          input_hash: string
-          model_version?: string | null
-          org_id: string
-          prompt_ids?: string[] | null
-          requested_by: string
-          scope: string
-          started_at?: string | null
-          status?: string
-          target_week?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          error_text?: string | null
-          finished_at?: string | null
-          id?: string
-          input_hash?: string
-          model_version?: string | null
-          org_id?: string
-          prompt_ids?: string[] | null
-          requested_by?: string
-          scope?: string
-          started_at?: string | null
-          status?: string
-          target_week?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "optimization_jobs_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      optimizations_legacy: {
-        Row: {
-          body: string | null
-          content_type: string
-          created_at: string
-          difficulty_level: string | null
-          fingerprint: string | null
-          id: string
-          impact_score: number | null
-          implementation_details: Json | null
-          job_id: string | null
-          optimization_category: string
-          org_id: string
-          projected_impact: string | null
-          prompt_id: string
-          provider: string
-          reddit_strategy: Json | null
-          resources: Json | null
-          score_before: number | null
-          sources: Json | null
-          success_metrics: Json | null
-          timeline_weeks: number | null
-          title: string | null
-        }
-        Insert: {
-          body?: string | null
-          content_type: string
-          created_at?: string
-          difficulty_level?: string | null
-          fingerprint?: string | null
-          id?: string
-          impact_score?: number | null
-          implementation_details?: Json | null
-          job_id?: string | null
-          optimization_category?: string
-          org_id: string
-          projected_impact?: string | null
-          prompt_id: string
-          provider?: string
-          reddit_strategy?: Json | null
-          resources?: Json | null
-          score_before?: number | null
-          sources?: Json | null
-          success_metrics?: Json | null
-          timeline_weeks?: number | null
-          title?: string | null
-        }
-        Update: {
-          body?: string | null
-          content_type?: string
-          created_at?: string
-          difficulty_level?: string | null
-          fingerprint?: string | null
-          id?: string
-          impact_score?: number | null
-          implementation_details?: Json | null
-          job_id?: string | null
-          optimization_category?: string
-          org_id?: string
-          projected_impact?: string | null
-          prompt_id?: string
-          provider?: string
-          reddit_strategy?: Json | null
-          resources?: Json | null
-          score_before?: number | null
-          sources?: Json | null
-          success_metrics?: Json | null
-          timeline_weeks?: number | null
-          title?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "optimizations_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "optimization_jobs_legacy"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "optimizations_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "optimizations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "mv_low_visibility_prompts"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "optimizations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompt_visibility_14d"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "optimizations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "prompts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       optimizations_v2: {
         Row: {
           citations_used: Json | null
@@ -1005,13 +481,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "optimizations_v2_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "mv_low_visibility_prompts"
-            referencedColumns: ["prompt_id"]
           },
           {
             foreignKeyName: "optimizations_v2_prompt_id_fkey"
@@ -1573,13 +1042,6 @@ export type Database = {
             foreignKeyName: "visibility_optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
-            referencedRelation: "mv_low_visibility_prompts"
-            referencedColumns: ["prompt_id"]
-          },
-          {
-            foreignKeyName: "visibility_optimizations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
             referencedRelation: "prompt_visibility_14d"
             referencedColumns: ["prompt_id"]
           },
@@ -1673,28 +1135,6 @@ export type Database = {
         }
         Relationships: []
       }
-      mv_low_visibility_prompts: {
-        Row: {
-          avg_score_when_present: number | null
-          last_checked_at: string | null
-          org_id: string | null
-          presence_rate: number | null
-          present_count: number | null
-          prompt_id: string | null
-          prompt_text: string | null
-          top_citations: Json | null
-          total_runs: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prompts_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       org_competitor_analytics: {
         Row: {
           average_score: number | null
@@ -1783,26 +1223,8 @@ export type Database = {
         Args: { p_candidate_id: string; p_candidate_name: string }
         Returns: undefined
       }
-      cancel_active_batch_jobs: {
-        Args: { p_org_id: string; p_reason?: string }
-        Returns: Json
-      }
-      claim_batch_tasks: {
-        Args: { p_job_id: string; p_limit?: number; p_max_attempts?: number }
-        Returns: {
-          attempts: number
-          batch_job_id: string
-          id: string
-          prompt_id: string
-          provider: string
-        }[]
-      }
       clean_competitor_catalog: {
         Args: { p_dry_run?: boolean }
-        Returns: Json
-      }
-      clean_old_batch_jobs: {
-        Args: { days_old?: number; dry_run?: boolean }
         Returns: Json
       }
       cleanup_old_scheduler_runs: {
@@ -1957,18 +1379,6 @@ export type Database = {
           total_runs: number
         }[]
       }
-      get_low_visibility_prompts_internal: {
-        Args: { p_limit?: number; p_org_id: string }
-        Returns: {
-          avg_score_when_present: number
-          last_checked_at: string
-          presence_rate: number
-          prompt_id: string
-          prompt_text: string
-          top_citations: Json
-          total_runs: number
-        }[]
-      }
       get_optimization_recommendations: {
         Args: {
           p_category?: string
@@ -2110,21 +1520,9 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      refresh_low_visibility_prompts: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      refresh_low_visibility_view: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       reject_brand_candidate: {
         Args: { p_candidate_id: string }
         Returns: undefined
-      }
-      resume_stuck_batch_job: {
-        Args: { p_job_id: string }
-        Returns: Json
       }
       run_security_audit: {
         Args: Record<PropertyKey, never>

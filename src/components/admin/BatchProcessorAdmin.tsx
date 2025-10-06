@@ -239,32 +239,11 @@ export function BatchProcessorAdmin() {
     }
   };
 
+  // Cleanup function removed - batch jobs system has been simplified
+  // Old batch tracking tables have been removed in favor of direct synchronous processing
   const runCleanup = async (dryRun: boolean = false) => {
-    setIsRunningCleanup(true);
-    try {
-      const { data, error } = await supabase.rpc('clean_old_batch_jobs', {
-        days_old: 7,
-        dry_run: dryRun
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      const cleanupResult = data as any;
-      if (dryRun) {
-        toast.info(`Cleanup preview: Would archive ${cleanupResult.jobs_to_archive} jobs and ${cleanupResult.tasks_to_archive} tasks`);
-      } else {
-        toast.success(`Cleanup completed: Archived ${cleanupResult.jobs_archived} jobs and ${cleanupResult.tasks_archived} tasks`);
-        loadSystemStatus(); // Refresh status after cleanup
-      }
-      
-      console.log('Cleanup result:', data);
-    } catch (error: any) {
-      toast.error(`Cleanup failed: ${error.message}`);
-    } finally {
-      setIsRunningCleanup(false);
-    }
+    toast.info('Cleanup function has been removed - batch jobs system simplified');
+    return;
   };
 
   const getCircuitBreakerStatusBadge = (state: CircuitBreakerState) => {

@@ -81,19 +81,10 @@ verify_jwt = true
 [functions.advanced-recommendations]
 verify_jwt = true
 
-[functions.enqueue-optimizations]
-verify_jwt = true
-
 [functions.optimization-worker]
 verify_jwt = false
 
-[functions.generate-optimizations]
-verify_jwt = true
-
-[functions.generate-optimizations-v2]
-verify_jwt = true
-
-[functions.generate-visibility-recommendations]
+[functions.generate-recommendations]
 verify_jwt = true
 
 [functions.test-prompt-response]
@@ -177,15 +168,13 @@ verify_jwt = true
 [functions.backfill-weekly-reports]
 verify_jwt = true
 
-# Scheduled runs every Monday 08:00 UTC (end of previous week); adjust if you prefer Sunday.
+# Scheduled runs
 [functions.schedules]
 weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
 daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
 auto_audit_nightly = { schedule = "0 7 * * *", endpoint = "/auto-audit", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
 # Daily prompt execution at 12AM EST (5AM UTC)
 daily_prompt_execution = { schedule = "0 5 * * *", endpoint = "/daily-batch-trigger", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"force\": true}" }
-# Process optimization jobs every 2 minutes
-process_optimization_jobs = { schedule = "*/2 * * * *", endpoint = "/process-optimization-jobs", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
 
 [functions.scheduled-prompt-executor]
 verify_jwt = false
@@ -198,6 +187,3 @@ verify_jwt = false
 
 [functions.fetch-google-aio.env]
 ENABLE_GOOGLE_AIO = "true"
-
-[functions.process-optimization-jobs]
-verify_jwt = false
