@@ -253,7 +253,7 @@ export default function TestDashboard() {
             <div>
               <h3 className="font-semibold mb-2">Quick Test Suite</h3>
               <p className="text-sm text-muted-foreground">
-                Runs 4 core function tests: generate-visibility-recommendations, run-prompt-now,
+                Runs 4 core function tests: generate-recommendations, run-prompt-now,
                 llms-generate, and diag. Use this for quick smoke testing.
               </p>
             </div>

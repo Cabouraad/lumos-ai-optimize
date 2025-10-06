@@ -12,25 +12,13 @@ export type GenerateRecsResponse = {
 };
 
 export async function generateVisibilityRecommendations(promptId?: string) {
-  // Try batch queue first (org scope), then direct generator (prompt scope),
-  // then the recommendations generator as a final fallback.
-  // This keeps compatibility with your existing dual-path architecture.
-  const bodyOrg = { scope: "org" as const, category: "low_visibility" as const, diag: true };
-  const bodyPrompt = { promptId, batch: false, category: "low_visibility" as const, diag: true };
-
-  // 1) Enqueue (primary)
-  const a = await invokeEdge("enqueue-optimizations", { body: bodyOrg });
-  if (!a.error && a.data) return a;
-
-  // 2) Direct generation (prompt)
-  if (promptId) {
-    const b = await invokeEdge("generate-optimizations", { body: bodyPrompt });
-    if (!b.error && b.data) return b;
-  }
-
-  // 3) Visibility recs (fallback)
-  const c = await invokeEdge("generate-visibility-recommendations", { body: { promptId, diag: true } });
-  return c;
+  // Use the new simplified generate-recommendations endpoint
+  return await invokeEdge("generate-recommendations", { 
+    body: { 
+      limit: 10,
+      forceAll: false 
+    } 
+  });
 }
 
 export async function listVisibilityRecommendations(promptId: string) {

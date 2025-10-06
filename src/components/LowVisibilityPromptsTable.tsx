@@ -15,8 +15,7 @@ import {
   Activity,
   Loader2
 } from 'lucide-react';
-import { useLowVisibilityPrompts } from '@/features/optimizations/hooks-v2';
-import { useGenerateVisibilityRecs } from '@/features/visibility-recommendations/hooks';
+import { useLowVisibilityPrompts, useGenerateOptimizations } from '@/features/optimizations/hooks-v2';
 
 export function LowVisibilityPromptsTable() {
   const { data: prompts, isLoading } = useLowVisibilityPrompts();
@@ -94,10 +93,10 @@ export function LowVisibilityPromptsTable() {
 }
 
 function PromptRow({ prompt }: { prompt: any }) {
-  const generateMutation = useGenerateVisibilityRecs(prompt.prompt_id);
+  const generateMutation = useGenerateOptimizations();
 
   const handleGenerate = () => {
-    generateMutation.mutate();
+    generateMutation.mutate({ limit: 10 });
   };
 
   const getPresenceColor = (rate: number) => {
