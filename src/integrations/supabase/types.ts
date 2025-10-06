@@ -1227,10 +1227,6 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
-      cleanup_old_scheduler_runs: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       email_matches_org_domain: {
         Args: { email_address: string }
         Returns: boolean
@@ -1247,10 +1243,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      fix_stuck_batch_jobs: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       generate_verification_token: {
         Args: { org_id: string }
         Returns: string
@@ -1258,10 +1250,6 @@ export type Database = {
       generate_week_key: {
         Args: { input_date: string }
         Returns: string
-      }
-      get_batch_cleanup_status: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
       }
       get_brand_candidates_for_org: {
         Args: Record<PropertyKey, never>
