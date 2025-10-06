@@ -4,17 +4,19 @@ This document lists all edge functions in the project, their purpose, and how to
 
 ## Core Functions
 
-### 1. **generate-visibility-recommendations**
-**Purpose**: Generates actionable content and social recommendations using OpenAI
-**Input**: `{ promptId: string }` or `{ batch: true }`
-**Output**: `{ inserted: number, recommendations: any[] }`
+### 1. **generate-recommendations**
+**Purpose**: Generates actionable content recommendations synchronously for low-visibility prompts
+**Input**: `{ limit?: number, forceAll?: boolean }`
+**Output**: `{ count: number, created: Recommendation[] }`
 **Auth**: Required (JWT)
 **Key Features**:
-- Calls OpenAI GPT-4o-mini for intelligent recommendations
-- Has deterministic fallback if OpenAI fails
+- Synchronous generation (no queueing/batching)
+- Uses OpenAI GPT-4o-mini for intelligent recommendations
+- Queries low-visibility prompts directly from database
 - Creates content (blog posts, resource hubs, landing pages)
 - Creates social recommendations (LinkedIn, X posts)
-- Stores results in `ai_visibility_recommendations` table
+- Stores results in `optimizations_v2` table
+- Deduplicates using content hash
 
 ### 2. **run-prompt-now**
 **Purpose**: Executes a prompt across all enabled AI providers immediately
@@ -121,28 +123,18 @@ This document lists all edge functions in the project, their purpose, and how to
 ## Recommendations & Optimizations
 
 ### 17. **generate-recommendations**
-**Purpose**: Generates basic recommendations (legacy)
-**Status**: Being replaced by `generate-visibility-recommendations`
-
-### 18. **intelligent-recommendations**
-**Purpose**: AI-powered recommendations with context
+**Purpose**: Generates visibility optimization recommendations for low-performing prompts
 **Auth**: Required (JWT)
+**Input**: `{ limit?: number, forceAll?: boolean }`
+**Output**: `{ count: number, created: array }`
+**Key Features**:
+- Synchronous generation (completes in 10-30 seconds)
+- Analyzes prompts with <75% presence rate
+- Uses OpenAI for intelligent content suggestions
+- Deduplicates via SHA-256 content hash
+- Stores in `optimizations_v2` table
 
-### 19. **advanced-recommendations**
-**Purpose**: Advanced recommendation generation
-**Auth**: Required (JWT)
-
-### 20. **reco-refresh**
-**Purpose**: Refreshes all recommendations for an org
-**Auth**: Required (JWT)
-
-### 21. **enqueue-optimizations**
-**Purpose**: Queues optimization generation jobs
-**Auth**: Required (JWT)
-
-### 22. **optimization-worker**
-**Purpose**: Processes queued optimization jobs
-**Trigger**: Queue-based
+**Note**: This replaces the old batch-based system (enqueue-optimizations, optimization-worker). All generation now happens synchronously for better UX and simpler architecture.
 
 ## Data Management
 

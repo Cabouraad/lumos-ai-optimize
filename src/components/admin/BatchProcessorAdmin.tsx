@@ -83,13 +83,9 @@ export function BatchProcessorAdmin() {
       console.error('Failed to load scheduler state:', error);
     }
 
-    // Get cleanup status
-    try {
-      const { data } = await supabase.rpc('get_batch_cleanup_status');
-      setCleanupStatus(data as unknown as CleanupStatus);
-    } catch (error) {
-      console.error('Failed to load cleanup status:', error);
-    }
+    // Cleanup status removed - batch system has been simplified
+    // Old batch tracking tables have been removed
+    setCleanupStatus(null);
 
     // Calculate execution window info
     updateExecutionWindowInfo();

@@ -7,7 +7,7 @@ export default function EdgeHealthBadge() {
   
   useEffect(() => {
     (async () => {
-      const r = await invokeEdge("enqueue-optimizations", { body: { scope: "noop" }, timeoutMs: 5000 });
+      const r = await invokeEdge("diag", { timeoutMs: 5000 });
       setMsg(r.error ? `fn unreachable: ${r.error.message}` : "edge reachable");
     })();
   }, []);
