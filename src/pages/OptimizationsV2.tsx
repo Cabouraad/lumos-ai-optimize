@@ -1,48 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Sparkles, RefreshCw, CheckCircle2, Clock, XCircle, Lightbulb } from "lucide-react";
 import { OptimizationCard } from "@/components/optimizations-v2/OptimizationCard";
 import { LowVisibilityTable } from "@/components/optimizations-v2/LowVisibilityTable";
-import { useOptimizations, useGenerateOptimizations, useGenerationJob } from "@/features/optimizations/hooks-v2";
-import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useOptimizations, useGenerateOptimizations } from "@/features/optimizations/hooks-v2";
 
 export default function OptimizationsV2() {
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { data: optimizations, isLoading } = useOptimizations({ status: 'open', limit: 50 });
   const generateMutation = useGenerateOptimizations();
-  const { data: job } = useGenerationJob(activeJobId);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const previousJobStatusRef = useRef<string | null>(null);
-
-  // Auto-refresh when job completes
-  useEffect(() => {
-    if (job && previousJobStatusRef.current !== job.status) {
-      if (job.status === 'completed' && previousJobStatusRef.current === 'running') {
-        queryClient.invalidateQueries({ queryKey: ['optimizations-v2'] });
-        toast({
-          title: "Recommendations ready",
-          description: "New optimization recommendations have been generated.",
-        });
-      }
-      previousJobStatusRef.current = job.status;
-    }
-  }, [job, queryClient, toast]);
 
   const handleGenerate = async () => {
     try {
-      const result = await generateMutation.mutateAsync({});
-      setActiveJobId(result.jobId);
-      toast({
-        title: "Generation started",
-        description: "Processing your optimization recommendations...",
-      });
+      await generateMutation.mutateAsync({});
     } catch (error) {
       console.error("Generation error:", error);
     }
@@ -69,11 +42,11 @@ export default function OptimizationsV2() {
           </div>
           <Button 
             onClick={handleGenerate} 
-            disabled={generateMutation.isPending || job?.status === 'running'}
+            disabled={generateMutation.isPending}
             size="lg"
             className="gap-2"
           >
-            {generateMutation.isPending || job?.status === 'running' ? (
+            {generateMutation.isPending ? (
               <>
                 <RefreshCw className="h-5 w-5 animate-spin" />
                 Generating...
@@ -86,24 +59,6 @@ export default function OptimizationsV2() {
             )}
           </Button>
         </div>
-
-        {/* Generation Status */}
-        {job && job.status !== 'completed' && (
-          <Card className="border-primary/50 bg-primary/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-                  <CardTitle>Generation in Progress</CardTitle>
-                </div>
-                <Badge variant="outline">{job.status}</Badge>
-              </div>
-              <CardDescription>
-                Processing your optimization recommendations...
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        )}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

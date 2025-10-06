@@ -28,19 +28,19 @@ export function useGenerateVisibilityRecs(promptId?: string) {
   return useMutation({
     mutationKey: ['generate-visibility-recs', promptId],
     mutationFn: async () => {
-      // Use the new V2 API for optimization generation
-      const { generateOptimizations } = await import('@/features/optimizations/api-v2');
+      // Use the new simplified V2 API
+      const { generateRecommendations } = await import('@/features/optimizations/api-v2');
       
-      // Generate optimizations based on scope
-      const result = await generateOptimizations({
-        scope: promptId ? 'prompt' : 'org',
-        promptIds: promptId ? [promptId] : undefined,
-        category: 'visibility'
+      // Generate recommendations synchronously
+      const result = await generateRecommendations({
+        limit: 10
       });
       
-      toast.success('Optimizations generated', { 
-        description: `Created ${result.optimizations_created || 0} recommendations` 
-      });
+      if (result.count > 0) {
+        toast.success('Recommendations generated', { 
+          description: `Created ${result.count} recommendations` 
+        });
+      }
 
       return { success: true, ...result };
     },
@@ -54,7 +54,6 @@ export function useGenerateVisibilityRecs(promptId?: string) {
           queryClient.invalidateQueries({ queryKey: ['visibility-recs', 'all'] }),
           queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] }),
         ]);
-        toast.success("Optimizations generated successfully");
       }
     },
     onError: (err: any) => {

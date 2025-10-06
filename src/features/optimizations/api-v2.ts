@@ -28,15 +28,6 @@ export interface OptimizationV2 {
   completed_at: string | null;
 }
 
-export interface GenerationJob {
-  id: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-  optimizations_created: number;
-  error_message: string | null;
-  created_at: string;
-  completed_at: string | null;
-}
-
 export interface LowVisibilityPrompt {
   prompt_id: string;
   prompt_text: string;
@@ -48,12 +39,10 @@ export interface LowVisibilityPrompt {
 }
 
 /**
- * Generate optimizations for the organization
+ * Generate recommendations (simplified, synchronous)
  */
-export async function generateOptimizations(params?: {
-  scope?: 'org' | 'prompt' | 'batch';
-  promptIds?: string[];
-  category?: string;
+export async function generateRecommendations(params?: {
+  limit?: number;
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   
@@ -61,18 +50,24 @@ export async function generateOptimizations(params?: {
     throw new Error('Authentication required');
   }
 
-  const { data, error } = await supabase.functions.invoke('generate-optimizations-v2', {
-    body: params || { scope: 'org' },
+  const { data, error } = await supabase.functions.invoke('generate-recommendations', {
+    body: { limit: params?.limit || 10 },
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
     },
   });
 
   if (error) {
-    throw new Error(error.message || 'Failed to generate optimizations');
+    throw new Error(error.message || 'Failed to generate recommendations');
   }
 
-  return data;
+  return data as {
+    success: boolean;
+    count: number;
+    processed: number;
+    errors?: string[];
+    message?: string;
+  };
 }
 
 /**
@@ -173,30 +168,4 @@ export async function getLowVisibilityPrompts(limit = 20) {
   return data as LowVisibilityPrompt[];
 }
 
-/**
- * Get generation job status
- */
-export async function getGenerationJob(jobId: string) {
-  const { data, error } = await supabase
-    .from('optimization_generation_jobs')
-    .select('*')
-    .eq('id', jobId)
-    .single();
-
-  if (error) throw error;
-  return data as GenerationJob;
-}
-
-/**
- * Get recent generation jobs
- */
-export async function getRecentJobs(limit = 10) {
-  const { data, error } = await supabase
-    .from('optimization_generation_jobs')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) throw error;
-  return data as GenerationJob[];
-}
+// Job tracking functions removed - now using synchronous generation

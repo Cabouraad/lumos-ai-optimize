@@ -44,62 +44,45 @@ export function useLowVisibilityPrompts(limit?: number) {
 }
 
 /**
- * Generate new optimizations
+ * Generate new recommendations (simplified, synchronous)
  */
 export function useGenerateOptimizations() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (params?: { promptIds?: string[]; forceNew?: boolean }) => {
-      console.log('[useGenerateOptimizations] Starting generation with params:', params);
-      
-      const { data, error } = await invokeEdge('generate-optimizations-v2', {
-        body: {
-          scope: params?.promptIds ? 'batch' : 'org',
-          promptIds: params?.promptIds,
-          forceNew: params?.forceNew ?? true, // Default to true for fresh generation
-        }
-      });
-
-      console.log('[useGenerateOptimizations] Response:', { data, error });
-
-      if (error) {
-        console.error('[useGenerateOptimizations] Error:', error);
-        throw new Error(error.message || 'Failed to start generation');
-      }
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Generation failed');
-      }
-
-      return data;
+    mutationFn: async (params?: { limit?: number }) => {
+      return await api.generateRecommendations(params);
     },
     onSuccess: (data) => {
-      console.log('[useGenerateOptimizations] Success:', data);
       queryClient.invalidateQueries({ queryKey: ['optimizations-v2'] });
-      queryClient.invalidateQueries({ queryKey: ['generation-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
       
-      toast({
-        title: "Generating recommendations",
-        description: "We'll notify you when ready.",
-      });
-    },
-    onError: (error: Error) => {
-      console.error('[useGenerateOptimizations] Mutation error:', error);
-      
-      // Surface specific error types
-      let description = error.message;
-      if (error.message.includes('Rate limit')) {
-        description = "Too many requests. Please wait a moment and try again.";
-      } else if (error.message.includes('Credits')) {
-        description = "AI credits exhausted. Please add funds to continue.";
+      if (data.count > 0) {
+        toast({
+          title: "Recommendations generated",
+          description: `Created ${data.count} new recommendations from ${data.processed} prompts`,
+        });
+      } else if (data.message) {
+        toast({
+          title: "No new recommendations",
+          description: data.message,
+        });
       }
       
+      if (data.errors && data.errors.length > 0) {
+        toast({
+          title: "Some recommendations failed",
+          description: `${data.errors.length} errors occurred during generation`,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      console.error('[useGenerateOptimizations] Error:', error);
       toast({
         title: "Generation failed",
-        description,
+        description: error.message || "Failed to generate recommendations",
         variant: "destructive",
       });
     },
@@ -135,28 +118,4 @@ export function useUpdateOptimizationStatus() {
   });
 }
 
-/**
- * Poll job status
- */
-export function useGenerationJob(jobId: string | null, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: ['generation-job', jobId],
-    queryFn: () => api.getGenerationJob(jobId!),
-    enabled: !!jobId && (options?.enabled !== false),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      // Poll every 2 seconds while running, stop when complete
-      return status === 'running' || status === 'queued' ? 2000 : false;
-    },
-  });
-}
-
-/**
- * Get recent generation jobs
- */
-export function useRecentGenerationJobs(limit?: number) {
-  return useQuery({
-    queryKey: ['generation-jobs', 'recent', limit],
-    queryFn: () => api.getRecentJobs(limit),
-  });
-}
+// Job polling hooks removed - now using synchronous generation
