@@ -125,17 +125,53 @@ serve(async (req) => {
       const code = (jobError as any)?.code;
       console.error("[generate-optimizations-v2] Job creation error:", jobError);
 
-      // Dedup: return existing job for same input
+      // Dedup handling: fetch existing job and decide whether to resume or reuse
       if (code === '23505') {
-        const { data: existing } = await serviceClient
+        const { data: existing, error: fetchExistingErr } = await serviceClient
           .from("optimization_generation_jobs")
-          .select("id,status")
+          .select("id,status,optimizations_created,error_message")
           .eq("org_id", orgId)
           .eq("input_hash", inputHash)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+
+        if (fetchExistingErr) {
+          console.error("[generate-optimizations-v2] Fetch existing job error:", fetchExistingErr);
+        }
+
         if (existing) {
+          const staleFailed = (existing.status === 'failed' || existing.status === 'completed')
+            && (existing.optimizations_created ?? 0) === 0
+            && !!existing.error_message;
+
+          if (staleFailed) {
+            console.log(`[generate-optimizations-v2] Resuming stale job ${existing.id} after dedup`);
+            // Reset job to queued and kick off background processing again
+            await updateJob(serviceClient, existing.id, {
+              status: 'queued',
+              error_message: null,
+              started_at: null,
+              completed_at: null,
+              optimizations_created: 0,
+              total_tokens_used: 0,
+            });
+
+            const promise = processJobInBackground(existing.id, orgId, org, body, serviceClient);
+            // @ts-ignore
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+              // @ts-ignore
+              EdgeRuntime.waitUntil(promise);
+            }
+
+            return jsonResponse({
+              success: true,
+              jobId: existing.id,
+              status: 'queued',
+              message: "Resuming previous failed job",
+            });
+          }
+
           console.log(`[generate-optimizations-v2] Returning existing job ${existing.id} due to dedup`);
           return jsonResponse({
             success: true,
@@ -196,14 +232,24 @@ async function processJobInBackground(
       started_at: new Date().toISOString(),
     });
 
-    // Get low visibility prompts
+    // Get low visibility prompts via internal service-only RPC
     const { data: lowVisPrompts, error: promptsError } = await serviceClient
-      .rpc("get_low_visibility_prompts", {
+      .rpc("get_low_visibility_prompts_internal", {
         p_org_id: orgId,
         p_limit: MAX_PROMPTS_PER_RUN,
       });
 
-    if (promptsError || !lowVisPrompts?.length) {
+    if (promptsError) {
+      console.error("[generate-optimizations-v2] Failed to fetch low visibility prompts:", promptsError);
+      await updateJob(serviceClient, jobId, {
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error_message: `Prompt fetch error: ${promptsError.message || JSON.stringify(promptsError)}`,
+      });
+      return;
+    }
+
+    if (!lowVisPrompts?.length) {
       console.log(`[generate-optimizations-v2] No low visibility prompts found`);
       await updateJob(serviceClient, jobId, {
         status: "completed",

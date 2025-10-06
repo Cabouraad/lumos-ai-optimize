@@ -1954,6 +1954,18 @@ export type Database = {
           total_runs: number
         }[]
       }
+      get_low_visibility_prompts_internal: {
+        Args: { p_limit?: number; p_org_id: string }
+        Returns: {
+          avg_score_when_present: number
+          last_checked_at: string
+          presence_rate: number
+          prompt_id: string
+          prompt_text: string
+          top_citations: Json
+          total_runs: number
+        }[]
+      }
       get_optimization_recommendations: {
         Args: {
           p_category?: string
