@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
-import { getStrictCorsHeaders } from "../_shared/cors.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
 interface EnsureUserResponse {
   success: boolean;
@@ -10,9 +15,6 @@ interface EnsureUserResponse {
 }
 
 Deno.serve(async (req) => {
-  const requestOrigin = req.headers.get('Origin');
-  const corsHeaders = getStrictCorsHeaders(requestOrigin);
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
