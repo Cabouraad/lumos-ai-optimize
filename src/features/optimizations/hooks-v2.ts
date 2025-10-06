@@ -51,13 +51,14 @@ export function useGenerateOptimizations() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (params?: { promptIds?: string[] }) => {
+    mutationFn: async (params?: { promptIds?: string[]; forceNew?: boolean }) => {
       console.log('[useGenerateOptimizations] Starting generation with params:', params);
       
       const { data, error } = await invokeEdge('generate-optimizations-v2', {
         body: {
           scope: params?.promptIds ? 'batch' : 'org',
           promptIds: params?.promptIds,
+          forceNew: params?.forceNew ?? true, // Default to true for fresh generation
         }
       });
 
@@ -81,15 +82,24 @@ export function useGenerateOptimizations() {
       queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
       
       toast({
-        title: "Generation started",
-        description: "Your optimization recommendations are being generated.",
+        title: "Generating recommendations",
+        description: "We'll notify you when ready.",
       });
     },
     onError: (error: Error) => {
       console.error('[useGenerateOptimizations] Mutation error:', error);
+      
+      // Surface specific error types
+      let description = error.message;
+      if (error.message.includes('Rate limit')) {
+        description = "Too many requests. Please wait a moment and try again.";
+      } else if (error.message.includes('Credits')) {
+        description = "AI credits exhausted. Please add funds to continue.";
+      }
+      
       toast({
-        title: "Failed to generate optimizations",
-        description: error.message,
+        title: "Generation failed",
+        description,
         variant: "destructive",
       });
     },

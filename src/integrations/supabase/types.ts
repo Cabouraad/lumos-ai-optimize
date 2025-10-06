@@ -679,6 +679,7 @@ export type Database = {
           id: string
           input_hash: string
           llm_model: string | null
+          logs_json: Json | null
           optimizations_created: number | null
           optimizations_skipped: number | null
           org_id: string
@@ -700,6 +701,7 @@ export type Database = {
           id?: string
           input_hash: string
           llm_model?: string | null
+          logs_json?: Json | null
           optimizations_created?: number | null
           optimizations_skipped?: number | null
           org_id: string
@@ -721,6 +723,7 @@ export type Database = {
           id?: string
           input_hash?: string
           llm_model?: string | null
+          logs_json?: Json | null
           optimizations_created?: number | null
           optimizations_skipped?: number | null
           org_id?: string
@@ -2108,6 +2111,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_low_visibility_prompts: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_low_visibility_view: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

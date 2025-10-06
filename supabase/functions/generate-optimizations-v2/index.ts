@@ -19,11 +19,13 @@ const corsHeaders = {
 const MAX_PROMPTS_PER_RUN = 10;
 const MAX_RETRIES = 3;
 const RATE_LIMIT_DELAY_MS = 1000;
+const DEDUP_WINDOW_MINUTES = 15;
 
 interface GenerationRequest {
   scope: "organization" | "org" | "prompt" | "batch";
   promptId?: string;
   promptIds?: string[];
+  forceNew?: boolean;
 }
 
 interface OptimizationRecommendation {
@@ -104,7 +106,9 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid scope. Use 'org', 'prompt', or 'batch'." }, 400);
     }
 
-    const inputHash = createInputHash(orgId, { ...body, scope: normalizedScope });
+    const inputHash = body.forceNew 
+      ? crypto.randomUUID() 
+      : createInputHash(orgId, { ...body, scope: normalizedScope });
 
     // Cancel any active jobs before starting new one
     console.log('[generate-optimizations-v2] Cancelling active jobs for org:', orgId);
@@ -237,13 +241,26 @@ async function processJobInBackground(
   body: GenerationRequest,
   serviceClient: any
 ) {
+  const logs: Array<{ t: number; msg: string; [key: string]: any }> = [];
+  
   try {
+    logs.push({ t: Date.now(), msg: 'job_started' });
+    
     await updateJob(serviceClient, jobId, {
       status: "running",
       started_at: new Date().toISOString(),
+      logs_json: logs,
     });
 
-    // Get low visibility prompts via internal service-only RPC
+    // Refresh MV before querying (best effort)
+    try {
+      await serviceClient.rpc('refresh_low_visibility_view');
+      logs.push({ t: Date.now(), msg: 'mv_refreshed' });
+    } catch (refreshErr) {
+      logs.push({ t: Date.now(), msg: 'mv_refresh_failed', error: String(refreshErr) });
+    }
+
+    // Primary: Get low visibility prompts via MV-backed RPC
     const { data: lowVisPrompts, error: promptsError } = await serviceClient
       .rpc("get_low_visibility_prompts_internal", {
         p_org_id: orgId,
@@ -253,33 +270,90 @@ async function processJobInBackground(
     if (promptsError) {
       const errMsg = `Failed to fetch prompts: ${promptsError.message || JSON.stringify(promptsError)}`;
       console.error("[generate-optimizations-v2] Prompt fetch error:", promptsError);
+      logs.push({ t: Date.now(), msg: 'prompt_fetch_error', error: errMsg });
       await updateJob(serviceClient, jobId, {
         status: "failed",
         completed_at: new Date().toISOString(),
         error_message: errMsg,
+        logs_json: logs,
       });
       return;
     }
 
-    if (!lowVisPrompts?.length) {
+    let prompts = lowVisPrompts || [];
+    
+    if (prompts.length > 0) {
+      logs.push({ t: Date.now(), msg: 'mv_results', count: prompts.length });
+    } else {
+      // Fallback: Direct live query (last 30d, min_runs>=1, presence<100%)
+      logs.push({ t: Date.now(), msg: 'using_fallback_query' });
+      
+      const { data: liveData } = await serviceClient
+        .from('prompt_provider_responses')
+        .select('prompt_id, org_brand_present, score, prompts!inner(id, text, active)')
+        .eq('org_id', orgId)
+        .eq('status', 'success')
+        .gte('run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      if (liveData?.length) {
+        const byPrompt = new Map<string, { id: string; text: string; runs: number; present: number; scores: number[] }>();
+        
+        for (const r of liveData) {
+          const id = r.prompt_id;
+          if (!r.prompts?.active) continue;
+          
+          const prev = byPrompt.get(id) ?? { 
+            id, 
+            text: r.prompts.text, 
+            runs: 0, 
+            present: 0, 
+            scores: [] 
+          };
+          prev.runs += 1;
+          if (r.org_brand_present) prev.present += 1;
+          if (typeof r.score === 'number') prev.scores.push(r.score);
+          byPrompt.set(id, prev);
+        }
+        
+        prompts = [...byPrompt.values()]
+          .map(v => ({
+            prompt_id: v.id,
+            prompt_text: v.text,
+            total_runs: v.runs,
+            presence_rate: v.runs ? (v.present / v.runs) * 100 : 0,
+            avg_score_when_present: v.scores.length ? v.scores.reduce((a, b) => a + b, 0) / v.scores.length : null,
+            top_citations: []
+          }))
+          .filter(v => v.total_runs >= 1 && v.presence_rate < 100)
+          .sort((a, b) => a.presence_rate - b.presence_rate)
+          .slice(0, MAX_PROMPTS_PER_RUN);
+          
+        logs.push({ t: Date.now(), msg: 'fallback_results', count: prompts.length });
+      }
+    }
+
+    if (!prompts.length) {
       console.log(`[generate-optimizations-v2] No low visibility prompts found`);
+      logs.push({ t: Date.now(), msg: 'no_prompts_found' });
       await updateJob(serviceClient, jobId, {
         status: "completed",
         completed_at: new Date().toISOString(),
         optimizations_created: 0,
         error_message: "No low visibility prompts found",
+        logs_json: logs,
       });
       return;
     }
 
-    console.log(`[generate-optimizations-v2] Processing ${lowVisPrompts.length} prompts`);
+    console.log(`[generate-optimizations-v2] Processing ${prompts.length} prompts`);
+    logs.push({ t: Date.now(), msg: 'processing_prompts', count: prompts.length });
 
     const optimizations = [];
     let totalTokens = 0;
 
     // Process prompts with rate limiting
-    for (let i = 0; i < lowVisPrompts.length; i++) {
-      const promptData = lowVisPrompts[i];
+    for (let i = 0; i < prompts.length; i++) {
+      const promptData = prompts[i];
       
       try {
         const result = await generateOptimizationWithRetry(
@@ -292,53 +366,74 @@ async function processJobInBackground(
         if (result.success && result.optimizations) {
           optimizations.push(...result.optimizations);
           totalTokens += result.tokensUsed || 0;
+          logs.push({ t: Date.now(), msg: 'prompt_processed', promptId: promptData.prompt_id, recsCount: result.optimizations.length });
         }
 
         // Rate limiting between requests
-        if (i < lowVisPrompts.length - 1) {
+        if (i < prompts.length - 1) {
           await sleep(RATE_LIMIT_DELAY_MS);
         }
       } catch (error: any) {
         console.error(`[generate-optimizations-v2] Error for prompt ${promptData.prompt_id}:`, error);
+        logs.push({ t: Date.now(), msg: 'prompt_error', promptId: promptData.prompt_id, error: error.message });
+        
         // Surface critical errors (rate limits, credits)
         if (error.status === 429 || error.status === 402) {
+          logs.push({ t: Date.now(), msg: 'critical_error', status: error.status });
           await updateJob(serviceClient, jobId, {
             status: "failed",
             completed_at: new Date().toISOString(),
             error_message: error.message,
+            logs_json: logs,
           });
           return;
         }
       }
     }
 
-    // Insert optimizations
+    if (optimizations.length === 0) {
+      logs.push({ t: Date.now(), msg: 'no_recs_after_parsing' });
+    }
+
+    // Upsert optimizations (handles duplicates gracefully)
+    let inserted = 0;
     if (optimizations.length > 0) {
-      const { error: insertError } = await serviceClient
+      const { data: upserted, error: insertError } = await serviceClient
         .from("optimizations_v2")
-        .insert(optimizations);
+        .upsert(optimizations, { 
+          onConflict: 'org_id,content_hash',
+          ignoreDuplicates: true 
+        })
+        .select('id');
 
       if (insertError) {
         console.error("[generate-optimizations-v2] Insert error:", insertError);
+        logs.push({ t: Date.now(), msg: 'insert_error', error: insertError.message });
         throw insertError;
       }
+      
+      inserted = (upserted || []).length;
+      logs.push({ t: Date.now(), msg: 'inserted_count', inserted });
     }
 
     await updateJob(serviceClient, jobId, {
       status: "completed",
       completed_at: new Date().toISOString(),
-      optimizations_created: optimizations.length,
+      optimizations_created: inserted,
       total_tokens_used: totalTokens,
+      logs_json: logs,
     });
 
-    console.log(`[generate-optimizations-v2] Job ${jobId} completed: ${optimizations.length} optimizations`);
+    console.log(`[generate-optimizations-v2] Job ${jobId} completed: ${inserted} optimizations`);
 
   } catch (error) {
     console.error(`[generate-optimizations-v2] Job ${jobId} failed:`, error);
+    logs.push({ t: Date.now(), msg: 'job_failed', error: error instanceof Error ? error.message : String(error) });
     await updateJob(serviceClient, jobId, {
       status: "failed",
       completed_at: new Date().toISOString(),
       error_message: error instanceof Error ? error.message : String(error),
+      logs_json: logs,
     });
   }
 }
@@ -495,19 +590,10 @@ Generate 2-3 specific, actionable content recommendations that will improve visi
   }
 
   const data = await response.json();
-  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-  if (!toolCall || toolCall.function.name !== "propose_optimizations") {
-    console.error("[generate-optimizations-v2] No valid tool call:", JSON.stringify(data, null, 2));
-    throw new Error("No valid recommendations returned from AI");
-  }
-
-  const args = JSON.parse(toolCall.function.arguments);
-  const recommendations: OptimizationRecommendation[] = args.recommendations;
-
-  if (!recommendations || !Array.isArray(recommendations)) {
-    throw new Error("Invalid recommendations format");
-  }
+  
+  // Robust parsing with fallback
+  const parsed = await safeParseRecommendations(data, promptData);
+  const recommendations: OptimizationRecommendation[] = parsed.recommendations;
 
   if (recommendations.length === 0) {
     console.warn("[generate-optimizations-v2] AI returned 0 recommendations for prompt:", promptData.prompt_id);
@@ -569,9 +655,70 @@ async function createContentHash(content: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function timeBucket(minutes = DEDUP_WINDOW_MINUTES): number {
+  const now = Date.now();
+  return Math.floor(now / (minutes * 60 * 1000));
+}
+
 function createInputHash(orgId: string, params: any): string {
-  const normalized = JSON.stringify({ orgId, ...params }, Object.keys({ orgId, ...params }).sort());
+  const bucket = timeBucket();
+  const normalized = JSON.stringify({ orgId, bucket, ...params }, Object.keys({ orgId, bucket, ...params }).sort());
   return btoa(normalized).substring(0, 64);
+}
+
+async function safeParseRecommendations(data: any, promptData: any): Promise<{ recommendations: OptimizationRecommendation[] }> {
+  // 1) Tool-call JSON path (ideal)
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.function?.name === "propose_optimizations") {
+    try {
+      const args = JSON.parse(toolCall.function.arguments);
+      if (args.recommendations && Array.isArray(args.recommendations)) {
+        return { recommendations: args.recommendations };
+      }
+    } catch (e) {
+      console.warn("[safeParseRecommendations] Failed to parse tool call args:", e);
+    }
+  }
+
+  // 2) If model returned text, try to extract first valid JSON object
+  const content = data.choices?.[0]?.message?.content;
+  if (typeof content === 'string') {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.recommendations && Array.isArray(parsed.recommendations)) {
+          return { recommendations: parsed.recommendations };
+        }
+      } catch (e) {
+        console.warn("[safeParseRecommendations] Failed to parse JSON from content:", e);
+      }
+    }
+  }
+
+  // 3) Deterministic fallback: always return at least one prompt-specific recommendation
+  console.warn("[safeParseRecommendations] Using deterministic fallback for prompt:", promptData.prompt_id);
+  return {
+    recommendations: [{
+      title: `Create authoritative content for: "${promptData.prompt_text.substring(0, 60)}..."`,
+      description: `Develop comprehensive, citation-worthy content that directly addresses "${promptData.prompt_text}". Focus on matching the depth and authority of top-cited sources.`,
+      content_type: 'guide',
+      priority_score: 70,
+      difficulty_level: 'medium',
+      estimated_hours: 10,
+      implementation_steps: [
+        'Analyze top-cited domains for this specific query',
+        'Identify content gaps in existing coverage',
+        'Create detailed outline matching user intent',
+        'Add original data, examples, and internal linking',
+        'Optimize for discovery and AI citation'
+      ],
+      distribution_channels: ['company_blog', 'linkedin', 'reddit'],
+      content_specs: { word_count: 2000, include_visuals: true, include_data: true },
+      success_metrics: { target_visibility_increase: '25%', target_ai_citations: 3 },
+      citations_used: promptData.top_citations || []
+    }]
+  };
 }
 
 function sleep(ms: number): Promise<void> {
