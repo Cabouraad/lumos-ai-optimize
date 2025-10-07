@@ -40,23 +40,36 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authentication handling: Support both x-cron-secret header and user JWT
-    const cronSecretHeader = req.headers.get('x-cron-secret');
+    // Authentication handling: Support both x-cron-secret header and CRON bearer, or user JWT
+    const cronHeaderRaw = req.headers.get('x-cron-secret');
     const authHeader = req.headers.get('Authorization');
-    const cronSecret = Deno.env.get('CRON_SECRET');
-    const isScheduledRun = cronSecretHeader === cronSecret && cronSecret;
+    const cronSecretEnv = (Deno.env.get('CRON_SECRET') || '').trim();
+
+    const cronHeader = cronHeaderRaw?.trim() || null;
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : null;
+
+    // Accept either x-cron-secret or Authorization: Bearer <CRON_SECRET>
+    const isScheduledRun = !!cronSecretEnv && (
+      (cronHeader !== null && cronHeader === cronSecretEnv) ||
+      (bearerToken !== null && bearerToken === cronSecretEnv)
+    );
+
+    logStep('Auth check', {
+      hasCronHeader: !!cronHeader,
+      hasAuthHeader: !!authHeader,
+      used: isScheduledRun ? 'cron' : 'jwt_or_none'
+    });
     
     let authenticatedUser = null;
     let isUserRequest = false;
     
     if (!isScheduledRun) {
-      // Check for user JWT authentication
-      if (authHeader?.startsWith('Bearer ')) {
-        const jwt = authHeader.replace('Bearer ', '');
+      // Check for user JWT authentication (real JWT, not CRON secret)
+      if (bearerToken) {
         const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
-        
-        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(jwt);
-        
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(bearerToken);
         if (authError || !user) {
           logStep('Invalid user authentication', { error: authError?.message });
           return new Response(
@@ -64,7 +77,6 @@ Deno.serve(async (req) => {
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
         authenticatedUser = user;
         isUserRequest = true;
       } else {
