@@ -17,6 +17,14 @@ function hexToRgb(hex: string) {
   ) : rgb(0, 0, 0);
 }
 
+// Strip emojis and non-WinAnsi characters to prevent encoding errors
+function stripEmojis(text: string): string {
+  // Remove emojis and other non-Latin characters that WinAnsi can't encode
+  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
+    .replace(/[^\x00-\xFF]/g, '') // Remove any character outside Latin-1 range
+    .trim();
+}
+
 export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -161,7 +169,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
     
     // Title
-    page.drawText('📊 Key Highlights', {
+    page.drawText('Key Highlights', {
       x: x + 20,
       y: y + height - 25,
       size: 14,
@@ -171,7 +179,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     
     // Highlights
     highlights.slice(0, 5).forEach((highlight, index) => {
-      page.drawText(`• ${highlight}`, {
+      page.drawText(`• ${stripEmojis(highlight)}`, {
         x: x + 20,
         y: y + height - 50 - (index * 20),
         size: 11,
@@ -354,8 +362,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
 
   currentY -= 30;
   const trendText = dto.kpis.scoreTrend >= 0 ? 
-    `↗️ Trending up: +${dto.kpis.scoreTrend.toFixed(1)}% improvement` : 
-    `↘️ Trending down: ${dto.kpis.scoreTrend.toFixed(1)}% decline`;
+    `Trending up: +${dto.kpis.scoreTrend.toFixed(1)}% improvement` : 
+    `Trending down: ${dto.kpis.scoreTrend.toFixed(1)}% decline`;
 
   kpiPage.drawText(trendText, {
     x: 40,
@@ -457,13 +465,13 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
         });
       }
 
-      // Prompt text (truncated)
+      // Prompt text (truncated and sanitized)
       const maxLength = 50;
       const truncatedText = prompt.text.length > maxLength 
         ? prompt.text.substring(0, maxLength) + '...' 
         : prompt.text;
 
-      promptsPage.drawText(truncatedText, {
+      promptsPage.drawText(stripEmojis(truncatedText), {
         x: currentX,
         y: currentY,
         size: 9,
@@ -514,7 +522,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       color: colors.neutralLight,
     });
 
-    competitorsPage.drawText(`🆕 ${dto.competitors.newThisWeek.length} New Competitors This Week`, {
+    competitorsPage.drawText(`${dto.competitors.newThisWeek.length} New Competitors This Week`, {
       x: 50,
       y: currentY - 45,
       size: 14,
@@ -522,8 +530,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       color: colors.neutralDark,
     });
 
-    const newCompNames = dto.competitors.newThisWeek.slice(0, 5).join(', ');
-    competitorsPage.drawText(newCompNames, {
+    const newCompNames = dto.competitors.newThisWeek.slice(0, 5).map(stripEmojis).join(', ');
+    competitorsPage.drawText(stripEmojis(newCompNames), {
       x: 50,
       y: currentY - 80,
       size: 11,
@@ -552,7 +560,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     topCompetitors.forEach((comp: any, index: number) => {
       currentY -= 20;
       competitorsPage.drawText(
-        `${comp.name}: ${comp.mentionRate.toFixed(1)}% (${comp.mentions} mentions)`,
+        stripEmojis(`${comp.name}: ${comp.mentionRate.toFixed(1)}% (${comp.mentions} mentions)`),
         {
           x: 50,
           y: currentY,
@@ -570,7 +578,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
 
   // Key findings
   currentY -= 40;
-  recoPage.drawText('📈 Key Findings', {
+  recoPage.drawText('Key Findings', {
     x: 40,
     y: currentY,
     size: 16,
@@ -581,7 +589,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   const findings = dto.insights?.keyFindings || ['No specific findings available'];
   findings.slice(0, 4).forEach((finding: string, index: number) => {
     currentY -= 25;
-    recoPage.drawText(`• ${finding}`, {
+    recoPage.drawText(`• ${stripEmojis(finding)}`, {
       x: 50,
       y: currentY,
       size: 11,
@@ -592,7 +600,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
 
   // Action recommendations
   currentY -= 60;
-  recoPage.drawText('🎯 Action Items', {
+  recoPage.drawText('Action Items', {
     x: 40,
     y: currentY,
     size: 16,
@@ -603,7 +611,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   const actionItems = dto.insights?.recommendations || ['No specific actions recommended'];
   actionItems.slice(0, 5).forEach((rec: string, index: number) => {
     currentY -= 25;
-    recoPage.drawText(`${index + 1}. ${rec}`, {
+    recoPage.drawText(`${index + 1}. ${stripEmojis(rec)}`, {
       x: 50,
       y: currentY,
       size: 11,
@@ -615,7 +623,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   // Performance summary using insights highlights
   currentY -= 60;
   if (dto.insights && dto.insights.highlights && dto.insights.highlights.length > 0) {
-    recoPage.drawText('📊 Performance Summary', {
+    recoPage.drawText('Performance Summary', {
       x: 40,
       y: currentY,
       size: 16,
@@ -626,7 +634,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     currentY -= 30;
     dto.insights.highlights.slice(0, 6).forEach((highlight: string) => {
       currentY -= 20;
-      recoPage.drawText(highlight, {
+      recoPage.drawText(stripEmojis(highlight), {
         x: 50,
         y: currentY,
         size: 11,
