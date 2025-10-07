@@ -486,6 +486,13 @@ export type Database = {
             foreignKeyName: "optimizations_v2_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "optimizations_v2_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompt_visibility_14d"
             referencedColumns: ["prompt_id"]
           },
@@ -647,6 +654,13 @@ export type Database = {
           token_out?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "prompt_provider_responses_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
           {
             foreignKeyName: "prompt_provider_responses_prompt_id_fkey"
             columns: ["prompt_id"]
@@ -1060,6 +1074,13 @@ export type Database = {
             foreignKeyName: "visibility_optimizations_prompt_id_fkey"
             columns: ["prompt_id"]
             isOneToOne: false
+            referencedRelation: "low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "visibility_optimizations_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
             referencedRelation: "prompt_visibility_14d"
             referencedColumns: ["prompt_id"]
           },
@@ -1151,7 +1172,15 @@ export type Database = {
           prompt_text: string | null
           runs: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_competitor_analytics: {
         Row: {
