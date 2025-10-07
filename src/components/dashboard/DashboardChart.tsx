@@ -22,6 +22,12 @@ export function DashboardChart({
 }: DashboardChartProps) {
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];
+  
+  // Transform chart data to convert scores to percentages
+  const percentageChartData = chartData.map(item => ({
+    ...item,
+    avgScorePercent: item.avgScore ? item.avgScore * 10 : 0
+  }));
 
   return (
     <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
@@ -54,7 +60,7 @@ export function DashboardChart({
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             {chartView === 'score' ? (
-              <LineChart data={chartData}>
+              <LineChart data={percentageChartData}>
                 <XAxis 
                   dataKey="date" 
                   axisLine={false}
@@ -66,8 +72,8 @@ export function DashboardChart({
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12 }}
-                  domain={[0, 'dataMax + 1']}
-                  allowDataOverflow={false}
+                  domain={[0, 100]}
+                  label={{ value: 'Visibility %', angle: -90, position: 'insideLeft' }}
                 />
                 <Tooltip 
                   labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
@@ -75,7 +81,7 @@ export function DashboardChart({
                     month: 'short', 
                     day: 'numeric' 
                   })}
-                  formatter={(value: any) => [value?.toFixed(1) || '0.0', 'Average Score']}
+                  formatter={(value: any) => [`${value?.toFixed(1)}%` || '0.0%', 'Visibility Score']}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
@@ -84,7 +90,7 @@ export function DashboardChart({
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="avgScore" 
+                  dataKey="avgScorePercent" 
                   stroke="hsl(var(--primary))" 
                   strokeWidth={3}
                   dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
