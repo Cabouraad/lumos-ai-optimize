@@ -50,7 +50,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
         <CardContent>
           {metrics?.avgScore ? (
             <div className="flex items-center space-x-2">
-              <div className="text-2xl font-bold text-primary">{formatScore(metrics.avgScore)}/10</div>
+              <div className="text-2xl font-bold text-primary">{(metrics.avgScore * 10).toFixed(1)}%</div>
               {getTrendIcon(metrics?.trend || 0)}
               {(metrics?.trend || 0) !== 0 && (
                 <span className="text-xs text-muted-foreground">
@@ -60,7 +60,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
             </div>
           ) : (
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-muted-foreground">-/10</div>
+              <div className="text-2xl font-bold text-muted-foreground">-%</div>
               <p className="text-xs text-muted-foreground">No data yet</p>
             </div>
           )}
