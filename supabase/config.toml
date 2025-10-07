@@ -168,14 +168,6 @@ verify_jwt = true
 [functions.backfill-weekly-reports]
 verify_jwt = true
 
-# Scheduled runs
-[functions.schedules]
-weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
-daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
-auto_audit_nightly = { schedule = "0 7 * * *", endpoint = "/auto-audit", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
-# Daily prompt execution at 12AM EST (5AM UTC)
-daily_prompt_execution = { schedule = "0 5 * * *", endpoint = "/daily-batch-trigger", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"force\": true}" }
-
 [functions.scheduled-prompt-executor]
 verify_jwt = false
 
@@ -187,3 +179,36 @@ verify_jwt = false
 
 [functions.fetch-google-aio.env]
 ENABLE_GOOGLE_AIO = "true"
+
+[functions.prompt-execution-guardian]
+verify_jwt = false
+
+[functions.execution-monitor]
+verify_jwt = false
+
+# Scheduled runs - BULLETPROOF CONFIGURATION
+[functions.schedules]
+# === WEEKLY REPORTS ===
+weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
+
+# === SUBSCRIPTION CHECKS ===
+daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
+
+# === AUTO AUDIT ===
+auto_audit_nightly = { schedule = "0 7 * * *", endpoint = "/auto-audit", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
+
+# === CRITICAL: DAILY PROMPT EXECUTION (Multi-layered) ===
+# Primary execution at 5:00 AM UTC (12:00 AM EST)
+daily_prompt_execution_primary = { schedule = "0 5 * * *", endpoint = "/daily-batch-trigger", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"force\": true, \"trigger_source\": \"scheduled_primary\"}" }
+
+# Backup execution #1 at 5:30 AM UTC (12:30 AM EST)
+daily_prompt_execution_backup_530 = { schedule = "30 5 * * *", endpoint = "/daily-batch-trigger", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"force\": false, \"trigger_source\": \"scheduled_backup_530\"}" }
+
+# Backup execution #2 at 6:00 AM UTC (1:00 AM EST)
+daily_prompt_execution_backup_600 = { schedule = "0 6 * * *", endpoint = "/daily-batch-trigger", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"force\": false, \"trigger_source\": \"scheduled_backup_600\"}" }
+
+# === GUARDIAN: Hourly health check & auto-recovery ===
+prompt_execution_guardian = { schedule = "15 * * * *", endpoint = "/prompt-execution-guardian", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
+
+# === MONITOR: Dead man's switch (every 15 minutes) ===
+execution_monitor = { schedule = "*/15 * * * *", endpoint = "/execution-monitor", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }

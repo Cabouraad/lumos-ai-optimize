@@ -794,6 +794,7 @@ export type Database = {
           run_key: string
           started_at: string
           status: string
+          trigger_source: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -805,6 +806,7 @@ export type Database = {
           run_key: string
           started_at?: string
           status?: string
+          trigger_source?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -816,6 +818,7 @@ export type Database = {
           run_key?: string
           started_at?: string
           status?: string
+          trigger_source?: string | null
         }
         Relationships: []
       }

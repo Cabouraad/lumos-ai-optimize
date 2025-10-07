@@ -57,19 +57,33 @@ Deno.serve(async (req) => {
   const todayKey = todayKeyNY(currentTime);
   const runId = crypto.randomUUID();
   
-  console.log('🚀 Daily batch trigger started', { runId, todayKey });
+  // Parse request body early to get trigger_source
+  let requestBody: any = {};
+  let triggerSource = 'manual_unknown';
+  try {
+    const body = await req.text();
+    if (body) {
+      requestBody = JSON.parse(body);
+      triggerSource = requestBody.trigger_source || 'manual_unknown';
+    }
+  } catch (e: unknown) {
+    // Not JSON or empty body, use default trigger_source
+  }
+  
+  console.log('🚀 Daily batch trigger started', { runId, todayKey, triggerSource });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Start logging this run
+  // Start logging this run with trigger_source
   const { error: logError } = await supabase
     .from('scheduler_runs')
     .insert({
       id: runId,
       run_key: todayKey,
       function_name: 'daily-batch-trigger',
+      trigger_source: triggerSource,
       started_at: currentTime.toISOString(),
       status: 'running'
     });
@@ -117,18 +131,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for bypass flag
-    let requestBody = {};
-    try {
-      const body = await req.text();
-      if (body) {
-        requestBody = JSON.parse(body);
-      }
-    } catch (e: unknown) {
-      // Not JSON or empty body, continue
-    }
-
     // Check execution window (3:00 AM - 6:00 AM ET) unless force flag is set
+    // (requestBody already parsed above)
     const inWindow = isInExecutionWindow(currentTime);
     const forceRun = requestBody.force === true;
     
