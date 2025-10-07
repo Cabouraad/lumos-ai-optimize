@@ -502,7 +502,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       });
       currentX += colWidths[2];
 
-      promptsPage.drawText(prompt.category, {
+      promptsPage.drawText(stripEmojis(prompt.category ?? 'General'), {
         x: currentX,
         y: currentY,
         size: 9,
