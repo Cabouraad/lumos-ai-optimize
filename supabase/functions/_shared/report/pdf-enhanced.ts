@@ -18,9 +18,13 @@ function hexToRgb(hex: string) {
 }
 
 // Strip emojis and non-WinAnsi characters to prevent encoding errors
-function stripEmojis(text: string): string {
+function stripEmojis(text: string | number | null | undefined): string {
+  // Handle non-string inputs
+  if (text === null || text === undefined) return '';
+  const str = String(text);
+  
   // Remove emojis and other non-Latin characters that WinAnsi can't encode
-  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
+  return str.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
     .replace(/[^\x00-\xFF]/g, '') // Remove any character outside Latin-1 range
     .trim();
 }
