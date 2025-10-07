@@ -646,7 +646,22 @@ export type Database = {
           token_in?: number
           token_out?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prompt_provider_responses_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "prompt_provider_responses_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prompts: {
         Row: {
@@ -1420,8 +1435,8 @@ export type Database = {
         Args: { p_days?: number; p_prompt_id: string } | { p_prompt_id: string }
         Returns: {
           competitor_name: string
+          mentions: number
           share: number
-          total_mentions: number
         }[]
       }
       get_prompt_visibility_7d: {
