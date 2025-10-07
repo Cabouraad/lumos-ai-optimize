@@ -33,11 +33,13 @@ Deno.serve(async (req) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  let schedulerRun: any = null;
+
   try {
     logStep('Weekly report scheduler started');
 
     // Log scheduler run start
-    const { data: schedulerRun, error: logError } = await supabase
+    const { data, error: logError } = await supabase
       .from('scheduler_runs')
       .insert({
         run_key: 'weekly-csv-' + new Date().toISOString().split('T')[0],
@@ -46,6 +48,8 @@ Deno.serve(async (req) => {
       })
       .select()
       .single();
+
+    schedulerRun = data;
 
     if (logError) {
       logStep('Failed to log scheduler run start', { error: logError.message });
