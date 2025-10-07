@@ -61,29 +61,35 @@ function generateInsights(data: any): { highlights: string[]; keyFindings: strin
   const keyFindings = [];
   const recommendations = [];
   
+  // Safe defaults for all numeric values
+  const safeAvgScore = data.kpis?.avgVisibilityScore ?? 0;
+  const safeBrandRate = data.kpis?.brandPresentRate ?? 0;
+  const safeAvgCompetitors = data.kpis?.avgCompetitors ?? 0;
+  const safeDelta = data.kpis?.deltaVsPriorWeek?.avgVisibilityScore ?? 0;
+  
   // Generate highlights based on data
-  if (data.kpis.avgVisibilityScore >= 7) {
-    highlights.push(`Excellent brand visibility with ${data.kpis.avgVisibilityScore.toFixed(1)}/10 average score`);
-  } else if (data.kpis.avgVisibilityScore >= 5) {
-    highlights.push(`Good brand visibility at ${data.kpis.avgVisibilityScore.toFixed(1)}/10 average score`);
+  if (safeAvgScore >= 7) {
+    highlights.push(`Excellent brand visibility with ${safeAvgScore.toFixed(1)}/10 average score`);
+  } else if (safeAvgScore >= 5) {
+    highlights.push(`Good brand visibility at ${safeAvgScore.toFixed(1)}/10 average score`);
   } else {
-    highlights.push(`Brand visibility needs improvement at ${data.kpis.avgVisibilityScore.toFixed(1)}/10 average score`);
+    highlights.push(`Brand visibility needs improvement at ${safeAvgScore.toFixed(1)}/10 average score`);
   }
   
-  if (data.kpis.deltaVsPriorWeek?.avgVisibilityScore > 0) {
-    highlights.push(`Visibility improved by ${data.kpis.deltaVsPriorWeek.avgVisibilityScore.toFixed(1)} points vs last week`);
-  } else if (data.kpis.deltaVsPriorWeek?.avgVisibilityScore < 0) {
-    highlights.push(`Visibility declined by ${Math.abs(data.kpis.deltaVsPriorWeek.avgVisibilityScore).toFixed(1)} points vs last week`);
+  if (safeDelta > 0) {
+    highlights.push(`Visibility improved by ${safeDelta.toFixed(1)} points vs last week`);
+  } else if (safeDelta < 0) {
+    highlights.push(`Visibility declined by ${Math.abs(safeDelta).toFixed(1)} points vs last week`);
   }
   
-  if (data.competitors.newThisWeek?.length > 0) {
+  if (data.competitors?.newThisWeek?.length > 0) {
     highlights.push(`${data.competitors.newThisWeek.length} new competitors detected this week`);
   }
   
   // Key findings
-  keyFindings.push(`Brand present in ${data.kpis.brandPresentRate.toFixed(1)}% of responses`);
-  keyFindings.push(`Average of ${data.kpis.avgCompetitors.toFixed(1)} competitors per response`);
-  keyFindings.push(`${data.volume.providersUsed.length} AI providers analyzed`);
+  keyFindings.push(`Brand present in ${safeBrandRate.toFixed(1)}% of responses`);
+  keyFindings.push(`Average of ${safeAvgCompetitors.toFixed(1)} competitors per response`);
+  keyFindings.push(`${data.volume?.providersUsed?.length ?? 0} AI providers analyzed`);
   
   // Recommendations
   if (data.prompts.zeroPresence.length > 0) {

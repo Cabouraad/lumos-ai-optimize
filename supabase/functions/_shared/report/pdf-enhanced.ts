@@ -193,8 +193,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     });
   }
 
-  // Format period text
-  const periodText = `${dto.header.periodStart} to ${dto.header.periodEnd}`;
+  // Format period text (sanitize to prevent emoji encoding issues)
+  const periodText = stripEmojis(`${dto.header.periodStart} to ${dto.header.periodEnd}`);
 
   // PAGE 1: Cover Page with Brand Header Bar, Logo, Big Metrics, and Highlights
   const coverPage = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -234,8 +234,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     color: colors.neutralLight,
   });
 
-  // Organization name
-  coverPage.drawText(dto.header.orgName, {
+  // Organization name (sanitize to prevent emoji encoding issues)
+  coverPage.drawText(stripEmojis(dto.header.orgName), {
     x: 120,
     y: pageHeight - 65,
     size: 14,
@@ -419,7 +419,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       ? prompts.reduce((sum: number, p: any) => sum + (p.avgScore || 0), 0) / prompts.length 
       : 0;
     currentY -= 20;
-    promptsPage.drawText(`${categoryLabels[index]}: ${categoryData.length} prompts (avg: ${avgScore.toFixed(1)})`, {
+    // Sanitize category labels to prevent emoji encoding issues
+    promptsPage.drawText(stripEmojis(`${categoryLabels[index]}: ${categoryData.length} prompts (avg: ${(avgScore ?? 0).toFixed(1)})`), {
       x: 40,
       y: currentY,
       size: 12,

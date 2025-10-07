@@ -699,28 +699,32 @@ function generateInsights(avgScore: number, brandRate: number, scoreTrend: numbe
   const keyFindings: string[] = [];
   const recommendations: string[] = [];
 
+  // Safe defaults for all numeric values
+  const safeBrandRate = brandRate ?? 0;
+  const safeScoreTrend = scoreTrend ?? 0;
+
   // Highlights
-  if (brandRate >= 75) {
-    highlights.push(`Excellent brand visibility at ${brandRate.toFixed(1)}% presence rate`);
-  } else if (brandRate >= 50) {
-    highlights.push(`Good brand visibility at ${brandRate.toFixed(1)}% presence rate`);
+  if (safeBrandRate >= 75) {
+    highlights.push(`Excellent brand visibility at ${safeBrandRate.toFixed(1)}% presence rate`);
+  } else if (safeBrandRate >= 50) {
+    highlights.push(`Good brand visibility at ${safeBrandRate.toFixed(1)}% presence rate`);
   } else {
-    highlights.push(`Brand visibility needs improvement at ${brandRate.toFixed(1)}% presence rate`);
+    highlights.push(`Brand visibility needs improvement at ${safeBrandRate.toFixed(1)}% presence rate`);
   }
 
-  if (scoreTrend > 0.5) {
-    highlights.push(`Strong upward trend with ${scoreTrend.toFixed(1)} point improvement`);
-  } else if (scoreTrend < -0.5) {
-    highlights.push(`Visibility declining by ${Math.abs(scoreTrend).toFixed(1)} points`);
+  if (safeScoreTrend > 0.5) {
+    highlights.push(`Strong upward trend with ${safeScoreTrend.toFixed(1)} point improvement`);
+  } else if (safeScoreTrend < -0.5) {
+    highlights.push(`Visibility declining by ${Math.abs(safeScoreTrend).toFixed(1)} points`);
   }
 
-  if (topPerformers.length > 0) {
-    highlights.push(`Top prompt achieving ${topPerformers[0].avgScore.toFixed(1)}/10 average score`);
+  if (topPerformers && topPerformers.length > 0 && topPerformers[0]?.avgScore !== undefined) {
+    highlights.push(`Top prompt achieving ${(topPerformers[0].avgScore ?? 0).toFixed(1)}/10 average score`);
   }
 
   // Key findings
-  if (competitors.length > 0) {
-    keyFindings.push(`${competitors.length} competitors detected, led by ${competitors[0].name} (${competitors[0].sharePercent.toFixed(1)}%)`);
+  if (competitors && competitors.length > 0 && competitors[0]) {
+    keyFindings.push(`${competitors.length} competitors detected, led by ${competitors[0].name || 'Unknown'} (${(competitors[0].sharePercent ?? 0).toFixed(1)}%)`);
   }
 
   if (zeroPresence.length > 0) {
@@ -764,52 +768,59 @@ async function generatePDFReport(reportData: WeeklyReportData, weekKey: string):
   return pdfBytes;
 }
 
-// Enhanced CSV generation
+// Enhanced CSV generation for new report structure
 function generateCSVContent(reportData: any) {
   const headers = [
     'Prompt ID',
     'Prompt Text',
+    'Category',
     'Total Runs',
     'Average Score',
-    'Brand Present Rate (%)',
-    'Average Competitors',
-    'Brand Present Count',
-    'Providers Used',
-    'Best Score',
-    'Worst Score'
+    'Brand Present Rate (%)'
   ];
 
-  const rows = reportData.prompts.map((prompt: any) => {
-    const scores = prompt.responses.map((r: any) => parseFloat(r.score || 0));
-    const bestScore = scores.length > 0 ? Math.max(0, ...scores) : 0;
-    const worstScore = scores.length > 0 ? Math.min(0, ...scores) : 0;
-    
-    return [
-      prompt.id,
-      `"${prompt.text.replace(/"/g, '""')}"`,
-      prompt.totalRuns,
-      prompt.avgScore.toFixed(2),
-      prompt.brandPresentRate.toFixed(1),
-      prompt.avgCompetitors.toFixed(1),
-      prompt.brandPresentCount,
-      `"${prompt.providersList.join(', ')}"`,
-      bestScore.toFixed(2),
-      worstScore.toFixed(2)
-    ];
+  const rows: any[] = [];
+  
+  // Collect all prompts from categories and topPerformers
+  const allPrompts: any[] = [];
+  
+  // Add from categories if available
+  if (reportData.prompts?.categories) {
+    const { crm = [], competitorTools = [], aiFeatures = [], other = [] } = reportData.prompts.categories;
+    allPrompts.push(...crm, ...competitorTools, ...aiFeatures, ...other);
+  }
+  
+  // If no category data, use topPerformers
+  if (allPrompts.length === 0 && reportData.prompts?.topPerformers) {
+    allPrompts.push(...reportData.prompts.topPerformers);
+  }
+
+  logStep('CSV generation', { promptsFound: allPrompts.length, hasCategories: !!reportData.prompts?.categories });
+
+  // Generate rows from prompts
+  allPrompts.forEach((prompt: any) => {
+    rows.push([
+      prompt.id || '',
+      `"${(prompt.text || '').replace(/"/g, '""')}"`,
+      prompt.category || 'other',
+      prompt.totalRuns || 0,
+      (prompt.avgScore ?? 0).toFixed(2),
+      (prompt.brandPresentRate ?? 0).toFixed(1)
+    ]);
   });
 
   // Add summary row
+  const totalRuns = reportData.kpis?.totalRuns ?? reportData.volume?.totalResponsesAnalyzed ?? 0;
+  const avgScore = reportData.kpis?.avgVisibilityScore ?? reportData.kpis?.overallScore ?? 0;
+  const brandRate = reportData.kpis?.brandPresentRate ?? 0;
+  
   rows.push([
     'SUMMARY',
-    `"Week Summary (${reportData.summary.totalPrompts} prompts analyzed)"`,
-    reportData.summary.totalResponses,
-    reportData.summary.avgScoreAcrossAll.toFixed(2),
-    reportData.summary.overallBrandPresenceRate.toFixed(1),
-    '',
-    '', 
-    `"Period: ${reportData.summary.weekStart} to ${reportData.summary.weekEnd}"`,
-    '',
-    ''
+    `"Week Summary (${allPrompts.length} prompts analyzed)"`,
+    'all',
+    totalRuns,
+    (avgScore ?? 0).toFixed(2),
+    (brandRate ?? 0).toFixed(1)
   ]);
 
   const csvLines = [headers.join(','), ...rows.map(row => row.map(cell => cell?.toString() || '').join(','))];
