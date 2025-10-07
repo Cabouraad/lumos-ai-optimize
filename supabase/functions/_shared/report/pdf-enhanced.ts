@@ -267,8 +267,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     cardWidth,
     cardHeight,
     'Overall Brand Score',
-    dto.kpis.overallScore.toFixed(1),
-    dto.kpis.scoreTrend,
+    (dto.kpis.overallScore ?? 0).toFixed(1),
+    dto.kpis.scoreTrend ?? 0,
     'Weekly average across all prompts'
   );
 
@@ -280,8 +280,8 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     cardWidth,
     cardHeight,
     'Brand Presence Rate',
-    `${dto.kpis.brandPresentRate.toFixed(1)}%`,
-    dto.kpis.deltaVsPriorWeek?.brandPresentRate,
+    `${(dto.kpis.brandPresentRate ?? 0).toFixed(1)}%`,
+    dto.kpis.deltaVsPriorWeek?.brandPresentRate ?? undefined,
     'Prompts where brand was mentioned'
   );
 
@@ -337,7 +337,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   });
 
   currentY -= 20;
-  kpiPage.drawText(`Your brand was mentioned in ${dto.kpis.brandPresentRate.toFixed(1)}% of AI responses this week.`, {
+  kpiPage.drawText(`Your brand was mentioned in ${(dto.kpis.brandPresentRate ?? 0).toFixed(1)}% of AI responses this week.`, {
     x: 40,
     y: currentY,
     size: 12,
@@ -346,7 +346,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   });
 
   currentY -= 20;
-  kpiPage.drawText(`Average visibility score: ${dto.kpis.overallScore.toFixed(1)}/10`, {
+  kpiPage.drawText(`Average visibility score: ${(dto.kpis.overallScore ?? 0).toFixed(1)}/10`, {
     x: 40,
     y: currentY,
     size: 12,
@@ -365,16 +365,17 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
   });
 
   currentY -= 30;
-  const trendText = dto.kpis.scoreTrend >= 0 ? 
-    `Trending up: +${dto.kpis.scoreTrend.toFixed(1)}% improvement` : 
-    `Trending down: ${dto.kpis.scoreTrend.toFixed(1)}% decline`;
+  const scoreTrend = dto.kpis.scoreTrend ?? 0;
+  const trendText = scoreTrend >= 0 ? 
+    `Trending up: +${scoreTrend.toFixed(1)}% improvement` : 
+    `Trending down: ${scoreTrend.toFixed(1)}% decline`;
 
   kpiPage.drawText(trendText, {
     x: 40,
     y: currentY,
     size: 12,
     font: font,
-    color: dto.kpis.scoreTrend >= 0 ? colors.successGreen : colors.errorRed,
+    color: scoreTrend >= 0 ? colors.successGreen : colors.errorRed,
   });
 
   // PAGE 3: Detailed Prompt Analysis
@@ -414,7 +415,9 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
 
   currentY -= 30;
   categoryData.forEach((prompts, index) => {
-    const avgScore = prompts.reduce((sum: number, p: any) => sum + (p.avgScore || 0), 0) / prompts.length;
+    const avgScore = prompts.length > 0 
+      ? prompts.reduce((sum: number, p: any) => sum + (p.avgScore || 0), 0) / prompts.length 
+      : 0;
     currentY -= 20;
     promptsPage.drawText(`${categoryLabels[index]}: ${categoryData.length} prompts (avg: ${avgScore.toFixed(1)})`, {
       x: 40,
@@ -484,7 +487,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       });
       currentX += colWidths[0];
 
-      promptsPage.drawText(prompt.avgScore.toFixed(1), {
+      promptsPage.drawText((prompt.avgScore ?? 0).toFixed(1), {
         x: currentX,
         y: currentY,
         size: 9,
@@ -493,7 +496,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
       });
       currentX += colWidths[1];
 
-      promptsPage.drawText(`${prompt.brandPresentRate.toFixed(1)}%`, {
+      promptsPage.drawText(`${(prompt.brandPresentRate ?? 0).toFixed(1)}%`, {
         x: currentX,
         y: currentY,
         size: 9,
@@ -564,7 +567,7 @@ export async function renderReportPDF(dto: WeeklyReportData): Promise<Uint8Array
     topCompetitors.forEach((comp: any, index: number) => {
       currentY -= 20;
       competitorsPage.drawText(
-        stripEmojis(`${comp.name}: ${comp.mentionRate.toFixed(1)}% (${comp.mentions} mentions)`),
+        stripEmojis(`${comp.name}: ${(comp.mentionRate ?? 0).toFixed(1)}% (${comp.mentions ?? 0} mentions)`),
         {
           x: 50,
           y: currentY,
