@@ -5,69 +5,12 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { getLastCompleteWeekUTC } from '../_shared/report/week.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
-
-interface WeekBoundaries {
-  weekKey: string;
-  periodStart: string;
-  periodEnd: string;
-}
-
-/**
- * Calculate ISO week boundaries for the most recent complete week (Monday to Sunday)
- */
-function getLastCompleteWeek(): WeekBoundaries {
-  const now = new Date();
-  const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  
-  // Calculate the most recent complete week (Monday to Sunday)
-  let daysToLastSunday: number;
-  if (currentDay === 0) {
-    daysToLastSunday = 1;
-  } else {
-    daysToLastSunday = currentDay;
-  }
-  
-  // Get the end of the most recent complete week (last Sunday at 23:59:59)
-  const lastSunday = new Date(now);
-  lastSunday.setDate(now.getDate() - daysToLastSunday);
-  lastSunday.setHours(23, 59, 59, 999);
-  
-  // Get the start of that week (Monday at 00:00:00)
-  const lastMonday = new Date(lastSunday);
-  lastMonday.setDate(lastSunday.getDate() - 6);
-  lastMonday.setHours(0, 0, 0, 0);
-  
-  // Generate ISO week key using the Monday date
-  const year = lastMonday.getFullYear();
-  const weekNumber = getISOWeek(lastMonday);
-  const weekKey = `${year}-W${weekNumber.toString().padStart(2, '0')}`;
-  
-  return {
-    weekKey,
-    periodStart: lastMonday.toISOString().split('T')[0], // YYYY-MM-DD format
-    periodEnd: lastSunday.toISOString().split('T')[0],
-  };
-}
-
-/**
- * Get ISO week number for a given date
- */
-function getISOWeek(date: Date): number {
-  const target = new Date(date.valueOf());
-  const dayNumber = (date.getDay() + 6) % 7;
-  target.setDate(target.getDate() - dayNumber + 3);
-  const firstThursday = target.valueOf();
-  target.setMonth(0, 1);
-  if (target.getDay() !== 4) {
-    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-  }
-  return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
-}
 
 /**
  * Generate SHA256 hash of Uint8Array data
@@ -97,10 +40,11 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authentication handling: Support both CRON_SECRET and user JWT
+    // Authentication handling: Support both x-cron-secret header and user JWT
+    const cronSecretHeader = req.headers.get('x-cron-secret');
     const authHeader = req.headers.get('Authorization');
     const cronSecret = Deno.env.get('CRON_SECRET');
-    const isScheduledRun = authHeader === `Bearer ${cronSecret}` && cronSecret;
+    const isScheduledRun = cronSecretHeader === cronSecret && cronSecret;
     
     let authenticatedUser = null;
     let isUserRequest = false;
@@ -201,8 +145,10 @@ Deno.serve(async (req) => {
       const results: any[] = [];
       const errors: any[] = [];
 
-      // Calculate last complete week boundaries
-      const { weekKey, periodStart, periodEnd } = getLastCompleteWeek();
+      // Calculate last complete week boundaries using shared utility
+      const { weekKey, startISO, endISO } = getLastCompleteWeekUTC();
+      const periodStart = startISO.split('T')[0];
+      const periodEnd = endISO.split('T')[0];
 
       logStep('Generating reports for week', { weekKey, periodStart, periodEnd, targetOrgs: targetOrgIds.length });
 
@@ -503,9 +449,129 @@ async function generateReportData(supabase: any, orgId: string, weekStart: strin
   return { prompts, totalResponses, summary };
 }
 
-// Simple PDF generation (placeholder - can be enhanced)
+/**
+ * Generate PDF report using pdf-lib
+ */
 async function generatePDFReport(reportData: any, weekKey: string): Promise<Uint8Array> {
-  // For now, generate a simple text-based "PDF" (should be replaced with proper PDF generation)
+  // Import pdf-lib dynamically
+  const { PDFDocument, StandardFonts, rgb } = await import('https://cdn.skypack.dev/pdf-lib@1.17.1');
+  
+  // Create a new PDF document
+  const pdfDoc = await PDFDocument.create();
+  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  // Add cover page
+  let page = pdfDoc.addPage([595, 842]); // A4 size
+  const { width, height } = page.getSize();
+  
+  // Title
+  page.drawText('Weekly AI Visibility Report', {
+    x: 50,
+    y: height - 100,
+    size: 24,
+    font: helveticaBold,
+    color: rgb(0.1, 0.1, 0.1),
+  });
+  
+  // Week information
+  page.drawText(`Week: ${weekKey}`, {
+    x: 50,
+    y: height - 140,
+    size: 14,
+    font: helveticaFont,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  
+  page.drawText(`Period: ${reportData.summary.weekStart} to ${reportData.summary.weekEnd}`, {
+    x: 50,
+    y: height - 160,
+    size: 12,
+    font: helveticaFont,
+    color: rgb(0.4, 0.4, 0.4),
+  });
+  
+  // Summary metrics
+  const metrics = [
+    { label: 'Total Prompts', value: reportData.summary.totalPrompts },
+    { label: 'Total Responses', value: reportData.summary.totalResponses },
+    { label: 'Brand Presence Rate', value: `${reportData.summary.overallBrandPresenceRate.toFixed(1)}%` },
+    { label: 'Average Score', value: reportData.summary.avgScoreAcrossAll.toFixed(2) },
+  ];
+  
+  let yPos = height - 220;
+  page.drawText('Summary Metrics:', {
+    x: 50,
+    y: yPos,
+    size: 16,
+    font: helveticaBold,
+    color: rgb(0.1, 0.1, 0.1),
+  });
+  
+  yPos -= 30;
+  for (const metric of metrics) {
+    page.drawText(`${metric.label}: ${metric.value}`, {
+      x: 70,
+      y: yPos,
+      size: 12,
+      font: helveticaFont,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    yPos -= 25;
+  }
+  
+  // Prompt performance section
+  if (reportData.prompts.length > 0) {
+    yPos -= 30;
+    if (yPos < 100) {
+      page = pdfDoc.addPage([595, 842]);
+      yPos = height - 50;
+    }
+    
+    page.drawText('Top Performing Prompts:', {
+      x: 50,
+      y: yPos,
+      size: 16,
+      font: helveticaBold,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 30;
+    const topPrompts = reportData.prompts
+      .sort((a: any, b: any) => b.avgScore - a.avgScore)
+      .slice(0, 5);
+    
+    for (const prompt of topPrompts) {
+      if (yPos < 100) {
+        page = pdfDoc.addPage([595, 842]);
+        yPos = height - 50;
+      }
+      
+      const promptText = prompt.text.length > 60 ? prompt.text.substring(0, 60) + '...' : prompt.text;
+      page.drawText(`• ${promptText}`, {
+        x: 70,
+        y: yPos,
+        size: 10,
+        font: helveticaFont,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      yPos -= 15;
+      
+      page.drawText(`  Score: ${prompt.avgScore.toFixed(2)} | Brand Present: ${prompt.brandPresentRate.toFixed(1)}% | Runs: ${prompt.totalRuns}`, {
+        x: 90,
+        y: yPos,
+        size: 9,
+        font: helveticaFont,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      yPos -= 25;
+    }
+  }
+  
+  // Save and return PDF bytes
+  const pdfBytes = await pdfDoc.save();
+  return pdfBytes;
+}
   const content = `
 AI VISIBILITY WEEKLY REPORT
 Week: ${weekKey}

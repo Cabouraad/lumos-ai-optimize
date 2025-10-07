@@ -1464,6 +1464,15 @@ export type Database = {
           week_start: string
         }[]
       }
+      get_weekly_report_cron_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active: boolean
+          job_name: string
+          last_run: string
+          schedule: string
+        }[]
+      }
       increment_completed_tasks: {
         Args: { job_id: string }
         Returns: undefined

@@ -1,11 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { getLastCompleteWeekUTC } from '../_shared/report/week.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 const logStep = (step: string, details?: any) => {
@@ -50,23 +51,10 @@ Deno.serve(async (req) => {
       logStep('Failed to log scheduler run start', { error: logError.message });
     }
 
-    // Calculate last complete week's dates (Monday to Sunday) - matching PDF function logic
-    const now = new Date();
-    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    
-    // Calculate days to subtract to get to last Monday
-    const daysToLastMonday = currentDay === 0 ? 7 : currentDay; // If Sunday, go back 7 days
-    const lastMonday = new Date(now);
-    lastMonday.setDate(now.getDate() - daysToLastMonday - 7); // Go to previous week's Monday
-    lastMonday.setHours(0, 0, 0, 0);
-    
-    // Calculate last Sunday (end of week)
-    const lastSunday = new Date(lastMonday);
-    lastSunday.setDate(lastMonday.getDate() + 6);
-    lastSunday.setHours(23, 59, 59, 999);
-
-    const weekStart = lastMonday.toISOString().split('T')[0];
-    const weekEnd = lastSunday.toISOString().split('T')[0];
+    // Calculate last complete week using shared utility
+    const { weekKey, startISO, endISO } = getLastCompleteWeekUTC();
+    const weekStart = startISO.split('T')[0];
+    const weekEnd = endISO.split('T')[0];
 
     logStep('Processing week', { weekStart, weekEnd });
 
