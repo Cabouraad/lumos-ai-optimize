@@ -2,6 +2,18 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthProvider';
 
+/**
+ * SECURITY: This provider uses the secure RPC function `get_user_subscription_status()`
+ * instead of direct table queries to prevent exposure of sensitive payment data:
+ * - Stripe Customer IDs
+ * - Stripe Subscription IDs  
+ * - Email addresses
+ * - Raw metadata
+ * 
+ * If you need to query subscription data, ALWAYS use the RPC function, 
+ * never query the subscribers table directly.
+ */
+
 interface SubscriptionData {
   subscribed: boolean;
   subscription_tier: string;
@@ -59,19 +71,26 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     try {
       console.log('[SubscriptionProvider] Fetching subscription data for:', user.email);
       
-      // Get both subscriber data and org plan_tier
-      const [{ data: subscriberData, error: subError }, { data: orgData }] = await Promise.all([
-        supabase
-          .from('subscribers')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+      // SECURITY: Use secure RPC instead of direct table query to mask sensitive payment data
+      // This prevents exposure of Stripe IDs, emails, and metadata in case of account compromise
+      const [{ data: rpcData, error: subError }, { data: orgData }] = await Promise.all([
+        supabase.rpc('get_user_subscription_status'),
         supabase
           .from('users')
           .select('org_id, organizations(plan_tier)')
           .eq('id', user.id)
           .single()
       ]);
+      
+      // Parse the JSON response from RPC
+      const subscriberData = rpcData as {
+        subscribed: boolean;
+        subscription_tier: string;
+        subscription_end: string | null;
+        trial_expires_at: string | null;
+        trial_started_at: string | null;
+        payment_collected: boolean;
+      } | null;
 
       let finalSubscriptionData: SubscriptionData;
 
@@ -99,46 +118,19 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           trial_expires_at: subscriberData.trial_expires_at,
           trial_started_at: subscriberData.trial_started_at,
           payment_collected: subscriberData.payment_collected || false,
-          metadata: subscriberData.metadata
+          metadata: null // Metadata is intentionally masked for security
         };
       } else {
-        // Try to find by email
-        const { data: subscriberByEmail, error: emailError } = await supabase
-          .from('subscribers')
-          .select('*')
-          .eq('email', user.email!)
-          .maybeSingle();
-
-        if (!emailError && subscriberByEmail) {
-          finalSubscriptionData = {
-            subscribed: subscriberByEmail.subscribed || false,
-            subscription_tier: orgPlanTier || subscriberByEmail.subscription_tier || 'free',
-            subscription_end: subscriberByEmail.subscription_end,
-            trial_expires_at: subscriberByEmail.trial_expires_at,
-            trial_started_at: subscriberByEmail.trial_started_at,
-            payment_collected: subscriberByEmail.payment_collected || false,
-            metadata: subscriberByEmail.metadata
-          };
-
-          // Update the user_id in the subscriber record
-          if (!subscriberByEmail.user_id) {
-            await supabase
-              .from('subscribers')
-              .update({ user_id: user.id })
-              .eq('email', user.email!);
-          }
-        } else {
-          // No subscription record found, use org plan tier
-          finalSubscriptionData = {
-            subscribed: orgPlanTier !== 'free',
-            subscription_tier: orgPlanTier,
-            subscription_end: null,
-            trial_expires_at: null,
-            trial_started_at: null,
-            payment_collected: orgPlanTier !== 'free',
-            metadata: null
-          };
-        }
+        // No subscription record found, use org plan tier
+        finalSubscriptionData = {
+          subscribed: orgPlanTier !== 'free',
+          subscription_tier: orgPlanTier,
+          subscription_end: null,
+          trial_expires_at: null,
+          trial_started_at: null,
+          payment_collected: orgPlanTier !== 'free',
+          metadata: null
+        };
       }
 
       console.log('[SubscriptionProvider] Final subscription data:', {
