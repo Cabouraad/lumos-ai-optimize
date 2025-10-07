@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileText, Crown, Calendar, Users, RefreshCw, Clock, Settings } from 'lucide-react';
+import { Download, FileText, Crown, Calendar, Users, RefreshCw, Clock, Settings, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -47,6 +47,7 @@ export default function Reports() {
   const [csvLoading, setCsvLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   
   const [activeTab, setActiveTab] = useState('pdf-reports');
 
@@ -263,6 +264,113 @@ export default function Reports() {
     } catch (error) {
       console.error('Error downloading CSV report:', error);
       toast.error('Failed to download CSV report');
+    }
+  };
+
+  const deletePdfReport = async (reportId: string) => {
+    if (!confirm('Are you sure you want to delete this PDF report? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingId(reportId);
+
+      // Get report details for storage path
+      const { data: reportData, error: fetchError } = await supabase
+        .from('reports')
+        .select('storage_path')
+        .eq('id', reportId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch report: ${fetchError.message}`);
+      }
+
+      // Normalize storage path
+      const normalizedPath = reportData.storage_path.startsWith('reports/') 
+        ? reportData.storage_path.substring('reports/'.length)
+        : reportData.storage_path;
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('reports')
+        .remove([normalizedPath]);
+
+      if (storageError) {
+        console.warn('Storage deletion error:', storageError);
+        // Continue even if storage deletion fails
+      }
+
+      // Delete database record
+      const { error: dbError } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (dbError) {
+        throw new Error(`Failed to delete report: ${dbError.message}`);
+      }
+
+      showToast({
+        title: "Success",
+        description: "Report deleted successfully.",
+      });
+
+      // Refresh the reports list
+      loadReports();
+
+    } catch (error) {
+      console.error('Error deleting PDF report:', error);
+      showToast({
+        title: "Deletion Failed",
+        description: error.message || "Could not delete the report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const deleteCsvReport = async (reportId: string, filePath?: string | null) => {
+    if (!confirm('Are you sure you want to delete this CSV report? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingId(reportId);
+
+      // Delete from storage if file path exists
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('weekly-reports')
+          .remove([filePath]);
+
+        if (storageError) {
+          console.warn('Storage deletion error:', storageError);
+          // Continue even if storage deletion fails
+        }
+      }
+
+      // Delete database record
+      const { error: dbError } = await supabase
+        .from('weekly_reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (dbError) {
+        throw new Error(`Failed to delete report: ${dbError.message}`);
+      }
+
+      toast.success('CSV report deleted successfully');
+
+      // Refresh the reports list
+      loadCsvReports();
+
+    } catch (error) {
+      console.error('Error deleting CSV report:', error);
+      toast.error('Failed to delete CSV report. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -540,15 +648,26 @@ export default function Reports() {
                               {formatGeneratedAt(report.created_at)}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => downloadReport(report.id)}
-                                disabled={downloadingId === report.id}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                {downloadingId === report.id ? 'Downloading...' : 'Download PDF'}
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => downloadReport(report.id)}
+                                  disabled={downloadingId === report.id || deletingId === report.id}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  {downloadingId === report.id ? 'Downloading...' : 'Download PDF'}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => deletePdfReport(report.id)}
+                                  disabled={deletingId === report.id || downloadingId === report.id}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -634,14 +753,26 @@ export default function Reports() {
                               </div>
                               <div className="flex gap-2">
                                 {report.status === 'completed' && report.file_path && (
-                                  <Button
-                                    onClick={() => downloadCsvReport(report)}
-                                    size="sm"
-                                    variant="outline"
-                                  >
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download CSV
-                                  </Button>
+                                  <>
+                                    <Button
+                                      onClick={() => downloadCsvReport(report)}
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={deletingId === report.id}
+                                    >
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Download CSV
+                                    </Button>
+                                    <Button
+                                      onClick={() => deleteCsvReport(report.id, report.file_path)}
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={deletingId === report.id}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
                                 )}
                                 {report.status === 'failed' && report.error_message && (
                                   <div className="text-sm text-red-600 max-w-md">
