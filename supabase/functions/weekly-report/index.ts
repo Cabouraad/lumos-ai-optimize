@@ -584,36 +584,6 @@ async function generatePDFReport(reportData: any, weekKey: string): Promise<Uint
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;
 }
-  const content = `
-AI VISIBILITY WEEKLY REPORT
-Week: ${weekKey}
-Generated: ${new Date().toISOString()}
-
-=== SUMMARY ===
-Total Prompts Analyzed: ${reportData.summary.totalPrompts}
-Total Responses: ${reportData.summary.totalResponses}
-Overall Brand Presence Rate: ${reportData.summary.overallBrandPresenceRate.toFixed(1)}%
-Average Visibility Score: ${reportData.summary.avgScoreAcrossAll.toFixed(2)}
-
-=== TOP PERFORMING PROMPTS ===
-${reportData.prompts
-  .sort((a, b) => b.avgScore - a.avgScore)
-  .slice(0, 5)
-  .map((p, i) => `${i+1}. Score: ${p.avgScore.toFixed(2)} | Brand Present: ${p.brandPresentRate.toFixed(1)}% | "${p.text}"`)
-  .join('\n')}
-
-=== IMPROVEMENT OPPORTUNITIES ===
-${reportData.prompts
-  .filter(p => p.brandPresentRate < 50)
-  .slice(0, 3)
-  .map(p => `- "${p.text}" (${p.brandPresentRate.toFixed(1)}% brand presence)`)
-  .join('\n')}
-
-Report generated automatically by AI Visibility Analytics Platform.
-  `;
-  
-  return new TextEncoder().encode(content);
-}
 
 // Enhanced CSV generation
 function generateCSVContent(reportData: any) {
