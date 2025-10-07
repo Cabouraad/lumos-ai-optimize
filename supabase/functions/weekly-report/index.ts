@@ -171,31 +171,58 @@ Deno.serve(async (req) => {
         try {
           logStep('Processing organization', { orgId });
 
-          // Check if reports already exist
+          // Check if reports already exist and delete them
           const { data: existingPdf } = await supabase
             .from('reports')
-            .select('storage_path, week_key')
+            .select('id, storage_path, week_key')
             .eq('org_id', orgId)
             .eq('week_key', weekKey)
             .maybeSingle();
 
           const { data: existingCsv } = await supabase
             .from('weekly_reports')
-            .select('file_path, status')
+            .select('id, file_path, status')
             .eq('org_id', orgId)
             .eq('week_start_date', periodStart)
             .maybeSingle();
 
-          if (existingPdf && existingCsv) {
-            logStep('Both reports already exist', { orgId, weekKey });
-            results.push({
-              orgId,
-              week_key: weekKey,
-              pdf_path: existingPdf.storage_path,
-              csv_path: existingCsv.file_path,
-              status: 'exists',
-            });
-            continue;
+          if (existingPdf || existingCsv) {
+            logStep('Existing reports found - replacing', { orgId, weekKey });
+            
+            // Delete existing PDF file and record
+            if (existingPdf) {
+              const pdfStoragePath = existingPdf.storage_path.replace('reports/', '');
+              const { error: pdfDeleteError } = await supabase.storage
+                .from('reports')
+                .remove([pdfStoragePath]);
+              
+              if (pdfDeleteError) {
+                logStep('Failed to delete existing PDF file', { error: pdfDeleteError.message });
+              }
+              
+              await supabase
+                .from('reports')
+                .delete()
+                .eq('id', existingPdf.id);
+            }
+            
+            // Delete existing CSV file and record
+            if (existingCsv) {
+              const { error: csvDeleteError } = await supabase.storage
+                .from('weekly-reports')
+                .remove([existingCsv.file_path]);
+              
+              if (csvDeleteError) {
+                logStep('Failed to delete existing CSV file', { error: csvDeleteError.message });
+              }
+              
+              await supabase
+                .from('weekly_reports')
+                .delete()
+                .eq('id', existingCsv.id);
+            }
+            
+            logStep('Old reports deleted, generating new reports', { orgId });
           }
 
           // Collect weekly data
