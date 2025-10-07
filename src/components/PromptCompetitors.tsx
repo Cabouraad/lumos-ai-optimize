@@ -9,7 +9,7 @@ import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
 
 interface CompetitorData {
   competitor_name: string;
-  total_mentions: number;
+  mentions: number;
   share: number;
 }
 
@@ -147,7 +147,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
           <CompetitorChip
             key={competitor.competitor_name}
             name={competitor.competitor_name}
-            mentions={competitor.total_mentions}
+            mentions={competitor.mentions}
             confidence={isCompetitorInCatalog(competitor.competitor_name) ? 0.9 : 0.7}
             size="sm"
             variant="outline"
@@ -165,7 +165,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs px-1 py-0">
-                {competitor.total_mentions}
+                {competitor.mentions}
               </Badge>
               <span className="text-muted-foreground font-mono">
                 {competitor.share.toFixed(1)}%

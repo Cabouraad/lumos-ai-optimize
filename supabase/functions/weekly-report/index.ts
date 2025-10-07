@@ -6,6 +6,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { getLastCompleteWeekUTC } from '../_shared/report/week.ts';
+import { renderReportPDF } from '../_shared/report/pdf-enhanced.ts';
+import type { WeeklyReportData } from '../_shared/report/types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -356,8 +358,15 @@ Deno.serve(async (req) => {
 });
 
 // Enhanced data collection function
-async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string) {
+async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string): Promise<WeeklyReportData> {
   logStep('Collecting report data', { orgId, weekStart, weekEnd });
+
+  // Get organization details
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name, domain')
+    .eq('id', orgId)
+    .single();
 
   // Get all successful responses for the week
   const { data: responses, error: responsesError } = await supabase
@@ -366,6 +375,7 @@ async function generateReportData(supabase: any, orgId: string, weekStart: strin
       id,
       prompt_id,
       provider,
+      model,
       score,
       org_brand_present,
       org_brand_prominence,
@@ -386,30 +396,93 @@ async function generateReportData(supabase: any, orgId: string, weekStart: strin
     throw new Error(`Failed to fetch responses: ${responsesError.message}`);
   }
 
-  // Process data by prompt
+  // Get historical data (last 8 weeks for trends)
+  const eightWeeksAgo = new Date(new Date(weekStart).getTime() - 56 * 24 * 60 * 60 * 1000);
+  const { data: historicalResponses } = await supabase
+    .from('prompt_provider_responses')
+    .select('run_at, score, org_brand_present')
+    .eq('org_id', orgId)
+    .gte('run_at', eightWeeksAgo.toISOString())
+    .lt('run_at', weekStart + 'T00:00:00Z')
+    .eq('status', 'success');
+
+  // Process historical data by week
+  const weeklyData = new Map<string, { scores: number[]; brandPresent: number; total: number }>();
+  
+  for (const resp of historicalResponses || []) {
+    const weekKey = getWeekKey(new Date(resp.run_at));
+    if (!weeklyData.has(weekKey)) {
+      weeklyData.set(weekKey, { scores: [], brandPresent: 0, total: 0 });
+    }
+    const week = weeklyData.get(weekKey)!;
+    week.scores.push(parseFloat(resp.score || 0));
+    week.total++;
+    if (resp.org_brand_present) week.brandPresent++;
+  }
+
+  const historicalTrend = Array.from(weeklyData.entries())
+    .map(([weekStart, data]) => ({
+      weekStart,
+      avgScore: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0,
+      brandPresentRate: data.total > 0 ? (data.brandPresent / data.total) * 100 : 0,
+      totalRuns: data.total
+    }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart))
+    .slice(-8);
+
+  // Process current week data
   const promptMap = new Map();
+  const competitorMap = new Map<string, { count: number; isNew: boolean }>();
+  const providerMap = new Map<string, { responses: number; scores: number[]; brandMentions: number }>();
+  const dailyMap = new Map<string, { responses: number; scores: number[] }>();
   let totalResponses = 0;
   let totalBrandPresent = 0;
-  const allCompetitors = new Set();
+  let totalScore = 0;
 
   for (const response of responses || []) {
     totalResponses++;
+    totalScore += parseFloat(response.score || 0);
     if (response.org_brand_present) totalBrandPresent++;
     
-    // Collect unique competitors
+    // Track competitors
     if (response.competitors_json) {
       const competitors = Array.isArray(response.competitors_json) 
         ? response.competitors_json 
-        : JSON.parse(response.competitors_json || '[]');
-      competitors.forEach((comp: string) => allCompetitors.add(comp));
+        : [];
+      
+      for (const comp of competitors) {
+        if (!competitorMap.has(comp)) {
+          competitorMap.set(comp, { count: 0, isNew: true });
+        }
+        const compData = competitorMap.get(comp)!;
+        compData.count++;
+      }
     }
 
+    // Track by provider
+    if (!providerMap.has(response.provider)) {
+      providerMap.set(response.provider, { responses: 0, scores: [], brandMentions: 0 });
+    }
+    const provData = providerMap.get(response.provider)!;
+    provData.responses++;
+    provData.scores.push(parseFloat(response.score || 0));
+    if (response.org_brand_present) provData.brandMentions++;
+
+    // Track daily
+    const dateKey = response.run_at.split('T')[0];
+    if (!dailyMap.has(dateKey)) {
+      dailyMap.set(dateKey, { responses: 0, scores: [] });
+    }
+    const dayData = dailyMap.get(dateKey)!;
+    dayData.responses++;
+    dayData.scores.push(parseFloat(response.score || 0));
+
+    // Track by prompt
     const promptId = response.prompt_id;
-    
     if (!promptMap.has(promptId)) {
       promptMap.set(promptId, {
         id: promptId,
-        text: response.prompts.text.substring(0, 100) + (response.prompts.text.length > 100 ? '...' : ''),
+        text: response.prompts.text,
         responses: [],
         totalRuns: 0,
         brandPresentCount: 0,
@@ -431,157 +504,236 @@ async function generateReportData(supabase: any, orgId: string, weekStart: strin
     }
   }
 
-  // Process prompts with enhanced metrics
-  const prompts = Array.from(promptMap.values()).map(prompt => ({
-    ...prompt,
-    avgScore: prompt.totalRuns > 0 ? (prompt.totalScore / prompt.totalRuns) : 0,
-    avgCompetitors: prompt.totalRuns > 0 ? (prompt.totalCompetitors / prompt.totalRuns) : 0,
-    brandPresentRate: prompt.totalRuns > 0 ? (prompt.brandPresentCount / prompt.totalRuns) * 100 : 0,
-    providersCount: prompt.providers.size,
-    providersList: Array.from(prompt.providers)
-  }));
-
-  // Calculate summary metrics
-  const summary = {
-    totalPrompts: prompts.length,
-    totalResponses,
-    overallBrandPresenceRate: totalResponses > 0 ? (totalBrandPresent / totalResponses) * 100 : 0,
-    avgScoreAcrossAll: prompts.length > 0 ? prompts.reduce((sum, p) => sum + p.avgScore, 0) / prompts.length : 0,
-    topCompetitors: Array.from(allCompetitors).slice(0, 5),
-    weekStart,
-    weekEnd
+  // Categorize prompts
+  const categorizePrompt = (text: string) => {
+    const lower = text.toLowerCase();
+    if (lower.includes('crm') || lower.includes('customer relationship') || lower.includes('salesforce') || lower.includes('hubspot')) {
+      return 'crm';
+    }
+    if (lower.includes('competitor') || lower.includes('alternative') || lower.includes('vs ') || lower.includes('compare')) {
+      return 'competitorTools';
+    }
+    if (lower.includes('ai') || lower.includes('automation') || lower.includes('machine learning') || lower.includes('intelligent')) {
+      return 'aiFeatures';
+    }
+    return 'other';
   };
 
+  const categories = { crm: [], competitorTools: [], aiFeatures: [], other: [] };
+  const allPrompts: any[] = [];
+
+  for (const [_, prompt] of promptMap) {
+    const avgScore = prompt.totalRuns > 0 ? prompt.totalScore / prompt.totalRuns : 0;
+    const brandPresentRate = prompt.totalRuns > 0 ? (prompt.brandPresentCount / prompt.totalRuns) * 100 : 0;
+    
+    const promptData = {
+      id: prompt.id,
+      text: prompt.text.substring(0, 100) + (prompt.text.length > 100 ? '...' : ''),
+      avgScore,
+      totalRuns: prompt.totalRuns,
+      brandPresentRate,
+      category: categorizePrompt(prompt.text)
+    };
+
+    allPrompts.push(promptData);
+    categories[promptData.category as keyof typeof categories].push(promptData);
+  }
+
+  // Top performers
+  const topPerformers = allPrompts
+    .sort((a, b) => b.avgScore - a.avgScore)
+    .slice(0, 10);
+
+  // Zero presence prompts
+  const zeroPresence = allPrompts
+    .filter(p => p.brandPresentRate === 0)
+    .slice(0, 5);
+
+  // Competitor analysis
+  const topCompetitors = Array.from(competitorMap.entries())
+    .map(([name, data]) => ({
+      name,
+      appearances: data.count,
+      sharePercent: totalResponses > 0 ? (data.count / totalResponses) * 100 : 0,
+      isNew: data.isNew
+    }))
+    .sort((a, b) => b.appearances - a.appearances)
+    .slice(0, 10);
+
+  const newCompetitors = topCompetitors.filter(c => c.isNew).slice(0, 5);
+
+  const competitorsByProvider = Array.from(providerMap.entries()).map(([provider, data]) => ({
+    provider,
+    totalMentions: data.responses,
+    uniqueCompetitors: competitorMap.size,
+    avgScore: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0
+  }));
+
+  // Volume analysis
+  const providersUsed = Array.from(providerMap.entries()).map(([provider, data]) => ({
+    provider,
+    responseCount: data.responses,
+    avgScore: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0,
+    brandMentions: data.brandMentions
+  }));
+
+  const dailyBreakdown = Array.from(dailyMap.entries())
+    .map(([date, data]) => ({
+      date,
+      responses: data.responses,
+      avgScore: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Calculate KPIs and trends
+  const avgVisibilityScore = totalResponses > 0 ? totalScore / totalResponses : 0;
+  const brandPresentRate = totalResponses > 0 ? (totalBrandPresent / totalResponses) * 100 : 0;
+  
+  const priorWeek = historicalTrend[historicalTrend.length - 1];
+  const scoreTrend = priorWeek ? avgVisibilityScore - priorWeek.avgScore : 0;
+  const presenceTrend = priorWeek ? brandPresentRate - priorWeek.brandPresentRate : 0;
+
+  // Generate insights
+  const insights = generateInsights(avgVisibilityScore, brandPresentRate, scoreTrend, topCompetitors, zeroPresence, topPerformers);
+
   logStep('Data collection completed', { 
-    totalPrompts: prompts.length, 
+    totalPrompts: allPrompts.length, 
     totalResponses, 
-    brandPresenceRate: summary.overallBrandPresenceRate.toFixed(1) + '%'
+    brandPresenceRate: brandPresentRate.toFixed(1) + '%'
   });
 
-  return { prompts, totalResponses, summary };
+  return {
+    header: {
+      orgId,
+      orgName: org?.name || 'Organization',
+      periodStart: weekStart,
+      periodEnd: weekEnd,
+      generatedAt: new Date().toISOString()
+    },
+    kpis: {
+      avgVisibilityScore,
+      overallScore: avgVisibilityScore,
+      scoreTrend,
+      totalRuns: totalResponses,
+      brandPresentRate,
+      avgCompetitors: totalResponses > 0 ? Array.from(competitorMap.values()).reduce((sum, c) => sum + c.count, 0) / totalResponses : 0,
+      deltaVsPriorWeek: priorWeek ? {
+        avgVisibilityScore: scoreTrend,
+        totalRuns: totalResponses - priorWeek.totalRuns,
+        brandPresentRate: presenceTrend
+      } : undefined,
+      trendProjection: {
+        brandPresenceNext4Weeks: brandPresentRate + (presenceTrend * 4),
+        confidenceLevel: historicalTrend.length >= 4 ? 'high' : 'medium'
+      }
+    },
+    historicalTrend: { weeklyScores: historicalTrend },
+    prompts: {
+      totalActive: allPrompts.length,
+      categories,
+      topPerformers,
+      zeroPresence
+    },
+    competitors: {
+      totalDetected: competitorMap.size,
+      newThisWeek: newCompetitors,
+      topCompetitors,
+      avgCompetitorsPerResponse: totalResponses > 0 ? Array.from(competitorMap.values()).reduce((sum, c) => sum + c.count, 0) / totalResponses : 0,
+      byProvider: competitorsByProvider
+    },
+    recommendations: {
+      totalCount: 0,
+      byType: {},
+      byStatus: {},
+      highlights: [],
+      fallbackMessage: 'Recommendations will be available in future updates.'
+    },
+    volume: {
+      totalResponsesAnalyzed: totalResponses,
+      providersUsed,
+      dailyBreakdown
+    },
+    insights
+  };
+}
+
+// Helper function to get week key (YYYY-Www format)
+function getWeekKey(date: Date): string {
+  const year = date.getFullYear();
+  const firstDayOfYear = new Date(year, 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+
+// Generate smart insights
+function generateInsights(avgScore: number, brandRate: number, scoreTrend: number, competitors: any[], zeroPresence: any[], topPerformers: any[]) {
+  const highlights: string[] = [];
+  const keyFindings: string[] = [];
+  const recommendations: string[] = [];
+
+  // Highlights
+  if (brandRate >= 75) {
+    highlights.push(`Excellent brand visibility at ${brandRate.toFixed(1)}% presence rate`);
+  } else if (brandRate >= 50) {
+    highlights.push(`Good brand visibility at ${brandRate.toFixed(1)}% presence rate`);
+  } else {
+    highlights.push(`Brand visibility needs improvement at ${brandRate.toFixed(1)}% presence rate`);
+  }
+
+  if (scoreTrend > 0.5) {
+    highlights.push(`Strong upward trend with ${scoreTrend.toFixed(1)} point improvement`);
+  } else if (scoreTrend < -0.5) {
+    highlights.push(`Visibility declining by ${Math.abs(scoreTrend).toFixed(1)} points`);
+  }
+
+  if (topPerformers.length > 0) {
+    highlights.push(`Top prompt achieving ${topPerformers[0].avgScore.toFixed(1)}/10 average score`);
+  }
+
+  // Key findings
+  if (competitors.length > 0) {
+    keyFindings.push(`${competitors.length} competitors detected, led by ${competitors[0].name} (${competitors[0].sharePercent.toFixed(1)}%)`);
+  }
+
+  if (zeroPresence.length > 0) {
+    keyFindings.push(`${zeroPresence.length} prompts showing zero brand presence require attention`);
+  }
+
+  const avgPerformerScore = topPerformers.length > 0 
+    ? topPerformers.reduce((sum, p) => sum + p.avgScore, 0) / topPerformers.length 
+    : 0;
+  
+  if (avgPerformerScore < 5) {
+    keyFindings.push('Overall prompt performance below target - content optimization needed');
+  }
+
+  // Recommendations
+  if (zeroPresence.length > 0) {
+    recommendations.push('Create targeted content addressing zero-visibility prompts');
+  }
+
+  if (brandRate < 60) {
+    recommendations.push('Increase content production and SEO optimization to improve brand mentions');
+  }
+
+  if (competitors.length > 5 && competitors[0].sharePercent > brandRate) {
+    recommendations.push(`Focus on competitive differentiation against ${competitors[0].name}`);
+  }
+
+  if (topPerformers.length > 0 && topPerformers[0].avgScore >= 8) {
+    recommendations.push(`Replicate success patterns from top-performing prompts in ${topPerformers[0].category} category`);
+  }
+
+  return { highlights, keyFindings, recommendations };
 }
 
 /**
- * Generate PDF report using pdf-lib
+ * Generate PDF report using enhanced renderer
  */
-async function generatePDFReport(reportData: any, weekKey: string): Promise<Uint8Array> {
-  // Import pdf-lib dynamically
-  const { PDFDocument, StandardFonts, rgb } = await import('https://cdn.skypack.dev/pdf-lib@1.17.1');
-  
-  // Create a new PDF document
-  const pdfDoc = await PDFDocument.create();
-  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  
-  // Add cover page
-  let page = pdfDoc.addPage([595, 842]); // A4 size
-  const { width, height } = page.getSize();
-  
-  // Title
-  page.drawText('Weekly AI Visibility Report', {
-    x: 50,
-    y: height - 100,
-    size: 24,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-  
-  // Week information
-  page.drawText(`Week: ${weekKey}`, {
-    x: 50,
-    y: height - 140,
-    size: 14,
-    font: helveticaFont,
-    color: rgb(0.3, 0.3, 0.3),
-  });
-  
-  page.drawText(`Period: ${reportData.summary.weekStart} to ${reportData.summary.weekEnd}`, {
-    x: 50,
-    y: height - 160,
-    size: 12,
-    font: helveticaFont,
-    color: rgb(0.4, 0.4, 0.4),
-  });
-  
-  // Summary metrics
-  const metrics = [
-    { label: 'Total Prompts', value: reportData.summary.totalPrompts },
-    { label: 'Total Responses', value: reportData.summary.totalResponses },
-    { label: 'Brand Presence Rate', value: `${reportData.summary.overallBrandPresenceRate.toFixed(1)}%` },
-    { label: 'Average Score', value: reportData.summary.avgScoreAcrossAll.toFixed(2) },
-  ];
-  
-  let yPos = height - 220;
-  page.drawText('Summary Metrics:', {
-    x: 50,
-    y: yPos,
-    size: 16,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-  
-  yPos -= 30;
-  for (const metric of metrics) {
-    page.drawText(`${metric.label}: ${metric.value}`, {
-      x: 70,
-      y: yPos,
-      size: 12,
-      font: helveticaFont,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    yPos -= 25;
-  }
-  
-  // Prompt performance section
-  if (reportData.prompts.length > 0) {
-    yPos -= 30;
-    if (yPos < 100) {
-      page = pdfDoc.addPage([595, 842]);
-      yPos = height - 50;
-    }
-    
-    page.drawText('Top Performing Prompts:', {
-      x: 50,
-      y: yPos,
-      size: 16,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    
-    yPos -= 30;
-    const topPrompts = reportData.prompts
-      .sort((a: any, b: any) => b.avgScore - a.avgScore)
-      .slice(0, 5);
-    
-    for (const prompt of topPrompts) {
-      if (yPos < 100) {
-        page = pdfDoc.addPage([595, 842]);
-        yPos = height - 50;
-      }
-      
-      const promptText = prompt.text.length > 60 ? prompt.text.substring(0, 60) + '...' : prompt.text;
-      page.drawText(`• ${promptText}`, {
-        x: 70,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      yPos -= 15;
-      
-      page.drawText(`  Score: ${prompt.avgScore.toFixed(2)} | Brand Present: ${prompt.brandPresentRate.toFixed(1)}% | Runs: ${prompt.totalRuns}`, {
-        x: 90,
-        y: yPos,
-        size: 9,
-        font: helveticaFont,
-        color: rgb(0.4, 0.4, 0.4),
-      });
-      yPos -= 25;
-    }
-  }
-  
-  // Save and return PDF bytes
-  const pdfBytes = await pdfDoc.save();
+async function generatePDFReport(reportData: WeeklyReportData, weekKey: string): Promise<Uint8Array> {
+  logStep('Using enhanced PDF renderer');
+  const pdfBytes = await renderReportPDF(reportData);
   return pdfBytes;
 }
 
