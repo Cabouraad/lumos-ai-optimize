@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { getStrictCorsHeaders, isRateLimited, getRateLimitHeaders } from "../_shared/cors.ts";
+import { requireRole } from '../_shared/auth-v2.ts';
 
 // Levenshtein distance implementation for similarity checking
 function levenshteinDistance(str1: string, str2: string): number {
@@ -164,36 +165,26 @@ Deno.serve(async (req) => {
       return createErrorResponse(422, 'INVALID_INPUT', msg);
     }
 
-    // Get user's organization and role
-    const { data: userRecord, error: userError } = await supabase
-      .from('users')
-      .select('org_id, role')
-      .eq('id', user.id)
-      .single();
+    // Verify user has required role (owner or admin) and get org
+    const { org_id: userOrgId, role } = await requireRole(supabase, ['owner', 'admin']);
 
-    if (userError || !userRecord) {
-      console.log('User record not found:', userError?.message);
-      return createErrorResponse(403, 'USER_NOT_FOUND', 'User not properly onboarded');
+    // Validate orgId format (UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(orgId)) {
+      return createErrorResponse(422, 'INVALID_ORG_ID', 'Invalid organization ID format');
     }
 
     // Verify user belongs to the requested organization
-    if (userRecord.org_id !== orgId) {
-      console.log('Org access denied:', { userOrg: userRecord.org_id, requestedOrg: orgId });
+    if (userOrgId !== orgId) {
+      console.log('Org access denied:', { userOrg: userOrgId, requestedOrg: orgId });
       return createErrorResponse(403, 'ORG_ACCESS_DENIED', 'Access denied: user does not belong to this organization');
-    }
-
-    // Verify user has required role (owner or admin)
-    const allowedRoles = ['owner', 'admin'];
-    if (!allowedRoles.includes(userRecord.role)) {
-      console.log('Role access denied:', { userRole: userRecord.role, allowedRoles });
-      return createErrorResponse(403, 'INSUFFICIENT_ROLE', `Access denied: requires role in [${allowedRoles.join(', ')}], got: ${userRecord.role}`);
     }
 
     console.log('Converting competitor to org brand:', { 
       competitorName: sanitizedName, 
       orgId, 
       userId: user.id,
-      userRole: userRecord.role,
+      userRole: role,
       isMergeOperation
     });
 

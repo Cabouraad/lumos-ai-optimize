@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
-import { authenticateUser } from '../_shared/auth.ts';
+import { getUserOrgId } from '../_shared/auth-v2.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -19,20 +19,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const user = await authenticateUser(req);
-    
-    // Get user's org
-    const { data: userData } = await supabase
-      .from('users')
-      .select('org_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!userData?.org_id) {
-      throw new Error('User organization not found');
+    // Create authenticated Supabase client (with user's JWT)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response('Missing Authorization header', {
+        status: 401,
+        headers: corsHeaders
+      });
     }
 
-    const orgId = userData.org_id;
+    const supabaseWithAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: { headers: { Authorization: authHeader } }
+      }
+    );
+
+    // Use secure getUserOrgId function
+    const orgId = await getUserOrgId(supabaseWithAuth);
 
     // Audit visibility data flow
     const audit = {

@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { extractPerplexityCitations, extractOpenAICitations, extractGeminiCitations } from '../_shared/citations-enhanced.ts';
-import { getUserOrgId } from '../_shared/auth.ts';
+import { getUserOrgId } from '../_shared/auth-v2.ts';
 import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-enforcement.ts';
 import { PromptUsageTracker } from '../_shared/usage-tracker.ts';
 import { getOrgSubscriptionTier, filterAllowedProviders, auditProviderFilter } from '../_shared/provider-policy.ts';

@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { requireRole } from '../_shared/auth-v2.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,76 +13,71 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
     // Get auth header
-    const authHeader = req.headers.get('Authorization')
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      });
     }
 
-    // Verify user and get their data
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    // Create authenticated Supabase client
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: { headers: { Authorization: authHeader } }
+      }
+    );
 
+    // Verify user has required role (owner or admin)
+    const { org_id: callerOrgId, role: callerRole } = await requireRole(supabaseAuth, ['owner', 'admin']);
+
+    // Get caller's user ID
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
-      console.error('Auth error:', authError)
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      });
+    }
+
+    // Get caller's email
+    const { data: callerData, error: callerError } = await supabaseAuth
+      .from('users')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    if (callerError || !callerData) {
+      return new Response(JSON.stringify({ error: 'Caller not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Parse request body to get target email (optional)
-    let targetEmail: string | null = null
+    let targetEmail: string | null = null;
     if (req.method === 'POST') {
       try {
-        const body = await req.json()
-        targetEmail = body.email || null
+        const body = await req.json();
+        targetEmail = body.email || null;
       } catch {
         // Body parsing failed, use current user
       }
     }
 
-    // Get caller's role and org from database
-    const { data: callerData, error: callerError } = await supabase
-      .from('users')
-      .select('role, org_id, email')
-      .eq('id', user.id)
-      .single()
-
-    if (callerError || !callerData) {
-      console.error('Caller data error:', callerError)
-      return new Response(JSON.stringify({ error: 'Caller not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    // Check if caller has admin/owner role
-    if (callerData.role !== 'owner' && callerData.role !== 'admin') {
-      console.log(`Access denied: caller has role ${callerData.role}, requires owner or admin`)
-      return new Response(JSON.stringify({
-        error: 'Access denied: Admin/Owner role required',
-        code: 'INSUFFICIENT_ROLE'
-      }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
     // Determine target email: provided email or caller's email
-    const emailToProcess = targetEmail || callerData.email
+    const emailToProcess = targetEmail || callerData.email;
 
-    console.log(`[REMOVE-BYPASS] Caller: ${callerData.email} (${callerData.role}), Target: ${emailToProcess}`)
+    console.log(`[REMOVE-BYPASS] Caller: ${callerData.email} (${callerRole}), Target: ${emailToProcess}`);
+
+    // Create service role client for database operations
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Find the target subscriber
     const { data: targetSubscriber, error: subscriberError } = await supabase

@@ -982,6 +982,44 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -1500,6 +1538,17 @@ export type Database = {
         Args: { p_org_id: string }
         Returns: Json
       }
+      get_user_org_and_role: {
+        Args: { _user_id: string }
+        Returns: {
+          org_id: string
+          role: string
+        }[]
+      }
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       get_user_subscription_status: {
         Args: Record<PropertyKey, never>
         Returns: Json
@@ -1519,6 +1568,13 @@ export type Database = {
           last_run: string
           schedule: string
         }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       increment_completed_tasks: {
         Args: { job_id: string }
@@ -1667,9 +1723,18 @@ export type Database = {
         Args: { target_org_id: string }
         Returns: boolean
       }
+      validate_role_consistency: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          status: string
+          user_id: string
+          user_roles_role: string
+          users_role: string
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "member" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1796,6 +1861,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "member", "admin"],
+    },
   },
 } as const

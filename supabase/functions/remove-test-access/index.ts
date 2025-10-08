@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { requireRole } from '../_shared/auth-v2.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,63 +13,43 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get auth header
-    const authHeader = req.headers.get('Authorization')
+    // Initialize authenticated Supabase client
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response('Missing Authorization header', {
         status: 401,
         headers: corsHeaders
-      })
+      });
     }
 
-    // Verify user and get their data
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: { headers: { Authorization: authHeader } }
+      }
+    );
 
+    // Verify user has required role (owner or admin) and get org
+    const { org_id: userOrgId } = await requireRole(supabase, ['owner', 'admin']);
+
+    // Get user ID for subscriber lookup
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('Auth error:', authError)
       return new Response('Unauthorized', {
         status: 401,
         headers: corsHeaders
-      })
+      });
     }
 
-    // Get user's role and org from database
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('role, org_id')
-      .eq('id', user.id)
-      .single()
-
-    if (userError || !userData) {
-      console.error('User data error:', userError)
-      return new Response('User not found', {
-        status: 404,
-        headers: corsHeaders
-      })
-    }
-
-    // Check if user has admin/owner role
-    if (userData.role !== 'owner' && userData.role !== 'admin') {
-      console.log(`Access denied: user has role ${userData.role}, requires owner or admin`)
-      return new Response(JSON.stringify({
-        error: 'Access denied: Admin/Owner role required',
-        code: 'INSUFFICIENT_ROLE'
-      }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
+    // Create service role client for database operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Check if user has bypass metadata
-    const { data: subscriber, error: subscriberError } = await supabase
+    const { data: subscriber, error: subscriberError } = await supabaseAdmin
       .from('subscribers')
       .select('metadata, subscription_tier')
       .eq('user_id', user.id)
@@ -125,7 +106,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    console.log(`Test access removed for user ${user.id} by ${userData.role}`)
+    console.log(`Test access removed for user ${user.id}`)
 
     return new Response(JSON.stringify({
       success: true,

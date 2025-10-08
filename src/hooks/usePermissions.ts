@@ -3,6 +3,7 @@ import { useUser } from '@/contexts/UserProvider';
 export function usePermissions() {
   const { userData } = useUser();
 
+  // Role comes from user_roles table via UserProvider
   const isOwner = userData?.role === 'owner';
   const isMember = userData?.role === 'member' || isOwner;
   const hasOrgAccess = !!userData?.org_id;
