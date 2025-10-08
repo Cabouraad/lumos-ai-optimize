@@ -112,6 +112,62 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_jobs: {
+        Row: {
+          completed_at: string | null
+          completed_tasks: number
+          created_at: string
+          error_message: string | null
+          failed_tasks: number
+          id: string
+          metadata: Json
+          org_id: string
+          providers: string[]
+          started_at: string | null
+          status: string
+          total_tasks: number
+          trigger_source: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_tasks?: number
+          created_at?: string
+          error_message?: string | null
+          failed_tasks?: number
+          id?: string
+          metadata?: Json
+          org_id: string
+          providers?: string[]
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+          trigger_source?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_tasks?: number
+          created_at?: string
+          error_message?: string | null
+          failed_tasks?: number
+          id?: string
+          metadata?: Json
+          org_id?: string
+          providers?: string[]
+          started_at?: string | null
+          status?: string
+          total_tasks?: number
+          trigger_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_candidates: {
         Row: {
           candidate_name: string
@@ -1311,6 +1367,14 @@ export type Database = {
       clean_competitor_catalog: {
         Args: { p_dry_run?: boolean }
         Returns: Json
+      }
+      cron_schedule: {
+        Args: { cron_schedule: string; job_name: string; sql_command: string }
+        Returns: number
+      }
+      cron_unschedule: {
+        Args: { job_name: string }
+        Returns: boolean
       }
       email_matches_org_domain: {
         Args: { email_address: string }
