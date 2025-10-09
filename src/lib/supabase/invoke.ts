@@ -35,10 +35,12 @@ export async function invokeEdge(functionName: string, opts: InvokeOptions = {})
       body: opts.body ?? {},
       headers,
     });
-    if (error) return { data: null, error: new Error(error.message || "invoke failed") };
-    return { data, error: null };
+    if (!error && data) {
+      return { data, error: null };
+    }
+    // If there's an error or no data, fall through to direct fetch
   } catch (_) {
-    // fall through
+    // fall through to direct fetch
   }
 
   try {
