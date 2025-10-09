@@ -54,7 +54,7 @@ export async function updateOrganizationKeywords(keywords: Partial<OrganizationK
       p_business_city: keywords.business_city || null,
       p_business_state: keywords.business_state || null,
       p_business_country: keywords.business_country || null,
-      p_enable_localized_prompts: keywords.enable_localized_prompts || null
+      p_enable_localized_prompts: keywords.enable_localized_prompts ?? null
     });
 
     if (error) {

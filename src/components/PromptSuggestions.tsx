@@ -34,6 +34,7 @@ interface PromptSuggestionsProps {
   onAccept: (suggestionId: string) => void;
   onDismiss: (suggestionId: string) => void;
   onGenerate: () => void;
+  onSettingsUpdated?: () => void;
 }
 
 export function PromptSuggestions({
@@ -42,7 +43,8 @@ export function PromptSuggestions({
   generating,
   onAccept,
   onDismiss,
-  onGenerate
+  onGenerate,
+  onSettingsUpdated
 }: PromptSuggestionsProps) {
   const { toast } = useToast();
   const { loading: authLoading, user, orgData } = useAuth();
@@ -102,6 +104,7 @@ export function PromptSuggestions({
         title: "Settings Updated",
         description: `Localized prompts ${enabled ? 'enabled' : 'disabled'}`,
       });
+      onSettingsUpdated?.();
     } catch (error) {
       console.error('Failed to update localization setting:', error);
       toast({

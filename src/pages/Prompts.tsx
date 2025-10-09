@@ -646,6 +646,7 @@ export default function Prompts() {
                   onAccept={handleAcceptSuggestion}
                   onDismiss={handleDismissSuggestion}
                   onGenerate={handleGenerateMoreSuggestions}
+                  onSettingsUpdated={loadSuggestedPrompts}
                 />
               </TabsContent>
 
