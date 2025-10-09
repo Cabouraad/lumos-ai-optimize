@@ -1081,21 +1081,21 @@ export type Database = {
           created_at: string
           email: string
           id: string
-          org_id: string
+          org_id: string | null
           role: string
         }
         Insert: {
           created_at?: string
           email: string
           id: string
-          org_id: string
+          org_id?: string | null
           role: string
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
-          org_id?: string
+          org_id?: string | null
           role?: string
         }
         Relationships: [

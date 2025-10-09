@@ -6,13 +6,13 @@ interface UserData {
   id: string;
   email: string;
   role: string;
-  org_id: string;
+  org_id: string | null;
   organizations: {
     id: string;
     name: string;
     domain: string;
     plan_tier: string;
-  };
+  } | null;
 }
 
 interface UserContextType {
@@ -94,10 +94,7 @@ export function UserProvider({ children }: UserProviderProps) {
         throw new Error('User not found in database');
       }
 
-      if (!data.org_id) {
-        throw new Error('User does not belong to an organization');
-      }
-
+      // Allow users without org_id - they will be redirected to onboarding
       setUserData(data as UserData);
       setError(null);
     } catch (err) {
