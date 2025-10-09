@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrganizationKeywords } from '@/lib/org/data';
+import { invokeEdge } from '@/lib/supabase/invoke';
 import { 
   FileText, 
   Download, 
@@ -207,7 +208,7 @@ Learn more at: https://llmstxt.org/`;
 
     setAutoGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('llms-generate', {
+      const { data, error } = await invokeEdge('llms-generate', {
         body: {}
       });
 
