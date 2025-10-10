@@ -1021,7 +1021,8 @@ Deno.serve(async (req) => {
       // Get subscription tier once
       const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
 
-      for (const prompt of activePrompts) {
+      try {
+        for (const prompt of activePrompts) {
         for (const provider of validProviders) {
           // Time budget guard
           const elapsed = Date.now() - startTime;
