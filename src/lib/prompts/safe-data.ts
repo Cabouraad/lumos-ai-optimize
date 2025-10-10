@@ -5,6 +5,7 @@ export async function getSafePromptsData() {
   try {
     const orgId = await getOrgId();
 
+    // Use maybeSingle for resilience and clearer errors when orgId is invalid
     const { data: prompts, error } = await supabase
       .from("prompts")
       .select("id, text, active, created_at")

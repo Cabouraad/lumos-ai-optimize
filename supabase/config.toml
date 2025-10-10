@@ -64,7 +64,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.run-prompt-now]
-verify_jwt = true
+verify_jwt = false
 
 [functions.run-prompt-now.env]
 ENABLE_GOOGLE_AIO = "true"

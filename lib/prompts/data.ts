@@ -57,15 +57,22 @@ export async function getPromptsData(orgId: string, planTier: string) {
   };
 }
 
-export async function runPromptNow(promptId: string, orgId: string) {
+export async function runPromptNow(promptId: string) {
   console.log('=== runPromptNow called ===');
   console.log('promptId:', promptId);
-  console.log('orgId:', orgId);
   
   try {
+    // Ensure user is authenticated; the edge function also enforces this
+    const { data: authData } = await supabase.auth.getSession();
+    if (!authData?.session) {
+      const err = new Error('You must be signed in to run prompts.');
+      console.warn('[runPromptNow] No session found');
+      throw err;
+    }
+
     console.log('Calling supabase.functions.invoke for run-prompt-now...');
     const { data, error } = await supabase.functions.invoke('run-prompt-now', {
-      body: { promptId, orgId }
+      body: { promptId }
     });
 
     console.log('Edge function response:', { data, error });
