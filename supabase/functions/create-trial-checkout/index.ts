@@ -1,6 +1,6 @@
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
-import { cors } from "../_shared/cors.ts";
+import { getStrictCorsHeaders } from "../_shared/cors.ts";
 
 const generateIdempotencyKey = (userId: string, intent: string): string => {
   return `${userId}:${intent}:${Date.now() >> 13}`;
@@ -19,9 +19,9 @@ const logStep = (step: string, details?: any) => {
 };
 
 Deno.serve(async (req) => {
-  const C = cors(req);
-  if (req.method === "OPTIONS") return new Response(null, { headers: C.headers });
-  if (!C.allowed) return new Response("CORS: origin not allowed", { status: 403, headers: C.headers });
+  const requestOrigin = req.headers.get('Origin');
+  const corsHeaders = getStrictCorsHeaders(requestOrigin);
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -94,14 +94,14 @@ Deno.serve(async (req) => {
     logStep("Trial checkout session created", { sessionId: session.id, url: session.url });
 
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-trial-checkout", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...C.headers, "content-type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }
