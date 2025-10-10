@@ -60,7 +60,7 @@ export function getStrictCorsHeaders(requestOrigin?: string | null, correlationI
 
   const headers: Record<string, string> = {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret, x-supabase-api-version, x-correlation-id',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-manual-call, x-cron-secret, x-supabase-api-version, x-correlation-id, x-client-version',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
     'Vary': 'Origin', // Always include Vary header
