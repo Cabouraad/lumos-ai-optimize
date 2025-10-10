@@ -1188,39 +1188,6 @@ Deno.serve(async (req) => {
         message: `Batch processing completed: ${processedCount} successful, ${failedCount} failed`
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-      orgId,
-      successful: processedCount,
-      failed: failedCount,
-      totalTasks: actualTotalTasks,
-      promptCount: activePrompts?.length || 0,
-      providerCount: validProviders?.length || 0
-    });
-
-    return new Response(JSON.stringify({
-      success: true,
-      action: 'completed',
-      batchJobId: jobId,
-      jobId, // Legacy support
-      totalProcessed: processedCount + failedCount,
-      totalTasks,
-      successful: processedCount,
-      failed: failedCount,
-      completedTasks: processedCount,
-      failedTasks: failedCount,
-      correlationId,
-      orgSummary: {
-        orgId,
-        promptCount: activePrompts?.length || 0,
-        providerCount: validProviders?.length || 0,
-        expectedTasks: actualTotalTasks,
-        completedTasks: processedCount,
-        failedTasks: failedCount
-      },
-      message: `Batch processing completed: ${processedCount} successful, ${failedCount} failed`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
     } catch (processingError: any) {
       console.error('🚨 Processing loop error:', processingError);
       await handleJobError(processingError, jobId);
