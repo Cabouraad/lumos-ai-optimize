@@ -16,6 +16,12 @@ interface EnhancedInvokeOptions {
   correlationId?: string;
 }
 
+interface AuthValidation {
+  isValid: boolean;
+  error?: string;
+  requiresReauth?: boolean;
+}
+
 /**
  * Enhanced edge function client with environment validation, circuit breaker,
  * and comprehensive error handling
@@ -39,28 +45,39 @@ export class EnhancedEdgeFunctionClient {
   }
 
   /**
-   * Check authentication status
+   * Check authentication status with server-side validation
    */
-  private static async validateAuthentication(): Promise<{ isValid: boolean; error?: string }> {
+  private static async validateAuthentication(): Promise<AuthValidation> {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // CRITICAL: Use getUser() instead of getSession()
+      // getUser() validates with the server, getSession() only reads localStorage
+      const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
         console.error('❌ Authentication error:', error);
+        
+        // Detect stale token error specifically
+        if (error.message.includes('User from sub claim in JWT does not exist') ||
+            error.message.includes('Invalid Refresh Token') ||
+            error.message.includes('JWT expired')) {
+          console.log('🧹 Detected stale token, clearing session...');
+          await supabase.auth.signOut();
+          return { 
+            isValid: false, 
+            error: 'Your session is invalid. Please sign in again.',
+            requiresReauth: true 
+          };
+        }
+        
         return { isValid: false, error: `Authentication error: ${error.message}` };
       }
       
-      if (!session?.access_token) {
-        console.error('❌ No valid session found');
+      if (!user) {
+        console.error('❌ No authenticated user found');
         return { isValid: false, error: 'Authentication required - please sign in' };
       }
       
-      // Check if token is expired
-      if (session.expires_at && session.expires_at * 1000 < Date.now()) {
-        console.error('❌ Session expired');
-        return { isValid: false, error: 'Session expired - please refresh the page' };
-      }
-      
+      console.log('✅ User authenticated:', user.id);
       return { isValid: true };
     } catch (error: any) {
       console.error('❌ Authentication validation failed:', error);
@@ -162,9 +179,21 @@ export class EnhancedEdgeFunctionClient {
     const authValidation = await this.validateAuthentication();
     if (!authValidation.isValid) {
       const error = new Error(authValidation.error || 'Authentication failed');
-      toast.error('Authentication Required', {
-        description: authValidation.error || 'Please sign in and try again.'
-      });
+      
+      // If stale token detected, redirect to login
+      if (authValidation.requiresReauth) {
+        toast.error('Session Expired', {
+          description: 'Your session is no longer valid. Redirecting to login...'
+        });
+        setTimeout(() => {
+          window.location.href = '/auth';
+        }, 2000);
+      } else {
+        toast.error('Authentication Required', {
+          description: authValidation.error || 'Please sign in and try again.'
+        });
+      }
+      
       return { data: null, error };
     }
 

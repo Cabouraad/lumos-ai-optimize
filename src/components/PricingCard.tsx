@@ -117,11 +117,28 @@ export function PricingCard({
       }
     } catch (error: any) {
       console.error('Subscription error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create subscription",
-        variant: "destructive",
-      });
+      
+      // Check for authentication errors
+      if (error.message?.includes('session is invalid') || 
+          error.message?.includes('session is no longer valid') ||
+          error.message?.includes('Authentication')) {
+        toast({
+          title: "Session Expired",
+          description: "Your session has expired. Please sign in again.",
+          variant: "destructive",
+        });
+        
+        // Redirect to auth after showing toast
+        setTimeout(() => {
+          navigate('/auth');
+        }, 2000);
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create subscription",
+          variant: "destructive",
+        });
+      }
     }
 
     setLoading(false);

@@ -39,17 +39,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let isMounted = true;
 
-    // Get initial session
+    // Get initial session with server-side validation
     const initializeAuth = async () => {
       try {
+        // First check localStorage
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        // If we have a session, validate it with the server
+        if (session) {
+          const { data: { user }, error } = await supabase.auth.getUser();
+          
+          if (error || !user) {
+            console.warn('[AuthProvider] Session invalid, clearing:', error?.message);
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+          } else {
+            setSession(session);
+            setUser(user);
+          }
+        } else {
+          setSession(null);
+          setUser(null);
+        }
       } catch (error) {
         console.error('[AuthProvider] Error getting initial session:', error);
+        // Clear potentially invalid session
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
       } finally {
         if (isMounted) {
           setLoading(false);
