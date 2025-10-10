@@ -1195,6 +1195,9 @@ Deno.serve(async (req) => {
       throw processingError;
     }
 
+    // Close the create action block
+    }
+
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error('❌ Batch processor error:', err.message);
