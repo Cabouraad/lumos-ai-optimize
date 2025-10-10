@@ -21,7 +21,12 @@ const logStep = (step: string, details?: any) => {
 Deno.serve(async (req) => {
   const requestOrigin = req.headers.get('Origin');
   const corsHeaders = getStrictCorsHeaders(requestOrigin);
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    logStep("CORS preflight (OPTIONS) request handled");
+    return new Response(null, { headers: corsHeaders });
+  }
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -30,7 +35,7 @@ Deno.serve(async (req) => {
   );
 
   try {
-    logStep("Function started");
+    logStep("Function started", { method: req.method, origin: requestOrigin });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");

@@ -52,7 +52,7 @@ ENABLE_GOOGLE_AIO = "true"
 verify_jwt = true
 
 [functions.create-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.customer-portal]
 verify_jwt = true
@@ -100,7 +100,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.create-trial-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.activate-trial]
 verify_jwt = true
