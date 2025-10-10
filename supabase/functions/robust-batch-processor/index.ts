@@ -972,81 +972,36 @@ Deno.serve(async (req) => {
       jobId = batchJob.id;
       console.log(`✅ Created batch job ${jobId} with ${totalTasks} tasks`);
 
-      // Create individual tasks
-      const tasks = [];
-      for (const prompt of activePrompts) {
-        for (const provider of validProviders) {
-          tasks.push({
-            batch_job_id: jobId,
-            prompt_id: prompt.id,
-            provider: provider,
-            status: 'pending'
-          });
-        }
-      }
+      // NEW: Direct processing without batch_tasks or RPCs
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('name, domain, business_description')
+        .eq('id', orgId)
+        .maybeSingle();
 
-      if (tasks.length > 0) {
-        const { error: tasksError } = await supabase
-          .from('batch_tasks')
-          .insert(tasks);
+      const { data: brandCatalog } = await supabase
+        .from('brand_catalog')
+        .select('name, is_org_brand, variants_json')
+        .eq('org_id', orgId);
 
-        if (tasksError) {
-          console.error('❌ Failed to create batch tasks:', tasksError);
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: 'Failed to create batch tasks',
-            details: tasksError.message,
-            action: 'task_creation_failed',
-            jobId
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
+      // Update job status to processing
+      const { error: updateError } = await supabase
+        .from('batch_jobs')
+        .update({ 
+          status: 'processing', 
+          started_at: new Date().toISOString(),
+          last_heartbeat: new Date().toISOString(),
+          runner_id: crypto.randomUUID()
+        })
+        .eq('id', jobId);
 
-        console.log(`✅ Created ${tasks.length} batch tasks`);
-      }
-
-        // Update job status to processing
-        const { error: updateError } = await supabase
-          .from('batch_jobs')
-          .update({ 
-            status: 'processing', 
-            started_at: new Date().toISOString(),
-            last_heartbeat: new Date().toISOString(),
-            runner_id: crypto.randomUUID()
-          })
-          .eq('id', jobId);
-
-        if (updateError) {
-          console.error('❌ Failed to update job status:', updateError);
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: 'Failed to update job status',
-            details: updateError.message,
-            action: 'job_update_failed',
-            jobId
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-    } else if (action === 'resume' && resumeJobId) {
-      jobId = resumeJobId;
-      
-      // Resume stuck job
-      const resumeResult = await supabase.rpc('resume_stuck_batch_job', {
-        p_job_id: jobId
-      });
-
-      if (resumeResult.error) {
-        console.error('❌ Failed to resume job:', resumeResult.error);
+      if (updateError) {
+        console.error('❌ Failed to update job status:', updateError);
         return new Response(JSON.stringify({ 
           success: false, 
-          error: 'Failed to resume job',
-          details: resumeResult.error.message,
-          action: 'resume_failed',
+          error: 'Failed to update job status',
+          details: updateError.message,
+          action: 'job_update_failed',
           jobId
         }), {
           status: 200,
@@ -1054,207 +1009,185 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log(`📋 Resumed batch job ${jobId}: ${JSON.stringify(resumeResult.data)}`);
-    }
+      // Initialize usage tracker for batch processing
+      const usageTracker = new BatchUsageTracker(supabase, orgId, jobId || 'unknown');
 
-    // Initialize usage tracker for batch processing
-    const usageTracker = new BatchUsageTracker(supabase, orgId, jobId || 'unknown');
+      // Process all prompt x provider combinations sequentially with time-budget
+      const TIME_BUDGET_MS = 280000; // 4m40s
+      const startTime = Date.now();
+      let processedCount = 0;
+      let failedCount = 0;
 
-    // Start processing tasks with atomic task claiming and time budgets
-    const BATCH_SIZE = 5; // Process 5 tasks concurrently
-    const TIME_BUDGET_MS = 280000; // 4 minutes 40 seconds (leave 20 second buffer)
-    const startTime = Date.now();
+      // Get subscription tier once
+      const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
 
-    // Add error handling to prevent jobs from getting permanently stuck
-    const handleJobError = async (error: any, jobId: string) => {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.error('🚨 Critical error in job processing:', err);
-      try {
-        await supabase
-          .from('batch_jobs')
-          .update({
-            status: 'failed',
-            completed_at: new Date().toISOString(),
-            last_heartbeat: new Date().toISOString(),
-            metadata: {
-              error: err.message,
-              failed_at: new Date().toISOString(),
-              stack: err.stack
+      for (const prompt of activePrompts) {
+        for (const provider of validProviders) {
+          // Time budget guard
+          const elapsed = Date.now() - startTime;
+          if (elapsed > TIME_BUDGET_MS) {
+            const correlation = crypto.randomUUID();
+            await supabase
+              .from('batch_jobs')
+              .update({
+                status: 'processing',
+                last_heartbeat: new Date().toISOString(),
+                metadata: {
+                  ...(typeof totalTasks === 'number' ? { total_tasks: totalTasks } : {}),
+                  time_budget_exceeded: true,
+                  elapsed_time_ms: elapsed,
+                  processed_in_this_run: processedCount,
+                  failed_in_this_run: failedCount,
+                  correlation_id: correlation
+                }
+              })
+              .eq('id', jobId);
+
+            // If called by CRON, schedule background resume
+            if (req.headers.get('x-cron-secret')) {
+              EdgeRuntime.waitUntil(
+                scheduleBackgroundResume(supabase, jobId, orgId, correlation)
+              );
             }
-          })
-          .eq('id', jobId);
-      } catch (updateError) {
-        console.error('❌ Failed to update job status to failed:', updateError);
-      }
-    };
-    // Main processing loop with error handling
-    let processedCount = 0;
-    let failedCount = 0;
-    let consecutiveErrors = 0;
-    const MAX_CONSECUTIVE_ERRORS = 3;
 
-    try {
-      while (true) {
-        // Check time budget to avoid edge function timeout
-        const elapsedTime = Date.now() - startTime;
-        if (elapsedTime > TIME_BUDGET_MS) {
-          const correlationId = crypto.randomUUID();
-          console.log(`⏰ Time budget exceeded (${elapsedTime}ms), correlation_id: ${correlationId}`);
-          
-          // Update job status to indicate it's still in progress
+            return new Response(JSON.stringify({
+              success: true,
+              action: 'in_progress',
+              batchJobId: jobId,
+              totalProcessed: processedCount + failedCount,
+              processedSoFar: processedCount,
+              failedSoFar: failedCount,
+              elapsedTime: elapsed,
+              correlationId: correlation,
+              message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+
+          try {
+            const cfg = providerConfigs[provider];
+            if (!cfg || !cfg.apiKey) throw new Error(`Missing configuration or API key for provider: ${provider}`);
+
+            // Call provider
+            const result = await callProviderAPI(provider, cfg, prompt.text);
+            if (!result.success || !result.response) throw new Error(result.error || 'API call failed');
+
+            // Analyze
+            const analysis = await analyzePromptResponse(result.response, orgData || {}, brandCatalog || []);
+
+            // Persist normalized response
+            const providerModel = provider === 'openai' ? 'gpt-4o-mini' :
+                                  provider === 'perplexity' ? 'sonar' :
+                                  provider === 'google_ai_overview' ? 'google-aio' : 'gemini-2.0-flash-lite';
+
+            const { error: insertErr } = await supabase
+              .from('prompt_provider_responses')
+              .insert({
+                org_id: orgId,
+                prompt_id: prompt.id,
+                provider,
+                model: providerModel,
+                status: 'success',
+                score: analysis.score,
+                org_brand_present: analysis.org_brand_present,
+                org_brand_prominence: analysis.org_brand_prominence,
+                brands_json: analysis.brands_json || analysis.brands || [],
+                competitors_json: analysis.competitors_json || analysis.competitors || [],
+                competitors_count: (analysis.competitors_json || analysis.competitors || []).length,
+                token_in: result.tokenIn || 0,
+                token_out: result.tokenOut || 0,
+                raw_ai_response: result.response,
+                run_at: new Date().toISOString(),
+                metadata: { analysis_method: 'enhanced_v2_batch', subscription_tier: orgSubscriptionTier }
+              });
+
+            if (insertErr) throw new Error(`Failed to store response: ${insertErr.message}`);
+
+            processedCount++;
+            usageTracker.addCompletedTask(1, true);
+          } catch (e: any) {
+            failedCount++;
+            usageTracker.addCompletedTask(1, false);
+            // Also persist an error row for visibility in UI
+            await supabase
+              .from('prompt_provider_responses')
+              .insert({
+                org_id: orgId,
+                prompt_id: prompt.id,
+                provider,
+                model: provider === 'openai' ? 'gpt-4o-mini' : provider === 'perplexity' ? 'sonar' : provider === 'google_ai_overview' ? 'google-aio' : 'gemini-2.0-flash-lite',
+                status: 'error',
+                error: e?.message || String(e),
+                score: 0,
+                org_brand_present: false,
+                competitors_count: 0,
+                competitors_json: [],
+                brands_json: [],
+                token_in: 0,
+                token_out: 0,
+                run_at: new Date().toISOString(),
+                metadata: { error_type: e?.name || 'Error', batch: true }
+              });
+          }
+
+          // Heartbeat/progress update
           await supabase
             .from('batch_jobs')
-            .update({ 
-              status: 'processing',
+            .update({
               last_heartbeat: new Date().toISOString(),
-              metadata: {
-                ...(typeof totalTasks === 'number' ? { total_tasks: totalTasks } : {}),
-                time_budget_exceeded: true,
-                elapsed_time_ms: elapsedTime,
-                processed_in_this_run: processedCount,
-                failed_in_this_run: failedCount,
-                correlation_id: correlationId
-              }
+              completed_tasks: processedCount,
+              failed_tasks: failedCount
             })
             .eq('id', jobId);
-
-          // If called via CRON, schedule background resumption
-          const isCronCall = req.headers.get('x-cron-secret');
-          if (isCronCall) {
-            console.log(`🔄 Scheduling background resume for job ${jobId}, correlation_id: ${correlationId}`);
-            
-            EdgeRuntime.waitUntil(
-              scheduleBackgroundResume(supabase, jobId, orgId, correlationId)
-            );
-          }
-          
-          return new Response(JSON.stringify({
-            success: true,
-            action: 'in_progress',
-            batchJobId: jobId,
-            totalProcessed: processedCount + failedCount,
-            processedSoFar: processedCount,
-            failedSoFar: failedCount,
-            elapsedTime: elapsedTime,
-            correlationId,
-            message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
         }
+      }
 
-        // Use atomic task claiming with error handling
-        let claimedTasks;
-        try {
-          const { data, error: tasksError } = await supabase
-            .rpc('claim_batch_tasks', {
-              p_job_id: jobId,
-              p_limit: BATCH_SIZE,
-              p_max_attempts: 3
-            });
+      // Persist usage once
+      if (processedCount > 0) {
+        await usageTracker.persistBatchUsage();
+      }
 
-          if (tasksError) {
-            consecutiveErrors++;
-            console.error('❌ Error claiming tasks:', tasksError);
-            
-            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-              throw new Error(`Too many consecutive task claiming errors: ${tasksError.message}`);
-            }
-            
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            continue;
-          }
-          
-          consecutiveErrors = 0;
-          claimedTasks = data;
-        } catch (claimError) {
-          await handleJobError(claimError, jobId);
-          throw claimError;
-        }
-
-        if (!claimedTasks || claimedTasks.length === 0) {
-          console.log('⏳ No more claimable tasks found');
-          break;
-        }
-
-        console.log(`🚀 Processing batch of ${claimedTasks.length} claimed tasks (${processedCount + failedCount} total processed, ${elapsedTime}ms elapsed)`);
-
-        // Get organization subscription tier for provider filtering
-        const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
-
-        // Concurrent task processing using provider configs with tier restrictions
-        const taskPromises = claimedTasks.map(task => 
-          processTask(supabase, task, providerConfigs, orgSubscriptionTier)
-        );
-
-      // Process batch of tasks concurrently with individual error handling
-      const results = await Promise.allSettled(taskPromises);
-
-      results.forEach((result, index) => {
-        const taskId = claimedTasks[index]?.id || 'unknown';
-        const task = claimedTasks[index];
-        
-        if (result.status === 'fulfilled' && result.value.success) {
-          processedCount++;
-          // Track successful task with provider count (1 provider per task)
-          usageTracker.addCompletedTask(1, true);
-          console.log(`✅ Task ${taskId} completed successfully`);
-        } else {
-          failedCount++;
-          // Track failed task
-          usageTracker.addCompletedTask(1, false);
-          const errorMsg = result.status === 'rejected' ? result.reason?.message || String(result.reason) : result.value?.error;
-          console.error(`❌ Task ${taskId} failed:`, errorMsg);
-        }
-      });
-
-      // Update heartbeat every batch
+      // Mark completed
       await supabase
-        .from('batch_jobs')
-        .update({ last_heartbeat: new Date().toISOString() })
-        .eq('id', jobId);
-    }
-
-    // Check if job is actually complete before finalizing
-    const { data: taskStats } = await supabase
-      .from('batch_tasks')
-      .select('status')
-      .eq('batch_job_id', jobId);
-
-    const completedTasksCount = taskStats?.filter(t => t.status === 'completed').length || 0;
-    const failedTasksCount = taskStats?.filter(t => t.status === 'failed').length || 0;
-    const totalCompletedOrFailed = completedTasksCount + failedTasksCount;
-    const actualTotalTasks = taskStats?.length || totalTasks;
-
-    // Persist usage for successful tasks
-    if (processedCount > 0) {
-      console.log('📊 Persisting batch usage to database...');
-      await usageTracker.persistBatchUsage();
-    }
-
-    // Only mark as completed if all tasks are truly done
-    if (totalCompletedOrFailed >= actualTotalTasks) {
-      const { error: finalError } = await supabase
         .from('batch_jobs')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
           last_heartbeat: new Date().toISOString(),
-          completed_tasks: completedTasksCount,
-          failed_tasks: failedTasksCount
+          completed_tasks: processedCount,
+          failed_tasks: failedCount
         })
         .eq('id', jobId);
 
-      if (finalError) {
-        console.error('❌ Failed to mark job as completed:', finalError);
-      }
-    } else {
-      console.log(`📊 Job not fully complete: ${totalCompletedOrFailed}/${actualTotalTasks} tasks done`);
-    }
+      console.log(`🏁 Batch processing completed [${correlationId}]:`, {
+        orgId,
+        successful: processedCount,
+        failed: failedCount,
+        totalTasks,
+        promptCount: activePrompts?.length || 0,
+        providerCount: validProviders?.length || 0
+      });
 
-    // Enhanced completion logging with correlation ID and org summary
-    console.log(`🏁 Batch processing completed [${correlationId}]:`, {
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'completed',
+        batchJobId: jobId,
+        totalTasks,
+        completedTasks: processedCount,
+        failedTasks: failedCount,
+        successful: processedCount,
+        failed: failedCount,
+        correlationId,
+        orgSummary: {
+          orgId,
+          promptCount: activePrompts?.length || 0,
+          providerCount: validProviders?.length || 0,
+          expectedTasks: totalTasks,
+          completedTasks: processedCount,
+          failedTasks: failedCount
+        },
+        message: `Batch processing completed: ${processedCount} successful, ${failedCount} failed`
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
       orgId,
       successful: processedCount,
       failed: failedCount,
