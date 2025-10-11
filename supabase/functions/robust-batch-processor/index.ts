@@ -707,7 +707,21 @@ Deno.serve(async (req) => {
 
     // Get provider configs early to avoid TDZ issues
     const providerConfigs = getProviderConfigs();
-    const validProviders = Object.keys(providerConfigs).filter(p => providerConfigs[p].apiKey);
+    
+    // Get subscription tier to filter allowed providers
+    const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
+    console.log(`📊 Org subscription tier: ${orgSubscriptionTier}`);
+    
+    // Filter providers by: 1) API key available, 2) Subscription tier allows
+    const providersWithKeys = Object.keys(providerConfigs).filter(p => providerConfigs[p].apiKey);
+    const validProviders = filterAllowedProviders(providersWithKeys as any, orgSubscriptionTier);
+    
+    console.log(`🔐 Provider filtering: ${providersWithKeys.length} with keys → ${validProviders.length} allowed for ${orgSubscriptionTier} tier`, {
+      withKeys: providersWithKeys,
+      allowed: validProviders,
+      blocked: providersWithKeys.filter(p => !validProviders.includes(p))
+    });
+    
     const activeProviders = providers ? providers.split(',') : validProviders;
 
     // Quota check bypassed for batch processing
@@ -1017,9 +1031,6 @@ Deno.serve(async (req) => {
       const startTime = Date.now();
       let processedCount = 0;
       let failedCount = 0;
-
-      // Get subscription tier once
-      const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
 
       try {
         for (const prompt of activePrompts) {
