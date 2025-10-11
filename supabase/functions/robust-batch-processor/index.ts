@@ -1237,7 +1237,19 @@ Deno.serve(async (req) => {
     } catch (processingError: any) {
       console.error('🚨 Processing loop error:', processingError);
       await handleJobError(supabase, processingError, jobId);
-      throw processingError;
+      
+      // Return error response instead of throwing to prevent connection drops
+      return new Response(JSON.stringify({
+        success: false,
+        error: processingError.message || 'Processing error occurred',
+        action: 'processing_failed',
+        batchJobId: jobId,
+        details: processingError.stack || 'No stack trace available',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Close the create action block
