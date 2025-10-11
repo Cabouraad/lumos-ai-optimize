@@ -48,6 +48,27 @@ export function BatchPromptRunner() {
   const [preflightData, setPreflightData] = useState<any>(null);
   const [showPreflightWarning, setShowPreflightWarning] = useState(false);
   const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<Record<string, any>>({});
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
+        
+        if (!session) {
+          console.warn('⚠️ No active session found - some features may require authentication');
+          toast.warning('Please sign in to use batch processing features');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setIsAuthenticated(false);
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   // Auto-reconcile on mount to fix any stuck jobs immediately
   useEffect(() => {
@@ -633,13 +654,18 @@ export function BatchPromptRunner() {
             </Button>
             <Button
               onClick={startBatchProcessing}
-              disabled={isStarting || (preflightData && !preflightData.quota?.allowed)}
+              disabled={isStarting || (preflightData && !preflightData.quota?.allowed) || isAuthenticated === false}
               className="flex items-center gap-2"
             >
               {isStarting ? (
                 <>
                   <Clock className="h-4 w-4 animate-spin" />
                   {isCurrentlyRunning ? 'Cancelling & Starting...' : 'Starting...'}
+                </>
+              ) : isAuthenticated === false ? (
+                <>
+                  <Shield className="h-4 w-4" />
+                  Sign In Required
                 </>
               ) : isCurrentlyRunning ? (
                 <>
@@ -655,6 +681,17 @@ export function BatchPromptRunner() {
             </Button>
           </div>
         </div>
+        
+        {/* Authentication Warning */}
+        {isAuthenticated === false && (
+          <Alert variant="destructive" className="mt-4">
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Authentication Required:</strong> You must be signed in to use batch processing.{' '}
+              <a href="/auth" className="underline font-semibold">Sign in now</a>
+            </AlertDescription>
+          </Alert>
+        )}
         
         {/* Preflight Warning */}
         {showPreflightWarning && preflightData && (

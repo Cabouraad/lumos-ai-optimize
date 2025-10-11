@@ -31,6 +31,16 @@ export class EnhancedEdgeFunctionClient {
   private static readonly FAILURE_THRESHOLD = 3;
   private static readonly RESET_TIMEOUT = 30000; // 30 seconds
   
+  // Functions that don't require client-side auth (they handle their own auth with cron-secret or other means)
+  private static readonly PUBLIC_FUNCTIONS = new Set([
+    'robust-batch-processor', // Has internal Bearer OR cron-secret validation
+    'batch-reconciler',
+    'daily-batch-trigger',
+    'scheduler-postcheck',
+    'scheduler-diagnostics',
+    'manual-daily-run'
+  ]);
+  
   /**
    * Validate environment before making requests
    */
@@ -175,26 +185,32 @@ export class EnhancedEdgeFunctionClient {
       return { data: null, error };
     }
 
-    // Authentication validation
-    const authValidation = await this.validateAuthentication();
-    if (!authValidation.isValid) {
-      const error = new Error(authValidation.error || 'Authentication failed');
-      
-      // If stale token detected, redirect to login
-      if (authValidation.requiresReauth) {
-        toast.error('Session Expired', {
-          description: 'Your session is no longer valid. Redirecting to login...'
-        });
-        setTimeout(() => {
-          window.location.href = '/auth';
-        }, 2000);
-      } else {
-        toast.error('Authentication Required', {
-          description: authValidation.error || 'Please sign in and try again.'
-        });
+    // Authentication validation - skip for public functions that handle their own auth
+    const isPublicFunction = this.PUBLIC_FUNCTIONS.has(functionName);
+    
+    if (!isPublicFunction) {
+      const authValidation = await this.validateAuthentication();
+      if (!authValidation.isValid) {
+        const error = new Error(authValidation.error || 'Authentication failed');
+        
+        // If stale token detected, redirect to login
+        if (authValidation.requiresReauth) {
+          toast.error('Session Expired', {
+            description: 'Your session is no longer valid. Redirecting to login...'
+          });
+          setTimeout(() => {
+            window.location.href = '/auth';
+          }, 2000);
+        } else {
+          toast.error('Authentication Required', {
+            description: authValidation.error || 'Please sign in and try again.'
+          });
+        }
+        
+        return { data: null, error };
       }
-      
-      return { data: null, error };
+    } else {
+      console.log(`⚡ Skipping client-side auth validation for public function: ${functionName}`);
     }
 
     // Circuit breaker check
