@@ -326,8 +326,20 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Update results based on success
-        if (batchSuccess) {
+        // Update results based on success - validate both success flag AND action type
+        const isActualSuccess = batchSuccess && 
+          data?.success === true && 
+          (data?.action === 'completed' || data?.action === 'in_progress');
+        
+        const isFailure = data?.action && [
+          'job_update_failed', 
+          'configuration_missing', 
+          'no_valid_providers', 
+          'prompt_fetch_failed', 
+          'error'
+        ].includes(data.action);
+        
+        if (isActualSuccess && !isFailure) {
           successfulJobs++;
           orgResults.push({
             orgId: org.id,
@@ -343,7 +355,8 @@ Deno.serve(async (req) => {
             orgName: org.name,
             success: false,
             attempts: attempts,
-            error: 'All retry attempts failed'
+            error: isFailure ? `Job failed with action: ${data?.action}` : 'All retry attempts failed',
+            action: data?.action
           });
         }
         

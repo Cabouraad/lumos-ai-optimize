@@ -998,29 +998,25 @@ Deno.serve(async (req) => {
         .select('name, is_org_brand, variants_json')
         .eq('org_id', orgId);
 
-      // Update job status to processing
+      // Update job status to processing (only valid columns)
+      const runnerId = crypto.randomUUID();
       const { error: updateError } = await supabase
         .from('batch_jobs')
         .update({ 
           status: 'processing', 
           started_at: new Date().toISOString(),
-          last_heartbeat: new Date().toISOString(),
-          runner_id: crypto.randomUUID()
+          metadata: {
+            runner_id: runnerId,
+            last_heartbeat: new Date().toISOString(),
+            started_processing_at: new Date().toISOString()
+          }
         })
         .eq('id', jobId);
 
       if (updateError) {
-        console.error('❌ Failed to update job status:', updateError);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Failed to update job status',
-          details: updateError.message,
-          action: 'job_update_failed',
-          jobId
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        console.warn('⚠️ Failed to update job status to processing:', updateError);
+        console.log('🔄 Continuing with processing despite status update failure...');
+        // Don't early return - continue processing
       }
 
       // Initialize usage tracker for batch processing
@@ -1141,13 +1137,18 @@ Deno.serve(async (req) => {
               });
           }
 
-          // Heartbeat/progress update
+          // Heartbeat/progress update (store in metadata)
           await supabase
             .from('batch_jobs')
             .update({
-              last_heartbeat: new Date().toISOString(),
               completed_tasks: processedCount,
-              failed_tasks: failedCount
+              failed_tasks: failedCount,
+              metadata: {
+                runner_id: runnerId,
+                last_heartbeat: new Date().toISOString(),
+                completed_tasks: processedCount,
+                failed_tasks: failedCount
+              }
             })
             .eq('id', jobId);
         }
@@ -1158,15 +1159,21 @@ Deno.serve(async (req) => {
         await usageTracker.persistBatchUsage();
       }
 
-      // Mark completed
+      // Mark completed (only valid columns)
       await supabase
         .from('batch_jobs')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          last_heartbeat: new Date().toISOString(),
           completed_tasks: processedCount,
-          failed_tasks: failedCount
+          failed_tasks: failedCount,
+          metadata: {
+            runner_id: runnerId,
+            completed_at: new Date().toISOString(),
+            completed_tasks: processedCount,
+            failed_tasks: failedCount,
+            total_tasks: totalTasks
+          }
         })
         .eq('id', jobId);
 
