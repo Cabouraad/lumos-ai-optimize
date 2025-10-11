@@ -29,6 +29,7 @@ interface BatchJob {
     prompts_count?: number;  // Legacy field name support
     providers_count?: number;  // Legacy field name support
     provider_names: string[];
+    last_heartbeat?: string;
     final_stats?: {
       completed: number;
       failed: number;
@@ -143,10 +144,10 @@ export function BatchPromptRunner() {
               // Continue processing if still in progress and action indicates more work
               if (updatedJob.status === 'processing' && data.action === 'in_progress') {
                 console.log('🔄 Driver loop continuing - more work to do');
-                setTimeout(driverLoop, 3000); // Continue after 3 seconds
+                setTimeout(driverLoop, 5000); // Continue after 5 seconds
               } else if (updatedJob.status === 'processing' && data.action !== 'in_progress') {
                 console.log('🔄 Driver loop continuing - checking for more tasks');
-                setTimeout(driverLoop, 5000); // Check again after 5 seconds
+                setTimeout(driverLoop, 7000); // Check again after 7 seconds
               } else {
                 console.log('🏁 Driver loop stopping - job complete or failed');
                 setIsDriverRunning(false);
@@ -170,8 +171,8 @@ export function BatchPromptRunner() {
         }
       };
 
-      // Start the driver loop after a short delay
-      setTimeout(driverLoop, 3000);
+      // Start the driver loop after a short delay (5s to reduce invocation frequency)
+      setTimeout(driverLoop, 5000);
     }
 
     return () => {
@@ -200,7 +201,9 @@ export function BatchPromptRunner() {
           // Check if job appears stuck (no heartbeat for 3 minutes) and driver not running
           if (!isDriverRunning && updatedJob.status === 'processing') {
             const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
-            const lastHeartbeat = updatedJob.last_heartbeat ? new Date(updatedJob.last_heartbeat).getTime() : 0;
+            // Read heartbeat from metadata first, fallback to top-level column
+            const heartbeatTime = updatedJob.metadata?.last_heartbeat || updatedJob.last_heartbeat;
+            const lastHeartbeat = heartbeatTime ? new Date(heartbeatTime).getTime() : 0;
             
             if (lastHeartbeat < threeMinutesAgo) {
               console.log('🚨 Job appears stuck, triggering auto-reconciliation...');

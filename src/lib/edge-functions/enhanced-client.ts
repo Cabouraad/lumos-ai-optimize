@@ -268,12 +268,15 @@ export class EnhancedEdgeFunctionClient {
         });
 
         const isNetworkError = this.isNetworkError(error);
-        const isRetryableError = isNetworkError || error.message?.includes('timeout');
+        const isRateLimitError = error.message?.includes('429') || error.status === 429;
+        const isRetryableError = isNetworkError || error.message?.includes('timeout') || isRateLimitError;
 
         // If this is the last attempt or non-retryable error
         if (attempt === retries || !isRetryableError) {
-          // Update circuit breaker on failure
-          this.updateCircuitBreaker(functionName, false);
+          // Update circuit breaker on failure (but not for rate limits)
+          if (!isRateLimitError) {
+            this.updateCircuitBreaker(functionName, false);
+          }
 
           // Show user-friendly error message
           const userMessage = this.getUserFriendlyErrorMessage(error, functionName);
@@ -284,9 +287,10 @@ export class EnhancedEdgeFunctionClient {
           return { data: null, error };
         }
 
-        // Wait before retry with exponential backoff
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
-        console.log(`🔄 [${correlationId}] Retrying in ${backoffMs}ms...`);
+        // Wait before retry with exponential backoff (longer for rate limits)
+        const baseBackoffMs = isRateLimitError ? 2000 : 1000;
+        const backoffMs = Math.min(baseBackoffMs * Math.pow(2, attempt), 10000);
+        console.log(`🔄 [${correlationId}] ${isRateLimitError ? 'Rate limited - ' : ''}Retrying in ${backoffMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
       }
     }
@@ -326,7 +330,7 @@ export class EnhancedEdgeFunctionClient {
       return 'Access denied. Please check your permissions.';
     }
     
-    if (error.message?.includes('429')) {
+    if (error.message?.includes('429') || error.status === 429) {
       return 'Too many requests. Please wait a moment and try again.';
     }
     

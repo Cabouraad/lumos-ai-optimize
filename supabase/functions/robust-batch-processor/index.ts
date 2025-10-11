@@ -108,6 +108,31 @@ function getTodayKeyNY(d = new Date()): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Helper to safely mark job as failed
+async function handleJobError(supabase: any, error: any, jobId: string): Promise<void> {
+  try {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    
+    await supabase
+      .from('batch_jobs')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        metadata: {
+          error_message: errorMessage,
+          error_stack: errorStack?.substring(0, 1000), // Truncate stack trace
+          failed_at: new Date().toISOString()
+        }
+      })
+      .eq('id', jobId);
+    
+    console.log(`⚠️ Job ${jobId} marked as failed:`, errorMessage);
+  } catch (updateError) {
+    console.error('❌ Failed to update job status to failed:', updateError);
+  }
+}
+
 interface TaskResult {
   success: boolean;
   data?: any;
@@ -571,24 +596,6 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Rate limiting for public endpoint
-  const clientIP = getClientIP(req);
-  if (isRateLimited(clientIP, 30, 60000)) { // 30 requests per minute
-    console.log(`🚫 Rate limit exceeded for IP: ${clientIP}`);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'Rate limit exceeded',
-      retryAfter: 60
-    }), {
-      status: 429,
-      headers: { 
-        ...corsHeaders, 
-        ...getRateLimitHeaders(clientIP, 30, 60000),
-        'Content-Type': 'application/json' 
-      }
-    });
-  }
-
   try {
     // SECURITY GUARDRAIL: Check authentication since verify_jwt is disabled
     const authHeader = req.headers.get('authorization');
@@ -625,6 +632,26 @@ Deno.serve(async (req) => {
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Rate limiting - bypassed for authenticated requests (moved after auth)
+    // Only apply to unauthenticated public traffic (which should be rejected above)
+    // Keeping this as a safety net with generous limits
+    const clientIP = getClientIP(req);
+    if (!isAuthenticated && isRateLimited(clientIP, 180, 60000)) { // 180 requests per minute for safety
+      console.log(`🚫 Rate limit exceeded for unauthenticated IP: ${clientIP}`);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Rate limit exceeded',
+        retryAfter: 60
+      }), {
+        status: 429,
+        headers: { 
+          ...corsHeaders, 
+          ...getRateLimitHeaders(clientIP, 180, 60000),
+          'Content-Type': 'application/json' 
+        }
       });
     }
 
@@ -1039,14 +1066,14 @@ Deno.serve(async (req) => {
               .from('batch_jobs')
               .update({
                 status: 'processing',
-                last_heartbeat: new Date().toISOString(),
                 metadata: {
                   ...(typeof totalTasks === 'number' ? { total_tasks: totalTasks } : {}),
                   time_budget_exceeded: true,
                   elapsed_time_ms: elapsed,
                   processed_in_this_run: processedCount,
                   failed_in_this_run: failedCount,
-                  correlation_id: correlation
+                  correlation_id: correlation,
+                  last_heartbeat: new Date().toISOString()
                 }
               })
               .eq('id', jobId);
@@ -1209,7 +1236,7 @@ Deno.serve(async (req) => {
 
     } catch (processingError: any) {
       console.error('🚨 Processing loop error:', processingError);
-      await handleJobError(processingError, jobId);
+      await handleJobError(supabase, processingError, jobId);
       throw processingError;
     }
 
@@ -1223,7 +1250,7 @@ Deno.serve(async (req) => {
     // Ensure job is marked as failed if it's not already completed
     if (jobId) {
       try {
-        await handleJobError(err, jobId);
+        await handleJobError(supabase, err, jobId);
       } catch (finalError) {
         console.error('❌ Failed to handle job error:', finalError);
       }
