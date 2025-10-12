@@ -228,11 +228,9 @@ export class EnhancedEdgeFunctionClient {
       try {
         console.debug(`🔄 [${correlationId}] Attempt ${attempt + 1}/${retries + 1} for ${functionName}`);
         
-        // Add correlation ID to headers for tracing
+        // Pass-through headers (avoid custom headers that trigger CORS)
         const enhancedHeaders = {
-          ...headers,
-          'x-correlation-id': correlationId,
-          'x-client-version': '2.0'
+          ...headers
         };
 
         // Create timeout promise
