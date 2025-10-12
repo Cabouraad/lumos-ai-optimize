@@ -29,67 +29,27 @@ Deno.serve(async (req) => {
   });
 
   try {
-    // Check for stuck jobs (no heartbeat for 2+ minutes)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    // Mark old stuck jobs as failed (micro-batch architecture should prevent new stuck jobs)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     
     const { data: stuckJobs } = await supabase
       .from('batch_jobs')
-      .select('*')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        metadata: { failed_reason: 'stuck_job_cleanup', cleaned_by: 'reconciler', cleaned_at: new Date().toISOString() }
+      })
       .eq('status', 'processing')
-      .or(`metadata->last_heartbeat.lt.${twoMinutesAgo},metadata->last_heartbeat.is.null`)
-      .order('started_at', { ascending: true })
-      .limit(10);
+      .lt('started_at', tenMinutesAgo)
+      .select();
 
-    let processedJobs = 0, finalizedJobs = 0, resumedJobs = 0, errorJobs = 0;
-    const reconciliationActions = [];
-
-    if (!stuckJobs || stuckJobs.length === 0) {
-      console.log('✅ No stuck jobs detected - system healthy');
-    } else {
-      console.log(`🔧 Found ${stuckJobs.length} stuck jobs`);
-
-      for (const job of stuckJobs) {
-        processedJobs++;
-        const isComplete = (job.completed_tasks + job.failed_tasks) >= job.total_tasks;
-
-        if (isComplete) {
-          // Finalize completed job
-          await supabase.from('batch_jobs').update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            metadata: { ...(job.metadata || {}), reconciled_by: 'batch-reconciler', reconciled_at: new Date().toISOString() }
-          }).eq('id', job.id);
-
-          finalizedJobs++;
-          reconciliationActions.push({ job_id: job.id, action: 'finalized', completed_tasks: job.completed_tasks });
-        } else {
-          // Resume incomplete job
-          const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
-            body: { action: 'resume', resumeJobId: job.id, orgId: job.org_id, correlationId: runId }
-          });
-
-          if (resumeResponse.error) {
-            errorJobs++;
-            reconciliationActions.push({ job_id: job.id, action: 'resume_failed', error: resumeResponse.error.message });
-          } else {
-            resumedJobs++;
-            reconciliationActions.push({ job_id: job.id, action: 'resumed', response: resumeResponse.data });
-          }
-        }
-      }
-    }
+    const cleanedCount = stuckJobs?.length || 0;
+    console.log(cleanedCount > 0 ? `🧹 Cleaned ${cleanedCount} stuck jobs` : '✅ No stuck jobs found');
 
     const result = {
-      status: stuckJobs && stuckJobs.length > 0 ? 'reconciled' : 'healthy',
-      message: stuckJobs && stuckJobs.length > 0 
-        ? `Processed ${processedJobs} stuck jobs: ${finalizedJobs} finalized, ${resumedJobs} resumed, ${errorJobs} errors`
-        : 'No stuck jobs detected',
-      stuck_jobs_found: stuckJobs?.length || 0,
-      processed: processedJobs,
-      finalized: finalizedJobs,
-      resumed: resumedJobs,
-      errors: errorJobs,
-      actions_taken: reconciliationActions
+      status: cleanedCount > 0 ? 'cleaned' : 'healthy',
+      message: cleanedCount > 0 ? `Cleaned ${cleanedCount} stuck jobs` : 'No stuck jobs',
+      cleaned_jobs: cleanedCount
     };
 
     await supabase.from('scheduler_runs').update({

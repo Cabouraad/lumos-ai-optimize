@@ -13,6 +13,7 @@ import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 interface BatchJob {
   id: string;
+  org_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   total_tasks: number;
   completed_tasks: number;
@@ -26,9 +27,11 @@ interface BatchJob {
   metadata?: {
     prompt_count?: number;
     provider_count?: number;
-    prompts_count?: number;  // Legacy field name support
-    providers_count?: number;  // Legacy field name support
+    prompts_count?: number;
+    providers_count?: number;
     provider_names: string[];
+    correlation_id?: string;
+    cancelled_previous_count?: number;
     last_heartbeat?: string;
     final_stats?: {
       completed: number;
@@ -45,11 +48,11 @@ export function BatchPromptRunner() {
   const [isResuming, setIsResuming] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [isDriverRunning, setIsDriverRunning] = useState(false);
   const [preflightData, setPreflightData] = useState<any>(null);
   const [showPreflightWarning, setShowPreflightWarning] = useState(false);
   const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<Record<string, any>>({});
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [cancelledCount, setCancelledCount] = useState(0);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -92,100 +95,51 @@ export function BatchPromptRunner() {
     loadCircuitBreakerStatus();
   }, []);
 
-  // Client-side driver loop to keep batch processing alive
+  // Simplified driver loop - micro-batch processing
   useEffect(() => {
-    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed' || currentJob.status === 'cancelled' || isDriverRunning) {
+    if (!currentJob || currentJob.status !== 'processing') {
       return;
     }
 
-    // Start driver loop for processing jobs
-    if (currentJob.status === 'processing') {
-      setIsDriverRunning(true);
-      
-      const driverLoop = async () => {
+    let isActive = true;
+    const driveLoop = async () => {
+      while (isActive) {
         try {
-          let orgId;
-          try {
-            orgId = await getOrgId();
-          } catch (orgError) {
-            console.error('🚨 Driver loop getOrgId failed:', orgError);
-            setLastError(`Authentication error: ${orgError.message}. Please refresh the page.`);
-            setIsDriverRunning(false);
-            return;
-          }
-          
-          console.log('🔄 Driver loop: Continuing batch processing...');
-          
-            const { data, error } = await robustInvoke('robust-batch-processor', {
-              body: { 
-                action: 'resume', 
-                resumeJobId: currentJob.id,
-                orgId: currentJob.org_id,
-                correlationId: currentJob.metadata?.correlation_id || crypto.randomUUID()
-              }
-            });
-
-          if (error) {
-            console.error('Driver loop error:', error);
-            setLastError(`Driver loop error: ${error.message}`);
-            setIsDriverRunning(false);
-            return;
-          }
-
-          if (data) {
-            console.log('🔄 Driver loop response:', data.action, data);
-            
-            // Update job status after processing
-            const { data: updatedJobData } = await supabase
-              .from('batch_jobs' as any)
-              .select('*')
-              .eq('id', currentJob.id)
-              .maybeSingle();
-
-            if (updatedJobData) {
-              const updatedJob = updatedJobData as unknown as BatchJob;
-              setCurrentJob(updatedJob);
-              
-              // Continue processing if still in progress and action indicates more work
-              if (updatedJob.status === 'processing' && data.action === 'in_progress') {
-                console.log('🔄 Driver loop continuing - more work to do');
-                setTimeout(driverLoop, 5000); // Continue after 5 seconds
-              } else if (updatedJob.status === 'processing' && data.action !== 'in_progress') {
-                console.log('🔄 Driver loop continuing - checking for more tasks');
-                setTimeout(driverLoop, 7000); // Check again after 7 seconds
-              } else {
-                console.log('🏁 Driver loop stopping - job complete or failed');
-                setIsDriverRunning(false);
-                if (updatedJob.status === 'completed') {
-                  toast.success(`Batch completed! ${updatedJob.completed_tasks} tasks successful`);
-                  loadRecentJobs();
-                }
-              }
-            } else {
-              console.log('🏁 Driver loop stopping - job not found');
-              setIsDriverRunning(false);
+          const { data } = await robustInvoke('robust-batch-processor', {
+            body: {
+              jobId: currentJob.id,
+              orgId: currentJob.org_id
             }
-          } else {
-            console.error('Driver loop - no data in response');
-            setIsDriverRunning(false);
+          });
+
+          if (!isActive) break;
+
+          await loadRecentJobs();
+
+          if (data?.action === 'completed') {
+            toast.success(`✅ Batch Complete: ${data.completed} completed, ${data.failed || 0} failed`);
+            break;
           }
+
+          if (data?.action === 'error') {
+            toast.error(data.error || "Processing error");
+            break;
+          }
+
+          // Continue immediately for next micro-batch
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
-          console.error('Driver loop exception:', error);
-          setLastError(`Driver loop error: ${error.message}`);
-          setIsDriverRunning(false);
+          console.error('Driver error:', error);
+          await new Promise(resolve => setTimeout(resolve, 5000));
         }
-      };
-
-      // Start the driver loop after a short delay (5s to reduce invocation frequency)
-      setTimeout(driverLoop, 5000);
-    }
-
-    return () => {
-      setIsDriverRunning(false);
+      }
     };
-  }, [currentJob?.id, currentJob?.status, isDriverRunning]);
 
-  // Poll for job updates with auto-reconciliation for stuck jobs
+    driveLoop();
+    return () => { isActive = false; };
+  }, [currentJob?.id]);
+
+  // Poll for job updates
   useEffect(() => {
     if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed' || currentJob.status === 'cancelled') {
       return;
@@ -203,29 +157,6 @@ export function BatchPromptRunner() {
           const updatedJob = data as unknown as BatchJob;
           setCurrentJob(updatedJob);
           
-          // Check if job appears stuck (no heartbeat for 3 minutes) and driver not running
-          if (!isDriverRunning && updatedJob.status === 'processing') {
-            const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
-            // Read heartbeat from metadata first, fallback to top-level column
-            const heartbeatTime = updatedJob.metadata?.last_heartbeat || updatedJob.last_heartbeat;
-            const lastHeartbeat = heartbeatTime ? new Date(heartbeatTime).getTime() : 0;
-            
-            if (lastHeartbeat < threeMinutesAgo) {
-              console.log('🚨 Job appears stuck, triggering auto-reconciliation...');
-              try {
-                await robustInvoke('batch-reconciler', {
-                  body: {},
-                  headers: {
-                    'x-manual-call': 'true'
-                  }
-                });
-                toast.warning('Job appeared stuck - attempted automatic recovery');
-              } catch (reconcileError) {
-                console.error('Auto-reconcile failed:', reconcileError);
-              }
-            }
-          }
-          
           if (['completed', 'failed', 'cancelled'].includes(updatedJob.status)) {
             clearInterval(pollInterval);
             const statusMsg = updatedJob.status === 'completed' 
@@ -241,10 +172,10 @@ export function BatchPromptRunner() {
       } catch (error) {
         console.error('Error polling job status:', error);
       }
-    }, 10000); // Poll every 10 seconds
+    }, 10000);
 
     return () => clearInterval(pollInterval);
-  }, [currentJob?.id, currentJob?.status, isDriverRunning]);
+  }, [currentJob?.id, currentJob?.status]);
 
   const loadRecentJobs = async () => {
     try {
@@ -409,81 +340,31 @@ export function BatchPromptRunner() {
     setLastError(null);
     
     try {
-      console.log('🚀 Starting robust batch processing...');
+      console.log('🚀 Starting batch processing...');
       
-      let orgId;
-      try {
-        orgId = await getOrgId();
-      } catch (orgError) {
-        console.error('🚨 getOrgId failed:', orgError);
-        setLastError(`Authentication error: ${orgError.message}. Please refresh the page.`);
-        setIsStarting(false);
-        return;
-      }
+      const orgId = await getOrgId();
       
       const { data, error } = await robustInvoke('robust-batch-processor', {
         body: { 
           orgId,
-          action: 'create',  // Explicitly set action to create
-          replace: true,     // CANCEL EXISTING: Always replace existing jobs when starting new batch
-          correlationId: crypto.randomUUID()
+          replace: true
         }
       });
 
       if (error) {
-        console.error('❌ Batch processing failed:', error);
-        const errorMsg = `Batch processing failed: ${error.message}`;
-        setLastError(errorMsg);
-        toast.error(errorMsg);
+        console.error('❌ Failed:', error);
+        toast.error(error.message);
         return;
       }
 
-      console.log('✅ Batch processing result:', data);
-      
-      if (!data.success) {
-        const errorMsg = data.error || 'Batch processing failed';
-        setLastError(errorMsg);
-        toast.error(errorMsg);
-        return;
-      }
-      
-      // Show cancellation info
-      if (data?.cancelled_previous_count && data.cancelled_previous_count > 0) {
+      if (data?.cancelled_previous_count > 0) {
         setCancelledCount(data.cancelled_previous_count);
         toast.success(`Cancelled ${data.cancelled_previous_count} previous run(s)`);
       }
-      
-      // Handle in-progress status (time budget exceeded)
-      if (data.action === 'in_progress') {
-        toast.success(`Processing started! ${data.processedSoFar} tasks completed so far. Processing continues in background.`);
-        loadRecentJobs();
-        return;
-      }
-      
-      if (data.batchJobId || data.jobId) {
-        const jobIdToUse = data.batchJobId || data.jobId;
-        
-        // Load the created job immediately
-        const { data: jobData } = await supabase
-          .from('batch_jobs' as any)
-          .select('*')
-          .eq('id', jobIdToUse)
-          .single();
 
-        if (jobData) {
-          setCurrentJob(jobData as unknown as BatchJob);
-          if (data.action === 'started') {
-            toast.success(`Batch started! Processing ${data.totalTasks || data.totalProcessed} tasks`);
-          } else if (data.action === 'resumed') {
-            toast.success(`Job resumed! ${data.message || 'Processing continuation'}`);
-          } else if (data.action === 'processed') {
-            toast.success(`Job processed: ${data.completedTasks} completed, ${data.failedTasks} failed`);
-          }
-        }
-      } else if (data.action === 'finalized') {
-        toast.success(`Job already complete: ${data.completedTasks} tasks successful`);
-        loadRecentJobs();
-      }
+      await loadRecentJobs();
+      toast.success(`Processing ${data?.remaining || 0} tasks`);
+      
       
     } catch (error: any) {
       console.error('💥 Batch processing error:', error);
