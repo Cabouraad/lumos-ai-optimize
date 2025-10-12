@@ -60,17 +60,23 @@ function getProviderConfigs(): ProviderConfig[] {
     });
   }
 
-  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  // Use multiple fallback environment variable names for Gemini API key
+  const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GOOGLE_GENAI_API_KEY') || Deno.env.get('GENAI_API_KEY');
   if (geminiKey) {
     configs.push({
       name: 'gemini',
       apiKey: geminiKey,
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
-      model: 'gemini-2.5-flash-lite',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+      model: 'gemini-2.0-flash-lite',
       authType: 'google-api-key',
       buildRequest: (prompt) => ({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 500 }
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 500,
+          topK: 40,
+          topP: 0.95
+        }
       }),
       extractResponse: (data) => data.candidates?.[0]?.content?.parts?.[0]?.text || ''
     });
@@ -96,42 +102,82 @@ function getProviderConfigs(): ProviderConfig[] {
 }
 
 async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const maxAttempts = 3;
+  let lastError: Error | null = null;
 
-  try {
-    // Build headers based on auth type
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    
-    if (config.authType === 'bearer') {
-      headers['Authorization'] = `Bearer ${config.apiKey}`;
-    } else if (config.authType === 'google-api-key') {
-      headers['x-goog-api-key'] = config.apiKey;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      console.log(`[${config.name}] Attempt ${attempt}/${maxAttempts}`);
+
+      // Build headers based on auth type
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (config.authType === 'bearer') {
+        headers['Authorization'] = `Bearer ${config.apiKey}`;
+      } else if (config.authType === 'google-api-key') {
+        headers['X-goog-api-key'] = config.apiKey; // Fixed: uppercase X
+      }
+
+      const response = await fetch(config.baseUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(config.buildRequest(prompt)),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ ${config.name} HTTP ${response.status}:`, errorText);
+        
+        // Don't retry on authentication or bad request errors
+        if (response.status === 401 || response.status === 403 || response.status === 400) {
+          throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+        }
+        
+        lastError = new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+        
+        // Retry with exponential backoff
+        if (attempt < maxAttempts) {
+          const delay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+          console.log(`[${config.name}] Retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        throw lastError;
+      }
+
+      const data = await response.json();
+      console.log(`[${config.name}] Success on attempt ${attempt}`);
+      return config.extractResponse(data);
+      
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      lastError = error;
+      
+      // Don't retry on auth errors
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        throw error;
+      }
+      
+      if (attempt < maxAttempts) {
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.log(`[${config.name}] Error: ${error.message}. Retrying after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
     }
-
-    const response = await fetch(config.baseUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(config.buildRequest(prompt)),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ ${config.name} HTTP ${response.status}:`, errorText);
-      throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
-    }
-
-    const data = await response.json();
-    return config.extractResponse(data);
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    throw error;
   }
+
+  throw lastError || new Error('All retry attempts failed');
 }
 
 async function processTask(
@@ -144,6 +190,47 @@ async function processTask(
   try {
     const rawResponse = await callProviderAPI(provider, promptText);
     
+    // Fetch organization data for brand analysis
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', orgId)
+      .single();
+    
+    // Fetch brand catalog for comprehensive analysis
+    const { data: brandCatalog } = await supabase
+      .from('brand_catalog')
+      .select('name, is_org_brand, variants_json')
+      .eq('org_id', orgId);
+    
+    // Perform comprehensive brand analysis
+    let analysis;
+    try {
+      const { analyzePromptResponse } = await import('../_shared/brand-response-analyzer.ts');
+      
+      analysis = await analyzePromptResponse(
+        rawResponse,
+        { name: orgData?.name || 'Unknown' },
+        brandCatalog || []
+      );
+      
+      console.log(`[${provider.name}] Analysis: Score=${analysis.score}, Brand=${analysis.org_brand_present}, Competitors=${analysis.competitors_json.length}`);
+    } catch (analysisError: any) {
+      console.error(`[${provider.name}] Analysis failed:`, analysisError.message);
+      // Fallback to basic detection
+      const orgName = orgData?.name || 'Unknown';
+      const brandPresent = rawResponse.toLowerCase().includes(orgName.toLowerCase());
+      analysis = {
+        score: brandPresent ? 6.0 : 1.0,
+        org_brand_present: brandPresent,
+        org_brand_prominence: brandPresent ? 1 : 0,
+        competitors_count: 0,
+        competitors_json: [],
+        brands_json: brandPresent ? [orgName] : [],
+        metadata: { analysis_error: analysisError.message }
+      };
+    }
+    
     await supabase.from('prompt_provider_responses').insert({
       org_id: orgId,
       prompt_id: promptId,
@@ -151,18 +238,21 @@ async function processTask(
       model: provider.model,
       status: 'success',
       raw_ai_response: rawResponse,
-      score: 5.0,
-      org_brand_present: false,
-      competitors_count: 0,
-      competitors_json: [],
-      brands_json: [],
+      score: analysis.score,
+      org_brand_present: analysis.org_brand_present,
+      org_brand_prominence: analysis.org_brand_prominence || 0,
+      competitors_count: analysis.competitors_count || 0,
+      competitors_json: analysis.competitors_json || [],
+      brands_json: analysis.brands_json || [],
       token_in: 0,
       token_out: 0,
-      metadata: {}
+      metadata: analysis.metadata || {}
     });
 
     return true;
   } catch (error: any) {
+    console.error(`[${provider.name}] Task failed:`, error.message);
+    
     await supabase.from('prompt_provider_responses').insert({
       org_id: orgId,
       prompt_id: promptId,
@@ -177,7 +267,10 @@ async function processTask(
       brands_json: [],
       token_in: 0,
       token_out: 0,
-      metadata: { error_type: 'processing_error' }
+      metadata: { 
+        error_type: 'processing_error',
+        error_details: error.message 
+      }
     });
 
     return false;
