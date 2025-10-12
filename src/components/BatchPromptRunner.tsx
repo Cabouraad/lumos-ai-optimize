@@ -401,21 +401,23 @@ export function BatchPromptRunner() {
   const isJobStuck = (job: BatchJob) => {
     if (job.status !== 'processing') return false;
     
-    // Check if heartbeat is older than 3 minutes
-    if (job.last_heartbeat) {
-      const heartbeatTime = new Date(job.last_heartbeat).getTime();
-      const threeMinutesAgo = Date.now() - (3 * 60 * 1000);
-      return heartbeatTime < threeMinutesAgo;
+    // Check metadata.last_heartbeat (where it's actually stored)
+    const heartbeatStr = (job as any)?.metadata?.last_heartbeat || (job as any)?.last_heartbeat;
+    const HEARTBEAT_STALE_MS = 5 * 60 * 1000;   // 5 minutes
+    const FALLBACK_STALE_MS  = 15 * 60 * 1000;  // 15 minutes
+    
+    if (heartbeatStr) {
+      const heartbeatTime = new Date(heartbeatStr).getTime();
+      return heartbeatTime < (Date.now() - HEARTBEAT_STALE_MS);
     }
     
-    // If no heartbeat and started more than 3 minutes ago
+    // Fallback to started_at with conservative threshold
     if (job.started_at) {
       const startTime = new Date(job.started_at).getTime();
-      const threeMinutesAgo = Date.now() - (3 * 60 * 1000);
-      return startTime < threeMinutesAgo;
+      return startTime < (Date.now() - FALLBACK_STALE_MS);
     }
     
-    return true; // No heartbeat or start time means it's likely stuck
+    return false; // Don't assume stuck if no data
   };
 
   const isCurrentlyRunning = currentJob && currentJob.status === 'processing';

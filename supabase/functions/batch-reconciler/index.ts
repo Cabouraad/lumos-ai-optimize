@@ -29,27 +29,105 @@ Deno.serve(async (req) => {
   });
 
   try {
-    // Mark old stuck jobs as failed (micro-batch architecture should prevent new stuck jobs)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const HEARTBEAT_STALE_MS = 15 * 60 * 1000;  // 15 minutes
+    const STARTED_AT_STALE_MS = 20 * 60 * 1000; // 20 minutes
+    const HEARTBEAT_FRESH_MS = 5 * 60 * 1000;   // 5 minutes
     
-    const { data: stuckJobs } = await supabase
+    // Fetch all processing jobs
+    const { data: processingJobs, error: fetchError } = await supabase
       .from('batch_jobs')
-      .update({
-        status: 'failed',
-        completed_at: new Date().toISOString(),
-        metadata: { failed_reason: 'stuck_job_cleanup', cleaned_by: 'reconciler', cleaned_at: new Date().toISOString() }
-      })
-      .eq('status', 'processing')
-      .lt('started_at', tenMinutesAgo)
-      .select();
+      .select('id, org_id, started_at, total_tasks, completed_tasks, failed_tasks, metadata, status')
+      .eq('status', 'processing');
 
-    const cleanedCount = stuckJobs?.length || 0;
-    console.log(cleanedCount > 0 ? `🧹 Cleaned ${cleanedCount} stuck jobs` : '✅ No stuck jobs found');
+    if (fetchError) throw fetchError;
+
+    let processedJobs = 0;
+    let finalizedJobs = 0;
+    let failedJobs = 0;
+    let skippedJobs = 0;
+
+    for (const job of processingJobs || []) {
+      const lastHeartbeat = job.metadata?.last_heartbeat;
+      const now = Date.now();
+      
+      // Check if heartbeat is fresh
+      if (lastHeartbeat) {
+        const heartbeatTime = new Date(lastHeartbeat).getTime();
+        if (now - heartbeatTime < HEARTBEAT_FRESH_MS) {
+          console.log(`✅ Job ${job.id} is healthy (heartbeat ${Math.round((now - heartbeatTime) / 1000)}s ago)`);
+          skippedJobs++;
+          continue;
+        }
+      }
+
+      // Check if job is complete (all tasks done)
+      const totalDone = (job.completed_tasks || 0) + (job.failed_tasks || 0);
+      if (totalDone >= (job.total_tasks || 0) && job.total_tasks > 0) {
+        console.log(`✅ Finalizing completed job ${job.id} (${totalDone}/${job.total_tasks} tasks)`);
+        await supabase
+          .from('batch_jobs')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', job.id);
+        finalizedJobs++;
+        processedJobs++;
+        continue;
+      }
+
+      // Check if job is truly stuck (stale heartbeat or old start time)
+      let isStuck = false;
+      let reason = '';
+
+      if (lastHeartbeat) {
+        const heartbeatTime = new Date(lastHeartbeat).getTime();
+        if (now - heartbeatTime > HEARTBEAT_STALE_MS) {
+          isStuck = true;
+          reason = `stale_heartbeat (${Math.round((now - heartbeatTime) / 60000)} min ago)`;
+        }
+      } else if (job.started_at) {
+        const startTime = new Date(job.started_at).getTime();
+        if (now - startTime > STARTED_AT_STALE_MS) {
+          isStuck = true;
+          reason = `no_heartbeat_old_start (${Math.round((now - startTime) / 60000)} min ago)`;
+        }
+      }
+
+      if (isStuck) {
+        console.log(`❌ Failing stuck job ${job.id}: ${reason}`);
+        await supabase
+          .from('batch_jobs')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            metadata: { 
+              ...job.metadata,
+              failed_reason: reason,
+              cleaned_by: 'reconciler', 
+              cleaned_at: new Date().toISOString() 
+            }
+          })
+          .eq('id', job.id);
+        failedJobs++;
+        processedJobs++;
+      } else {
+        console.log(`⏳ Job ${job.id} is slow but not stuck yet`);
+        skippedJobs++;
+      }
+    }
 
     const result = {
-      status: cleanedCount > 0 ? 'cleaned' : 'healthy',
-      message: cleanedCount > 0 ? `Cleaned ${cleanedCount} stuck jobs` : 'No stuck jobs',
-      cleaned_jobs: cleanedCount
+      success: true,
+      status: processedJobs > 0 ? 'cleaned' : 'healthy',
+      message: processedJobs > 0 
+        ? `Processed ${processedJobs} jobs (${finalizedJobs} finalized, ${failedJobs} failed)` 
+        : 'No stuck jobs found',
+      processedJobs,
+      finalizedJobs,
+      resumedJobs: 0,
+      failedJobs,
+      skippedJobs
     };
 
     await supabase.from('scheduler_runs').update({
