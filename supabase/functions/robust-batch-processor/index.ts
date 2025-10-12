@@ -65,8 +65,8 @@ function getProviderConfigs(): ProviderConfig[] {
     configs.push({
       name: 'gemini',
       apiKey: geminiKey,
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-      model: 'gemini-1.5-flash',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
+      model: 'gemini-2.5-flash-lite',
       authType: 'google-api-key',
       buildRequest: (prompt) => ({
         contents: [{ parts: [{ text: prompt }] }],
