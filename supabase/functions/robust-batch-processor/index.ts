@@ -18,6 +18,7 @@ interface ProviderConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  authType: 'bearer' | 'google-api-key';
   buildRequest: (prompt: string) => any;
   extractResponse: (data: any) => string;
 }
@@ -32,6 +33,7 @@ function getProviderConfigs(): ProviderConfig[] {
       apiKey: openaiKey,
       baseUrl: 'https://api.openai.com/v1/chat/completions',
       model: 'gpt-4o-mini',
+      authType: 'bearer',
       buildRequest: (prompt) => ({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
@@ -48,6 +50,7 @@ function getProviderConfigs(): ProviderConfig[] {
       apiKey: perplexityKey,
       baseUrl: 'https://api.perplexity.ai/chat/completions',
       model: 'sonar',
+      authType: 'bearer',
       buildRequest: (prompt) => ({
         model: 'sonar',
         messages: [{ role: 'user', content: prompt }],
@@ -62,8 +65,9 @@ function getProviderConfigs(): ProviderConfig[] {
     configs.push({
       name: 'gemini',
       apiKey: geminiKey,
-      baseUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
       model: 'gemini-1.5-flash',
+      authType: 'google-api-key',
       buildRequest: (prompt) => ({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 500 }
@@ -77,8 +81,9 @@ function getProviderConfigs(): ProviderConfig[] {
     configs.push({
       name: 'google_ai_overview',
       apiKey: googleAioKey,
-      baseUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleAioKey}`,
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
       model: 'gemini-1.5-flash',
+      authType: 'google-api-key',
       buildRequest: (prompt) => ({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 500 }
@@ -95,12 +100,20 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
+    // Build headers based on auth type
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (config.authType === 'bearer') {
+      headers['Authorization'] = `Bearer ${config.apiKey}`;
+    } else if (config.authType === 'google-api-key') {
+      headers['x-goog-api-key'] = config.apiKey;
+    }
+
     const response = await fetch(config.baseUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`
-      },
+      headers,
       body: JSON.stringify(config.buildRequest(prompt)),
       signal: controller.signal
     });
@@ -108,7 +121,9 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      const errorText = await response.text();
+      console.error(`❌ ${config.name} HTTP ${response.status}:`, errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
     }
 
     const data = await response.json();
