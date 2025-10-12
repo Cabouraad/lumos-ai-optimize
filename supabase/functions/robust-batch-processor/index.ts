@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
     console.log('🚀 Batch processor:', { jobId, orgId, replace });
 
     // Cancel existing jobs if replace=true
+    let cancelledCount = 0;
     if (replace && !jobId) {
       const { data: cancelled } = await supabase
         .from('batch_jobs')
@@ -195,7 +196,8 @@ Deno.serve(async (req) => {
         .in('status', ['pending', 'processing'])
         .select();
 
-      console.log(`✅ Cancelled ${cancelled?.length || 0} jobs`);
+      cancelledCount = cancelled?.length || 0;
+      console.log(`✅ Cancelled ${cancelledCount} jobs`);
     }
 
     // Get or create job
@@ -207,6 +209,7 @@ Deno.serve(async (req) => {
       if (!job || job.status === 'completed' || job.status === 'failed') {
         return new Response(JSON.stringify({
           action: 'completed',
+          jobId: job?.id,
           completed: job?.completed_tasks || 0,
           failed: job?.failed_tasks || 0,
           remaining: 0
@@ -244,6 +247,17 @@ Deno.serve(async (req) => {
 
       job = newJob;
       console.log('✅ Created job:', job.id);
+      
+      // Return early after creating job - let driver loop handle processing
+      return new Response(JSON.stringify({
+        action: 'created',
+        jobId: job.id,
+        cancelled_previous_count: cancelledCount,
+        total_tasks: totalTasks,
+        remaining: totalTasks
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Fetch active prompts and providers
@@ -263,6 +277,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         action: 'completed',
+        jobId: job.id,
         completed: 0,
         failed: 0,
         remaining: 0
@@ -285,6 +300,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         action: 'completed',
+        jobId: job.id,
         completed: job.completed_tasks,
         failed: job.failed_tasks,
         remaining: 0
@@ -339,6 +355,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         action: 'completed',
+        jobId: job.id,
         completed: newCompleted,
         failed: newFailed,
         remaining: 0
@@ -349,6 +366,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       action: 'in_progress',
+      jobId: job.id,
       completed: newCompleted,
       failed: newFailed,
       remaining: newRemaining,

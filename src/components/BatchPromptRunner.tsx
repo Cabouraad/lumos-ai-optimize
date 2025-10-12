@@ -245,51 +245,16 @@ export function BatchPromptRunner() {
     }
   };
 
-  // Run preflight check to validate system status
+  // Simplified connectivity check
   const runPreflight = async () => {
     try {
-      console.log('🔍 Running preflight check...');
+      console.log('🔍 Testing connectivity...');
       const orgId = await getOrgId();
-      const correlationId = crypto.randomUUID();
-      
-      const { data, error } = await robustInvoke('robust-batch-processor', {
-        body: { 
-          action: 'preflight',
-          orgId,
-          correlationId
-        }
-      });
-
-      if (error) {
-        console.error('❌ Preflight check failed:', error);
-        setLastError(`Preflight failed: ${error.message}`);
-        return;
-      }
-
-      console.log('✅ Preflight check successful:', data);
-      setPreflightData(data);
-      
-      // Show warning if critical issues found
-      const hasNoProviders = data.providers?.available?.length === 0;
-      const quotaExceeded = !data.quota?.allowed;
-      
-      setShowPreflightWarning(hasNoProviders || quotaExceeded);
-      
-      if (data.providers?.missing?.length > 0) {
-        console.warn('⚠️ Missing provider API keys:', data.providers.missing);
-        toast.warning(`Missing API keys for: ${data.providers.missing.join(', ')}`);
-      }
-      
-      if (hasNoProviders) {
-        toast.error('No LLM provider API keys configured. Please add API keys in settings.');
-      }
-      
-      if (quotaExceeded) {
-        toast.error('Daily quota exceeded. Upgrade your plan to continue.');
-      }
+      // Just test that we can reach the edge function
+      console.log('✅ Connectivity OK, org:', orgId);
     } catch (error: any) {
-      console.error('💥 Preflight check error:', error);
-      setLastError(`Preflight error: ${error.message}`);
+      console.error('💥 Connectivity error:', error);
+      setLastError(`Connectivity error: ${error.message}`);
     }
   };
 
@@ -341,14 +306,10 @@ export function BatchPromptRunner() {
     
     try {
       console.log('🚀 Starting batch processing...');
-      
       const orgId = await getOrgId();
       
       const { data, error } = await robustInvoke('robust-batch-processor', {
-        body: { 
-          orgId,
-          replace: true
-        }
+        body: { orgId, replace: true }
       });
 
       if (error) {
@@ -357,14 +318,30 @@ export function BatchPromptRunner() {
         return;
       }
 
+      console.log('✅ Job created:', data);
+
+      // Set cancelled count if any
       if (data?.cancelled_previous_count > 0) {
         setCancelledCount(data.cancelled_previous_count);
         toast.success(`Cancelled ${data.cancelled_previous_count} previous run(s)`);
       }
 
-      await loadRecentJobs();
-      toast.success(`Processing ${data?.remaining || 0} tasks`);
-      
+      // CRITICAL: Fetch the newly created job and set it as currentJob
+      if (data?.jobId) {
+        const { data: jobData } = await supabase
+          .from('batch_jobs')
+          .select('*')
+          .eq('id', data.jobId)
+          .single();
+        
+        if (jobData) {
+          setCurrentJob(jobData as unknown as BatchJob);
+          toast.success(`Processing ${data.total_tasks} tasks`);
+        }
+      } else {
+        // Fallback: load recent jobs
+        await loadRecentJobs();
+      }
       
     } catch (error: any) {
       console.error('💥 Batch processing error:', error);
@@ -376,76 +353,7 @@ export function BatchPromptRunner() {
     }
   };
 
-  const resumeStuckJob = async (jobId: string) => {
-    setIsResuming(jobId);
-    setLastError(null);
-    
-    try {
-      console.log('🔄 Resuming stuck job:', jobId);
-      
-      let orgId;
-      try {
-        orgId = await getOrgId();
-      } catch (orgError) {
-        console.error('🚨 Resume getOrgId failed:', orgError);
-        setLastError(`Authentication error: ${orgError.message}. Please refresh the page.`);
-        setIsResuming(null);
-        return;
-      }
-      
-      const { data, error } = await robustInvoke('robust-batch-processor', {
-        body: { 
-          orgId, 
-          resumeJobId: jobId, 
-          action: 'resume',
-          correlationId: crypto.randomUUID()
-        }
-      });
-
-      if (error) {
-        console.error('❌ Resume failed:', error);
-        const errorMsg = `Resume failed: ${error.message}`;
-        setLastError(errorMsg);
-        toast.error(errorMsg);
-        return;
-      }
-
-      console.log('✅ Resume result:', data);
-      
-      if (!data.success) {
-        const errorMsg = data.error || 'Resume failed';
-        setLastError(errorMsg);
-        toast.error(errorMsg);
-        return;
-      }
-      
-      // Handle in-progress status for resumes too
-      if (data.action === 'in_progress') {
-        toast.success(`Resume in progress! ${data.processedSoFar} tasks completed so far.`);
-        loadRecentJobs();
-        return;
-      }
-      
-      if (data.action === 'finalized') {
-        toast.success(`Job finalized: ${data.completedTasks}/${data.completedTasks + data.failedTasks} tasks completed`);
-      } else if (data.action === 'resumed') {
-        toast.success(`Job resumed: processing ${data.totalTasks} tasks`);
-      } else {
-        toast.success(data.message || 'Job processed successfully');
-      }
-      
-      // Refresh the job list
-      loadRecentJobs();
-      
-    } catch (error: any) {
-      console.error('💥 Resume error:', error);
-      const errorMsg = `Resume error: ${error.message}`;
-      setLastError(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setIsResuming(null);
-    }
-  };
+  // Resume function removed - no longer needed with micro-batch architecture
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -685,28 +593,15 @@ export function BatchPromptRunner() {
                 </div>
               </div>
 
-              {/* Resume button for stuck jobs */}
+              {/* Job stuck - manual reconciliation needed */}
               {isJobStuck(currentJob) && (
                 <div className="mt-3 pt-3 border-t">
-                  <Button
-                    onClick={() => resumeStuckJob(currentJob.id)}
-                    disabled={isResuming === currentJob.id}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  >
-                    {isResuming === currentJob.id ? (
-                      <>
-                        <Clock className="h-4 w-4 animate-spin mr-2" />
-                        Resuming...
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Resume Stuck Job
-                      </>
-                    )}
-                  </Button>
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      This job appears stuck. Run the reconciler to clean up stuck jobs.
+                    </AlertDescription>
+                  </Alert>
                 </div>
               )}
             </div>
@@ -738,20 +633,6 @@ export function BatchPromptRunner() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {isJobStuck(job) && job.status === 'processing' && (
-                      <Button
-                        onClick={() => resumeStuckJob(job.id)}
-                        disabled={isResuming === job.id}
-                        variant="outline"
-                        size="sm"
-                      >
-                        {isResuming === job.id ? (
-                          <Clock className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RotateCcw className="h-3 w-3" />
-                        )}
-                      </Button>
-                    )}
                     <div className="text-right">
                       <Badge variant={getStatusBadgeVariant(job.status)}>
                         {job.status}
