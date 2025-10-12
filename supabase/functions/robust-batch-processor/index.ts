@@ -241,7 +241,7 @@ async function processTask(
       score: analysis.score,
       org_brand_present: analysis.org_brand_present,
       org_brand_prominence: analysis.org_brand_prominence || 0,
-      competitors_count: analysis.competitors_count || 0,
+      competitors_count: (analysis.competitors_json || []).length,
       competitors_json: analysis.competitors_json || [],
       brands_json: analysis.brands_json || [],
       token_in: 0,
