@@ -348,7 +348,11 @@ Deno.serve(async (req) => {
           started_at: new Date().toISOString(),
           metadata: {
             provider_names: providers.map(p => p.name),
-            correlation_id: crypto.randomUUID()
+            correlation_id: crypto.randomUUID(),
+            completed_combinations: [],
+            failed_combinations: [],
+            prompt_failures: {},
+            last_known_progress: 0
           }
         })
         .select()
@@ -424,7 +428,13 @@ Deno.serve(async (req) => {
     let completed = 0;
     let failed = 0;
 
-    console.log(`🔄 Processing ${tasksToProcess} tasks...`);
+    // Get tracking data
+    const completedCombinations = job.metadata?.completed_combinations || [];
+    const failedCombinations = job.metadata?.failed_combinations || [];
+    const promptFailures = job.metadata?.prompt_failures || {};
+    const CIRCUIT_BREAKER_THRESHOLD = 3;
+
+    console.log(`🔄 Processing ${tasksToProcess} tasks (${completedCombinations.length} already done)...`);
 
     for (let i = 0; i < tasksToProcess; i++) {
       const taskIndex = tasksProcessed + i;
@@ -432,20 +442,54 @@ Deno.serve(async (req) => {
       const providerIndex = taskIndex % providers.length;
 
       if (promptIndex >= prompts.length) break;
-      if (Date.now() - startTime > SAFETY_TIMEOUT) break;
+      if (Date.now() - startTime > SAFETY_TIMEOUT) {
+        console.log('⏱️ Safety timeout reached, returning partial results');
+        break;
+      }
 
       const prompt = prompts[promptIndex];
       const provider = providers[providerIndex];
+      const taskKey = `${prompt.id}:${provider.name}`;
+
+      // Check if already completed
+      if (completedCombinations.includes(taskKey)) {
+        console.log(`⏭️ Skipping already-completed: ${taskKey}`);
+        continue;
+      }
+
+      // Check circuit breaker
+      const failureCount = promptFailures[prompt.id] || 0;
+      if (failureCount >= CIRCUIT_BREAKER_THRESHOLD) {
+        console.log(`🔴 Circuit breaker OPEN for prompt ${prompt.id} (${failureCount} failures)`);
+        if (!failedCombinations.includes(taskKey)) {
+          failedCombinations.push(taskKey);
+        }
+        failed++;
+        continue;
+      }
 
       const success = await processTask(supabase, orgId, prompt.id, prompt.text, provider);
-      if (success) completed++; else failed++;
+      
+      if (success) {
+        completed++;
+        completedCombinations.push(taskKey);
+        promptFailures[prompt.id] = 0; // Reset on success
+      } else {
+        failed++;
+        failedCombinations.push(taskKey);
+        promptFailures[prompt.id] = (promptFailures[prompt.id] || 0) + 1;
+      }
 
       await supabase.from('batch_jobs').update({
         completed_tasks: job.completed_tasks + completed,
         failed_tasks: job.failed_tasks + failed,
         metadata: {
           ...job.metadata,
-          last_heartbeat: new Date().toISOString()
+          last_heartbeat: new Date().toISOString(),
+          completed_combinations: completedCombinations,
+          failed_combinations: failedCombinations,
+          prompt_failures: promptFailures,
+          last_known_progress: job.completed_tasks + completed + job.failed_tasks + failed
         }
       }).eq('id', job.id);
     }
@@ -487,9 +531,38 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error('💥 Error:', error);
     
+    // Try to get current job state for partial progress reporting
+    let partialProgress = null;
+    let correlationId = null;
+    try {
+      if (job?.id) {
+        const { data: currentJob } = await supabase
+          .from('batch_jobs')
+          .select('completed_tasks, failed_tasks, total_tasks, metadata')
+          .eq('id', job.id)
+          .single();
+        
+        if (currentJob) {
+          partialProgress = {
+            completed: currentJob.completed_tasks,
+            failed: currentJob.failed_tasks,
+            total: currentJob.total_tasks
+          };
+          correlationId = currentJob.metadata?.correlation_id;
+        }
+      }
+    } catch (progressError) {
+      console.error('Could not fetch partial progress:', progressError);
+    }
+    
     return new Response(JSON.stringify({
       action: 'error',
-      error: error.message
+      error: error.message,
+      errorType: error.name,
+      correlationId,
+      partialProgress,
+      timestamp: new Date().toISOString(),
+      retryable: !error.message?.includes('401') && !error.message?.includes('403')
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

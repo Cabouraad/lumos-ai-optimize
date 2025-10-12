@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings, AlertTriangle, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Play, AlertCircle, RotateCcw, Zap, Settings, AlertTriangle, Shield, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getOrgId } from '@/lib/auth';
@@ -45,7 +45,7 @@ export function BatchPromptRunner() {
   const [currentJob, setCurrentJob] = useState<BatchJob | null>(null);
   const [recentJobs, setRecentJobs] = useState<BatchJob[]>([]);
   const [isStarting, setIsStarting] = useState(false);
-  const [isResuming, setIsResuming] = useState<string | null>(null);
+  const [isResuming, setIsResuming] = useState(false);
   const [isReconciling, setIsReconciling] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [preflightData, setPreflightData] = useState<any>(null);
@@ -95,24 +95,44 @@ export function BatchPromptRunner() {
     loadCircuitBreakerStatus();
   }, []);
 
-  // Simplified driver loop - micro-batch processing
+  // Enhanced driver loop with retry logic and error handling
   useEffect(() => {
     if (!currentJob || currentJob.status !== 'processing') {
       return;
     }
 
     let isActive = true;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
+    
     const driveLoop = async () => {
-      while (isActive) {
+      while (isActive && consecutiveErrors < MAX_CONSECUTIVE_ERRORS) {
         try {
-          const { data } = await robustInvoke('robust-batch-processor', {
+          console.log(`🔄 [${new Date().toISOString()}] Calling processor for job ${currentJob.id}`);
+          
+          const { data, error } = await robustInvoke('robust-batch-processor', {
             body: {
               jobId: currentJob.id,
               orgId: currentJob.org_id
             }
           });
 
+          if (error) {
+            throw new Error(error.message || 'Unknown error');
+          }
+
           if (!isActive) break;
+
+          // Reset error counter on success
+          consecutiveErrors = 0;
+
+          // Verify heartbeat was updated
+          if (data?.last_heartbeat) {
+            const heartbeatAge = Date.now() - new Date(data.last_heartbeat).getTime();
+            if (heartbeatAge > 60000) {
+              console.warn(`⚠️ Heartbeat is stale (${Math.round(heartbeatAge / 1000)}s old)`);
+            }
+          }
 
           await loadRecentJobs();
 
@@ -122,15 +142,29 @@ export function BatchPromptRunner() {
           }
 
           if (data?.action === 'error') {
-            toast.error(data.error || "Processing error");
-            break;
+            throw new Error(data.error || "Processing error");
           }
 
           // Continue immediately for next micro-batch
           await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-          console.error('Driver error:', error);
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+        } catch (error: any) {
+          consecutiveErrors++;
+          console.error(`❌ [${new Date().toISOString()}] Driver error (attempt ${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, {
+            error: error.message,
+            stack: error.stack,
+            jobId: currentJob.id
+          });
+
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            toast.error(`Failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Check logs or try resuming.`);
+            break;
+          }
+
+          // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+          const backoffMs = Math.min(2000 * Math.pow(2, consecutiveErrors - 1), 32000);
+          console.log(`⏳ Retrying in ${backoffMs / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
         }
       }
     };
@@ -282,7 +316,7 @@ export function BatchPromptRunner() {
       console.log('✅ Reconciler result:', data);
       
       if (data.processedJobs > 0) {
-        toast.success(`Reconciler processed ${data.processedJobs} jobs: ${data.finalizedJobs} finalized, ${data.resumedJobs} resumed`);
+        toast.success(`Fixed ${data.processedJobs} jobs (${data.finalizedJobs} finalized, ${data.failedJobs} failed)`);
       } else {
         toast.success('No stuck jobs found - system healthy!');
       }
@@ -297,6 +331,38 @@ export function BatchPromptRunner() {
       toast.error(errorMsg);
     } finally {
       setIsReconciling(false);
+    }
+  };
+
+  const resumeJob = async (jobId: string, orgId: string) => {
+    try {
+      setIsResuming(true);
+      const { data, error } = await robustInvoke('robust-batch-processor', {
+        body: { jobId, orgId }
+      });
+
+      if (error) throw error;
+
+      if (data?.action === 'created' || data?.action === 'in_progress') {
+        await supabase
+          .from('batch_jobs')
+          .update({ 
+            status: 'processing',
+            metadata: { 
+              ...(recentJobs.find(j => j.id === jobId)?.metadata || {}),
+              resumed_at: new Date().toISOString() 
+            }
+          })
+          .eq('id', jobId);
+        
+        setCurrentJob({ id: jobId, org_id: orgId, status: 'processing' } as any);
+        toast.success('Job resumed! Processing will continue...');
+        await loadRecentJobs();
+      }
+    } catch (err: any) {
+      toast.error(`Resume failed: ${err.message}`);
+    } finally {
+      setIsResuming(false);
     }
   };
 
@@ -639,6 +705,18 @@ export function BatchPromptRunner() {
                       <Badge variant={getStatusBadgeVariant(job.status)}>
                         {job.status}
                       </Badge>
+                      {job.status === 'failed' && (job as any).metadata?.resumable && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => resumeJob(job.id, job.org_id)}
+                          disabled={isResuming}
+                          className="ml-2"
+                        >
+                          <PlayCircle className="h-3 w-3 mr-1" />
+                          Resume
+                        </Button>
+                      )}
                       <div className="text-xs text-muted-foreground mt-1">
                         {formatDuration(job.started_at, job.completed_at)}
                       </div>

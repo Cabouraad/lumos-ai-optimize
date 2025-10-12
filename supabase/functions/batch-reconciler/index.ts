@@ -48,7 +48,27 @@ Deno.serve(async (req) => {
 
     for (const job of processingJobs || []) {
       const lastHeartbeat = job.metadata?.last_heartbeat;
+      const lastKnownProgress = job.metadata?.last_known_progress || 0;
+      const currentProgress = (job.completed_tasks || 0) + (job.failed_tasks || 0);
       const now = Date.now();
+      
+      // Check if making progress
+      const isProgressing = currentProgress > lastKnownProgress;
+      
+      if (isProgressing) {
+        console.log(`✅ Job ${job.id} is making progress (${lastKnownProgress} → ${currentProgress})`);
+        await supabase
+          .from('batch_jobs')
+          .update({
+            metadata: { 
+              ...job.metadata,
+              last_known_progress: currentProgress 
+            }
+          })
+          .eq('id', job.id);
+        skippedJobs++;
+        continue;
+      }
       
       // Check if heartbeat is fresh
       if (lastHeartbeat) {
@@ -76,7 +96,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check if job is truly stuck (stale heartbeat or old start time)
+      // Only fail if: no progress + stale heartbeat/old start time
       let isStuck = false;
       let reason = '';
 
@@ -84,7 +104,7 @@ Deno.serve(async (req) => {
         const heartbeatTime = new Date(lastHeartbeat).getTime();
         if (now - heartbeatTime > HEARTBEAT_STALE_MS) {
           isStuck = true;
-          reason = `stale_heartbeat (${Math.round((now - heartbeatTime) / 60000)} min ago)`;
+          reason = `stale_heartbeat (${Math.round((now - heartbeatTime) / 60000)} min ago, no progress)`;
         }
       } else if (job.started_at) {
         const startTime = new Date(job.started_at).getTime();
@@ -105,7 +125,8 @@ Deno.serve(async (req) => {
               ...job.metadata,
               failed_reason: reason,
               cleaned_by: 'reconciler', 
-              cleaned_at: new Date().toISOString() 
+              cleaned_at: new Date().toISOString(),
+              resumable: true
             }
           })
           .eq('id', job.id);
