@@ -7,91 +7,86 @@ import { checkPromptQuota, createQuotaExceededResponse } from '../_shared/quota-
 import { BatchUsageTracker } from '../_shared/usage-tracker.ts'
 import { getOrgSubscriptionTier, filterAllowedProviders, auditProviderFilter, getAllowedProviders } from '../_shared/provider-policy.ts'
 
-// Background resume function with safety limits
+// Constants
+const CONCURRENCY = 3; // Process up to 3 providers in parallel per prompt
+const TIME_BUDGET_MS = 280000; // 280s (4m40s) - leave margin for edge runtime
+const MAX_RESUME_ATTEMPTS = 3;
+const RESUME_DELAY_MS = 5000;
+
+// Background resume with safety limits
 async function scheduleBackgroundResume(
-  supabase: any, 
-  jobId: string, 
-  orgId: string, 
+  orgId: string,
+  jobId: string,
   correlationId: string,
-  attempt: number = 1
+  attemptNumber = 1
 ): Promise<void> {
-  const MAX_RESUME_ATTEMPTS = 3;
-  const RESUME_DELAY_MS = 5000; // 5 second delay between resumes
-  
-  if (attempt > MAX_RESUME_ATTEMPTS) {
-    console.log(`⚠️  Max resume attempts reached for job ${jobId}, correlation_id: ${correlationId}`);
+  if (attemptNumber > MAX_RESUME_ATTEMPTS) {
+    console.log(`⚠️ Max resume attempts (${MAX_RESUME_ATTEMPTS}) reached for job ${jobId}`);
     return;
   }
 
+  const isCronContext = Deno.env.get('x-cron-secret') !== undefined;
+  if (!isCronContext) {
+    console.log('⚠️ Not in cron context, skipping background resume schedule');
+    return;
+  }
+
+  console.log(`🔄 Scheduling background resume for job ${jobId}, attempt ${attemptNumber}`);
+
   try {
-    // Wait before attempting resume
     await new Promise(resolve => setTimeout(resolve, RESUME_DELAY_MS));
-    
-    console.log(`🔄 Attempting background resume ${attempt}/${MAX_RESUME_ATTEMPTS} for job ${jobId}, correlation_id: ${correlationId}`);
-    
-    // Call ourselves recursively to resume processing with authentication
-    // Try environment variable first, fallback to database
-    let cronSecret = Deno.env.get('CRON_SECRET');
-    if (!cronSecret) {
-      const { data: secretData } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'cron_secret')
-        .single();
-      cronSecret = secretData?.value;
-    }
-    
-    const resumeResponse = await supabase.functions.invoke('robust-batch-processor', {
-      body: { 
-        action: 'resume', 
-        resumeJobId: jobId, 
-        orgId,
-        correlationId,
-        resumedBy: 'background-scheduler',
-        attemptNumber: attempt
-      },
-      headers: cronSecret ? {
-        'x-cron-secret': cronSecret
-      } : {}
-    });
 
-    if (resumeResponse.error) {
-      throw new Error(resumeResponse.error.message);
-    }
+    const response = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/robust-batch-processor`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'x-correlation-id': correlationId,
+        },
+        body: JSON.stringify({
+          action: 'resume',
+          resumeJobId: jobId,
+          orgId,
+          correlationId,
+          attemptNumber: attemptNumber + 1,
+        }),
+      }
+    );
 
-    const result = resumeResponse.data;
-    console.log(`📋 Background resume result for job ${jobId}: ${result.action}, correlation_id: ${correlationId}`);
-    
-    // If still in progress, schedule another resume
-    if (result.action === 'in_progress') {
-      EdgeRuntime.waitUntil(
-        scheduleBackgroundResume(supabase, jobId, orgId, correlationId, attempt + 1)
-      );
+    if (!response.ok) {
+      console.error(`❌ Background resume failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Error details:', errorText);
+      
+      if (attemptNumber < MAX_RESUME_ATTEMPTS) {
+        await scheduleBackgroundResume(orgId, jobId, correlationId, attemptNumber + 1);
+      }
     } else {
-      console.log(`✅ Background processing completed for job ${jobId}, correlation_id: ${correlationId}`);
+      const result = await response.json();
+      console.log(`✅ Background resume response:`, result);
+      
+      if (result.action === 'in_progress') {
+        await scheduleBackgroundResume(orgId, jobId, correlationId, attemptNumber + 1);
+      }
     }
-    
-  } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    console.error(`❌ Background resume failed for job ${jobId}, attempt ${attempt}, correlation_id: ${correlationId}:`, err);
-    
-    // Retry on failure if we haven't exhausted attempts
-    if (attempt < MAX_RESUME_ATTEMPTS) {
-      EdgeRuntime.waitUntil(
-        scheduleBackgroundResume(supabase, jobId, orgId, correlationId, attempt + 1)
-      );
+  } catch (error) {
+    console.error('❌ Background resume scheduling error:', error);
+    if (attemptNumber < MAX_RESUME_ATTEMPTS) {
+      await scheduleBackgroundResume(orgId, jobId, correlationId, attemptNumber + 1);
     }
   }
+
+  console.log(`✅ Background resume scheduled for job ${jobId}, attempt ${attemptNumber}`);
 }
 
-// Rate limiting for public endpoint
 const getClientIP = (req: Request): string => {
-  return req.headers.get('x-forwarded-for')?.split(',')[0] || 
-         req.headers.get('x-real-ip') || 
+  return req.headers.get('x-forwarded-for')?.split(',')[0] ||
+         req.headers.get('x-real-ip') ||
          'unknown';
 };
 
-// Helper to get today's date key in NY timezone
 function getTodayKeyNY(d = new Date()): string {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -108,33 +103,39 @@ function getTodayKeyNY(d = new Date()): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Helper to safely mark job as failed
 async function handleJobError(supabase: any, error: any, jobId: string): Promise<void> {
   try {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : '';
-    
+    const { data: existingJob } = await supabase
+      .from('batch_jobs')
+      .select('metadata')
+      .eq('id', jobId)
+      .single();
+
+    const updatedMetadata = {
+      ...(existingJob?.metadata || {}),
+      error_details: error.stack || String(error),
+      failed_at: new Date().toISOString()
+    };
+
     await supabase
       .from('batch_jobs')
       .update({
         status: 'failed',
-        completed_at: new Date().toISOString(),
-        metadata: {
-          error_message: errorMessage,
-          error_stack: errorStack?.substring(0, 1000), // Truncate stack trace
-          failed_at: new Date().toISOString()
-        }
+        error_message: error.message || String(error),
+        metadata: updatedMetadata,
+        completed_at: new Date().toISOString()
       })
       .eq('id', jobId);
     
-    console.log(`⚠️ Job ${jobId} marked as failed:`, errorMessage);
-  } catch (updateError) {
-    console.error('❌ Failed to update job status to failed:', updateError);
+    console.log(`Job ${jobId} marked as failed`);
+  } catch (err: any) {
+    console.error(`Failed to update job ${jobId}:`, err);
   }
 }
 
 interface TaskResult {
   success: boolean;
+  status?: string;
   data?: any;
   error?: string;
 }
@@ -147,17 +148,14 @@ interface ProviderConfig {
   buildRequest: (prompt: string) => any;
 }
 
-// Provider configurations
 function getProviderConfigs(): Record<string, ProviderConfig> {
   const openaiKey = Deno.env.get('OPENAI_API_KEY') || '';
   const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY') || '';
-  // Check multiple possible Gemini key names (consistent with other functions)
-  const geminiKey = Deno.env.get('GEMINI_API_KEY') || 
-                    Deno.env.get('GOOGLE_API_KEY') || 
-                    Deno.env.get('GOOGLE_GENAI_API_KEY') || 
+  const geminiKey = Deno.env.get('GEMINI_API_KEY') ||
+                    Deno.env.get('GOOGLE_API_KEY') ||
+                    Deno.env.get('GOOGLE_GENAI_API_KEY') ||
                     Deno.env.get('GENAI_API_KEY') || '';
   
-  // Google AI Overviews configuration
   const serpApiKey = Deno.env.get('SERPAPI_KEY') || '';
   const enableGoogleAio = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
   
@@ -165,13 +163,7 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
     openai: openaiKey ? '✅ Available' : '❌ Missing',
     perplexity: perplexityKey ? '✅ Available' : '❌ Missing', 
     gemini: geminiKey ? '✅ Available' : '❌ Missing',
-    google_ai_overview: (enableGoogleAio && serpApiKey) ? '✅ Available' : '❌ Missing/Disabled',
-    geminiKeySource: geminiKey ? (
-      Deno.env.get('GEMINI_API_KEY') ? 'GEMINI_API_KEY' :
-      Deno.env.get('GOOGLE_API_KEY') ? 'GOOGLE_API_KEY' :
-      Deno.env.get('GOOGLE_GENAI_API_KEY') ? 'GOOGLE_GENAI_API_KEY' :
-      Deno.env.get('GENAI_API_KEY') ? 'GENAI_API_KEY' : 'unknown'
-    ) : 'none'
+    google_ai_overview: (enableGoogleAio && serpApiKey) ? '✅ Available' : '❌ Missing/Disabled'
   });
   
   return {
@@ -192,9 +184,6 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
         if (Array.isArray(content)) {
           return content.map(c => typeof c === 'string' ? c : c.text || '').join('');
         }
-        if (!content) {
-          console.log('⚠️ OpenAI: No content in response:', JSON.stringify(data.choices?.[0], null, 2));
-        }
         return content || '';
       }
     },
@@ -211,13 +200,7 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
         max_tokens: 2000,
         temperature: 0.3
       }),
-      extractResponse: (data: any) => {
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) {
-          console.log('⚠️ Perplexity: No content in response:', JSON.stringify(data.choices?.[0], null, 2));
-        }
-        return content || '';
-      }
+      extractResponse: (data: any) => data.choices?.[0]?.message?.content || ''
     },
     gemini: {
       apiKey: geminiKey,
@@ -239,7 +222,7 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
       extractResponse: (data: any) => data.candidates?.[0]?.content?.parts?.[0]?.text || ''
     },
     google_ai_overview: {
-      apiKey: enableGoogleAio && serpApiKey ? serpApiKey : '', // Only include if enabled
+      apiKey: enableGoogleAio && serpApiKey ? serpApiKey : '',
       baseURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-google-aio`,
       model: 'serp-api',
       buildRequest: (prompt: string) => ({
@@ -248,7 +231,6 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
         hl: 'en'
       }),
       extractResponse: (data: any) => {
-        // Normalize: summary || text || ""
         const text = data?.summary ?? data?.text ?? "";
         if (!text) {
           console.log('⚠️ Google AIO: No AI overview in response, reason:', data?.reason || 'unknown');
@@ -259,9 +241,8 @@ function getProviderConfigs(): Record<string, ProviderConfig> {
   };
 }
 
-// Helper function to queue competitor candidates for manual review
 async function queueCompetitorCandidates(supabase: any, orgId: string, candidates: string[]) {
-  for (const candidate of candidates.slice(0, 5)) { // Limit to top 5
+  for (const candidate of candidates.slice(0, 5)) {
     try {
       await supabase
         .from('brand_candidates')
@@ -283,7 +264,6 @@ async function queueCompetitorCandidates(supabase: any, orgId: string, candidate
   }
 }
 
-// Call provider API with retries and timeout
 async function callProviderAPI(
   provider: string,
   config: ProviderConfig,
@@ -291,7 +271,7 @@ async function callProviderAPI(
 ): Promise<{ success: boolean; response?: string; error?: string; tokenIn?: number; tokenOut?: number }> {
   
   const maxRetries = 3;
-  const timeoutMs = 120000; // 2 minutes
+  const timeoutMs = 120000;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -305,19 +285,15 @@ async function callProviderAPI(
         'Content-Type': 'application/json',
       };
       
-      // Make a copy of the config to avoid mutating the original
       let apiUrl = config.baseURL;
       
-      // Set authorization header based on provider
       if (provider === 'openai') {
         headers['Authorization'] = `Bearer ${config.apiKey}`;
       } else if (provider === 'perplexity') {
         headers['Authorization'] = `Bearer ${config.apiKey}`;
       } else if (provider === 'gemini') {
-        // Gemini uses API key as query parameter
         apiUrl += `?key=${config.apiKey}`;
       } else if (provider === 'google_ai_overview') {
-        // Google AIO uses internal edge function with service role authentication
         const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
         if (serviceKey) {
           headers['Authorization'] = `Bearer ${serviceKey}`;
@@ -333,7 +309,6 @@ async function callProviderAPI(
 
       clearTimeout(timeoutId);
 
-      // Handle rate limiting specifically for Google AIO
       if (!response.ok && response.status === 429 && provider === 'google_ai_overview') {
         const data = await response.json().catch(() => ({}));
         const retryAfter = data.retry_after || 3600;
@@ -345,7 +320,6 @@ async function callProviderAPI(
         const errorText = await response.text();
         const error = new Error(`HTTP ${response.status}: ${errorText}`);
         
-        // Fail fast for invalid model errors
         if (response.status === 400 && errorText.includes('Invalid model')) {
           console.error(`❌ ${provider} invalid model - failing immediately`);
           throw error;
@@ -357,7 +331,6 @@ async function callProviderAPI(
       const data = await response.json();
       const extractedResponse = config.extractResponse(data);
 
-      // For Google AIO, empty response with reason is valid (no_ai_overview)
       if (!extractedResponse && provider === 'google_ai_overview') {
         const reason = data?.reason || 'no_ai_overview';
         console.log(`ℹ️ Google AIO returned empty response, reason: ${reason}`);
@@ -385,7 +358,6 @@ async function callProviderAPI(
     } catch (error) {
       console.error(`❌ ${provider} attempt ${attempt} failed:`, error.message);
       
-      // Fail fast for configuration errors (don't retry)
       if (error.message.includes('Invalid model') || error.message.includes('invalid_model')) {
         return {
           success: false,
@@ -400,7 +372,6 @@ async function callProviderAPI(
         };
       }
       
-      // Exponential backoff with jitter
       const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
       const jitter = Math.floor(Math.random() * 300);
       const sleepMs = backoffMs + jitter;
@@ -411,677 +382,599 @@ async function callProviderAPI(
   
   return {
     success: false,
-    error: `${provider} failed after ${maxRetries} attempts`
+    error: `Provider failed after ${maxRetries} attempts`
   };
 }
 
-// Process a single task
 async function processTask(
   supabase: any,
-  task: any,
-  configs: Record<string, ProviderConfig>,
-  subscriptionTier: string = 'starter'
+  prompt: any,
+  provider: string,
+  orgId: string,
+  todayKey: string,
+  providerConfigs: Record<string, ProviderConfig>,
+  userTier: string
 ): Promise<TaskResult> {
   try {
-    console.log(`🎯 Processing task ${task.id} (${task.provider}) for tier: ${subscriptionTier}`);
-    
-    // Task status is already updated by claim_batch_tasks RPC
-    // No need for redundant update here
+    console.log(`🎯 Processing: prompt=${prompt.text.substring(0, 40)}..., provider=${provider}`);
 
-    // Get prompt details
-    const { data: prompt, error: promptError } = await supabase
-      .from('prompts')
-      .select('text, org_id')
-      .eq('id', task.prompt_id)
-      .single();
-
-    if (promptError) {
-      throw new Error(`Failed to fetch prompt: ${promptError.message}`);
-    }
-
-    // Check if provider is allowed for this subscription tier
-    const allowedProviders = getAllowedProviders(subscriptionTier as any);
-    if (!allowedProviders.includes(task.provider)) {
-      auditProviderFilter(prompt.org_id, subscriptionTier as any, [task.provider], allowedProviders, [task.provider]);
-      throw new Error(`Provider ${task.provider} not allowed for ${subscriptionTier} tier`);
-    }
-
-    // Get organization data
-    const { data: orgData, error: orgError } = await supabase
-      .from('organizations')
-      .select('name, domain, industry: business_description')
-      .eq('id', prompt.org_id)
-      .single();
-
-    if (orgError) {
-      console.warn('Could not fetch org data:', orgError);
-    }
-
-    const config = configs[task.provider];
+    const config = providerConfigs[provider];
     if (!config || !config.apiKey) {
-      throw new Error(`Missing configuration or API key for provider: ${task.provider}`);
+      throw new Error(`Missing configuration or API key for provider: ${provider}`);
     }
 
-    console.log(`🔄 Calling ${task.provider} for prompt: ${prompt.text.substring(0, 80)}...`);
-    
-    // Call the provider API
-    const result = await callProviderAPI(task.provider, config, prompt.text);
+    const result = await callProviderAPI(provider, config, prompt.text);
     
     if (!result.success) {
-      throw new Error(result.error || 'API call failed');
+      // Store error response
+      await supabase
+        .from('prompt_provider_responses')
+        .insert({
+          org_id: orgId,
+          prompt_id: prompt.id,
+          provider: provider,
+          model: config.model,
+          status: 'error',
+          error: result.error,
+          run_at: new Date().toISOString(),
+          metadata: {
+            error_type: result.error?.includes('rate_limited') ? 'rate_limited' : 'api_error',
+            today_key: todayKey
+          }
+        });
+
+      return { success: false, status: 'error', error: result.error };
     }
 
-    // Get brand catalog for this org
+    // Get brand catalog
     const { data: brandCatalog } = await supabase
       .from('brand_catalog')
       .select('name, is_org_brand, variants_json')
-      .eq('org_id', prompt.org_id);
+      .eq('org_id', orgId);
+
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('name, domain')
+      .eq('id', orgId)
+      .single();
     
-    // Analyze the AI response
+    // Analyze response
     const analysis = await analyzePromptResponse(result.response!, orgData, brandCatalog || []);
 
-    // Extract unknown competitors from metadata for brand candidates
     const unknownCompetitors = analysis.metadata?.ner_organizations || [];
-    for (const candidateName of unknownCompetitors.slice(0, 5)) {
-      try {
-        const { error: candidateError } = await supabase
-          .from('brand_candidates')
-          .upsert({
-            org_id: prompt.org_id,
-            candidate_name: candidateName,
-            detection_count: 1,
-            confidence_score: 0.8,
-            status: 'pending'
-          });
-        
-        if (candidateError) {
-          console.error('Error queuing brand candidate:', candidateError);
-        }
-      } catch (error: unknown) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.error('Error processing brand candidate:', err);
-      }
+    if (unknownCompetitors.length > 0) {
+      await queueCompetitorCandidates(supabase, orgId, unknownCompetitors);
     }
 
-    // Store the response and analysis results
-    const { data: responseData, error: responseError } = await supabase
+    // Store successful response
+    await supabase
       .from('prompt_provider_responses')
       .insert({
-        org_id: prompt.org_id,
-        prompt_id: task.prompt_id,
-        provider: task.provider,
+        org_id: orgId,
+        prompt_id: prompt.id,
+        provider: provider,
         model: config.model,
         status: 'success',
+        run_at: new Date().toISOString(),
         raw_ai_response: result.response,
         score: analysis.score,
-        org_brand_present: analysis.org_brand_present,
-        org_brand_prominence: analysis.org_brand_prominence,
-        competitors_count: analysis.competitors_json.length,
-        competitors_json: analysis.competitors_json,
-        brands_json: analysis.brands_json,
+        org_brand_present: analysis.brandPresent,
+        org_brand_prominence: analysis.brandProminence,
+        competitors_count: analysis.competitorsCount,
+        competitors_json: analysis.competitorsJson,
+        brands_json: analysis.brandsJson,
+        citations_json: analysis.citationsJson,
         token_in: result.tokenIn || 0,
         token_out: result.tokenOut || 0,
         metadata: {
-          analysis_method: analysis.metadata.analysis_method || 'comprehensive',
-          detected_competitors: analysis.metadata.catalog_competitors || 0,
-          discovered_competitors: analysis.metadata.global_competitors || 0,
-          ner_candidates: unknownCompetitors.length
+          today_key: todayKey,
+          analysis_metadata: analysis.metadata
+        }
+      });
+
+    console.log(`✅ Task complete: ${provider} - score: ${analysis.score}`);
+    return { success: true, status: 'success' };
+
+  } catch (error: any) {
+    console.error(`❌ Task failed: ${provider}:`, error.message);
+    
+    // Store error
+    await supabase
+      .from('prompt_provider_responses')
+      .insert({
+        org_id: orgId,
+        prompt_id: prompt.id,
+        provider: provider,
+        status: 'error',
+        error: error.message,
+        run_at: new Date().toISOString(),
+        metadata: { today_key: todayKey }
+      });
+
+    return { success: false, status: 'error', error: error.message };
+  }
+}
+
+// Main Deno serve handler
+Deno.serve(async (req: Request) => {
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  const clientIP = getClientIP(req);
+  const todayKey = getTodayKeyNY();
+  const isCronRequest = !!req.headers.get('x-cron-secret');
+
+  // Rate limiting for unauthenticated public requests (not for authenticated or cron)
+  const authHeader = req.headers.get('authorization');
+  const hasAuth = !!authHeader || isCronRequest;
+  
+  if (!hasAuth && isRateLimited(clientIP, 60, 300000)) {
+    console.log(`⚠️ Rate limit exceeded for IP: ${clientIP}`);
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Rate limit exceeded. Please try again later.',
+      action: 'rate_limited'
+    }), {
+      status: 429,
+      headers: { ...corsHeaders, ...getRateLimitHeaders(300), 'Content-Type': 'application/json' }
+    });
+  }
+
+  const body = await req.json();
+  const {
+    action = 'create',
+    orgId,
+    correlationId = crypto.randomUUID(),
+    replace = false,
+    resumeJobId = null,
+  } = body;
+
+  console.log(`📋 Batch processor invoked: action=${action}, orgId=${orgId}, replace=${replace}, resumeJobId=${resumeJobId}, correlationId=${correlationId}`);
+
+  // ========== HANDLE RESUME ACTION ==========
+  if (action === 'resume') {
+    if (!resumeJobId) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'resumeJobId required for resume action',
+        action: 'error'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`🔄 Resuming job ${resumeJobId} for org ${orgId}`);
+
+    const { data: existingJob, error: fetchError } = await supabase
+      .from('batch_jobs')
+      .select('*')
+      .eq('id', resumeJobId)
+      .eq('org_id', orgId)
+      .single();
+
+    if (fetchError || !existingJob) {
+      console.error('❌ Failed to fetch job for resume:', fetchError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Job not found',
+        action: 'error'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // If job is already finalized, return immediately
+    if (['completed', 'failed', 'cancelled'].includes(existingJob.status)) {
+      console.log(`✅ Job ${resumeJobId} already finalized with status: ${existingJob.status}`);
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'finalized',
+        status: existingJob.status,
+        batchJobId: resumeJobId,
+        completed_tasks: existingJob.completed_tasks,
+        failed_tasks: existingJob.failed_tasks,
+        total_tasks: existingJob.total_tasks
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Reconstruct job state from metadata
+    const metadata = existingJob.metadata || {};
+    const promptIds = metadata.prompt_ids || [];
+    const providerNames = existingJob.providers || [];
+    const cursor = metadata.cursor || { prompt_index: 0, provider_index: 0 };
+
+    console.log(`📊 Resume state: cursor=${JSON.stringify(cursor)}, completed=${existingJob.completed_tasks}/${existingJob.total_tasks}`);
+
+    // Get prompts
+    let activePrompts = [];
+    if (promptIds.length === 0) {
+      // Legacy job - fetch active prompts
+      const { data: prompts } = await supabase
+        .from('prompts')
+        .select('id, text')
+        .eq('org_id', orgId)
+        .eq('active', true);
+      activePrompts = prompts || [];
+      
+      // Update metadata with prompt_ids
+      await supabase
+        .from('batch_jobs')
+        .update({
+          metadata: {
+            ...metadata,
+            prompt_ids: activePrompts.map((p: any) => p.id),
+            version: 2
+          }
+        })
+        .eq('id', resumeJobId);
+    } else {
+      // Fetch prompts by saved IDs
+      const { data: prompts } = await supabase
+        .from('prompts')
+        .select('id, text')
+        .in('id', promptIds);
+      activePrompts = prompts || [];
+    }
+
+    if (activePrompts.length === 0) {
+      console.log('⚠️ No prompts to process');
+      await supabase
+        .from('batch_jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', resumeJobId);
+
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'completed',
+        batchJobId: resumeJobId,
+        message: 'No prompts to process'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const providerConfigs = getProviderConfigs();
+    const userTier = await getOrgSubscriptionTier(supabase, orgId);
+    const startTime = Date.now();
+    let completedTasks = existingJob.completed_tasks || 0;
+    let failedTasks = existingJob.failed_tasks || 0;
+
+    try {
+      // Resume processing from cursor
+      for (let pi = cursor.prompt_index; pi < activePrompts.length; pi++) {
+        const prompt = activePrompts[pi];
+        const startProviderIndex = (pi === cursor.prompt_index) ? cursor.provider_index : 0;
+
+        for (let pri = startProviderIndex; pri < providerNames.length; pri += CONCURRENCY) {
+          // Check time budget
+          if (Date.now() - startTime > TIME_BUDGET_MS) {
+            console.log(`⏰ Time budget exceeded during resume, pausing at prompt ${pi}/${activePrompts.length}, provider ${pri}/${providerNames.length}`);
+            
+            await supabase
+              .from('batch_jobs')
+              .update({
+                completed_tasks: completedTasks,
+                failed_tasks: failedTasks,
+                metadata: {
+                  ...metadata,
+                  cursor: { prompt_index: pi, provider_index: pri },
+                  last_heartbeat: new Date().toISOString()
+                }
+              })
+              .eq('id', resumeJobId);
+
+            if (isCronRequest) {
+              EdgeRuntime.waitUntil(
+                scheduleBackgroundResume(orgId, resumeJobId, correlationId)
+              );
+            }
+
+            return new Response(JSON.stringify({
+              success: true,
+              action: 'in_progress',
+              batchJobId: resumeJobId,
+              completed_tasks: completedTasks,
+              failed_tasks: failedTasks,
+              total_tasks: existingJob.total_tasks,
+              cursor: { prompt_index: pi, provider_index: pri },
+              message: 'Time budget exceeded, resume scheduled'
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Process providers in parallel (bounded by CONCURRENCY)
+          const providerBatch = providerNames.slice(pri, pri + CONCURRENCY);
+          const batchResults = await Promise.allSettled(
+            providerBatch.map(provider =>
+              processTask(supabase, prompt, provider, orgId, todayKey, providerConfigs, userTier)
+            )
+          );
+
+          // Update counters
+          for (const result of batchResults) {
+            if (result.status === 'fulfilled') {
+              if (result.value?.status === 'success') completedTasks++;
+              else failedTasks++;
+            } else {
+              failedTasks++;
+            }
+          }
+
+          // Update heartbeat every batch
+          await supabase
+            .from('batch_jobs')
+            .update({
+              completed_tasks: completedTasks,
+              failed_tasks: failedTasks,
+              metadata: {
+                ...metadata,
+                cursor: { prompt_index: pi, provider_index: pri + CONCURRENCY },
+                last_heartbeat: new Date().toISOString()
+              }
+            })
+            .eq('id', resumeJobId);
+        }
+      }
+
+      // All tasks completed
+      console.log(`✅ Resume completed all tasks for job ${resumeJobId}`);
+      await supabase
+        .from('batch_jobs')
+        .update({
+          status: 'completed',
+          completed_tasks: completedTasks,
+          failed_tasks: failedTasks,
+          completed_at: new Date().toISOString(),
+          metadata: {
+            ...metadata,
+            cursor: { prompt_index: activePrompts.length, provider_index: providerNames.length },
+            last_heartbeat: new Date().toISOString()
+          }
+        })
+        .eq('id', resumeJobId);
+
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'completed',
+        batchJobId: resumeJobId,
+        completed_tasks: completedTasks,
+        failed_tasks: failedTasks,
+        total_tasks: existingJob.total_tasks
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+
+    } catch (resumeError: any) {
+      console.error('🚨 Resume processing error:', resumeError);
+      await handleJobError(supabase, resumeError, resumeJobId);
+      
+      return new Response(JSON.stringify({
+        success: false,
+        error: resumeError.message || 'Resume processing failed',
+        action: 'processing_failed',
+        batchJobId: resumeJobId
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  // ========== PREFLIGHT CHECKS ==========
+  if (action === 'preflight') {
+    console.log('🔍 Running preflight checks...');
+    const providerConfigs = getProviderConfigs();
+    
+    const availableProviders = Object.entries(providerConfigs)
+      .filter(([_, config]) => config.apiKey)
+      .map(([name, _]) => name);
+    
+    const missingProviders = Object.entries(providerConfigs)
+      .filter(([_, config]) => !config.apiKey)
+      .map(([name, _]) => name);
+
+    const quotaCheck = await checkPromptQuota(supabase, orgId);
+
+    return new Response(JSON.stringify({
+      success: true,
+      action: 'preflight',
+      providers: {
+        available: availableProviders,
+        missing: missingProviders,
+        total: Object.keys(providerConfigs).length
+      },
+      quota: quotaCheck,
+      timestamp: new Date().toISOString()
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // ========== CREATE ACTION ==========
+  if (action === 'create' || !action) {
+    console.log('🚀 Creating new batch job...');
+
+    const { data: activePrompts } = await supabase
+      .from('prompts')
+      .select('id, text')
+      .eq('org_id', orgId)
+      .eq('active', true);
+
+    if (!activePrompts || activePrompts.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No active prompts found',
+        action: 'error'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const providerConfigs = getProviderConfigs();
+    const userTier = await getOrgSubscriptionTier(supabase, orgId);
+    const rawProviders = Object.keys(providerConfigs).filter(p => providerConfigs[p].apiKey);
+    const providers = filterAllowedProviders(rawProviders, userTier);
+
+    if (providers.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No providers available for your subscription tier',
+        action: 'error'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Cancel any existing jobs if replace=true
+    let cancelledCount = 0;
+    if (replace) {
+      console.log('🔄 Replacing existing batch jobs...');
+      const { data: cancelledJobs, error: cancelError } = await supabase
+        .from('batch_jobs')
+        .update({
+          status: 'cancelled',
+          metadata: {
+            cancel_reason: 'preempted by new job',
+            cancelled_at: new Date().toISOString()
+          }
+        })
+        .eq('org_id', orgId)
+        .in('status', ['pending', 'processing'])
+        .select('id');
+
+      if (cancelError) {
+        console.error('⚠️ Error cancelling existing jobs:', cancelError);
+      } else {
+        cancelledCount = cancelledJobs?.length || 0;
+        console.log(`✅ Cancelled ${cancelledCount} existing jobs`);
+      }
+    }
+
+    // Check for existing job today (idempotency)
+    if (!replace) {
+      const { data: existingJob } = await supabase
+        .from('batch_jobs')
+        .select('id')
+        .eq('org_id', orgId)
+        .gte('created_at', `${todayKey}T00:00:00Z`)
+        .lt('created_at', `${todayKey}T23:59:59Z`)
+        .in('status', ['pending', 'processing', 'completed'])
+        .maybeSingle();
+
+      if (existingJob) {
+        console.log('ℹ️ Batch already exists for today');
+        return new Response(JSON.stringify({
+          success: true,
+          action: 'duplicate_prevented',
+          message: 'Batch already exists for today',
+          batchJobId: existingJob.id
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Create the batch job with durable state
+    const totalTasks = activePrompts.length * providers.length;
+    const promptIds = activePrompts.map((p: any) => p.id);
+    
+    const { data: newJob, error: jobError } = await supabase
+      .from('batch_jobs')
+      .insert({
+        org_id: orgId,
+        status: 'processing',
+        providers,
+        total_tasks: totalTasks,
+        completed_tasks: 0,
+        failed_tasks: 0,
+        started_at: new Date().toISOString(),
+        trigger_source: isCronRequest ? 'cron' : 'manual',
+        metadata: {
+          correlation_id: correlationId,
+          client_ip: clientIP,
+          created_by: action,
+          last_heartbeat: new Date().toISOString(),
+          prompt_ids: promptIds,
+          provider_names: providers,
+          cursor: { prompt_index: 0, provider_index: 0 },
+          version: 2,
+          cancelled_previous_count: cancelledCount
         }
       })
       .select()
       .single();
 
-    if (responseError) {
-      throw new Error(`Failed to store response: ${responseError.message}`);
-    }
-
-    // Update task as completed
-    await supabase
-      .from('batch_tasks')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        result: {
-          response_id: responseData.id,
-          score: analysis.score,
-          brand_present: analysis.org_brand_present,
-          competitors_count: analysis.competitors_json.length
-        }
-      })
-      .eq('id', task.id);
-
-    // Update job progress using batch_job_id from the task
-    await supabase.rpc('increment_completed_tasks', { job_id: task.batch_job_id });
-
-    console.log(`✅ Task ${task.id} completed successfully`);
-    
-    return { success: true, data: responseData };
-
-  } catch (error) {
-    console.error(`❌ Task ${task.id} failed:`, error.message);
-    
-    // Update task as failed
-    await supabase
-      .from('batch_tasks')
-      .update({
-        status: 'failed',
-        completed_at: new Date().toISOString(),
-        error_message: error.message
-      })
-      .eq('id', task.id);
-
-    // Update job progress using batch_job_id from the task
-    await supabase.rpc('increment_failed_tasks', { job_id: task.batch_job_id });
-
-    return { success: false, error: error.message };
-  }
-}
-
-// Main server
-Deno.serve(async (req) => {
-  const requestOrigin = req.headers.get('origin');
-  const corsHeaders = getStrictCorsHeaders(requestOrigin);
-  
-  console.log(`🔍 Request received:`, {
-    method: req.method,
-    origin: requestOrigin,
-    userAgent: req.headers.get('user-agent')?.substring(0, 50) + '...',
-    hasAuth: !!req.headers.get('authorization'),
-    hasCronSecret: !!req.headers.get('x-cron-secret'),
-    isManualCall: req.headers.get('x-manual-call') === 'true'
-  });
-  
-  if (req.method === 'OPTIONS') {
-    console.log('✅ CORS preflight handled');
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    // SECURITY GUARDRAIL: Check authentication since verify_jwt is disabled
-    const authHeader = req.headers.get('authorization');
-    const cronSecret = req.headers.get('x-cron-secret');
-    
-    // Allow either valid JWT or valid cron secret
-    let isAuthenticated = false;
-    
-    if (authHeader) {
-      // Check for Bearer token (from UI)
-      if (authHeader.startsWith('Bearer ')) {
-        isAuthenticated = true; // Basic validation - token presence
-        console.log('🔐 Authenticated via Bearer token');
-      }
-    } else if (cronSecret) {
-      // Check for valid cron secret (from scheduler)
-      const validCronSecret = Deno.env.get('CRON_SECRET');
-      isAuthenticated = validCronSecret && cronSecret === validCronSecret;
-      console.log('🔐 Authenticated via cron secret:', isAuthenticated);
-    }
-    
-    if (!isAuthenticated) {
-      console.error('❌ Authentication failed: No valid authorization header or cron secret');
-      console.log('🔍 Auth Debug:', {
-        hasAuthHeader: !!authHeader,
-        hasCronSecret: !!cronSecret,
-        authHeaderPrefix: authHeader?.substring(0, 10) + '...',
-        hasCronSecretEnv: !!Deno.env.get('CRON_SECRET')
-      });
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Authentication required',
-        action: 'auth_failed'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Rate limiting - bypassed for authenticated requests (moved after auth)
-    // Only apply to unauthenticated public traffic (which should be rejected above)
-    // Keeping this as a safety net with generous limits
-    const clientIP = getClientIP(req);
-    if (!isAuthenticated && isRateLimited(clientIP, 180, 60000)) { // 180 requests per minute for safety
-      console.log(`🚫 Rate limit exceeded for unauthenticated IP: ${clientIP}`);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Rate limit exceeded',
-        retryAfter: 60
-      }), {
-        status: 429,
-        headers: { 
-          ...corsHeaders, 
-          ...getRateLimitHeaders(clientIP, 180, 60000),
-          'Content-Type': 'application/json' 
-        }
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (error: unknown) {
-      console.error('❌ Invalid JSON in request body:', error);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Invalid JSON in request body',
-        details: error.message 
-      }), {
-        status: 200, // Return 200 to avoid edge function errors
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Safely extract parameters with defaults
-    const { 
-      action = 'create', 
-      batchJobId, 
-      orgId, 
-      prompts, 
-      providers, 
-      resumeJobId,
-      replace = false,
-      correlationId = crypto.randomUUID()
-    } = requestBody || {};
-
-    console.log(`🚀 Batch processor started: [${correlationId}]`, {
-      action,
-      orgId: orgId?.substring(0, 8) + '...',
-      providers: providers || 'not provided',
-      promptsCount: prompts?.length || 'not provided',
-      batchJobId: batchJobId?.substring(0, 8) + '...' || 'none',
-      resumeJobId: resumeJobId?.substring(0, 8) + '...' || 'none',
-      replace,
-      correlationId
-    });
-
-    // Validate org_id and check quotas before processing
-    if (!orgId) {
-      console.log('⚠️ No orgId provided - nothing to do');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'orgId is required',
-        action: 'validation_failed'
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Extract user ID for quota checking if authenticated via JWT
-    let userId = null;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        // Basic JWT parsing to get user ID - for production use proper JWT library
-        const token = authHeader.substring(7);
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload.sub;
-        console.log('🔍 Extracted user ID from JWT:', userId?.substring(0, 8) + '...');
-      } catch (error: unknown) {
-        console.warn('⚠️ Failed to parse JWT for user ID:', error);
-        // Don't fail the request, just skip quota checking
-      }
-    }
-
-    // Get provider configs early to avoid TDZ issues
-    const providerConfigs = getProviderConfigs();
-    
-    // Get subscription tier to filter allowed providers
-    const orgSubscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
-    console.log(`📊 Org subscription tier: ${orgSubscriptionTier}`);
-    
-    // Filter providers by: 1) API key available, 2) Subscription tier allows
-    const providersWithKeys = Object.keys(providerConfigs).filter(p => providerConfigs[p].apiKey);
-    const validProviders = filterAllowedProviders(providersWithKeys as any, orgSubscriptionTier);
-    
-    console.log(`🔐 Provider filtering: ${providersWithKeys.length} with keys → ${validProviders.length} allowed for ${orgSubscriptionTier} tier`, {
-      withKeys: providersWithKeys,
-      allowed: validProviders,
-      blocked: providersWithKeys.filter(p => !validProviders.includes(p))
-    });
-    
-    const activeProviders = providers ? providers.split(',') : validProviders;
-
-    // Quota check bypassed for batch processing
-    console.log('🔓 Quota checking bypassed for batch processing');
-
-    // Handle preflight action to check system status
-    if (action === 'preflight') {
-      console.log(`🔍 Preflight check requested [${correlationId}]`);
-      
-      const configs = getProviderConfigs();
-      const availableProviders = Object.keys(configs).filter(p => configs[p]?.apiKey);
-      
-      // Quota check bypassed for batch processing
-      let quotaStatus = { allowed: true, error: null };
-      
-      // Get active prompts count
-      const { data: promptData, error: promptError } = await supabase
-        .from('prompts')
-        .select('id')
-        .eq('org_id', orgId)
-        .eq('active', true);
-
-      if (promptError) {
-        console.error(`❌ Failed to fetch prompts for org ${orgId}:`, promptError);
-        return new Response(JSON.stringify({
-          success: false,
-          action: 'preflight',
-          correlationId,
-          error: 'Failed to fetch prompts: ' + promptError.message,
-          providers: {
-            available: availableProviders,
-            missing: Object.keys(configs).filter(p => !configs[p]?.apiKey),
-            total: Object.keys(configs).length
-          },
-          quota: quotaStatus,
-          expectedTasks: 0,
-          promptCount: 0
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      console.log(`✅ Found ${promptData?.length || 0} active prompts for org ${orgId}`);
-      const expectedTasks = (promptData?.length || 0) * availableProviders.length;
-      
+    if (jobError) {
+      console.error('❌ Failed to create job:', jobError);
       return new Response(JSON.stringify({
-        success: true,
-        action: 'preflight',
-        correlationId,
-        providers: {
-          available: availableProviders,
-          missing: Object.keys(configs).filter(p => !configs[p]?.apiKey),
-          total: Object.keys(configs).length
-        },
-        quota: quotaStatus,
-        expectedTasks,
-        promptCount: promptData?.length || 0,
-        prompts: {
-          count: promptData?.length || 0
-        }
+        success: false,
+        error: 'Failed to create batch job',
+        action: 'error'
       }), {
-        status: 200,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Get configurations and filter by available API keys
-    const configs = getProviderConfigs();
-    const availableProviders = Object.keys(configs).filter(p => configs[p]?.apiKey);
-    
-    if (availableProviders.length === 0) {
-      console.log(`⚠️ No provider API keys available [${correlationId}]`);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No provider API keys configured',
-        action: 'configuration_missing',
-        availableProviders: [],
-        correlationId
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const jobId = newJob.id;
+    console.log(`✅ Job created: ${jobId}, total tasks: ${totalTasks}`);
 
-    // Validate provider configurations (already done above to avoid TDZ)
-    if (validProviders.length === 0) {
-      console.error('❌ No valid provider configurations found');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No valid provider configurations available',
-        validProviders: []
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    // ========== MAIN PROCESSING LOOP ==========
+    const startTime = Date.now();
+    let completedTasks = 0;
+    let failedTasks = 0;
 
-    // Determine which providers to use (already done above)
-    
-    if (validProviders.length === 0) {
-    console.log('⚠️ No valid providers with API keys found');
-    console.log('🔍 Provider Debug:', {
-      providerConfigs: Object.keys(providerConfigs),
-      validProviders,
-      activeProviders,
-      apiKeyStatus: Object.keys(providerConfigs).map((p: string) => ({
-        provider: p,
-        hasKey: !!providerConfigs[p].apiKey,
-        keyLength: providerConfigs[p].apiKey?.length || 0
-      }))
-    });
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'No enabled providers have API keys configured',
-      action: 'no_valid_providers',
-      requestedProviders: activeProviders,
-      availableProviders,
-      debug: {
-        apiKeyStatus: Object.keys(providerConfigs).map((p: string) => ({
-          provider: p,
-          hasKey: !!providerConfigs[p].apiKey
-        }))
-      }
-    }), {
-      status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    try {
+      for (let pi = 0; pi < activePrompts.length; pi++) {
+        const prompt = activePrompts[pi];
 
-    // If prompts not specified, fetch from database
-    let activePrompts = prompts;
-    if (!activePrompts || activePrompts.length === 0) {
-      console.log('🔍 Fetching active prompts from database...');
-      const { data: promptData, error: promptError } = await supabase
-        .from('prompts')
-        .select('id, text')
-        .eq('org_id', orgId)
-        .eq('active', true);
+        for (let pri = 0; pri < providers.length; pri += CONCURRENCY) {
+          // Check time budget before each batch
+          if (Date.now() - startTime > TIME_BUDGET_MS) {
+            console.log(`⏰ Time budget exceeded at prompt ${pi}/${activePrompts.length}, provider ${pri}/${providers.length}`);
+            console.log(`📊 Progress: ${completedTasks} completed, ${failedTasks} failed out of ${totalTasks} total`);
 
-      if (promptError) {
-        console.error('❌ Failed to fetch prompts:', promptError);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Failed to fetch active prompts',
-          details: promptError.message,
-          action: 'prompt_fetch_failed'
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      activePrompts = promptData || [];
-    }
-
-    if (activePrompts.length === 0) {
-      console.log('⚠️ No active prompts found');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No active prompts found for organization',
-        action: 'no_prompts',
-        orgId
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log(`📋 Processing setup:`, {
-      validProviders,
-      promptCount: activePrompts.length,
-      totalTasks: activePrompts.length * validProviders.length
-    });
-
-    let jobId = batchJobId;
-    let totalTasks = 0;
-
-    if (action === 'create') {
-      // IDEMPOTENCY GUARD: Check for existing daily job unless replace=true
-      if (!replace) {
-        const todayKeyNY = getTodayKeyNY();
-        const { data: existingJob, error: checkError } = await supabase
-          .from('batch_jobs')
-          .select('id, status, created_at')
-          .eq('org_id', orgId)
-          .gte('created_at', `${todayKeyNY}T00:00:00`)
-          .lt('created_at', `${todayKeyNY}T23:59:59`)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (!checkError && existingJob) {
-          console.log(`✅ Daily job already exists for org ${orgId} today: ${existingJob.id} (${existingJob.status})`);
-          return new Response(JSON.stringify({
-            success: true,
-            action: 'duplicate_prevented',
-            existingJobId: existingJob.id,
-            existingJobStatus: existingJob.status,
-            message: `Daily job already exists for today (${todayKeyNY})`,
-            correlationId
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-      }
-
-      // Cancel existing jobs if replace=true
-      if (replace) {
-        console.log('🗑️ Cancelling existing active jobs for org...');
-        const { error: cancelError } = await supabase.rpc('cancel_active_batch_jobs', {
-          p_org_id: orgId,
-          p_reason: 'preempted by new batch job'
-        });
-
-        if (cancelError) {
-          console.error('⚠️ Failed to cancel existing jobs:', cancelError);
-          // Don't fail the entire operation, just log the warning
-        } else {
-          console.log('✅ Successfully cancelled existing jobs');
-        }
-      }
-
-      totalTasks = activePrompts.length * validProviders.length;
-
-      // Create batch job with enhanced metadata
-      const { data: batchJob, error: batchError } = await supabase
-        .from('batch_jobs')
-        .insert({
-          org_id: orgId,
-          status: 'pending',
-          total_tasks: totalTasks,
-          completed_tasks: 0,
-          failed_tasks: 0,
-          metadata: {
-            prompts_count: activePrompts.length,
-            providers_count: validProviders.length,
-            provider_names: validProviders,
-            source: 'robust-batch-processor',
-            correlation_id: correlationId,
-            created_at: new Date().toISOString(),
-            today_key: getTodayKeyNY()
-          }
-        })
-        .select()
-        .single();
-
-      if (batchError) {
-        console.error('❌ Failed to create batch job:', batchError);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Failed to create batch job',
-          details: batchError.message,
-          action: 'job_creation_failed'
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      jobId = batchJob.id;
-      console.log(`✅ Created batch job ${jobId} with ${totalTasks} tasks`);
-
-      // NEW: Direct processing without batch_tasks or RPCs
-      const { data: orgData } = await supabase
-        .from('organizations')
-        .select('name, domain, business_description')
-        .eq('id', orgId)
-        .maybeSingle();
-
-      const { data: brandCatalog } = await supabase
-        .from('brand_catalog')
-        .select('name, is_org_brand, variants_json')
-        .eq('org_id', orgId);
-
-      // Update job status to processing (only valid columns)
-      const runnerId = crypto.randomUUID();
-      const { error: updateError } = await supabase
-        .from('batch_jobs')
-        .update({ 
-          status: 'processing', 
-          started_at: new Date().toISOString(),
-          metadata: {
-            runner_id: runnerId,
-            last_heartbeat: new Date().toISOString(),
-            started_processing_at: new Date().toISOString()
-          }
-        })
-        .eq('id', jobId);
-
-      if (updateError) {
-        console.warn('⚠️ Failed to update job status to processing:', updateError);
-        console.log('🔄 Continuing with processing despite status update failure...');
-        // Don't early return - continue processing
-      }
-
-      // Initialize usage tracker for batch processing
-      const usageTracker = new BatchUsageTracker(supabase, orgId, jobId || 'unknown');
-
-      // Process all prompt x provider combinations sequentially with time-budget
-      const TIME_BUDGET_MS = 280000; // 4m40s
-      const startTime = Date.now();
-      let processedCount = 0;
-      let failedCount = 0;
-
-      try {
-        for (const prompt of activePrompts) {
-        for (const provider of validProviders) {
-          // Time budget guard
-          const elapsed = Date.now() - startTime;
-          if (elapsed > TIME_BUDGET_MS) {
-            const correlation = crypto.randomUUID();
             await supabase
               .from('batch_jobs')
               .update({
-                status: 'processing',
+                completed_tasks: completedTasks,
+                failed_tasks: failedTasks,
                 metadata: {
-                  ...(typeof totalTasks === 'number' ? { total_tasks: totalTasks } : {}),
+                  ...newJob.metadata,
+                  cursor: { prompt_index: pi, provider_index: pri },
                   time_budget_exceeded: true,
-                  elapsed_time_ms: elapsed,
-                  processed_in_this_run: processedCount,
-                  failed_in_this_run: failedCount,
-                  correlation_id: correlation,
+                  exceeded_at: new Date().toISOString(),
                   last_heartbeat: new Date().toISOString()
                 }
               })
               .eq('id', jobId);
 
-            // If called by CRON, schedule background resume
-            if (req.headers.get('x-cron-secret')) {
+            if (isCronRequest) {
+              console.log('🔄 Scheduling background resume (CRON context)');
               EdgeRuntime.waitUntil(
-                scheduleBackgroundResume(supabase, jobId, orgId, correlation)
+                scheduleBackgroundResume(orgId, jobId, correlationId)
               );
             }
 
@@ -1089,156 +982,92 @@ Deno.serve(async (req) => {
               success: true,
               action: 'in_progress',
               batchJobId: jobId,
-              totalProcessed: processedCount + failedCount,
-              processedSoFar: processedCount,
-              failedSoFar: failedCount,
-              elapsedTime: elapsed,
-              correlationId: correlation,
-              message: `Processing continues in background. ${processedCount} completed, ${failedCount} failed so far.`
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+              completed_tasks: completedTasks,
+              failed_tasks: failedTasks,
+              total_tasks: totalTasks,
+              cursor: { prompt_index: pi, provider_index: pri },
+              message: 'Time budget exceeded, background resume scheduled',
+              cancelled_previous_count: cancelledCount
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
           }
 
-          try {
-            const cfg = providerConfigs[provider];
-            if (!cfg || !cfg.apiKey) throw new Error(`Missing configuration or API key for provider: ${provider}`);
+          // Process providers in parallel (bounded by CONCURRENCY)
+          const providerBatch = providers.slice(pri, pri + CONCURRENCY);
+          const batchResults = await Promise.allSettled(
+            providerBatch.map(provider =>
+              processTask(supabase, prompt, provider, orgId, todayKey, providerConfigs, userTier)
+            )
+          );
 
-            // Call provider
-            const result = await callProviderAPI(provider, cfg, prompt.text);
-            if (!result.success || !result.response) throw new Error(result.error || 'API call failed');
-
-            // Analyze
-            const analysis = await analyzePromptResponse(result.response, orgData || {}, brandCatalog || []);
-
-            // Persist normalized response
-            const providerModel = provider === 'openai' ? 'gpt-4o-mini' :
-                                  provider === 'perplexity' ? 'sonar' :
-                                  provider === 'google_ai_overview' ? 'google-aio' : 'gemini-2.0-flash-lite';
-
-            const { error: insertErr } = await supabase
-              .from('prompt_provider_responses')
-              .insert({
-                org_id: orgId,
-                prompt_id: prompt.id,
-                provider,
-                model: providerModel,
-                status: 'success',
-                score: analysis.score,
-                org_brand_present: analysis.org_brand_present,
-                org_brand_prominence: analysis.org_brand_prominence,
-                brands_json: analysis.brands_json || analysis.brands || [],
-                competitors_json: analysis.competitors_json || analysis.competitors || [],
-                competitors_count: (analysis.competitors_json || analysis.competitors || []).length,
-                token_in: result.tokenIn || 0,
-                token_out: result.tokenOut || 0,
-                raw_ai_response: result.response,
-                run_at: new Date().toISOString(),
-                metadata: { analysis_method: 'enhanced_v2_batch', subscription_tier: orgSubscriptionTier }
-              });
-
-            if (insertErr) throw new Error(`Failed to store response: ${insertErr.message}`);
-
-            processedCount++;
-            usageTracker.addCompletedTask(1, true);
-          } catch (e: any) {
-            failedCount++;
-            usageTracker.addCompletedTask(1, false);
-            // Also persist an error row for visibility in UI
-            await supabase
-              .from('prompt_provider_responses')
-              .insert({
-                org_id: orgId,
-                prompt_id: prompt.id,
-                provider,
-                model: provider === 'openai' ? 'gpt-4o-mini' : provider === 'perplexity' ? 'sonar' : provider === 'google_ai_overview' ? 'google-aio' : 'gemini-2.0-flash-lite',
-                status: 'error',
-                error: e?.message || String(e),
-                score: 0,
-                org_brand_present: false,
-                competitors_count: 0,
-                competitors_json: [],
-                brands_json: [],
-                token_in: 0,
-                token_out: 0,
-                run_at: new Date().toISOString(),
-                metadata: { error_type: e?.name || 'Error', batch: true }
-              });
+          // Update counters based on results
+          for (const result of batchResults) {
+            if (result.status === 'fulfilled') {
+              if (result.value?.status === 'success') {
+                completedTasks++;
+              } else {
+                failedTasks++;
+              }
+            } else {
+              failedTasks++;
+              console.error('Task rejected:', result.reason);
+            }
           }
 
-          // Heartbeat/progress update (store in metadata)
+          // Update progress and heartbeat after each batch
           await supabase
             .from('batch_jobs')
             .update({
-              completed_tasks: processedCount,
-              failed_tasks: failedCount,
+              completed_tasks: completedTasks,
+              failed_tasks: failedTasks,
               metadata: {
-                runner_id: runnerId,
-                last_heartbeat: new Date().toISOString(),
-                completed_tasks: processedCount,
-                failed_tasks: failedCount
+                ...newJob.metadata,
+                cursor: { prompt_index: pi, provider_index: pri + CONCURRENCY },
+                last_heartbeat: new Date().toISOString()
               }
             })
             .eq('id', jobId);
         }
       }
 
-      // Persist usage once
-      if (processedCount > 0) {
-        await usageTracker.persistBatchUsage();
-      }
-
-      // Mark completed (only valid columns)
+      // Mark job as completed
       await supabase
         .from('batch_jobs')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          completed_tasks: processedCount,
-          failed_tasks: failedCount,
+          completed_tasks: completedTasks,
+          failed_tasks: failedTasks,
           metadata: {
-            runner_id: runnerId,
-            completed_at: new Date().toISOString(),
-            completed_tasks: processedCount,
-            failed_tasks: failedCount,
-            total_tasks: totalTasks
+            ...newJob.metadata,
+            cursor: { prompt_index: activePrompts.length, provider_index: providers.length },
+            last_heartbeat: new Date().toISOString()
           }
         })
         .eq('id', jobId);
 
-      console.log(`🏁 Batch processing completed [${correlationId}]:`, {
-        orgId,
-        successful: processedCount,
-        failed: failedCount,
-        totalTasks,
-        promptCount: activePrompts?.length || 0,
-        providerCount: validProviders?.length || 0
-      });
+      console.log(`✅ Batch processing completed: ${completedTasks} succeeded, ${failedTasks} failed`);
 
       return new Response(JSON.stringify({
         success: true,
         action: 'completed',
         batchJobId: jobId,
-        totalTasks,
-        completedTasks: processedCount,
-        failedTasks: failedCount,
-        successful: processedCount,
-        failed: failedCount,
-        correlationId,
-        orgSummary: {
-          orgId,
-          promptCount: activePrompts?.length || 0,
-          providerCount: validProviders?.length || 0,
-          expectedTasks: totalTasks,
-          completedTasks: processedCount,
-          failedTasks: failedCount
-        },
-        message: `Batch processing completed: ${processedCount} successful, ${failedCount} failed`
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        completed_tasks: completedTasks,
+        failed_tasks: failedTasks,
+        total_tasks: totalTasks,
+        org_id: orgId,
+        cancelled_previous_count: cancelledCount
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
 
     } catch (processingError: any) {
       console.error('🚨 Processing loop error:', processingError);
       await handleJobError(supabase, processingError, jobId);
       
-      // Return error response instead of throwing to prevent connection drops
       return new Response(JSON.stringify({
         success: false,
         error: processingError.message || 'Processing error occurred',
@@ -1251,33 +1080,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    // Close the create action block
-    }
-
-  } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    console.error('❌ Batch processor error:', err.message);
-    
-    // Ensure job is marked as failed if it's not already completed
-    if (jobId) {
-      try {
-        await handleJobError(supabase, err, jobId);
-      } catch (finalError) {
-        console.error('❌ Failed to handle job error:', finalError);
-      }
-    }
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: err.message || 'Unknown error occurred',
-      action: 'error',
-      details: err.stack || 'No stack trace available',
-      timestamp: new Date().toISOString(),
-      jobId: jobId || 'unknown'
-    }), {
-      status: 200, // Return 200 to avoid edge function errors
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
   }
+
+  // Unknown action
+  return new Response(JSON.stringify({
+    success: false,
+    error: `Unknown action: ${action}`,
+    action: 'error'
+  }), {
+    status: 400,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 });

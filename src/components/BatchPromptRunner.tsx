@@ -117,7 +117,12 @@ export function BatchPromptRunner() {
           console.log('🔄 Driver loop: Continuing batch processing...');
           
             const { data, error } = await robustInvoke('robust-batch-processor', {
-              body: { orgId, resumeJobId: currentJob.id, action: 'resume' }
+              body: { 
+                action: 'resume', 
+                resumeJobId: currentJob.id,
+                orgId: currentJob.org_id,
+                correlationId: currentJob.metadata?.correlation_id || crypto.randomUUID()
+              }
             });
 
           if (error) {
@@ -442,10 +447,10 @@ export function BatchPromptRunner() {
         return;
       }
       
-      // Show success message for job replacement
-      if (currentJob && currentJob.status === 'processing') {
-        toast.success('Previous job cancelled successfully');
-        setCurrentJob(null); // Clear the old job
+      // Show cancellation info
+      if (data?.cancelled_previous_count && data.cancelled_previous_count > 0) {
+        setCancelledCount(data.cancelled_previous_count);
+        toast.success(`Cancelled ${data.cancelled_previous_count} previous run(s)`);
       }
       
       // Handle in-progress status (time budget exceeded)
