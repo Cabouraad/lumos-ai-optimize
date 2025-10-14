@@ -18,7 +18,7 @@ interface ProviderConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
-  authType: 'bearer' | 'google-api-key';
+  authType: 'bearer' | 'google-api-key' | 'edge-function';
   buildRequest: (prompt: string) => any;
   extractResponse: (data: any) => string;
 }
@@ -82,9 +82,20 @@ function getProviderConfigs(): ProviderConfig[] {
     });
   }
 
-  // Note: Google AIO is handled separately via fetch-google-aio edge function
-  // It uses SerpApi, not a direct API key, so it's not included in the batch processor
-  // providers list. Google AIO should be called directly via the edge function when needed.
+  // Google AIO via edge function (requires SERPAPI_KEY and ENABLE_GOOGLE_AIO)
+  const serpApiKey = Deno.env.get('SERPAPI_KEY');
+  const enableGoogleAio = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
+  if (serpApiKey && enableGoogleAio) {
+    configs.push({
+      name: 'google_ai_overview',
+      apiKey: serpApiKey,
+      baseUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-google-aio`,
+      model: 'google-aio',
+      authType: 'edge-function',
+      buildRequest: (prompt) => ({ query: prompt, gl: 'us', hl: 'en' }),
+      extractResponse: (data) => data.summary || ''
+    });
+  }
 
   return configs;
 }
@@ -108,7 +119,11 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
       if (config.authType === 'bearer') {
         headers['Authorization'] = `Bearer ${config.apiKey}`;
       } else if (config.authType === 'google-api-key') {
-        headers['X-goog-api-key'] = config.apiKey; // Fixed: uppercase X
+        headers['X-goog-api-key'] = config.apiKey;
+      } else if (config.authType === 'edge-function') {
+        // For edge functions, use service role key
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        headers['Authorization'] = `Bearer ${supabaseKey}`;
       }
 
       const response = await fetch(config.baseUrl, {
@@ -144,6 +159,12 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
 
       const data = await response.json();
       console.log(`[${config.name}] Success on attempt ${attempt}`);
+      
+      // For Google AIO, return the full response object to preserve citations
+      if (config.name === 'google_ai_overview') {
+        return data;
+      }
+      
       return config.extractResponse(data);
       
     } catch (error: any) {
@@ -176,7 +197,15 @@ async function processTask(
   provider: ProviderConfig
 ): Promise<boolean> {
   try {
-    const rawResponse = await callProviderAPI(provider, promptText);
+    let rawResponse = await callProviderAPI(provider, promptText);
+    let citations = [];
+    
+    // For Google AIO, extract summary and citations
+    if (provider.name === 'google_ai_overview' && typeof rawResponse === 'object') {
+      const aioData = rawResponse as any;
+      citations = aioData.citations || [];
+      rawResponse = aioData.summary || '';
+    }
     
     // Fetch organization data for brand analysis
     const { data: orgData } = await supabase
@@ -232,6 +261,7 @@ async function processTask(
       competitors_count: (analysis.competitors_json || []).length,
       competitors_json: analysis.competitors_json || [],
       brands_json: analysis.brands_json || [],
+      citations_json: citations.length > 0 ? citations : null,
       token_in: 0,
       token_out: 0,
       metadata: analysis.metadata || {}
@@ -279,6 +309,11 @@ Deno.serve(async (req) => {
 
     console.log('🚀 Batch processor:', { jobId, orgId, replace });
 
+    // Fetch org subscription tier for provider filtering
+    const { getOrgSubscriptionTier, filterAllowedProviders } = await import('../_shared/provider-policy.ts');
+    const subscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
+    console.log(`📊 Org ${orgId} subscription tier: ${subscriptionTier}`);
+
     // Cancel existing jobs if replace=true
     let cancelledCount = 0;
     if (replace && !jobId) {
@@ -321,7 +356,13 @@ Deno.serve(async (req) => {
         .eq('org_id', orgId)
         .eq('active', true);
 
-      const providers = getProviderConfigs();
+      const allProviders = getProviderConfigs();
+      const providerNames = allProviders.map(p => p.name);
+      const allowedProviderNames = filterAllowedProviders(providerNames as any, subscriptionTier);
+      const providers = allProviders.filter(p => allowedProviderNames.includes(p.name as any));
+      
+      console.log(`🔒 Filtered providers for tier ${subscriptionTier}:`, providers.map(p => p.name));
+      
       const totalTasks = (prompts?.length || 0) * providers.length;
 
       const { data: newJob } = await supabase
@@ -368,7 +409,10 @@ Deno.serve(async (req) => {
       .eq('org_id', orgId)
       .eq('active', true);
 
-    const providers = getProviderConfigs();
+    const allProviders = getProviderConfigs();
+    const providerNames = allProviders.map(p => p.name);
+    const allowedProviderNames = filterAllowedProviders(providerNames as any, subscriptionTier);
+    const providers = allProviders.filter(p => allowedProviderNames.includes(p.name as any));
     
     if (!prompts || prompts.length === 0 || providers.length === 0) {
       await supabase.from('batch_jobs').update({
