@@ -82,21 +82,9 @@ function getProviderConfigs(): ProviderConfig[] {
     });
   }
 
-  const googleAioKey = Deno.env.get('GOOGLE_AIO_API_KEY');
-  if (googleAioKey) {
-    configs.push({
-      name: 'google_ai_overview',
-      apiKey: googleAioKey,
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-      model: 'gemini-1.5-flash',
-      authType: 'google-api-key',
-      buildRequest: (prompt) => ({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 500 }
-      }),
-      extractResponse: (data) => data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    });
-  }
+  // Note: Google AIO is handled separately via fetch-google-aio edge function
+  // It uses SerpApi, not a direct API key, so it's not included in the batch processor
+  // providers list. Google AIO should be called directly via the edge function when needed.
 
   return configs;
 }
