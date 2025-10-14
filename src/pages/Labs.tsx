@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Beaker, Settings, Users } from 'lucide-react';
+import { AlertTriangle, Beaker, Settings, Users, Play } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ export default function Labs() {
   const [loading, setLoading] = useState(true);
   const [features, setFeatures] = useState<LabsFeature[]>([]);
   const [orgData, setOrgData] = useState<{ id: string; name: string } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -188,6 +189,41 @@ export default function Labs() {
     }
   };
 
+  const testBatchProcessor = async () => {
+    if (!orgData?.id) {
+      toast.error('Organization data not loaded');
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      toast.info('Starting batch processor test...');
+      
+      const { data, error } = await supabase.functions.invoke('robust-batch-processor', {
+        body: { 
+          orgId: orgData.id,
+          replace: true 
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(`Batch job created! Job ID: ${data.jobId}`, {
+          description: `Total tasks: ${data.total_tasks}`,
+          duration: 5000
+        });
+      } else {
+        toast.error(`Batch processor error: ${data?.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      console.error('Batch processor test failed:', error);
+      toast.error(`Test failed: ${error.message}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const getStatusColor = (status: LabsFeature['status']) => {
     switch (status) {
       case 'experimental': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
@@ -241,6 +277,38 @@ export default function Labs() {
           Test thoroughly before enabling in production environments.
         </AlertDescription>
       </Alert>
+
+      {/* Batch Processor Test */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Play className="h-5 w-5" />
+            Batch Processor Test
+          </CardTitle>
+          <CardDescription>
+            Test the batch processor with your organization's prompts. This will trigger a full batch run using all enabled providers (OpenAI, Perplexity, Gemini, and Google AI Overviews for Pro+ subscriptions).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={testBatchProcessor} 
+            disabled={isTesting || !orgData}
+            className="w-full sm:w-auto"
+          >
+            {isTesting ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Running Test...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Run Batch Processor Test
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="grid gap-4">
