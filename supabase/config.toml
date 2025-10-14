@@ -189,7 +189,7 @@ verify_jwt = false
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===
-weekly_report_mon = { schedule = "0 8 * * MON", endpoint = "/weekly-report", method = "POST", headers = { authorization = "Bearer ${CRON_SECRET}" } }
+weekly_reports_unified = { schedule = "0 8 * * MON", endpoint = "/weekly-report-scheduler", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
 
 # === SUBSCRIPTION CHECKS ===
 daily_subscription_check = { schedule = "0 2 * * *", endpoint = "/check-subscription-scheduled", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
