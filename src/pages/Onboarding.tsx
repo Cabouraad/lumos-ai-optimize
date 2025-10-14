@@ -22,6 +22,12 @@ export default function Onboarding() {
   const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Defensive check: If user already has org_id, redirect to dashboard
+  // This acts as a safety net if users somehow land on onboarding incorrectly
+  if (orgData?.org_id) {
+    return <Navigate to="/dashboard" replace />;
+  }
   const [loading, setLoading] = useState(false);
   const [autoFillLoading, setAutoFillLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: Business Context, 3: Pricing

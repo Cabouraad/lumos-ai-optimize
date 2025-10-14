@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight } from 'lucide-react';
 
 const Index = () => {
-  const { user, loading, orgData, orgStatus, ready } = useAuth();
+  const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
 
   if (loading || !ready) {
     return (
@@ -24,8 +24,8 @@ const Index = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Only redirect to onboarding if we confirmed there's no org (not on loading or error)
-  if (user && orgStatus === 'not_found') {
+  // Only redirect to onboarding if we confirmed there's no org AND we're not still checking
+  if (user && orgStatus === 'not_found' && !isChecking) {
     return <Navigate to="/onboarding" replace />;
   }
 

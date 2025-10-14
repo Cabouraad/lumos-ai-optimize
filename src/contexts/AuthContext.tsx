@@ -34,33 +34,48 @@ interface LegacyAuthContextType {
 
 export function useAuthLegacy(): LegacyAuthContextType {
   const { user, session, loading: authLoading, ready, signOut } = useAuthNew();
-  const { userData, loading: userLoading, error: userError, refreshUserData } = useUser();
+  const { userData, loading: userLoading, error: userError, ready: userReady, refreshUserData } = useUser();
   const { subscriptionData, loading: subscriptionLoading, error: subscriptionError, hasAccess, refreshSubscription } = useSubscription();
 
-  // Map to legacy format
-  const legacyData = useMemo((): LegacyAuthContextType => ({
-    user,
-    session,
-    orgData: userData,
-    orgStatus: (userError ? 'error' : 
-               !userData && userLoading ? 'loading' :
-               userData ? 'success' : 'not_found') as 'loading' | 'success' | 'error' | 'not_found',
-    subscriptionData: subscriptionData ? {
-      ...subscriptionData,
-      requires_subscription: !hasAccess
-    } : null,
-    loading: authLoading,
-    subscriptionLoading,
-    ready,
-    isChecking: userLoading || subscriptionLoading,
-    subscriptionError,
-    checkSubscription: async () => {
-      await refreshUserData();
-      await refreshSubscription();
-    },
-    signOut
-  }), [
-    user, session, userData, userError, userLoading, subscriptionData, 
+  // Map to legacy format with defensive orgStatus calculation
+  const legacyData = useMemo((): LegacyAuthContextType => {
+    // Determine orgStatus defensively to prevent race conditions
+    let orgStatus: 'loading' | 'success' | 'error' | 'not_found';
+    
+    if (userError) {
+      orgStatus = 'error';
+    } else if (!userReady || userLoading) {
+      // Still loading - don't report 'not_found' yet
+      orgStatus = 'loading';
+    } else if (userData) {
+      orgStatus = 'success';
+    } else {
+      // Only report 'not_found' after we're ready and confirmed no data
+      orgStatus = 'not_found';
+    }
+    
+    return {
+      user,
+      session,
+      orgData: userData,
+      orgStatus,
+      subscriptionData: subscriptionData ? {
+        ...subscriptionData,
+        requires_subscription: !hasAccess
+      } : null,
+      loading: authLoading,
+      subscriptionLoading,
+      ready: ready && userReady,
+      isChecking: userLoading || subscriptionLoading,
+      subscriptionError,
+      checkSubscription: async () => {
+        await refreshUserData();
+        await refreshSubscription();
+      },
+      signOut
+    };
+  }, [
+    user, session, userData, userError, userLoading, userReady, subscriptionData, 
     subscriptionLoading, hasAccess, authLoading, ready, subscriptionError,
     refreshUserData, refreshSubscription, signOut
   ]);

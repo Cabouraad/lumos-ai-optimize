@@ -19,6 +19,7 @@ interface UserContextType {
   userData: UserData | null;
   loading: boolean;
   error: string | null;
+  ready: boolean;
   refreshUserData: () => Promise<void>;
 }
 
@@ -26,6 +27,7 @@ const UserContext = createContext<UserContextType>({
   userData: null,
   loading: false,
   error: null,
+  ready: false,
   refreshUserData: async () => {},
 });
 
@@ -44,13 +46,16 @@ interface UserProviderProps {
 export function UserProvider({ children }: UserProviderProps) {
   const { user, ready } = useAuth();
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as true to prevent race condition
   const [error, setError] = useState<string | null>(null);
+  const [userReady, setUserReady] = useState(false);
 
   const fetchUserData = useCallback(async () => {
     if (!user) {
       setUserData(null);
       setError(null);
+      setLoading(false);
+      setUserReady(true);
       return;
     }
 
@@ -103,6 +108,7 @@ export function UserProvider({ children }: UserProviderProps) {
       setUserData(null);
     } finally {
       setLoading(false);
+      setUserReady(true);
     }
   }, [user]);
 
@@ -116,6 +122,7 @@ export function UserProvider({ children }: UserProviderProps) {
     userData,
     loading,
     error,
+    ready: userReady,
     refreshUserData: fetchUserData,
   };
 
