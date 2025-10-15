@@ -147,7 +147,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
               {response.status}
             </Badge>
             <Badge className={`font-bold px-2 py-1 ${getScoreColor(response.score)}`}>
-              {response.score}/10
+              {(response.score * 10).toFixed(1)}%
             </Badge>
           </div>
         </CardTitle>

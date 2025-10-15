@@ -78,7 +78,7 @@ export function LowVisibilityTable() {
                   {prompt.total_runs}
                 </TableCell>
                 <TableCell className="text-center font-mono">
-                  {prompt.avg_score_when_present?.toFixed(1) || "N/A"}
+                  {prompt.avg_score_when_present ? `${(prompt.avg_score_when_present * 10).toFixed(1)}%` : "N/A"}
                 </TableCell>
                 <TableCell className="text-right text-sm text-muted-foreground">
                   {new Date(prompt.last_checked_at).toLocaleDateString()}

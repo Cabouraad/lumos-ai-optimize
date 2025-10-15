@@ -151,7 +151,7 @@ export function CondensedPromptRow({
 
                   <span className="flex items-center gap-1">
                     <TrendingUp className="h-3 w-3" />
-                    {performance.avgScore.toFixed(1)}
+                    {(performance.avgScore * 10).toFixed(1)}%
                   </span>
 
                   <span className="flex items-center gap-1">

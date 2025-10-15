@@ -212,7 +212,7 @@ export function PromptRow({
                   <span>Avg Score</span>
                 </div>
                 <div className="text-base font-semibold">
-                  {performance.avgScore.toFixed(1)}
+                  {(performance.avgScore * 10).toFixed(1)}%
                 </div>
               </div>
               

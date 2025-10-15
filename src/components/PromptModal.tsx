@@ -153,7 +153,7 @@ export function PromptModal({ open, onOpenChange, promptIds, orgId }: PromptModa
                   
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline">
-                      Avg Score: {prompt.avg_score.toFixed(1)}
+                      Avg Score: {(prompt.avg_score * 10).toFixed(1)}%
                     </Badge>
                     <Badge className={getTrendColor(trend)}>
                       {getTrendIcon(trend)}
@@ -171,7 +171,7 @@ export function PromptModal({ open, onOpenChange, promptIds, orgId }: PromptModa
                       <span>Recent scores:</span>
                       {prompt.recent_scores.slice(0, 5).map((score, i) => (
                         <span key={i} className="bg-muted px-1 py-0.5 rounded">
-                          {score.toFixed(1)}
+                          {(score * 10).toFixed(1)}%
                         </span>
                       ))}
                       {prompt.recent_scores.length > 5 && (
