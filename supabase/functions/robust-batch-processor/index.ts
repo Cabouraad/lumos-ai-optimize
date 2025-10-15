@@ -305,9 +305,11 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { jobId, orgId, replace = false } = await req.json();
+    const requestBody = await req.json();
+    const { jobId, orgId, replace = false, source, action } = requestBody;
+    const isSchedulerTriggered = source === 'daily-batch-trigger' || action === 'create';
 
-    console.log('🚀 Batch processor:', { jobId, orgId, replace });
+    console.log('🚀 Batch processor:', { jobId, orgId, replace, source, action, isSchedulerTriggered });
 
     // Fetch org subscription tier for provider filtering
     const { getOrgSubscriptionTier, filterAllowedProviders } = await import('../_shared/provider-policy.ts');
@@ -390,16 +392,21 @@ Deno.serve(async (req) => {
       job = newJob;
       console.log('✅ Created job:', job.id);
       
-      // Return early after creating job - let driver loop handle processing
-      return new Response(JSON.stringify({
-        action: 'created',
-        jobId: job.id,
-        cancelled_previous_count: cancelledCount,
-        total_tasks: totalTasks,
-        remaining: totalTasks
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      // If scheduler-triggered, process inline; otherwise return early for UI driver loop
+      if (!isSchedulerTriggered) {
+        console.log('📱 Manual trigger - returning early for driver loop');
+        return new Response(JSON.stringify({
+          action: 'created',
+          jobId: job.id,
+          cancelled_previous_count: cancelledCount,
+          total_tasks: totalTasks,
+          remaining: totalTasks
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      console.log('🔄 Scheduler-triggered job - processing inline');
     }
 
     // Fetch active prompts and providers
