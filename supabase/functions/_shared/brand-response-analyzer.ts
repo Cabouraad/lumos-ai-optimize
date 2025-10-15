@@ -602,12 +602,9 @@ function calculateVisibilityScore(
     score -= competitionPenalty;
     
   } else {
-    // No brand mention: poor score
-    if (competitorCount > 0) {
-      score = 0.5; // Competitors mentioned but not us = very bad
-    } else {
-      score = 1.0; // No competitors or us = neutral
-    }
+    // No brand mention: minimum score (0-10 scale)
+    // Use 1.0 as minimum per scoring.ts standard
+    score = 1.0; // Minimum score when brand not present
   }
   
   // Ensure score is within bounds
