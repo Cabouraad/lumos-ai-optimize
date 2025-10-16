@@ -254,6 +254,71 @@ Deno.serve(async (req) => {
     let totalBatchJobs = 0;
     let successfulJobs = 0;
     const orgResults: any[] = [];
+    
+    // Background driver function to complete batch jobs
+    const driveJobToCompletion = async (jobId: string, orgId: string, orgName: string, cronSecret: string) => {
+      const maxWallTimeMs = 20 * 60 * 1000; // 20 minutes max per org
+      const startTime = Date.now();
+      let iteration = 0;
+      let lastProgress = 0;
+      let zeroProgressCount = 0;
+      
+      console.log(`🔄 [Driver] Starting background driver for job ${jobId} (org: ${orgName})`);
+      
+      try {
+        while (Date.now() - startTime < maxWallTimeMs) {
+          iteration++;
+          
+          const driverResult = await supabase.functions.invoke('robust-batch-processor', {
+            body: { 
+              jobId,
+              orgId,
+              source: 'scheduler-driver'
+            },
+            headers: { 'x-cron-secret': cronSecret }
+          });
+          
+          if (driverResult.error) {
+            console.error(`🔄 [Driver] Iteration ${iteration} error for job ${jobId}:`, driverResult.error);
+            break;
+          }
+          
+          const driverData = driverResult.data;
+          const currentProgress = driverData?.completed || 0;
+          
+          console.log(`🔄 [Driver] Iteration ${iteration} for job ${jobId}: action=${driverData?.action}, progress=${currentProgress}/${driverData?.total}`);
+          
+          if (driverData?.action === 'completed') {
+            console.log(`✅ [Driver] Job ${jobId} completed after ${iteration} iterations (${Date.now() - startTime}ms)`);
+            break;
+          }
+          
+          // Detect stalled jobs
+          if (currentProgress === lastProgress) {
+            zeroProgressCount++;
+            if (zeroProgressCount >= 5) {
+              console.warn(`⚠️ [Driver] Job ${jobId} stalled (no progress in 5 iterations)`);
+              break;
+            }
+          } else {
+            zeroProgressCount = 0;
+            lastProgress = currentProgress;
+          }
+          
+          // Wait before next iteration
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          if (iteration > 100) {
+            console.warn(`⚠️ [Driver] Job ${jobId} exceeded max iterations (100)`);
+            break;
+          }
+        }
+      } catch (driverError: unknown) {
+        console.error(`🔄 [Driver] Fatal error for job ${jobId}:`, driverError);
+      }
+      
+      console.log(`🔄 [Driver] Exiting for job ${jobId} after ${iteration} iterations, runtime: ${Date.now() - startTime}ms`);
+    };
 
     // Helper function to call batch processor with timeout
     const invokeBatchProcessorWithTimeout = async (orgId: string, cronSecret: string, attempt: number) => {
@@ -309,11 +374,15 @@ Deno.serve(async (req) => {
             
             data = batchResult.data;
             
-            // Handle in_progress responses - background resumption is automatic
-            if (data?.action === 'in_progress') {
-              console.log(`⏳ Job ${data.batchJobId} for org ${org.name} is in progress, background resumption scheduled`);
-            } else if (data?.action === 'completed') {
-              console.log(`✅ Job ${data.batchJobId} for org ${org.name} completed immediately`);
+            // Extract jobId for driver loop (support both field names)
+            const jobId = data?.jobId || data?.batchJobId;
+            
+            if (jobId) {
+              // Start background driver to complete the job
+              console.log(`🔄 Starting background driver for job ${jobId} (org: ${org.name})`);
+              EdgeRuntime.waitUntil(driveJobToCompletion(jobId, org.id, org.name, cronSecret!));
+            } else {
+              console.warn(`⚠️ No jobId returned for org ${org.name}, skipping driver`);
             }
             
             batchSuccess = true;
@@ -326,10 +395,9 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Update results based on success - validate both success flag AND action type
+        // Update results based on success - accept created/in_progress/completed as success
         const isActualSuccess = batchSuccess && 
-          data?.success === true && 
-          (data?.action === 'completed' || data?.action === 'in_progress');
+          (data?.action === 'created' || data?.action === 'in_progress' || data?.action === 'completed');
         
         const isFailure = data?.action && [
           'job_update_failed', 
@@ -346,8 +414,9 @@ Deno.serve(async (req) => {
             orgName: org.name,
             success: true,
             attempts: attempts,
-            batchJobId: data?.batchJobId,
-            action: data?.action
+            batchJobId: data?.jobId || data?.batchJobId,
+            action: data?.action,
+            driverStarted: true
           });
         } else {
           orgResults.push({

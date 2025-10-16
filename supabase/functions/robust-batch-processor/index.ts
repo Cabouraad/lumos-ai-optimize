@@ -384,7 +384,8 @@ Deno.serve(async (req) => {
             failed_combinations: [],
             prompt_failures: {},
             last_known_progress: 0
-          }
+          },
+          trigger_source: isSchedulerTriggered ? 'scheduler' : 'manual'
         })
         .select()
         .single();
@@ -392,21 +393,20 @@ Deno.serve(async (req) => {
       job = newJob;
       console.log('✅ Created job:', job.id);
       
-      // If scheduler-triggered, process inline; otherwise return early for UI driver loop
-      if (!isSchedulerTriggered) {
-        console.log('📱 Manual trigger - returning early for driver loop');
-        return new Response(JSON.stringify({
-          action: 'created',
-          jobId: job.id,
-          cancelled_previous_count: cancelledCount,
-          total_tasks: totalTasks,
-          remaining: totalTasks
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      console.log('🔄 Scheduler-triggered job - processing inline');
+      // Always return early after job creation - driver loop handles processing
+      console.log('📱 Job created - driver will handle processing');
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'created',
+        jobId: job.id,
+        batchJobId: job.id,
+        cancelled_previous_count: cancelledCount,
+        total_tasks: totalTasks,
+        remaining: totalTasks,
+        correlation_id: job.id
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Fetch active prompts and providers
@@ -546,23 +546,29 @@ Deno.serve(async (req) => {
       }).eq('id', job.id);
 
       return new Response(JSON.stringify({
+        success: true,
         action: 'completed',
         jobId: job.id,
+        batchJobId: job.id,
         completed: newCompleted,
         failed: newFailed,
-        remaining: 0
+        remaining: 0,
+        correlation_id: job.id
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     return new Response(JSON.stringify({
+      success: true,
       action: 'in_progress',
       jobId: job.id,
+      batchJobId: job.id,
       completed: newCompleted,
       failed: newFailed,
       remaining: newRemaining,
-      progress: Math.round((newCompleted + newFailed) / totalTasks * 100)
+      progress: Math.round((newCompleted + newFailed) / totalTasks * 100),
+      correlation_id: job.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
