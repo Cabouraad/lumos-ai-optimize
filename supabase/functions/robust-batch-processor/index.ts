@@ -10,7 +10,7 @@ const corsHeaders = {
 
 // Micro-batch configuration
 const MICRO_BATCH_SIZE = 15;
-const SAFETY_TIMEOUT = 30000;
+const SAFETY_TIMEOUT = 75000;
 const CONCURRENCY = 3;
 
 interface ProviderConfig {
@@ -106,7 +106,7 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     try {
       console.log(`[${config.name}] Attempt ${attempt}/${maxAttempts}`);

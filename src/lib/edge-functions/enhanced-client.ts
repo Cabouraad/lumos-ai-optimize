@@ -28,7 +28,7 @@ interface AuthValidation {
  */
 export class EnhancedEdgeFunctionClient {
   private static circuitBreakers = new Map<string, CircuitBreakerState>();
-  private static readonly FAILURE_THRESHOLD = 3;
+  private static readonly FAILURE_THRESHOLD = 5;
   private static readonly RESET_TIMEOUT = 30000; // 30 seconds
   
   // Functions that don't require client-side auth (they handle their own auth with cron-secret or other means)
@@ -163,7 +163,7 @@ export class EnhancedEdgeFunctionClient {
       body,
       headers = {},
       retries = 2,
-      timeout = 30000,
+      timeout = 90000,
       correlationId = crypto.randomUUID()
     } = options;
 
@@ -271,8 +271,14 @@ export class EnhancedEdgeFunctionClient {
 
         // If this is the last attempt or non-retryable error
         if (attempt === retries || !isRetryableError) {
-          // Update circuit breaker on failure (but not for rate limits)
-          if (!isRateLimitError) {
+          // Don't trip circuit breaker for robust-batch-processor timeouts
+          // (it may legitimately take longer during heavy processing)
+          const isProcessorTimeout = functionName === 'robust-batch-processor' && 
+                                     (error.message?.includes('timeout') || 
+                                      error.message?.includes('timed out'));
+          
+          // Update circuit breaker on failure (but not for rate limits or batch processor timeouts)
+          if (!isRateLimitError && !isProcessorTimeout) {
             this.updateCircuitBreaker(functionName, false);
           }
 
