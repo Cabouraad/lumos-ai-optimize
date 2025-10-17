@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     
     // Background driver function to complete batch jobs
     const driveJobToCompletion = async (jobId: string, orgId: string, orgName: string, cronSecret: string) => {
-      const maxWallTimeMs = 2 * 60 * 60 * 1000; // 2 hours max per org
+      const maxWallTimeMs = 12 * 60 * 60 * 1000; // 12 hours max - ensures completion regardless of size
       const startTime = Date.now();
       let iteration = 0;
       let lastProgress = 0;
@@ -292,14 +292,12 @@ Deno.serve(async (req) => {
             headers: { 'x-cron-secret': cronSecret }
           });
           
+          // On error, log and retry after delay - don't give up on transient errors
           if (driverResult.error) {
             console.error(`🔄 [Driver] Iteration ${iteration} error for job ${jobId}:`, driverResult.error);
-            // Continue on retryable errors instead of breaking immediately
-            if (driverData?.retryable !== false) {
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              continue;
-            }
-            break;
+            console.log(`🔄 [Driver] Retrying after 3s delay...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
           }
           
           const driverData = driverResult.data;
@@ -326,11 +324,12 @@ Deno.serve(async (req) => {
             break;
           }
           
-          // Detect stalled jobs (increased threshold to 60 iterations)
+          // Detect truly stalled jobs - very lenient threshold (300 iterations = 15 minutes of zero progress)
           if (currentProgress === lastProgress) {
             zeroProgressCount++;
-            if (zeroProgressCount >= 60) {
-              console.warn(`⚠️ [Driver] Job ${jobId} stalled (no progress in 60 iterations)`);
+            if (zeroProgressCount >= 300) {
+              console.warn(`⚠️ [Driver] Job ${jobId} appears genuinely stalled (no progress in 300 iterations / 15 minutes)`);
+              console.warn(`⚠️ [Driver] Last progress: ${lastProgress}, Current: ${currentProgress}`);
               break;
             }
           } else {
@@ -338,12 +337,12 @@ Deno.serve(async (req) => {
             lastProgress = currentProgress;
           }
           
-          // Wait before next iteration (increased to 3s for stability)
+          // Wait before next iteration
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
         
         if (Date.now() - startTime >= maxWallTimeMs) {
-          console.warn(`⚠️ [Driver] Job ${jobId} reached wall time limit (2 hours)`);
+          console.warn(`⚠️ [Driver] Job ${jobId} reached wall time limit (12 hours) - this should never happen for normal jobs`);
         }
       } catch (driverError: unknown) {
         console.error(`🔄 [Driver] Fatal error for job ${jobId}:`, driverError);
