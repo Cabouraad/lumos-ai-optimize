@@ -38,7 +38,13 @@ export class EnhancedEdgeFunctionClient {
     'daily-batch-trigger',
     'scheduler-postcheck',
     'scheduler-diagnostics',
-    'manual-daily-run'
+    'manual-daily-run',
+    // Auth and trial functions that handle their own authentication
+    'create-trial-checkout', // Handles auth internally, called by new users
+    'activate-trial', // Post-Stripe checkout, handles auth with sessionId
+    'onboarding', // Called during sign-up flow
+    'bootstrap-auth', // Called during auth initialization
+    'check-subscription' // Checks user's own subscription
   ]);
   
   /**
