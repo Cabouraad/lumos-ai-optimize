@@ -257,13 +257,27 @@ Deno.serve(async (req) => {
     
     // Background driver function to complete batch jobs
     const driveJobToCompletion = async (jobId: string, orgId: string, orgName: string, cronSecret: string) => {
-      const maxWallTimeMs = 20 * 60 * 1000; // 20 minutes max per org
+      const maxWallTimeMs = 2 * 60 * 60 * 1000; // 2 hours max per org
       const startTime = Date.now();
       let iteration = 0;
       let lastProgress = 0;
       let zeroProgressCount = 0;
       
       console.log(`🔄 [Driver] Starting background driver for job ${jobId} (org: ${orgName})`);
+      
+      // Set driver metadata on the job
+      await supabase
+        .from('batch_jobs')
+        .update({
+          metadata: {
+            driver_active: true,
+            driver_started_by: 'daily-batch-trigger',
+            driver_started_at: new Date().toISOString(),
+            driver_runs: 0,
+            driver_last_ping: new Date().toISOString()
+          }
+        })
+        .eq('id', jobId);
       
       try {
         while (Date.now() - startTime < maxWallTimeMs) {
@@ -280,24 +294,43 @@ Deno.serve(async (req) => {
           
           if (driverResult.error) {
             console.error(`🔄 [Driver] Iteration ${iteration} error for job ${jobId}:`, driverResult.error);
+            // Continue on retryable errors instead of breaking immediately
+            if (driverData?.retryable !== false) {
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              continue;
+            }
             break;
           }
           
           const driverData = driverResult.data;
-          const currentProgress = driverData?.completed || 0;
+          const currentProgress = (driverData?.completed || 0) + (driverData?.failed || 0);
           
           console.log(`🔄 [Driver] Iteration ${iteration} for job ${jobId}: action=${driverData?.action}, progress=${currentProgress}/${driverData?.total}`);
+          
+          // Update driver metadata
+          await supabase
+            .from('batch_jobs')
+            .update({
+              metadata: {
+                driver_active: true,
+                driver_started_by: 'daily-batch-trigger',
+                driver_started_at: new Date().toISOString(),
+                driver_runs: iteration,
+                driver_last_ping: new Date().toISOString()
+              }
+            })
+            .eq('id', jobId);
           
           if (driverData?.action === 'completed') {
             console.log(`✅ [Driver] Job ${jobId} completed after ${iteration} iterations (${Date.now() - startTime}ms)`);
             break;
           }
           
-          // Detect stalled jobs
+          // Detect stalled jobs (increased threshold to 60 iterations)
           if (currentProgress === lastProgress) {
             zeroProgressCount++;
-            if (zeroProgressCount >= 5) {
-              console.warn(`⚠️ [Driver] Job ${jobId} stalled (no progress in 5 iterations)`);
+            if (zeroProgressCount >= 60) {
+              console.warn(`⚠️ [Driver] Job ${jobId} stalled (no progress in 60 iterations)`);
               break;
             }
           } else {
@@ -305,16 +338,26 @@ Deno.serve(async (req) => {
             lastProgress = currentProgress;
           }
           
-          // Wait before next iteration
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          if (iteration > 100) {
-            console.warn(`⚠️ [Driver] Job ${jobId} exceeded max iterations (100)`);
-            break;
-          }
+          // Wait before next iteration (increased to 3s for stability)
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
+        if (Date.now() - startTime >= maxWallTimeMs) {
+          console.warn(`⚠️ [Driver] Job ${jobId} reached wall time limit (2 hours)`);
         }
       } catch (driverError: unknown) {
         console.error(`🔄 [Driver] Fatal error for job ${jobId}:`, driverError);
+      } finally {
+        // Clear driver active flag when exiting
+        await supabase
+          .from('batch_jobs')
+          .update({
+            metadata: {
+              driver_active: false,
+              driver_last_ping: new Date().toISOString()
+            }
+          })
+          .eq('id', jobId);
       }
       
       console.log(`🔄 [Driver] Exiting for job ${jobId} after ${iteration} iterations, runtime: ${Date.now() - startTime}ms`);
@@ -324,8 +367,8 @@ Deno.serve(async (req) => {
     const invokeBatchProcessorWithTimeout = async (orgId: string, cronSecret: string, attempt: number) => {
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Batch processor invocation timed out after 30 seconds'));
-        }, 30000);
+          reject(new Error('Batch processor invocation timed out after 90 seconds'));
+        }, 90000);
 
         supabase.functions.invoke('robust-batch-processor', {
           body: { 

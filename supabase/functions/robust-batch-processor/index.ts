@@ -461,6 +461,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // PRE-LOOP HEARTBEAT: Update heartbeat immediately before processing
+    await supabase
+      .from('batch_jobs')
+      .update({
+        metadata: {
+          ...job.metadata,
+          last_heartbeat: new Date().toISOString(),
+          last_known_progress: (job.completed_tasks || 0) + (job.failed_tasks || 0),
+          micro_batch_count: (job.metadata?.micro_batch_count || 0) + 1
+        }
+      })
+      .eq('id', job.id);
+    
+    console.log(`💓 Pre-loop heartbeat set for job ${job.id}`);
+
     // Process micro-batch
     const startTime = Date.now();
     const tasksToProcess = Math.min(MICRO_BATCH_SIZE, remaining);
@@ -532,6 +547,23 @@ Deno.serve(async (req) => {
         }
       }).eq('id', job.id);
     }
+
+    // POST-LOOP HEARTBEAT: Update heartbeat after processing completes
+    await supabase
+      .from('batch_jobs')
+      .update({
+        metadata: {
+          ...job.metadata,
+          last_heartbeat: new Date().toISOString(),
+          last_known_progress: job.completed_tasks + completed + job.failed_tasks + failed,
+          completed_combinations: completedCombinations,
+          failed_combinations: failedCombinations,
+          prompt_failures: promptFailures
+        }
+      })
+      .eq('id', job.id);
+    
+    console.log(`💓 Post-loop heartbeat set for job ${job.id} (processed ${completed + failed} tasks)`);
 
     const newCompleted = job.completed_tasks + completed;
     const newFailed = job.failed_tasks + failed;
