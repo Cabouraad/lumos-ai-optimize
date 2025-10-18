@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { signInWithCleanup } from '@/lib/auth-cleanup';
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { usePasswordStrength } from '@/hooks/usePasswordStrength';
 import { PasswordStrengthMeter } from '@/components/ui/password-strength';
+import { Search } from 'lucide-react';
 
 export default function Auth() {
   const { user } = useAuth();
@@ -74,7 +75,18 @@ export default function Auth() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex items-center justify-center bg-background relative">
+      {/* Home button with logo in top left */}
+      <Link 
+        to="/" 
+        className="absolute top-8 left-8 flex items-center gap-2 group hover:opacity-80 transition-opacity"
+      >
+        <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center shadow-md">
+          <Search className="w-4 h-4 text-white" strokeWidth={2.5} />
+        </div>
+        <span className="text-lg font-bold text-foreground">Llumos</span>
+      </Link>
+
       <Card className="w-[400px]">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Llumos</CardTitle>
