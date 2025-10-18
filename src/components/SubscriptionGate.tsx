@@ -287,12 +287,24 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
                 You need an active subscription or trial to access Llumos features.
               </p>
             </div>
-            <Button 
-              className="w-full" 
-              onClick={() => navigate('/pricing')}
-            >
-              View Pricing Plans
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                className="w-full" 
+                onClick={() => navigate('/pricing')}
+              >
+                View Pricing Plans
+              </Button>
+              <Button 
+                variant="outline"
+                className="w-full" 
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  navigate('/auth');
+                }}
+              >
+                Sign Out
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

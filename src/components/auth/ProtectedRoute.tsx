@@ -19,7 +19,7 @@ export function ProtectedRoute({
   requireAuth = true, 
   requireSubscription = true 
 }: ProtectedRouteProps) {
-  const { user, loading: authLoading, ready } = useAuth();
+  const { user, loading: authLoading, ready, signOut } = useAuth();
   const { userData, loading: userLoading, error: userError } = useUser();
   const { hasAccess, loading: subscriptionLoading } = useSubscription();
   const location = useLocation();
@@ -133,12 +133,24 @@ export function ProtectedRoute({
                 You need an active subscription or trial to access Llumos features.
               </p>
             </div>
-            <Button 
-              className="w-full" 
-              onClick={() => navigate('/pricing')}
-            >
-              View Pricing Plans
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                className="w-full" 
+                onClick={() => navigate('/pricing')}
+              >
+                View Pricing Plans
+              </Button>
+              <Button 
+                variant="outline"
+                className="w-full" 
+                onClick={async () => {
+                  await signOut();
+                  navigate('/auth');
+                }}
+              >
+                Sign Out
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
