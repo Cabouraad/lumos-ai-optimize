@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PricingCard } from '@/components/PricingCard';
 import { Info, LogOut } from 'lucide-react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
+import { openExternalUrl } from '@/lib/navigation';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
 
 export default function Onboarding() {
@@ -116,8 +117,8 @@ export default function Onboarding() {
         // Store onboarding data temporarily to complete after payment
         sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
         
-        // Redirect to Stripe checkout
-        window.location.href = data.url;
+        // Redirect to Stripe checkout (robust across preview iframe/new tab)
+        openExternalUrl(data.url);
       }
     } catch (error: any) {
       console.error("Subscription error:", error);

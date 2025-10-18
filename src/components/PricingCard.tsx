@@ -9,6 +9,7 @@ import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { openExternalUrl } from '@/lib/navigation';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
 interface PricingCardProps {
@@ -112,8 +113,8 @@ export function PricingCard({
       if (error) throw error;
 
       if (data?.url) {
-        // Redirect to Stripe checkout
-        window.location.href = data.url;
+        // Redirect to Stripe checkout (robust across preview iframe/new tab)
+        openExternalUrl(data.url);
       }
     } catch (error: any) {
       console.error('Subscription error:', error);

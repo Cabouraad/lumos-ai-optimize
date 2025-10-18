@@ -8,6 +8,7 @@ import { EnhancedEdgeFunctionClient } from '@/lib/edge-functions/enhanced-client
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
+import { openExternalUrl } from '@/lib/navigation';
 
 export function SubscriptionBanner() {
   const { user, subscriptionData, checkSubscription } = useAuth();
@@ -39,8 +40,9 @@ export function SubscriptionBanner() {
       // Default: start standard trial checkout
       const { data, error } = await EnhancedEdgeFunctionClient.invoke('create-trial-checkout');
       if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
+       if (data?.url) {
+        // Open checkout robustly (handles iframe sandbox in preview)
+        openExternalUrl(data.url);
       }
     } catch (error: any) {
       console.error('Error starting trial:', error);
