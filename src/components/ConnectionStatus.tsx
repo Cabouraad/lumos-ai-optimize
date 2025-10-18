@@ -28,7 +28,8 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
 
       // Try to invoke a simple health check function
       const result = await EnhancedEdgeFunctionClient.invoke('check-subscription', {
-        timeout: 5000
+        timeout: 5000,
+        suppressToast: true,
       });
 
       if (result.error) {

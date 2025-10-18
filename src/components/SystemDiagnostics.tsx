@@ -29,7 +29,8 @@ export function SystemDiagnostics({ className }: SystemDiagnosticsProps) {
       let connectivityTest = null;
       try {
         const result = await EnhancedEdgeFunctionClient.invoke('check-subscription', {
-          timeout: 5000
+          timeout: 5000,
+          suppressToast: true,
         });
         connectivityTest = {
           success: !result.error,

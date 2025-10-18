@@ -14,6 +14,7 @@ interface EnhancedInvokeOptions {
   retries?: number;
   timeout?: number;
   correlationId?: string;
+  suppressToast?: boolean; // do not show user toast on failure (for background checks)
 }
 
 interface AuthValidation {
@@ -171,7 +172,8 @@ export class EnhancedEdgeFunctionClient {
       headers = {},
       retries = 2,
       timeout = 90000,
-      correlationId = crypto.randomUUID()
+      correlationId = crypto.randomUUID(),
+      suppressToast = false,
     } = options;
 
     console.debug(`🔄 [${correlationId}] Enhanced edge call:`, functionName, {
@@ -186,9 +188,11 @@ export class EnhancedEdgeFunctionClient {
     const envValidation = this.validateEnvironmentForRequest();
     if (!envValidation.isValid) {
       const error = new Error(envValidation.error || 'Environment validation failed');
-      toast.error('Configuration Error', {
-        description: 'Please check your environment setup and try again.'
-      });
+      if (!suppressToast) {
+        toast.error('Configuration Error', {
+          description: 'Please check your environment setup and try again.'
+        });
+      }
       return { data: null, error };
     }
 
@@ -202,13 +206,15 @@ export class EnhancedEdgeFunctionClient {
         
         // If stale token detected, redirect to login
         if (authValidation.requiresReauth) {
-          toast.error('Session Expired', {
-            description: 'Your session is no longer valid. Redirecting to login...'
-          });
+          if (!suppressToast) {
+            toast.error('Session Expired', {
+              description: 'Your session is no longer valid. Redirecting to login...'
+            });
+          }
           setTimeout(() => {
             window.location.href = '/auth';
           }, 2000);
-        } else {
+        } else if (!suppressToast) {
           toast.error('Authentication Required', {
             description: authValidation.error || 'Please sign in and try again.'
           });
@@ -300,9 +306,11 @@ export class EnhancedEdgeFunctionClient {
 
           // Show user-friendly error message
           const userMessage = this.getUserFriendlyErrorMessage(error, functionName);
-          toast.error('Request Failed', {
-            description: userMessage
-          });
+          if (!suppressToast) {
+            toast.error('Request Failed', {
+              description: userMessage
+            });
+          }
 
           return { data: null, error };
         }
