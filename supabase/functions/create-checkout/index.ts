@@ -79,21 +79,31 @@ Deno.serve(async (req) => {
       apiVersion: "2023-10-16" 
     });
 
-    // Check if customer exists
+    // Check if customer already exists
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId;
+    
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      console.log("Existing customer found:", customerId);
+    } else {
+      // Create new customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { user_id: user.id }
+      });
+      customerId = customer.id;
+      console.log("New customer created:", customerId);
     }
 
     // Determine redirect base URL from request origin (fallback to production)
     const origin = req.headers.get("origin") || "https://llumos.app";
     const baseUrl = origin;
 
-    // Create subscription with trial for starter tier
+    // Create subscription checkout session
     const sessionConfig: any = {
       customer: customerId,
-      customer_email: customerId ? undefined : user.email,
+      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
