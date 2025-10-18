@@ -30,32 +30,32 @@ describe('Quota Limits Boundary Testing', () => {
     it('should return correct quotas for starter tier', () => {
       const quotas = getQuotasForTier('starter');
       expect(quotas).toEqual({
-        promptsPerDay: 10,
+        promptsPerDay: 25,
         providersPerPrompt: 2
+      });
+    });
+
+    it('should return correct quotas for growth tier', () => {
+      const quotas = getQuotasForTier('growth');
+      expect(quotas).toEqual({
+        promptsPerDay: 100,
+        providersPerPrompt: 4
       });
     });
 
     it('should return correct quotas for pro tier', () => {
       const quotas = getQuotasForTier('pro');
       expect(quotas).toEqual({
-        promptsPerDay: 50,
-        providersPerPrompt: 3
+        promptsPerDay: 300,
+        providersPerPrompt: 4
       });
     });
 
-    it('should return correct quotas for scale tier', () => {
-      const quotas = getQuotasForTier('scale');
-      expect(quotas).toEqual({
-        promptsPerDay: 200,
-        providersPerPrompt: 3
-      });
-    });
-
-    it('should default to starter tier for unknown tiers', () => {
+    it('should default to free tier for unknown tiers', () => {
       const quotas = getQuotasForTier('unknown' as PlanTier);
       expect(quotas).toEqual({
-        promptsPerDay: 10,
-        providersPerPrompt: 2
+        promptsPerDay: 5,
+        providersPerPrompt: 1
       });
     });
   });

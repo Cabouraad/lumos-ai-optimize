@@ -334,15 +334,19 @@ function isCommonWord(word: string): boolean {
   return commonWords.includes(word);
 }
 
-// Quota configurations
+// Quota configurations aligned with pricing page
 function getQuotasForTier(tier: string) {
   switch (tier) {
+    case 'starter':
+      return { promptsPerDay: 25, providersPerPrompt: 2 };
+    case 'growth':
+      return { promptsPerDay: 100, providersPerPrompt: 4 };
     case 'pro':
-      return { promptsPerDay: 50, providersPerPrompt: 3 };
+      return { promptsPerDay: 300, providersPerPrompt: 4 };
     case 'enterprise':
-      return { promptsPerDay: 200, providersPerPrompt: 5 };
-    default: // free tier
-      return { promptsPerDay: 10, providersPerPrompt: 2 };
+      return { promptsPerDay: 500, providersPerPrompt: 5 };
+    default:
+      return { promptsPerDay: 25, providersPerPrompt: 2 };
   }
 }
 

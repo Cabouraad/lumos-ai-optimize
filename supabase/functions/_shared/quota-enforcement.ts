@@ -3,7 +3,7 @@
  * Handles plan entitlements, usage tracking, and structured error responses
  */
 
-export type PlanTier = 'starter' | 'pro' | 'scale';
+export type PlanTier = 'starter' | 'growth' | 'pro' | 'free';
 
 export interface TierQuotas {
   promptsPerDay: number;
@@ -31,17 +31,23 @@ export interface UsageData {
 
 /**
  * Get quota limits for a plan tier
+ * ALIGNED WITH PRICING PAGE:
+ * - Starter: 25 prompts/day, 2 providers
+ * - Growth: 100 prompts/day, 4 providers
+ * - Pro: 300 prompts/day, 4 providers
  */
 export function getQuotasForTier(planTier: PlanTier): TierQuotas {
   switch (planTier) {
     case 'starter':
-      return { promptsPerDay: 10, providersPerPrompt: 2 };
+      return { promptsPerDay: 25, providersPerPrompt: 2 };
+    case 'growth':
+      return { promptsPerDay: 100, providersPerPrompt: 4 };
     case 'pro':
-      return { promptsPerDay: 50, providersPerPrompt: 3 };
-    case 'scale':
-      return { promptsPerDay: 200, providersPerPrompt: 3 };
+      return { promptsPerDay: 300, providersPerPrompt: 4 };
+    case 'free':
+      return { promptsPerDay: 5, providersPerPrompt: 1 };
     default:
-      return { promptsPerDay: 10, providersPerPrompt: 2 };
+      return { promptsPerDay: 5, providersPerPrompt: 1 }; // Default to free tier
   }
 }
 
