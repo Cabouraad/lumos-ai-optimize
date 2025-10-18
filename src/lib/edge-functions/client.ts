@@ -39,10 +39,17 @@ export class EdgeFunctionClient {
         headers: options.headers ? Object.keys(options.headers) : undefined
       });
 
-      // Call the edge function using Supabase client
+      // Call the edge function using Supabase client, ensuring Authorization header is present
+      const headers: Record<string, string> = { ...(options.headers || {}) };
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const token = currentSession?.access_token;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      } catch {}
+
       const result = await supabase.functions.invoke(functionName, {
         body: options.body,
-        headers: options.headers || {}
+        headers,
       });
 
       if (result.error) {

@@ -41,6 +41,7 @@ export class EnhancedEdgeFunctionClient {
     'manual-daily-run',
     // Auth and trial functions that handle their own authentication
     'create-trial-checkout', // Handles auth internally, called by new users
+    'create-checkout', // Subscription checkout
     'activate-trial', // Post-Stripe checkout, handles auth with sessionId
     'onboarding', // Called during sign-up flow
     'bootstrap-auth', // Called during auth initialization
@@ -234,10 +235,19 @@ export class EnhancedEdgeFunctionClient {
       try {
         console.debug(`🔄 [${correlationId}] Attempt ${attempt + 1}/${retries + 1} for ${functionName}`);
         
-        // Pass-through headers (avoid custom headers that trigger CORS)
-        const enhancedHeaders = {
+        // Pass-through headers and ensure Authorization is included when available
+        const enhancedHeaders: Record<string, string> = {
           ...headers
         };
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const accessToken = session?.access_token;
+          if (accessToken) {
+            enhancedHeaders['Authorization'] = `Bearer ${accessToken}`;
+          }
+        } catch (e) {
+          console.warn('Could not read session for Authorization header:', e);
+        }
 
         // Create timeout promise
         const timeoutPromise = new Promise((_, reject) => 
