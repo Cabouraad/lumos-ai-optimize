@@ -72,7 +72,7 @@ const Index = () => {
               <Link to="/pricing">View Pricing</Link>
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">No credit card required • 14-day free trial</p>
+          <p className="text-sm text-muted-foreground mt-4">7-day free trial on Starter plan • Payment method required</p>
         </div>
       </section>
 
@@ -109,7 +109,7 @@ const Index = () => {
               <ul className="text-left space-y-3 text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Starting at $29/month - 80% cost savings</span>
+                  <span>Starting at $39/month - 80% cost savings</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -146,7 +146,7 @@ const Index = () => {
               <Target className="w-12 h-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-3">Brand Visibility Monitoring</h3>
               <p className="text-muted-foreground">
-                Track how your brand appears across ChatGPT, Gemini, Perplexity, Google AI Overviews and other AI search engines with clear, actionable metrics.
+                Track how your brand appears across AI platforms like ChatGPT, Gemini, Perplexity, and Google AI Overviews with clear, actionable metrics. (Provider access varies by plan)
               </p>
             </Card>
             
@@ -154,7 +154,7 @@ const Index = () => {
               <TrendingUp className="w-12 h-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-3">Competitive Intelligence</h3>
               <p className="text-muted-foreground">
-                See which competitors are winning in AI search results and identify opportunities to increase your brand visibility.
+                See which competitors are winning in AI search results and identify opportunities to increase your brand visibility. (Growth and Pro plans)
               </p>
             </Card>
             
@@ -162,7 +162,7 @@ const Index = () => {
               <Zap className="w-12 h-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-3">Smart Recommendations</h3>
               <p className="text-muted-foreground">
-                Get specific, actionable recommendations to improve your brand's visibility and presence in AI-powered search results.
+                Get specific, actionable recommendations to improve your brand's visibility and presence in AI-powered search results. (Growth and Pro plans)
               </p>
             </Card>
           </div>
@@ -240,7 +240,7 @@ const Index = () => {
           </div>
           
           <p className="text-sm text-muted-foreground">
-            14-day free trial • No credit card required • Cancel anytime
+            7-day free trial on Starter plan • Payment method required • Cancel anytime
           </p>
         </div>
       </section>

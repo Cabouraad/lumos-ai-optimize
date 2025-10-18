@@ -9,12 +9,12 @@
 Monitor how ChatGPT, Gemini, Perplexity, and Google AI Overviews mention your brand. Get actionable insights to dominate AI search results and capture more customers.
 
 ### Value Props (3 bullets)
-- **Real-time AI Monitoring**: Track 4 major AI platforms (ChatGPT, Gemini, Perplexity, Google AI Overviews) for brand mentions and competitor analysis
-- **Actionable Recommendations**: Get specific tactics to improve your AI search visibility score
-- **Competitive Intelligence**: See exactly how competitors rank in AI responses vs. your brand
+- **Real-time AI Monitoring**: Track up to 4 major AI platforms (ChatGPT, Gemini, Perplexity, Google AI Overviews) for brand mentions across all plans
+- **Actionable Recommendations**: Get specific tactics to improve your AI search visibility score (Growth and Pro plans)
+- **Competitive Intelligence**: See exactly how competitors rank in AI responses vs. your brand (Growth and Pro plans)
 
 ### CTA Buttons
-- Primary: "Start Free AI Audit" 
+- Primary: "Start Free Trial" (7-day trial on Starter plan)
 - Secondary: "See Demo"
 
 ## Problem Section
@@ -80,7 +80,7 @@ Monitor how ChatGPT, Gemini, Perplexity, and Google AI Overviews mention your br
 **Start Your AI Search Optimization Today**
 
 ### Pricing Hook
-Plans starting at $49/month. 14-day free trial. No credit card required.
+Plans starting at $39/month. 7-day free trial on Starter plan. Payment method required.
 
 ## Final CTA
 

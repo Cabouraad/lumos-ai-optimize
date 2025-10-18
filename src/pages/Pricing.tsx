@@ -255,7 +255,7 @@ export default function Pricing() {
                 <CardTitle className="text-lg">What AI providers do you support?</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>We currently support OpenAI (ChatGPT), Perplexity AI, Google Gemini, and Google AI Overviews. Starter plans include 2 providers, Growth plans include 3 providers, and Pro plans include all 4 providers including Google AI Overviews.</p>
+                <p>We currently support OpenAI (ChatGPT), Perplexity AI, Google Gemini, and Google AI Overviews. Starter plans include 2 providers (OpenAI + Perplexity), while Growth and Pro plans include all 4 providers.</p>
               </CardContent>
             </Card>
 
