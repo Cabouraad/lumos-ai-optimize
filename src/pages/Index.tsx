@@ -59,8 +59,6 @@ const Index = () => {
             The Simplest Way to Track Your
             <span className="text-primary block">Brand Visibility on AI</span>
           </h1>
-          {/* Debug: Confirm deployment version */}
-          <div className="text-xs text-muted-foreground/50 mb-2">v2.1.0 - GitHub Sync Active</div>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Monitor and increase your brand visibility across AI-powered search engines like ChatGPT, Gemini, Perplexity, and Google AI Overviews. Simple, focused, and 80% less expensive than enterprise alternatives.
           </p>
