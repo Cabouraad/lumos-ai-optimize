@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { TrialBanner } from '@/components/TrialBanner';
@@ -22,7 +22,7 @@ import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 
 export default function Dashboard() {
-  const { user, orgData } = useAuth();
+  const { user, orgData, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const { hasAccessToApp } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
@@ -33,6 +33,27 @@ export default function Dashboard() {
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [loadingCompetitors, setLoadingCompetitors] = useState(false);
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  
+  // Post-checkout: refresh subscription and clean URL
+  useEffect(() => {
+    const sub = searchParams.get('subscription');
+    const portalReturn = searchParams.get('portal_return');
+    if (sub === 'success' || portalReturn === 'true') {
+      // Refresh subscription on return from Stripe
+      try {
+        checkSubscription?.();
+      } catch (e) {
+        console.error('checkSubscription error:', e);
+      }
+      toast({
+        title: 'Subscription updated',
+        description: 'Your access has been refreshed.',
+      });
+      // Clean the URL
+      navigate('/dashboard', { replace: true });
+    }
+  }, [checkSubscription, navigate, searchParams, toast]);
   
   // Use real-time dashboard hook with optimized interval
   const { data: dashboardData, loading, error, refresh, lastUpdated } = useRealTimeDashboard({
