@@ -81,15 +81,40 @@ Deno.serve(async (req) => {
     // Generate idempotency key for Stripe call
     const idempotencyKey = generateIdempotencyKey(user.id, "trial-checkout");
     
-    // Create checkout session for trial with payment method collection
+    // Create checkout session for trial subscription with 7-day trial
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
-      mode: 'setup', // Setup mode to collect payment method without immediate charge
-      success_url: `${baseUrl}/trial-success?session_id={CHECKOUT_SESSION_ID}`,
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { 
+              name: "Llumos Starter Plan",
+              description: "Starter tier subscription for Llumos AI Search Optimization"
+            },
+            unit_amount: 3900, // $39/month
+            recurring: { 
+              interval: 'month'
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription', // Subscription mode to show trial information
+      subscription_data: {
+        trial_period_days: 7, // This makes Stripe show "7-day free trial" on checkout
+        metadata: {
+          user_id: user.id,
+          tier: 'starter',
+          billing_cycle: 'monthly'
+        }
+      },
+      success_url: `${baseUrl}/dashboard?subscription=success`,
       cancel_url: `${baseUrl}/pricing`,
       metadata: {
         user_id: user.id,
+        tier: 'starter',
         trial_setup: 'true'
       }
     }, {
