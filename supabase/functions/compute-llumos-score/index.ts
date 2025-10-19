@@ -31,11 +31,105 @@ serve(async (req) => {
     let body: RequestBody = {};
     
     if (isCronRequest) {
-      // Cron request: orgId must be in body
-      body = await req.json();
+      // Cron request: process all active orgs if no orgId specified
+      body = await req.json().catch(() => ({}));
+      
       if (!body.orgId) {
-        throw new Error('orgId required for cron requests');
+        // Batch process all active orgs
+        const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Find active orgs (those with responses in last 56 days)
+        const { data: activeOrgIds } = await serviceClient
+          .from('prompt_provider_responses')
+          .select('org_id')
+          .gte('run_at', new Date(Date.now() - 56 * 24 * 60 * 60 * 1000).toISOString())
+          .eq('status', 'success');
+        
+        const uniqueOrgIds = [...new Set(activeOrgIds?.map(r => r.org_id) || [])];
+        
+        if (uniqueOrgIds.length === 0) {
+          return new Response(
+            JSON.stringify({ 
+              message: 'No active organizations found',
+              processed: 0,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const { data: activeOrgs, error: orgsError } = await serviceClient
+          .from('organizations')
+          .select('id, name')
+          .in('id', uniqueOrgIds);
+        
+        if (orgsError) {
+          throw new Error(`Failed to fetch active orgs: ${orgsError.message}`);
+        }
+        
+        if (!activeOrgs || activeOrgs.length === 0) {
+          return new Response(
+            JSON.stringify({ 
+              message: 'No active organizations found',
+              processed: 0,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Process each org
+        const results = [];
+        for (const org of activeOrgs) {
+          try {
+            const { data: rpcResult } = await serviceClient.rpc(
+              'compute_llumos_score',
+              {
+                p_org_id: org.id,
+                p_prompt_id: null,
+              }
+            );
+            
+            // Insert/update the score record
+            await serviceClient
+              .from('llumos_scores')
+              .upsert({
+                org_id: org.id,
+                prompt_id: null,
+                scope: 'org',
+                composite: rpcResult.composite,
+                llumos_score: rpcResult.score,
+                submetrics: rpcResult.submetrics,
+                window_start: rpcResult.window.start,
+                window_end: rpcResult.window.end,
+                reason: rpcResult.reason,
+              }, {
+                onConflict: 'org_id,scope,prompt_id,window_start',
+              });
+            
+            results.push({ org_id: org.id, org_name: org.name, score: rpcResult.score, success: true });
+          } catch (error) {
+            console.error(`Failed to compute score for org ${org.id}:`, error);
+            results.push({ 
+              org_id: org.id, 
+              org_name: org.name, 
+              success: false, 
+              error: error instanceof Error ? error.message : 'Unknown error' 
+            });
+          }
+        }
+        
+        return new Response(
+          JSON.stringify({
+            message: 'Batch computation complete',
+            processed: results.length,
+            successful: results.filter(r => r.success).length,
+            failed: results.filter(r => !r.success).length,
+            results,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      
+      // Single org specified in cron request
       orgId = body.orgId;
       console.log(`[CRON] Computing Llumos score for org ${orgId}`);
     } else {

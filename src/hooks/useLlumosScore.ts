@@ -45,54 +45,21 @@ export function useLlumosScore(promptId?: string) {
   return useQuery({
     queryKey: ['llumos-score', scope, promptId],
     queryFn: async () => {
-      // First try to get cached score from database
-      let query = supabase
-        .from('llumos_scores')
-        .select('*')
-        .eq('scope', scope)
-        .order('window_end', { ascending: false })
-        .limit(1);
-      
-      if (promptId) {
-        query = query.eq('prompt_id', promptId);
-      } else {
-        query = query.is('prompt_id', null);
-      }
-      
-      const { data: cachedScore, error: cacheError } = await query.maybeSingle();
-      
-      if (!cacheError && cachedScore) {
-        // Check if score is recent (within last 7 days)
-        const scoreAge = Date.now() - new Date(cachedScore.window_end).getTime();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        
-        if (scoreAge < sevenDaysMs) {
-          return {
-            score: cachedScore.llumos_score,
-            composite: cachedScore.composite,
-            tier: getTierFromScore(cachedScore.llumos_score),
-            submetrics: cachedScore.submetrics as LlumosSubmetrics,
-            window: {
-              start: cachedScore.window_start,
-              end: cachedScore.window_end,
-            },
-            reason: cachedScore.reason,
-            cached: true,
-          } as LlumosScoreResponse;
+      // First try to get cached score from database using RPC
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        'compute_llumos_score',
+        {
+          p_org_id: undefined, // Will be resolved by RLS
+          p_prompt_id: promptId || null,
         }
+      );
+
+      if (rpcError) {
+        console.error('RPC error:', rpcError);
+        throw rpcError;
       }
-      
-      // No recent cached score, compute new one
-      const { data, error } = await supabase.functions.invoke('compute-llumos-score', {
-        body: {
-          scope,
-          promptId,
-          force: false,
-        },
-      });
-      
-      if (error) throw error;
-      return data as LlumosScoreResponse;
+
+      return rpcResult as unknown as LlumosScoreResponse;
     },
     staleTime: 1000 * 60 * 60, // 1 hour
     refetchOnWindowFocus: false,

@@ -445,6 +445,80 @@ export type Database = {
         }
         Relationships: []
       }
+      llumos_scores: {
+        Row: {
+          composite: number
+          created_at: string
+          id: string
+          llumos_score: number
+          org_id: string
+          prompt_id: string | null
+          reason: string | null
+          scope: string
+          submetrics: Json
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          composite: number
+          created_at?: string
+          id?: string
+          llumos_score: number
+          org_id: string
+          prompt_id?: string | null
+          reason?: string | null
+          scope: string
+          submetrics?: Json
+          updated_at?: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          composite?: number
+          created_at?: string
+          id?: string
+          llumos_score?: number
+          org_id?: string
+          prompt_id?: string | null
+          reason?: string | null
+          scope?: string
+          submetrics?: Json
+          updated_at?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "llumos_scores_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "llumos_scores_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "llumos_scores_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "llumos_scores_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       optimizations_v2: {
         Row: {
           citations_used: Json | null
@@ -1368,6 +1442,10 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      compute_llumos_score: {
+        Args: { p_org_id: string; p_prompt_id?: string }
+        Returns: Json
+      }
       cron_schedule: {
         Args: { cron_schedule: string; job_name: string; sql_command: string }
         Returns: number
@@ -1375,6 +1453,10 @@ export type Database = {
       cron_unschedule: {
         Args: { job_name: string }
         Returns: boolean
+      }
+      domain_root: {
+        Args: { p_domain: string }
+        Returns: string
       }
       email_matches_org_domain: {
         Args: { email_address: string }
@@ -1657,9 +1739,17 @@ export type Database = {
         Args: { job_id: string }
         Returns: undefined
       }
+      is_competitor_domain: {
+        Args: { p_domain: string; p_org_id: string }
+        Returns: boolean
+      }
       mark_domain_verified: {
         Args: { org_id: string }
         Returns: boolean
+      }
+      org_domain_set: {
+        Args: { p_org_id: string }
+        Returns: string[]
       }
       rebuild_competitors_catalog_only: {
         Args: Record<PropertyKey, never>

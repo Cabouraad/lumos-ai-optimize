@@ -20,6 +20,7 @@ import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { DashboardChart } from '@/components/dashboard/DashboardChart';
 import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
+import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
@@ -484,10 +485,18 @@ export default function Dashboard() {
           </div>
 
           {/* Key Metrics */}
-          <DashboardMetrics 
-            metrics={dashboardData?.metrics || {}}
-            presenceStats={presenceStats}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {/* Llumos Score Widget */}
+            <LlumosScoreWidget />
+            
+            {/* Other Metrics */}
+            <div className="col-span-1 md:col-span-2 lg:col-span-3">
+              <DashboardMetrics 
+                metrics={dashboardData?.metrics || {}}
+                presenceStats={presenceStats}
+              />
+            </div>
+          </div>
 
           {/* Visibility Trend Chart */}
           <DashboardChart 

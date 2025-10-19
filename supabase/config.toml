@@ -186,6 +186,9 @@ verify_jwt = false
 [functions.execution-monitor]
 verify_jwt = false
 
+[functions.compute-llumos-score]
+verify_jwt = false
+
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===
@@ -212,3 +215,6 @@ prompt_execution_guardian = { schedule = "15 * * * *", endpoint = "/prompt-execu
 
 # === MONITOR: Dead man's switch (every 15 minutes) ===
 execution_monitor = { schedule = "*/15 * * * *", endpoint = "/execution-monitor", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
+
+# === LLUMOS SCORE: Weekly computation (Mondays at 8:05 AM UTC) ===
+llumos_score_weekly = { schedule = "5 8 * * MON", endpoint = "/compute-llumos-score", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"scope\": \"org\", \"force\": true}" }
