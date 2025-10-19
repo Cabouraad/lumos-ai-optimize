@@ -35,6 +35,16 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   
+  // If the user has no organization set, send them to onboarding immediately
+  useEffect(() => {
+    // orgData can be either a flat users row (org_id) or include nested organizations
+    const hasOrg = Boolean(orgData?.organizations?.id || orgData?.org_id);
+    if (user && !hasOrg) {
+      navigate('/onboarding', { replace: true });
+    }
+  }, [user, orgData, navigate]);
+  
+  
   // Post-checkout: refresh subscription and clean URL
   useEffect(() => {
     const sub = searchParams.get('subscription');
