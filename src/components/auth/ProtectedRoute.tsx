@@ -59,6 +59,16 @@ export function ProtectedRoute({
     );
   }
 
+  // If authenticated but not yet attached to an organization, route to onboarding
+  if (user && userData && !userData.org_id && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // Handle case where user record not found yet
+  if (user && !userLoading && !userData && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   // Handle user data errors
   if (user && userError) {
     // If user not found in database or no org, redirect to onboarding
