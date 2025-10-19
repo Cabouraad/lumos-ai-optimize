@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearOrgIdCache } from '@/lib/org-id';
 
 interface AuthContextType {
   user: User | null;
@@ -85,6 +86,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         console.log('[AuthProvider] Auth state change:', event, !!session);
         
+        // Clear org ID cache on sign out to prevent cross-user data leakage
+        if (event === 'SIGNED_OUT') {
+          clearOrgIdCache();
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -106,6 +112,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = useCallback(async () => {
     try {
+      // Clear org ID cache before signing out
+      clearOrgIdCache();
       await supabase.auth.signOut();
     } catch (error) {
       console.error('[AuthProvider] Error signing out:', error);

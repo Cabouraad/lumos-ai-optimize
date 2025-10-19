@@ -1,6 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
+import { clearOrgIdCache } from "./org-id";
 
 export function cleanupAuthState() {
+  // Clear org ID cache to prevent cross-user data leakage
+  clearOrgIdCache();
+  
   // Remove standard auth tokens
   localStorage.removeItem('supabase.auth.token');
   
