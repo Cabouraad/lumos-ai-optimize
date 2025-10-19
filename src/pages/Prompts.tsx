@@ -526,7 +526,8 @@ export default function Prompts() {
 
   // Use role-based admin access
   const { isAdmin } = useAdminAccess();
-  const isTestUser = isAdmin;
+  // Only allow specific admin email to access debug tools
+  const isTestUser = isAdmin && user?.email === 'abouraa.chri@gmail.com';
 
   // Check app access first
   const appAccess = hasAccessToApp();
