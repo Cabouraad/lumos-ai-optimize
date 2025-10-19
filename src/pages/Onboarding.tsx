@@ -448,7 +448,19 @@ export default function Onboarding() {
             )}
             
             <div ref={businessContextRef}>
-            <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="space-y-4">
+            <form onSubmit={async (e) => { 
+              e.preventDefault(); 
+              
+              // Check if user already has an active subscription (test accounts, etc.)
+              if (subscriptionData?.subscribed) {
+                // User already subscribed - complete onboarding and go to dashboard
+                await handleCompleteOnboarding();
+                return;
+              }
+              
+              // No subscription yet - proceed to plan selection
+              setCurrentStep(3); 
+            }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="keywords_required">Target Keywords *</Label>
                 <Textarea
