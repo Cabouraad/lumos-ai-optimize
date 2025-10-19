@@ -194,16 +194,21 @@ export default function Dashboard() {
     }
   }, [orgData?.organizations?.id, chartView]);
 
-  // Show error if dashboard fetch failed
+  // Show error if dashboard fetch failed and route to onboarding if org missing
   useEffect(() => {
     if (error) {
+      const msg = error.message || '';
+      if (msg.toLowerCase().includes('organization')) {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
       toast({
         title: 'Dashboard Error',
         description: 'Failed to load dashboard data. Please try refreshing.',
         variant: 'destructive'
       });
     }
-  }, [error, toast]);
+  }, [error, toast, navigate]);
 
   // Transform optimizations for Quick Wins display
   const quickWins = useMemo(() => {

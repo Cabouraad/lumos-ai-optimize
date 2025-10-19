@@ -5,6 +5,7 @@ import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
 import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
 import { loadChunkWithRetry } from "@/utils/chunk-loader";
+import { OnboardingGate } from "@/components/auth/OnboardingGate";
 
 // Lazy load all page components with retry logic to handle chunk loading failures
 const Index = lazy(() => loadChunkWithRetry(() => import("./pages/Index")));
@@ -98,9 +99,11 @@ const App = () => {
           } />
           <Route path="/dashboard" element={
             <ProtectedRoute>
-              <ChunkErrorBoundary chunkName="Dashboard">
-                <Dashboard />
-              </ChunkErrorBoundary>
+              <OnboardingGate>
+                <ChunkErrorBoundary chunkName="Dashboard">
+                  <Dashboard />
+                </ChunkErrorBoundary>
+              </OnboardingGate>
             </ProtectedRoute>
           } />
           <Route path="/prompts" element={
