@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -19,7 +19,7 @@ import { openExternalUrl } from '@/lib/navigation';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
 
 export default function Onboarding() {
-  const { user, orgData, subscriptionData } = useAuth();
+  const { user, orgData, subscriptionData, subscriptionLoading } = useAuth();
   const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -38,6 +38,15 @@ export default function Onboarding() {
   const [subscriptionCompleted, setSubscriptionCompleted] = useState(false);
   const [showManualFillBanner, setShowManualFillBanner] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  
+  // Auto-complete onboarding for already-subscribed users who reached plan selection
+  const autoCompleteRef = useRef(false);
+  useEffect(() => {
+    if (currentStep === 3 && subscriptionData?.subscribed && !orgData?.org_id && !autoCompleteRef.current) {
+      autoCompleteRef.current = true;
+      handleCompleteOnboarding();
+    }
+  }, [currentStep, subscriptionData?.subscribed, orgData?.org_id]);
   const businessContextRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     orgName: '',
@@ -520,8 +529,8 @@ export default function Onboarding() {
                 >
                   Back
                 </Button>
-                <Button type="submit" disabled={loading}>
-                  Continue to Pricing
+                <Button type="submit" disabled={loading || subscriptionLoading}>
+                  {subscriptionLoading ? 'Checking subscription…' : 'Continue to Pricing'}
                 </Button>
               </div>
             </form>

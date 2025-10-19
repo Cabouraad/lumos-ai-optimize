@@ -95,7 +95,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       let finalSubscriptionData: SubscriptionData;
 
       // Get plan tier from org as authoritative source
-      const orgPlanTier = (orgData?.organizations as any)?.plan_tier || 'free';
+      const orgPlanTier = (orgData?.organizations as any)?.plan_tier ?? null;
 
       if (subError) {
         console.warn('[SubscriptionProvider] Error fetching subscription:', subError);
@@ -110,10 +110,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           metadata: null
         };
       } else if (subscriberData) {
-        // Use subscriber data but prefer org plan tier for subscription_tier
+        // Use subscriber data, preferring org plan tier only if it exists
         finalSubscriptionData = {
           subscribed: subscriberData.subscribed || false,
-          subscription_tier: orgPlanTier || subscriberData.subscription_tier || 'free',
+          subscription_tier: (orgPlanTier ?? subscriberData.subscription_tier ?? 'free'),
           subscription_end: subscriberData.subscription_end,
           trial_expires_at: subscriberData.trial_expires_at,
           trial_started_at: subscriberData.trial_started_at,
