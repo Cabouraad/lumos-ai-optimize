@@ -221,11 +221,21 @@ export default function Onboarding() {
       }
     } catch (error: any) {
       console.error("Onboarding error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to complete setup",
-        variant: "destructive",
-      });
+      
+      // Handle domain conflict error specially
+      if (error.message?.includes("domain is already registered")) {
+        toast({
+          title: "Domain Already in Use",
+          description: "This domain is already registered by another organization. Please use a different domain or contact support if you believe this is an error.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to complete setup",
+          variant: "destructive",
+        });
+      }
     }
 
     setLoading(false);

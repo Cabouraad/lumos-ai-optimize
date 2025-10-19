@@ -73,28 +73,71 @@ Deno.serve(async (req) => {
       metadata: { name, domain: normDomain } 
     });
 
-    // 1) Create organization (insert requires service role by trigger)
-    const { data: org, error: orgErr } = await supa
+    // 1) Check if organization with this domain already exists
+    const { data: existingOrg, error: checkErr } = await supa
       .from("organizations")
-      .insert({
-        name,
-        domain: normDomain,
-        plan_tier: "starter",
-        domain_verification_method: "file",
-        business_description: business_description || null,
-        products_services: products_services || null,
-        target_audience: target_audience || null,
-        keywords: keywords ? keywords.split(',').map((k: string) => k.trim()).filter(Boolean) : []
-      })
-      .select()
-      .single();
+      .select("id")
+      .eq("domain", normDomain)
+      .maybeSingle();
 
-    if (orgErr) {
-      logger.error("Error creating organization", new Error(orgErr.message));
-      return new Response(JSON.stringify({ error: orgErr.message }), { 
+    if (checkErr) {
+      logger.error("Error checking existing organization", new Error(checkErr.message));
+      return new Response(JSON.stringify({ error: checkErr.message }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    let org: any;
+
+    if (existingOrg) {
+      // Organization already exists - check if user is already linked
+      const { data: existingUser } = await supa
+        .from("users")
+        .select("id, org_id")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (existingUser?.org_id === existingOrg.id) {
+        // User already linked to this org - just return success
+        logger.info("User already linked to organization", { metadata: { orgId: existingOrg.id } });
+        org = existingOrg;
+      } else {
+        // Domain already taken by another organization
+        logger.error("Domain already in use", new Error("Domain already registered"));
+        return new Response(JSON.stringify({ 
+          error: "This domain is already registered. Please use a different domain or contact support." 
+        }), { 
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      // Create new organization
+      const { data: newOrg, error: orgErr } = await supa
+        .from("organizations")
+        .insert({
+          name,
+          domain: normDomain,
+          plan_tier: "starter",
+          domain_verification_method: "file",
+          business_description: business_description || null,
+          products_services: products_services || null,
+          target_audience: target_audience || null,
+          keywords: keywords ? keywords.split(',').map((k: string) => k.trim()).filter(Boolean) : []
+        })
+        .select()
+        .single();
+
+      if (orgErr) {
+        logger.error("Error creating organization", new Error(orgErr.message));
+        return new Response(JSON.stringify({ error: orgErr.message }), { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      org = newOrg;
     }
 
     logger.info("Organization created", { metadata: { orgId: org.id } });
@@ -121,14 +164,16 @@ Deno.serve(async (req) => {
 
     logger.info("User record created/updated");
 
-    // 3) Create organization's brand in catalog
+    // 3) Create organization's brand in catalog (idempotent)
     const { error: brandErr } = await supa
       .from("brand_catalog")
-      .insert({
+      .upsert({
         org_id: org.id,
         name,
         variants_json: [],
         is_org_brand: true
+      }, {
+        onConflict: "org_id, name"
       });
 
     if (brandErr) {
