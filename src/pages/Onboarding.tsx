@@ -530,7 +530,11 @@ export default function Onboarding() {
                   Back
                 </Button>
                 <Button type="submit" disabled={loading || subscriptionLoading}>
-                  {subscriptionLoading ? 'Checking subscription…' : 'Continue to Pricing'}
+                  {subscriptionLoading 
+                    ? 'Checking subscription…' 
+                    : subscriptionData?.subscribed 
+                      ? 'Finish Setup & Go to Dashboard' 
+                      : 'Continue to Pricing'}
                 </Button>
               </div>
             </form>
