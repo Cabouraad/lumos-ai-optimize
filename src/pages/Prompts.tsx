@@ -582,7 +582,7 @@ export default function Prompts() {
                   </p>
                 </div>
                 <div className="flex gap-3">
-                  {isAdmin && (
+                  {isTestUser && (
                     <Button 
                       onClick={() => setShowGlobalBatchDialog(true)}
                       disabled={isRunningGlobalBatch}
