@@ -17,6 +17,8 @@ import { Info, LogOut } from 'lucide-react';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 import { openExternalUrl } from '@/lib/navigation';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
+import { OnboardingPromptSelection } from '@/components/onboarding/OnboardingPromptSelection';
+import { acceptMultipleSuggestions } from '@/lib/suggestions/data';
 
 export default function Onboarding() {
   const { user, orgData, subscriptionData, subscriptionLoading } = useAuth();
@@ -31,7 +33,7 @@ export default function Onboarding() {
   }
   const [loading, setLoading] = useState(false);
   const [autoFillLoading, setAutoFillLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: Business Context, 3: Pricing
+  const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: Business Context, 3: Pricing, 4: Prompts
   const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>('growth');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -39,12 +41,12 @@ export default function Onboarding() {
   const [showManualFillBanner, setShowManualFillBanner] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   
-  // Auto-complete onboarding for already-subscribed users who reached plan selection
+  // Auto-complete onboarding for already-subscribed users who reached step 4
   const autoCompleteRef = useRef(false);
   useEffect(() => {
-    if (currentStep === 3 && subscriptionData?.subscribed && !orgData?.org_id && !autoCompleteRef.current) {
+    if (currentStep === 4 && subscriptionData?.subscribed && !orgData?.org_id && !autoCompleteRef.current) {
       autoCompleteRef.current = true;
-      handleCompleteOnboarding();
+      // Already subscribed users at step 4 should stay on step 4 to select prompts
     }
   }, [currentStep, subscriptionData?.subscribed, orgData?.org_id]);
   const businessContextRef = useRef<HTMLDivElement>(null);
@@ -204,20 +206,19 @@ export default function Onboarding() {
 
       toast({
         title: "Setup Complete!",
-        description: "Generating AI suggestions based on your business context...",
+        description: "Your organization has been created successfully",
       });
 
       // Clear temporary storage
       sessionStorage.removeItem('onboarding-data');
       
-      // Generate AI suggestions immediately after org setup
-      await handleGeneratePromptSuggestions();
-
-      // User has an active subscription (e.g., test accounts like Pro for 12 months):
-      // skip plan selection and go straight to the dashboard.
+      // Now proceed to prompt selection (step 4)
+      // If user already has subscription, go directly to step 4
+      // Otherwise, go to pricing (step 3) first
       if (subscriptionData?.subscribed) {
-        handleFinishOnboarding();
-        return;
+        setCurrentStep(4);
+      } else {
+        setCurrentStep(3);
       }
     } catch (error: any) {
       console.error("Onboarding error:", error);
@@ -263,6 +264,32 @@ export default function Onboarding() {
       });
     }
     setLoading(false);
+  };
+
+  const handlePromptSelectionComplete = async (
+    selectedSuggestionIds: string[],
+    manualPrompts: string[]
+  ) => {
+    setLoading(true);
+    try {
+      const result = await acceptMultipleSuggestions(selectedSuggestionIds, manualPrompts);
+      
+      toast({
+        title: "Prompts Activated!",
+        description: `${result.promptsCreated} prompt${result.promptsCreated !== 1 ? 's' : ''} are now being tracked`,
+      });
+
+      // Complete onboarding and go to dashboard
+      handleFinishOnboarding();
+    } catch (error: any) {
+      console.error("Prompt acceptance error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to activate prompts",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
   };
 
   const handleAutoFill = async () => {
@@ -469,16 +496,7 @@ export default function Onboarding() {
             <div ref={businessContextRef}>
             <form onSubmit={async (e) => { 
               e.preventDefault(); 
-              
-              // Check if user already has an active subscription (test accounts, etc.)
-              if (subscriptionData?.subscribed) {
-                // User already subscribed - complete onboarding and go to dashboard
-                await handleCompleteOnboarding();
-                return;
-              }
-              
-              // No subscription yet - proceed to plan selection
-              setCurrentStep(3); 
+              await handleCompleteOnboarding();
             }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="keywords_required">Target Keywords *</Label>
@@ -689,6 +707,17 @@ export default function Onboarding() {
     );
   }
 
+  // Step 4: Prompt Selection
+  if (currentStep === 4) {
+    return (
+      <OnboardingPromptSelection
+        onContinue={handlePromptSelectionComplete}
+        onBack={() => setCurrentStep(subscriptionData?.subscribed ? 2 : 3)}
+        isSubscribed={!!subscriptionData?.subscribed}
+      />
+    );
+  }
+
   // Step 3: Plan selection
   return (
     <div className="min-h-screen bg-background p-4">
@@ -807,7 +836,10 @@ export default function Onboarding() {
           </Button>
           
           <Button 
-            onClick={handleSubscriptionSetup}
+            onClick={async () => {
+              await handleSubscriptionSetup();
+              // After successful subscription, user will return and go to step 4
+            }}
             disabled={loading}
             size="lg"
           >

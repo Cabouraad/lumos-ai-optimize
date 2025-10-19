@@ -143,3 +143,72 @@ export async function generateSuggestionsNow() {
     throw new Error(error instanceof Error ? error.message : 'Failed to generate suggestions');
   }
 }
+
+/**
+ * Accept multiple suggestions and create custom prompts in bulk
+ * Used during onboarding to activate selected prompts
+ */
+export async function acceptMultipleSuggestions(
+  suggestionIds: string[], 
+  manualPrompts: string[]
+) {
+  try {
+    const orgId = await getOrgId();
+
+    // Fetch selected suggestions
+    const { data: suggestions, error: fetchError } = await supabase
+      .from('suggested_prompts')
+      .select('id, text')
+      .eq('org_id', orgId)
+      .in('id', suggestionIds);
+
+    if (fetchError) throw fetchError;
+
+    // Create prompts from suggestions
+    const suggestionPrompts = suggestions?.map(s => ({
+      org_id: orgId,
+      text: s.text,
+      active: true
+    })) ?? [];
+
+    // Create prompts from manual input
+    const manualPromptsData = manualPrompts
+      .filter(text => text.trim().length > 0)
+      .map(text => ({
+        org_id: orgId,
+        text: text.trim(),
+        active: true
+      }));
+
+    // Combine all prompts
+    const allPrompts = [...suggestionPrompts, ...manualPromptsData];
+
+    if (allPrompts.length > 0) {
+      // Insert all prompts at once
+      const { error: insertError } = await supabase
+        .from('prompts')
+        .insert(allPrompts);
+
+      if (insertError) throw insertError;
+    }
+
+    // Mark all suggestions as accepted
+    if (suggestionIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('suggested_prompts')
+        .update({ accepted: true })
+        .eq('org_id', orgId)
+        .in('id', suggestionIds);
+
+      if (updateError) throw updateError;
+    }
+
+    return { 
+      success: true, 
+      promptsCreated: allPrompts.length 
+    };
+  } catch (error) {
+    console.error('Accept multiple suggestions error:', error);
+    throw error;
+  }
+}
