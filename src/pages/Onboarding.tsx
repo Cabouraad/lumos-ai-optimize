@@ -203,6 +203,13 @@ export default function Onboarding() {
       
       // Generate AI suggestions immediately after org setup
       await handleGeneratePromptSuggestions();
+
+      // User has an active subscription (e.g., test accounts like Pro for 12 months):
+      // skip plan selection and go straight to the dashboard.
+      if (subscriptionData?.subscribed) {
+        handleFinishOnboarding();
+        return;
+      }
     } catch (error: any) {
       console.error("Onboarding error:", error);
       toast({
