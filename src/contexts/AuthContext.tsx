@@ -47,10 +47,11 @@ export function useAuthLegacy(): LegacyAuthContextType {
     } else if (!userReady || userLoading) {
       // Still loading - don't report 'not_found' yet
       orgStatus = 'loading';
-    } else if (userData) {
+    } else if (userData && userData.org_id) {
+      // User exists AND has an organization
       orgStatus = 'success';
     } else {
-      // Only report 'not_found' after we're ready and confirmed no data
+      // User ready but no userData OR userData exists but no org_id
       orgStatus = 'not_found';
     }
     

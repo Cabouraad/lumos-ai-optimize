@@ -15,11 +15,23 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  console.log('[OnboardingGate] State:', {
+    hasUser: !!user,
+    ready,
+    hasUserData: !!userData,
+    orgId: userData?.org_id,
+    loading,
+    error,
+    pathname: location.pathname
+  });
+
   // Early hard redirect to minimize flicker if we detect dashboard with no org
   useEffect(() => {
     if (!user || !ready) return;
     const hasOrg = Boolean(userData?.org_id || userData?.organizations?.id);
+    console.log('[OnboardingGate] Checking org:', { hasOrg, pathname: location.pathname });
     if (!loading && !hasOrg && location.pathname !== '/onboarding') {
+      console.log('[OnboardingGate] REDIRECTING to onboarding - no org detected');
       navigate('/onboarding', { replace: true });
     }
   }, [user, ready, userData, loading, location.pathname, navigate]);

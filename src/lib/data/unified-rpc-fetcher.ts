@@ -10,6 +10,7 @@ import { logger } from '../observability/logger';
 export interface UnifiedDashboardResponse {
   success: boolean;
   error?: string;
+  noOrg?: boolean; // Indicates user has no organization (not an error, needs onboarding)
   prompts: any[];
   responses: any[];
   chartData: any[];
@@ -35,15 +36,67 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
   try {
     logger.info('Fetching unified dashboard data via RPC', { component: 'unified-rpc-fetcher' });
     
-    // Get current user's org_id
+    // Get current user's org_id using maybeSingle to avoid errors
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      logger.warn('No authenticated user found', { component: 'unified-rpc-fetcher' });
+      return {
+        success: false,
+        error: 'Not authenticated',
+        prompts: [],
+        responses: [],
+        chartData: [],
+        metrics: {
+          avgScore: 0,
+          overallScore: 0,
+          trend: 0,
+          promptCount: 0,
+          activePrompts: 0,
+          inactivePrompts: 0,
+          totalRuns: 0,
+          recentRunsCount: 0
+        },
+        timestamp: new Date().toISOString()
+      };
+    }
+    
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('org_id')
-      .eq('id', (await supabase.auth.getUser()).data.user?.id)
-      .single();
+      .eq('id', user.id)
+      .maybeSingle();
     
-    if (userError || !userData?.org_id) {
-      throw new Error('Could not fetch user organization');
+    // If no user record or no org_id, return structured "no org" response
+    if (userError || !userData || !userData.org_id) {
+      logger.info('User has no organization - needs onboarding', { 
+        component: 'unified-rpc-fetcher',
+        metadata: { 
+          hasUserRecord: !!userData,
+          hasOrgId: !!userData?.org_id,
+          userError: userError?.message 
+        }
+      });
+      
+      return {
+        success: false,
+        noOrg: true,
+        error: 'No organization found',
+        prompts: [],
+        responses: [],
+        chartData: [],
+        metrics: {
+          avgScore: 0,
+          overallScore: 0,
+          trend: 0,
+          promptCount: 0,
+          activePrompts: 0,
+          inactivePrompts: 0,
+          totalRuns: 0,
+          recentRunsCount: 0
+        },
+        timestamp: new Date().toISOString()
+      };
     }
     
     const { data, error } = await supabase.rpc('get_unified_dashboard_data', {

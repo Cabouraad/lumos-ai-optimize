@@ -65,6 +65,15 @@ export function useRealTimeDashboard(
       
       const result = await dashboardFetcher.getData(forceRefresh);
       
+      // Handle "no org" case specially - this is not an error, user needs onboarding
+      if (result.noOrg) {
+        console.log('[Dashboard] User has no organization - needs onboarding');
+        setLoading(false);
+        setData(null);
+        // Don't set error or show toast - let routing logic handle redirect
+        return;
+      }
+      
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch dashboard data');
       }

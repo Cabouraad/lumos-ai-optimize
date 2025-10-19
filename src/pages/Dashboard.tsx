@@ -35,16 +35,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   
-  // If the user has no organization set, send them to onboarding immediately
-  useEffect(() => {
-    // orgData can be either a flat users row (org_id) or include nested organizations
-    const hasOrg = Boolean(orgData?.organizations?.id || orgData?.org_id);
-    if (user && !hasOrg) {
-      navigate('/onboarding', { replace: true });
-    }
-  }, [user, orgData, navigate]);
-  
-  
   // Post-checkout: refresh subscription and clean URL
   useEffect(() => {
     const sub = searchParams.get('subscription');
@@ -70,6 +60,24 @@ export default function Dashboard() {
     autoRefreshInterval: 180000, // 3 minutes (optimized for performance)
     enableAutoRefresh: true
   });
+  
+  // CRITICAL: Force redirect to onboarding if no org in multiple scenarios
+  useEffect(() => {
+    // 1. Check orgData structure first
+    const hasOrg = Boolean(orgData?.organizations?.id || orgData?.org_id);
+    if (user && !hasOrg) {
+      console.log('[Dashboard] No org in orgData, redirecting to onboarding');
+      navigate('/onboarding', { replace: true });
+      return;
+    }
+    
+    // 2. Check if dashboard data indicates no org
+    if (dashboardData && !dashboardData.success && dashboardData.noOrg) {
+      console.log('[Dashboard] Dashboard data indicates no org, redirecting to onboarding');
+      navigate('/onboarding', { replace: true });
+      return;
+    }
+  }, [user, orgData, dashboardData, navigate]);
 
   // Memoize chart data to prevent unnecessary re-renders
   const memoizedChartData = useMemo(() => {
@@ -193,22 +201,6 @@ export default function Dashboard() {
       }
     }
   }, [orgData?.organizations?.id, chartView]);
-
-  // Show error if dashboard fetch failed and route to onboarding if org missing
-  useEffect(() => {
-    if (error) {
-      const msg = error.message || '';
-      if (msg.toLowerCase().includes('organization')) {
-        navigate('/onboarding', { replace: true });
-        return;
-      }
-      toast({
-        title: 'Dashboard Error',
-        description: 'Failed to load dashboard data. Please try refreshing.',
-        variant: 'destructive'
-      });
-    }
-  }, [error, toast, navigate]);
 
   // Transform optimizations for Quick Wins display
   const quickWins = useMemo(() => {
