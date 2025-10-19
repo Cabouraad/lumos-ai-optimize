@@ -1,11 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Building2 } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 interface BrandDisplayProps {
   brandName: string;
@@ -72,18 +66,9 @@ export function BrandDisplay({ brandName, collapsed = false }: BrandDisplayProps
         
         {/* Brand Name */}
         <div className="flex-1 min-w-0">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <h2 className="text-lg font-semibold text-foreground truncate cursor-default">
-                  {brandName}
-                </h2>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs">
-                <p className="text-sm">{brandName}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <h2 className="text-lg font-semibold text-foreground break-words leading-tight">
+            {brandName}
+          </h2>
         </div>
       </div>
     </div>
