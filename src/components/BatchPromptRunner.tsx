@@ -371,11 +371,11 @@ export function BatchPromptRunner() {
     setLastError(null);
     
     try {
-      console.log('🚀 Starting batch processing...');
-      const orgId = await getOrgId();
+      console.log('🚀 Starting batch processing for ALL organizations...');
       
-      const { data, error } = await robustInvoke('robust-batch-processor', {
-        body: { orgId, replace: true }
+      // Trigger batch processing for all organizations with active prompts
+      const { data, error } = await robustInvoke('trigger-all-orgs-batch', {
+        body: { replace: true }
       });
 
       if (error) {
@@ -384,29 +384,15 @@ export function BatchPromptRunner() {
         return;
       }
 
-      console.log('✅ Job created:', data);
-
-      // Set cancelled count if any
-      if (data?.cancelled_previous_count > 0) {
-        setCancelledCount(data.cancelled_previous_count);
-        toast.success(`Cancelled ${data.cancelled_previous_count} previous run(s)`);
-      }
-
-      // CRITICAL: Fetch the newly created job and set it as currentJob
-      if (data?.jobId) {
-        const { data: jobData } = await supabase
-          .from('batch_jobs')
-          .select('*')
-          .eq('id', data.jobId)
-          .single();
+      if (data?.success) {
+        console.log('✅ Batch started for all organizations:', data);
+        const message = `Batch processing started for ${data.triggeredJobs || 0} organizations`;
+        toast.success(message);
         
-        if (jobData) {
-          setCurrentJob(jobData as unknown as BatchJob);
-          toast.success(`Processing ${data.total_tasks} tasks`);
-        }
-      } else {
-        // Fallback: load recent jobs
+        // Load the updated job list to show all the new jobs
         await loadRecentJobs();
+      } else {
+        toast.error('Failed to start batch processing');
       }
       
     } catch (error: any) {
