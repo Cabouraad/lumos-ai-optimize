@@ -101,19 +101,26 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         console.warn('[SubscriptionProvider] Error fetching subscription:', subError);
         // Use org plan tier as fallback
         finalSubscriptionData = {
-          subscribed: orgPlanTier !== 'free',
-          subscription_tier: orgPlanTier,
+          subscribed: orgPlanTier !== 'free' && orgPlanTier !== null,
+          subscription_tier: orgPlanTier ?? 'free',
           subscription_end: null,
           trial_expires_at: null,
           trial_started_at: null,
-          payment_collected: orgPlanTier !== 'free',
+          payment_collected: orgPlanTier !== 'free' && orgPlanTier !== null,
           metadata: null
         };
       } else if (subscriberData) {
-        // Use subscriber data, preferring org plan tier only if it exists
+        // Priority: Use subscriber tier when they have an active paid subscription
+        // This allows users with paid subscriptions to access the app even without org setup
+        const hasActivePaidSubscription = subscriberData.subscribed && 
+          subscriberData.subscription_tier && 
+          subscriberData.subscription_tier !== 'free';
+        
         finalSubscriptionData = {
           subscribed: subscriberData.subscribed || false,
-          subscription_tier: (orgPlanTier ?? subscriberData.subscription_tier ?? 'free'),
+          subscription_tier: hasActivePaidSubscription 
+            ? subscriberData.subscription_tier 
+            : (orgPlanTier ?? subscriberData.subscription_tier ?? 'free'),
           subscription_end: subscriberData.subscription_end,
           trial_expires_at: subscriberData.trial_expires_at,
           trial_started_at: subscriberData.trial_started_at,
@@ -123,12 +130,12 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       } else {
         // No subscription record found, use org plan tier
         finalSubscriptionData = {
-          subscribed: orgPlanTier !== 'free',
-          subscription_tier: orgPlanTier,
+          subscribed: orgPlanTier !== 'free' && orgPlanTier !== null,
+          subscription_tier: orgPlanTier ?? 'free',
           subscription_end: null,
           trial_expires_at: null,
           trial_started_at: null,
-          payment_collected: orgPlanTier !== 'free',
+          payment_collected: orgPlanTier !== 'free' && orgPlanTier !== null,
           metadata: null
         };
       }
