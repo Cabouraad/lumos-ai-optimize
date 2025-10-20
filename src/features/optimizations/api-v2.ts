@@ -82,8 +82,8 @@ export async function listOptimizations(params?: {
     .from('optimizations_v2')
     .select('*')
     .is('deleted_at', null)
-    .order('priority_score', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .order('priority_score', { ascending: false });
 
   if (params?.category) {
     query = query.eq('optimization_category', params.category);
