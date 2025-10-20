@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -141,14 +141,14 @@ IMPORTANT OUTPUT FORMAT:
 Each recommendation should be specific, actionable, and tailored to this prompt.`;
 
         // Call OpenAI with tool calling for structured output
-        const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        const openaiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: "google/gemini-2.5-flash",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `Prompt to optimize: "${prompt.prompt_text}"` },
@@ -232,8 +232,15 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
 
         if (!openaiResponse.ok) {
           const errorText = await openaiResponse.text();
-          console.error(`OpenAI error for prompt ${prompt.prompt_id}:`, errorText);
-          errors.push(`Failed to generate for prompt: ${prompt.prompt_text.substring(0, 50)}...`);
+          const status = openaiResponse.status;
+          console.error(`AI gateway error for prompt ${prompt.prompt_id} (status ${status}):`, errorText);
+          if (status === 429) {
+            errors.push("Rate limit exceeded. Please try again later.");
+          } else if (status === 402) {
+            errors.push("Payment required for AI usage. Please add credits to Lovable AI workspace.");
+          } else {
+            errors.push(`Failed to generate for prompt: ${prompt.prompt_text.substring(0, 50)}...`);
+          }
           continue;
         }
 
@@ -274,7 +281,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
             success_metrics: rec.success_metrics,
             optimization_category: "visibility",
             content_hash: contentHash,
-            llm_model: "gpt-4o-mini",
+            llm_model: "google/gemini-2.5-flash",
             llm_tokens_used: data.usage?.total_tokens || 0,
             generation_confidence: 0.9,
             status: "open",
