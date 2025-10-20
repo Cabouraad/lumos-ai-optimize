@@ -45,21 +45,21 @@ export function useLlumosScore(promptId?: string) {
   return useQuery({
     queryKey: ['llumos-score', scope, promptId],
     queryFn: async () => {
-      // First try to get cached score from database using RPC
-      const { data: rpcResult, error: rpcError } = await supabase.rpc(
-        'compute_llumos_score',
-        {
-          p_org_id: undefined, // Will be resolved by RLS
-          p_prompt_id: promptId || null,
-        }
-      );
+      // Call the edge function to compute/fetch score
+      const { data, error } = await supabase.functions.invoke('compute-llumos-score', {
+        body: { 
+          scope,
+          promptId,
+          force: false // Use cached if available
+        },
+      });
 
-      if (rpcError) {
-        console.error('RPC error:', rpcError);
-        throw rpcError;
+      if (error) {
+        console.error('Llumos score error:', error);
+        throw error;
       }
 
-      return rpcResult as unknown as LlumosScoreResponse;
+      return data as LlumosScoreResponse;
     },
     staleTime: 1000 * 60 * 60, // 1 hour
     refetchOnWindowFocus: false,
