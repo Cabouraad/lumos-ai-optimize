@@ -148,7 +148,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-5-mini",
+            model: "gpt-4o-mini",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `Prompt to optimize: "${prompt.prompt_text}"` },
@@ -274,7 +274,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
             success_metrics: rec.success_metrics,
             optimization_category: "visibility",
             content_hash: contentHash,
-            llm_model: "gpt-5-mini",
+            llm_model: "gpt-4o-mini",
             llm_tokens_used: data.usage?.total_tokens || 0,
             generation_confidence: 0.9,
             status: "open",
