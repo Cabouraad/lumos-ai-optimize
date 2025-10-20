@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Info, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LlumosScoreDrawer } from './LlumosScoreDrawer';
 
 interface LlumosScoreWidgetProps {
@@ -14,6 +15,17 @@ interface LlumosScoreWidgetProps {
 export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidgetProps) {
   const { data: scoreData, isLoading, error } = useLlumosScore(promptId);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const navigate = useNavigate();
+  
+  // For org-level scores (no promptId), navigate to the detail page
+  // For prompt-level scores, use the drawer
+  const handleViewDetails = () => {
+    if (promptId) {
+      setDrawerOpen(true);
+    } else {
+      navigate('/llumos-score');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -107,23 +119,26 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setDrawerOpen(true)}
+                onClick={handleViewDetails}
                 className="w-full"
               >
                 <TrendingUp className="h-4 w-4 mr-2" />
-                View Details
+                {promptId ? 'View Details' : 'View Full Analysis'}
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      <LlumosScoreDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        scoreData={scoreData}
-        promptId={promptId}
-      />
+      {/* Only show drawer for prompt-level scores */}
+      {promptId && (
+        <LlumosScoreDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          scoreData={scoreData}
+          promptId={promptId}
+        />
+      )}
     </>
   );
 }

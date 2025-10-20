@@ -13,6 +13,7 @@ const Auth = lazy(() => loadChunkWithRetry(() => import("./pages/Auth")));
 const AuthProcessing = lazy(() => loadChunkWithRetry(() => import("./pages/AuthProcessing")));
 const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboarding")));
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
+const LlumosScore = lazy(() => loadChunkWithRetry(() => import("./pages/LlumosScore")));
 const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
 const OptimizationsV2 = lazy(() => loadChunkWithRetry(() => import("./pages/OptimizationsV2")));
 const NewOptimizations = lazy(() => loadChunkWithRetry(() => import("./pages/NewOptimizations")));
@@ -102,6 +103,15 @@ const App = () => {
               <OnboardingGate>
                 <ChunkErrorBoundary chunkName="Dashboard">
                   <Dashboard />
+                </ChunkErrorBoundary>
+              </OnboardingGate>
+            </ProtectedRoute>
+          } />
+          <Route path="/llumos-score" element={
+            <ProtectedRoute>
+              <OnboardingGate>
+                <ChunkErrorBoundary chunkName="LlumosScore">
+                  <LlumosScore />
                 </ChunkErrorBoundary>
               </OnboardingGate>
             </ProtectedRoute>
