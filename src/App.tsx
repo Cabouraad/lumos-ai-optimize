@@ -39,6 +39,7 @@ const FreeChecker = lazy(() => loadChunkWithRetry(() => import("./pages/FreeChec
 const Privacy = lazy(() => loadChunkWithRetry(() => import("./pages/Privacy")));
 const Terms = lazy(() => loadChunkWithRetry(() => import("./pages/Terms")));
 const CronSetup = lazy(() => loadChunkWithRetry(() => import("./pages/CronSetup")));
+const RunReports = lazy(() => loadChunkWithRetry(() => import("./pages/RunReports")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -192,6 +193,11 @@ const App = () => {
           <Route path="/admin/cron-setup" element={
             <ProtectedRoute>
               <CronSetup />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/run-reports" element={
+            <ProtectedRoute>
+              <RunReports />
             </ProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />

@@ -80,6 +80,40 @@ export default function Dashboard() {
     }
   }, [user, orgData, dashboardData, navigate]);
 
+  // Auto-trigger weekly report generation once
+  useEffect(() => {
+    const hasTriggeredReports = localStorage.getItem('weekly-reports-triggered');
+    if (!hasTriggeredReports && user && orgData?.organizations?.id) {
+      const triggerReports = async () => {
+        try {
+          console.log('[Dashboard] Auto-triggering weekly report generation...');
+          const { data, error } = await supabase.functions.invoke("generate-weekly-report", {
+            body: {}
+          });
+          
+          if (error) {
+            console.error('[Dashboard] Error auto-triggering reports:', error);
+          } else {
+            console.log('[Dashboard] Weekly reports triggered successfully:', data);
+            toast({
+              title: "Reports Generated",
+              description: "Weekly reports are being generated in the background.",
+            });
+          }
+          
+          // Mark as triggered so we don't run again
+          localStorage.setItem('weekly-reports-triggered', 'true');
+        } catch (error) {
+          console.error('[Dashboard] Failed to trigger reports:', error);
+        }
+      };
+      
+      // Trigger after a short delay to ensure everything is loaded
+      const timeoutId = setTimeout(triggerReports, 2000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user, orgData, toast]);
+
   // Memoize chart data to prevent unnecessary re-renders
   const memoizedChartData = useMemo(() => {
     const chartData = dashboardData?.chartData || [];
