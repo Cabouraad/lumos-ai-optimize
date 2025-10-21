@@ -139,7 +139,10 @@ serve(async (req) => {
         throw new Error('Missing authorization header');
       }
 
-      const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+      
+      // Use anon key for JWT validation
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: {
           headers: { Authorization: authHeader },
         },
@@ -147,17 +150,20 @@ serve(async (req) => {
 
       const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
       if (authError || !user) {
+        console.error('Auth validation failed:', authError);
         throw new Error('Unauthorized');
       }
 
-      // Get user's org_id
-      const { data: userData, error: userError } = await supabaseClient
+      // Use service role to fetch user's org_id (RLS bypassed)
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: userData, error: userError } = await serviceClient
         .from('users')
         .select('org_id')
         .eq('id', user.id)
         .single();
 
       if (userError || !userData?.org_id) {
+        console.error('User org lookup failed:', userError);
         throw new Error('User org not found');
       }
 
