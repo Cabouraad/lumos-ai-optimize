@@ -95,10 +95,6 @@ export default function Dashboard() {
             console.error('[Dashboard] Error auto-triggering reports:', error);
           } else {
             console.log('[Dashboard] Weekly reports triggered successfully:', data);
-            toast({
-              title: "Reports Generated",
-              description: "Weekly reports are being generated in the background.",
-            });
           }
           
           // Mark as triggered so we don't run again

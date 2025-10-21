@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 export interface LlumosSubmetrics {
   pr: number; // Presence Rate
@@ -68,7 +67,6 @@ export function useLlumosScore(promptId?: string) {
 
 export function useComputeLlumosScore() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   
   return useMutation({
     mutationFn: async ({ 
@@ -88,22 +86,14 @@ export function useComputeLlumosScore() {
       return data as LlumosScoreResponse;
     },
     onSuccess: (data, variables) => {
-      // Invalidate relevant queries
+      // Invalidate relevant queries to refresh in background
       queryClient.invalidateQueries({ 
         queryKey: ['llumos-score', variables.scope, variables.promptId] 
       });
-      
-      toast({
-        title: 'Score Updated',
-        description: `Your Llumos Score is ${data.score} (${data.tier})`,
-      });
     },
     onError: (error) => {
-      toast({
-        title: 'Computation Failed',
-        description: error instanceof Error ? error.message : 'Failed to compute score',
-        variant: 'destructive',
-      });
+      // Silent failure - log for debugging only
+      console.error('[Llumos Score] Computation failed:', error);
     },
   });
 }

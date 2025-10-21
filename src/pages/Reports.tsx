@@ -446,12 +446,7 @@ export default function Reports() {
         return;
       }
 
-      showToast({
-        title: "Report generation started",
-        description: "Your PDF report is being generated. Refresh in a few moments to see it.",
-      });
-      
-      // Refresh reports after a short delay
+      // Silently refresh reports after generation
       setTimeout(() => {
         loadReports();
       }, 2000);
