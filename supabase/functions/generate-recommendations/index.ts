@@ -267,23 +267,35 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
               .join("")
             );
 
+          // Sanitize numeric fields before insert to satisfy integer columns in DB
+          const priorityScore = Math.min(100, Math.max(1, Math.round(Number(rec.priority_score))));
+          const estimatedHours = Math.max(1, Math.ceil(Number(rec.estimated_hours)));
+
+          const implementationSteps = Array.isArray(rec.implementation_steps)
+            ? rec.implementation_steps.map((s: any, idx: number) => ({
+                step: typeof s?.step === 'number' ? Math.max(1, Math.round(s.step)) : idx + 1,
+                action: s?.action,
+                time: s?.time,
+              }))
+            : [];
+
           const { error: insertError } = await supabase.from("optimizations_v2").insert({
             org_id: orgId,
             prompt_id: prompt.prompt_id,
             title: rec.title,
             description: rec.description,
             content_type: rec.content_type,
-            priority_score: rec.priority_score,
+            priority_score: priorityScore,
             difficulty_level: rec.difficulty_level,
-            estimated_hours: rec.estimated_hours,
-            implementation_steps: rec.implementation_steps,
+            estimated_hours: estimatedHours,
+            implementation_steps: implementationSteps,
             distribution_channels: rec.distribution_channels,
             success_metrics: rec.success_metrics,
             optimization_category: "visibility",
             content_hash: contentHash,
             llm_model: "google/gemini-2.5-flash",
             llm_tokens_used: data.usage?.total_tokens || 0,
-            generation_confidence: 0.9,
+            // Omit generation_confidence to avoid integer vs decimal mismatch; can be re-added once schema clarified
             status: "open",
             prompt_context: {
               prompt_text: prompt.prompt_text,
@@ -294,7 +306,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
           });
 
           if (insertError) {
-            console.error("Insert error:", insertError);
+            console.error("Insert error:", insertError, { priorityScore, estimatedHours });
             errors.push(`Failed to save recommendation: ${rec.title}`);
           } else {
             totalCreated++;
