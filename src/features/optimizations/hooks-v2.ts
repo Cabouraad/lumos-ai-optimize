@@ -69,13 +69,9 @@ export function useGenerateOptimizations() {
           description: data.message,
         });
       }
-      
-      if (data.errors && data.errors.length > 0) {
-        toast({
-          title: "Some recommendations failed",
-          description: `${data.errors.length} errors occurred during generation`,
-          variant: "destructive",
-        });
+      // Do not surface individual errors to end users; log count for debugging only
+      if (data?.errors?.length) {
+        console.debug(`[Optimizations] Generation completed with ${data.errors.length} backend errors`);
       }
     },
     onError: (error: Error) => {

@@ -279,6 +279,8 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
               }))
             : [];
 
+          const tokensUsed = Math.max(0, Math.round(Number(data.usage?.total_tokens) || 0));
+
           const { error: insertError } = await supabase.from("optimizations_v2").insert({
             org_id: orgId,
             prompt_id: prompt.prompt_id,
@@ -294,7 +296,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
             optimization_category: "visibility",
             content_hash: contentHash,
             llm_model: "google/gemini-2.5-flash",
-            llm_tokens_used: data.usage?.total_tokens || 0,
+            llm_tokens_used: tokensUsed,
             // Omit generation_confidence to avoid integer vs decimal mismatch; can be re-added once schema clarified
             status: "open",
             prompt_context: {
