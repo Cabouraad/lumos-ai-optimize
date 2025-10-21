@@ -139,19 +139,21 @@ serve(async (req) => {
         throw new Error('Missing authorization header');
       }
 
+      // Extract token from "Bearer <token>" format
+      const token = authHeader.replace('Bearer ', '');
+      
       const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
       
       // Use anon key for JWT validation
-      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      });
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
       if (authError || !user) {
         console.error('Auth validation failed:', authError);
-        throw new Error('Unauthorized');
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // Use service role to fetch user's org_id (RLS bypassed)
@@ -190,8 +192,15 @@ serve(async (req) => {
 
     // Check for existing score (unless force=true)
     if (!force) {
-      const windowEnd = new Date();
-      windowEnd.setUTCHours(0, 0, 0, 0); // Start of current week
+      // Align with SQL RPC: use start of current ISO week (Monday)
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay();
+      const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1); // Sunday=0, Monday=1
+      
+      const windowEnd = new Date(now);
+      windowEnd.setUTCDate(now.getUTCDate() - daysToMonday);
+      windowEnd.setUTCHours(0, 0, 0, 0);
+      
       const windowStart = new Date(windowEnd);
       windowStart.setDate(windowStart.getDate() - 28);
 
