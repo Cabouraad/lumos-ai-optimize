@@ -41,7 +41,7 @@ const TEST_USERS = [
   },
   {
     email: 'aj@test.com',
-    password: 'dix123',
+    password: 'Dix123',
     orgName: 'AJ Pro Test Corp',
     domain: 'aj-pro.test',
     planTier: 'pro'
@@ -72,6 +72,20 @@ async function createTestUser(config: typeof TEST_USERS[0]) {
   
   if (!userId) {
     throw new Error(`Could not get user ID for ${config.email}`);
+  }
+  
+  // Update password if user already existed
+  if (!authUser) {
+    console.log(`📝 Updating password for existing user: ${config.email}`);
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: config.password
+    });
+    
+    if (updateError) {
+      console.warn(`Warning: Failed to update password: ${updateError.message}`);
+    } else {
+      console.log(`✅ Password updated for ${config.email}`);
+    }
   }
   
   // Create organization
