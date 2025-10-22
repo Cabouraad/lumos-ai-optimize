@@ -1,4 +1,4 @@
-import { useLlumosScore, getScoreColor, getScoreBgColor } from '@/hooks/useLlumosScore';
+import { useLlumosScore, getScoreColor } from '@/hooks/useLlumosScore';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -147,7 +147,6 @@ export default function LlumosScore() {
   }
 
   const scoreColor = getScoreColor(scoreData.score);
-  const scoreBg = getScoreBgColor(scoreData.score);
   const isInsufficientData = scoreData.score === 500 && scoreData.reason === 'insufficient_data';
 
   return (
@@ -191,7 +190,7 @@ export default function LlumosScore() {
           )}
 
           {/* Main Score Display */}
-          <Card className={`${scoreBg} border-2 shadow-elevated`}>
+          <Card className="bg-card/80 backdrop-blur-sm border shadow-elevated">
             <CardContent className="p-8">
               <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                 {/* Score Dial */}
@@ -253,11 +252,6 @@ export default function LlumosScore() {
                     <Badge variant="secondary" className="text-sm">
                       Last 28 days
                     </Badge>
-                    {scoreData.cached && (
-                      <Badge variant="outline" className="text-sm">
-                        Cached
-                      </Badge>
-                    )}
                   </div>
                 </div>
               </div>
