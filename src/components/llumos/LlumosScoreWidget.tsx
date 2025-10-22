@@ -1,4 +1,4 @@
-import { useLlumosScore, getScoreColor, getScoreBgColor } from '@/hooks/useLlumosScore';
+import { useLlumosScore, getScoreColor } from '@/hooks/useLlumosScore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,20 +55,16 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
   }
 
   const scoreColor = getScoreColor(scoreData.score);
-  const scoreBg = getScoreBgColor(scoreData.score);
 
   return (
     <>
-      <Card className={`${scoreBg} border ${compact ? 'p-3' : ''}`}>
+      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
         <CardContent className={compact ? 'p-0' : 'p-6'}>
           <div className="text-center space-y-3">
             <div className="flex items-center justify-center gap-2">
               <h3 className="text-sm font-medium text-muted-foreground">
                 {promptId ? 'Prompt Score' : 'Llumos Score'}
               </h3>
-              {scoreData.cached && (
-                <span className="text-xs px-2 py-0.5 bg-muted rounded">cached</span>
-              )}
             </div>
             
             {/* Score Dial */}
@@ -107,11 +103,6 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Composite percentage */}
-            <div className="text-sm text-muted-foreground">
-              {scoreData.composite.toFixed(1)}% composite
             </div>
 
             {/* View details button */}
