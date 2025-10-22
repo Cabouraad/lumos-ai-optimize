@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { MiniSparkline } from '@/components/MiniSparkline';
 import { Eye, Users, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
@@ -41,81 +41,87 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
   return (
     <>
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Avg Visibility Score</CardTitle>
-          <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-            <Eye className="h-4 w-4 text-primary" />
+        <CardContent className="p-6 h-full flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="text-sm font-medium">Avg Visibility Score</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+              <Eye className="h-4 w-4 text-primary" />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
           {metrics?.avgScore ? (
-            <div className="flex items-center space-x-2">
-              <div className="text-2xl font-bold text-primary">{(metrics.avgScore * 10).toFixed(1)}%</div>
-              {getTrendIcon(metrics?.trend || 0)}
+            <div className="space-y-3">
+              <div className="flex items-baseline space-x-2">
+                <div className="text-4xl font-bold text-primary">{(metrics.avgScore * 10).toFixed(1)}%</div>
+                {getTrendIcon(metrics?.trend || 0)}
+              </div>
               {(metrics?.trend || 0) !== 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {Math.abs(metrics.trend).toFixed(1)}%
-                </span>
+                <p className="text-sm text-muted-foreground">
+                  {Math.abs(metrics.trend).toFixed(1)}% {metrics.trend > 0 ? 'increase' : 'decrease'}
+                </p>
               )}
             </div>
           ) : (
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-muted-foreground">-%</div>
-              <p className="text-xs text-muted-foreground">No data yet</p>
+            <div className="space-y-2">
+              <div className="text-4xl font-bold text-muted-foreground">-%</div>
+              <p className="text-sm text-muted-foreground">No data yet</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
-          <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
-            <Users className="h-4 w-4 text-secondary" />
+        <CardContent className="p-6 h-full flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
+            <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
+              <Users className="h-4 w-4 text-secondary" />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-secondary">{presenceStats.rate.toFixed(1)}%</div>
-              <p className="text-xs text-muted-foreground">
-                {presenceStats.presenceCount} of {presenceStats.totalCount} responses
-              </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-4xl font-bold text-secondary">{presenceStats.rate.toFixed(1)}%</div>
+              <div className="w-20 h-10">
+                <MiniSparkline data={presenceStats.sparklineData} color="hsl(var(--secondary))" />
+              </div>
             </div>
-            <div className="w-16 h-8">
-              <MiniSparkline data={presenceStats.sparklineData} color="hsl(var(--secondary))" />
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {presenceStats.presenceCount} of {presenceStats.totalCount} responses
+            </p>
           </div>
         </CardContent>
       </Card>
 
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
-          <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
-            <AlertTriangle className="h-4 w-4 text-accent" />
+        <CardContent className="p-6 h-full flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
+            <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
+              <AlertTriangle className="h-4 w-4 text-accent" />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-accent">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
-          <p className="text-xs text-muted-foreground">
-            {metrics?.inactivePrompts || 0} inactive
-          </p>
+          <div className="space-y-3">
+            <div className="text-4xl font-bold text-accent">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
+            <p className="text-sm text-muted-foreground">
+              {metrics?.inactivePrompts || 0} inactive
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Responses</CardTitle>
-          <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
-            <TrendingUp className="h-4 w-4 text-warning" />
+        <CardContent className="p-6 h-full flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="text-sm font-medium">Responses</CardTitle>
+            <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
+              <TrendingUp className="h-4 w-4 text-warning" />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-warning">
-            {metrics?.totalRuns || metrics?.recentRunsCount || 0}
+          <div className="space-y-3">
+            <div className="text-4xl font-bold text-warning">
+              {metrics?.totalRuns || metrics?.recentRunsCount || 0}
+            </div>
+            <p className="text-sm text-muted-foreground">total responses</p>
           </div>
-          <p className="text-xs text-muted-foreground">total responses</p>
         </CardContent>
       </Card>
     </>
