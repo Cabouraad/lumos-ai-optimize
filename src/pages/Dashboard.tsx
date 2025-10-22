@@ -515,17 +515,15 @@ export default function Dashboard() {
           </div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Llumos Score Widget */}
             <LlumosScoreWidget />
             
             {/* Other Metrics */}
-            <div className="col-span-1 md:col-span-2 lg:col-span-3">
-              <DashboardMetrics 
-                metrics={dashboardData?.metrics || {}}
-                presenceStats={presenceStats}
-              />
-            </div>
+            <DashboardMetrics 
+              metrics={dashboardData?.metrics || {}}
+              presenceStats={presenceStats}
+            />
           </div>
 
           {/* Visibility Trend Chart */}

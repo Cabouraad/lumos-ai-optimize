@@ -39,8 +39,8 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Avg Visibility Score</CardTitle>
           <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
@@ -67,7 +67,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
         </CardContent>
       </Card>
 
-      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
+      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Brand Presence Rate</CardTitle>
           <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
@@ -89,7 +89,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
         </CardContent>
       </Card>
 
-      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
+      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Active Prompts</CardTitle>
           <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
@@ -104,7 +104,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
         </CardContent>
       </Card>
 
-      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group">
+      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Responses</CardTitle>
           <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
