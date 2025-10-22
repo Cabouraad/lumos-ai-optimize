@@ -88,22 +88,42 @@ serve(async (req) => {
               }
             );
             
-            // Insert/update the score record
-            await serviceClient
+            // Insert/update the score record (read-then-write to avoid unique constraint issues)
+            const { data: existingScoreRecord } = await serviceClient
               .from('llumos_scores')
-              .upsert({
-                org_id: org.id,
-                prompt_id: null,
-                scope: 'org',
-                composite: rpcResult.composite,
-                llumos_score: rpcResult.score,
-                submetrics: rpcResult.submetrics,
-                window_start: rpcResult.window.start,
-                window_end: rpcResult.window.end,
-                reason: rpcResult.reason,
-              }, {
-                onConflict: 'org_id,scope,prompt_id,window_start',
-              });
+              .select('id')
+              .eq('org_id', org.id)
+              .eq('scope', 'org')
+              .is('prompt_id', null)
+              .eq('window_start', rpcResult.window.start)
+              .maybeSingle();
+            
+            if (existingScoreRecord?.id) {
+              await serviceClient
+                .from('llumos_scores')
+                .update({
+                  composite: rpcResult.composite,
+                  llumos_score: rpcResult.score,
+                  submetrics: rpcResult.submetrics,
+                  window_end: rpcResult.window.end,
+                  reason: rpcResult.reason,
+                })
+                .eq('id', existingScoreRecord.id);
+            } else {
+              await serviceClient
+                .from('llumos_scores')
+                .insert({
+                  org_id: org.id,
+                  prompt_id: null,
+                  scope: 'org',
+                  composite: rpcResult.composite,
+                  llumos_score: rpcResult.score,
+                  submetrics: rpcResult.submetrics,
+                  window_start: rpcResult.window.start,
+                  window_end: rpcResult.window.end,
+                  reason: rpcResult.reason,
+                });
+            }
             
             results.push({ org_id: org.id, org_name: org.name, score: rpcResult.score, success: true });
           } catch (error) {
@@ -204,12 +224,21 @@ serve(async (req) => {
       const windowStart = new Date(windowEnd);
       windowStart.setDate(windowStart.getDate() - 28);
 
-      const { data: existingScore } = await serviceClient
+      let cacheQuery = serviceClient
         .from('llumos_scores')
         .select('*')
         .eq('org_id', orgId)
         .eq('scope', scope)
-        .gte('window_end', windowStart.toISOString())
+        .gte('window_end', windowStart.toISOString());
+      
+      // Apply prompt filter based on scope
+      if (scope === 'prompt' && promptId) {
+        cacheQuery = cacheQuery.eq('prompt_id', promptId);
+      } else if (scope === 'org') {
+        cacheQuery = cacheQuery.is('prompt_id', null);
+      }
+      
+      const { data: existingScore } = await cacheQuery
         .order('window_end', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -251,26 +280,58 @@ serve(async (req) => {
 
     console.log('Score computed:', result);
 
-    // Insert/update the score record
-    const { error: insertError } = await serviceClient
+    // Insert/update the score record (read-then-write to avoid unique constraint issues)
+    let conflictQuery = serviceClient
       .from('llumos_scores')
-      .upsert({
-        org_id: orgId,
-        prompt_id: promptId,
-        scope,
-        composite: result.composite,
-        llumos_score: result.score,
-        submetrics: result.submetrics,
-        window_start: result.window.start,
-        window_end: result.window.end,
-        reason: result.reason,
-      }, {
-        onConflict: 'org_id,scope,prompt_id,window_start',
-      });
-
-    if (insertError) {
-      console.error('Insert error:', insertError);
-      throw new Error(`Failed to save score: ${insertError.message}`);
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('scope', scope)
+      .eq('window_start', result.window.start);
+    
+    // Apply prompt filter based on scope
+    if (scope === 'prompt' && promptId) {
+      conflictQuery = conflictQuery.eq('prompt_id', promptId);
+    } else {
+      conflictQuery = conflictQuery.is('prompt_id', null);
+    }
+    
+    const { data: existingScoreRecord } = await conflictQuery.maybeSingle();
+    
+    if (existingScoreRecord?.id) {
+      const { error: updateError } = await serviceClient
+        .from('llumos_scores')
+        .update({
+          composite: result.composite,
+          llumos_score: result.score,
+          submetrics: result.submetrics,
+          window_end: result.window.end,
+          reason: result.reason,
+        })
+        .eq('id', existingScoreRecord.id);
+      
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw new Error(`Failed to update score: ${updateError.message}`);
+      }
+    } else {
+      const { error: insertError } = await serviceClient
+        .from('llumos_scores')
+        .insert({
+          org_id: orgId,
+          prompt_id: promptId,
+          scope,
+          composite: result.composite,
+          llumos_score: result.score,
+          submetrics: result.submetrics,
+          window_start: result.window.start,
+          window_end: result.window.end,
+          reason: result.reason,
+        });
+      
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw new Error(`Failed to save score: ${insertError.message}`);
+      }
     }
 
     // Return the computed score
