@@ -1047,7 +1047,7 @@ export type Database = {
           changed_at: string | null
           changed_by: string | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           subscriber_user_id: string
@@ -1058,7 +1058,7 @@ export type Database = {
           changed_at?: string | null
           changed_by?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           subscriber_user_id: string
@@ -1069,7 +1069,7 @@ export type Database = {
           changed_at?: string | null
           changed_by?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           subscriber_user_id?: string
@@ -1438,10 +1438,7 @@ export type Database = {
         Args: { p_candidate_id: string; p_candidate_name: string }
         Returns: undefined
       }
-      clean_competitor_catalog: {
-        Args: { p_dry_run?: boolean }
-        Returns: Json
-      }
+      clean_competitor_catalog: { Args: { p_dry_run?: boolean }; Returns: Json }
       compute_llumos_score: {
         Args: { p_org_id: string; p_prompt_id?: string }
         Returns: Json
@@ -1450,40 +1447,19 @@ export type Database = {
         Args: { cron_schedule: string; job_name: string; sql_command: string }
         Returns: number
       }
-      cron_unschedule: {
-        Args: { job_name: string }
-        Returns: boolean
-      }
-      domain_root: {
-        Args: { p_domain: string }
-        Returns: string
-      }
+      cron_unschedule: { Args: { job_name: string }; Returns: boolean }
+      domain_root: { Args: { p_domain: string }; Returns: string }
       email_matches_org_domain: {
         Args: { email_address: string }
         Returns: boolean
       }
-      fix_brand_classification_all_providers: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      fix_hubspot_brand_classification: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      fix_recent_brand_misclassifications: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      generate_verification_token: {
-        Args: { org_id: string }
-        Returns: string
-      }
-      generate_week_key: {
-        Args: { input_date: string }
-        Returns: string
-      }
+      fix_brand_classification_all_providers: { Args: never; Returns: string }
+      fix_hubspot_brand_classification: { Args: never; Returns: string }
+      fix_recent_brand_misclassifications: { Args: never; Returns: string }
+      generate_verification_token: { Args: { org_id: string }; Returns: string }
+      generate_week_key: { Args: { input_date: string }; Returns: string }
       get_brand_candidates_for_org: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           candidate_name: string
           detection_count: number
@@ -1503,7 +1479,7 @@ export type Database = {
         }[]
       }
       get_cron_jobs_status: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active: boolean
           command: string
@@ -1516,18 +1492,9 @@ export type Database = {
           username: string
         }[]
       }
-      get_cron_secret: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_org_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_org_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_cron_secret: { Args: never; Returns: string }
+      get_current_org_id: { Args: never; Returns: string }
+      get_current_user_org_id: { Args: never; Returns: string }
       get_daily_usage: {
         Args: { p_date?: string; p_org_id: string }
         Returns: {
@@ -1535,10 +1502,7 @@ export type Database = {
           providers_used: number
         }[]
       }
-      get_feature_flag: {
-        Args: { flag_name: string }
-        Returns: boolean
-      }
+      get_feature_flag: { Args: { flag_name: string }; Returns: boolean }
       get_latest_prompt_provider_responses: {
         Args: { p_org_id: string }
         Returns: {
@@ -1647,14 +1611,23 @@ export type Database = {
           trend_score: number
         }[]
       }
-      get_prompt_competitors: {
-        Args: { p_days?: number; p_prompt_id: string } | { p_prompt_id: string }
-        Returns: {
-          competitor_name: string
-          mentions: number
-          share: number
-        }[]
-      }
+      get_prompt_competitors:
+        | {
+            Args: { p_days?: number; p_prompt_id: string }
+            Returns: {
+              competitor_name: string
+              mentions: number
+              share: number
+            }[]
+          }
+        | {
+            Args: { p_prompt_id: string }
+            Returns: {
+              competitor_name: string
+              share: number
+              total_mentions: number
+            }[]
+          }
       get_prompt_visibility_7d: {
         Args: { requesting_org_id?: string }
         Returns: {
@@ -1676,14 +1649,8 @@ export type Database = {
           runs_total: number
         }[]
       }
-      get_today_key_ny: {
-        Args: { d?: string }
-        Returns: string
-      }
-      get_unified_dashboard_data: {
-        Args: { p_org_id: string }
-        Returns: Json
-      }
+      get_today_key_ny: { Args: { d?: string }; Returns: string }
+      get_unified_dashboard_data: { Args: { p_org_id: string }; Returns: Json }
       get_user_org_and_role: {
         Args: { _user_id: string }
         Returns: {
@@ -1691,14 +1658,8 @@ export type Database = {
           role: string
         }[]
       }
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: string
-      }
-      get_user_subscription_status: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_user_role: { Args: { _user_id: string }; Returns: string }
+      get_user_subscription_status: { Args: never; Returns: Json }
       get_week_boundaries: {
         Args: { input_date: string }
         Returns: {
@@ -1707,7 +1668,7 @@ export type Database = {
         }[]
       }
       get_weekly_report_cron_status: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active: boolean
           job_name: string
@@ -1735,26 +1696,14 @@ export type Database = {
         }
         Returns: Json
       }
-      increment_failed_tasks: {
-        Args: { job_id: string }
-        Returns: undefined
-      }
+      increment_failed_tasks: { Args: { job_id: string }; Returns: undefined }
       is_competitor_domain: {
         Args: { p_domain: string; p_org_id: string }
         Returns: boolean
       }
-      mark_domain_verified: {
-        Args: { org_id: string }
-        Returns: boolean
-      }
-      org_domain_set: {
-        Args: { p_org_id: string }
-        Returns: string[]
-      }
-      rebuild_competitors_catalog_only: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      mark_domain_verified: { Args: { org_id: string }; Returns: boolean }
+      org_domain_set: { Args: { p_org_id: string }; Returns: string[] }
+      rebuild_competitors_catalog_only: { Args: never; Returns: string }
       reco_upsert: {
         Args: {
           p_citations: Json
@@ -1770,16 +1719,13 @@ export type Database = {
         }
         Returns: undefined
       }
-      refresh_dashboard_metrics: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      refresh_dashboard_metrics: { Args: never; Returns: undefined }
       reject_brand_candidate: {
         Args: { p_candidate_id: string }
         Returns: undefined
       }
       run_security_audit: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           details: string
           fix_hint: string
@@ -1790,22 +1736,13 @@ export type Database = {
           severity: string
         }[]
       }
-      sync_competitor_detection_automated: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      sync_competitor_detection_automated: { Args: never; Returns: undefined }
       test_reco_insert: {
         Args: { p_org_id: string; p_test_title?: string }
         Returns: string
       }
-      test_rls_isolation: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      try_mark_daily_run: {
-        Args: { p_today_key: string }
-        Returns: Json
-      }
+      test_rls_isolation: { Args: never; Returns: string }
+      try_mark_daily_run: { Args: { p_today_key: string }; Returns: Json }
       update_org_business_context: {
         Args: {
           p_business_city?: string
@@ -1861,14 +1798,8 @@ export type Database = {
         }
         Returns: string
       }
-      user_can_access_org: {
-        Args: { target_org_id: string }
-        Returns: boolean
-      }
-      user_org_domain_verified: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      user_can_access_org: { Args: { target_org_id: string }; Returns: boolean }
+      user_org_domain_verified: { Args: never; Returns: boolean }
       validate_domain_invitation: {
         Args: { p_email: string; p_org_id: string }
         Returns: Json
@@ -1878,7 +1809,7 @@ export type Database = {
         Returns: boolean
       }
       validate_role_consistency: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           status: string
           user_id: string
