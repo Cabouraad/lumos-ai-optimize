@@ -89,6 +89,12 @@ serve(async (req) => {
             );
             
             // Insert/update the score record (read-then-write to avoid unique constraint issues)
+            console.log('[CronUpsertLookup]', {
+              orgId: org.id,
+              scope: 'org',
+              promptId: null,
+              windowStart: rpcResult.window.start,
+            });
             const { data: existingScoreRecord } = await serviceClient
               .from('llumos_scores')
               .select('id')
@@ -97,9 +103,10 @@ serve(async (req) => {
               .is('prompt_id', null)
               .eq('window_start', rpcResult.window.start)
               .maybeSingle();
+            console.log('[CronUpsertLookupResult]', { found: !!existingScoreRecord?.id, id: existingScoreRecord?.id });
             
             if (existingScoreRecord?.id) {
-              await serviceClient
+              const { error: updateError } = await serviceClient
                 .from('llumos_scores')
                 .update({
                   composite: rpcResult.composite,
@@ -109,8 +116,12 @@ serve(async (req) => {
                   reason: rpcResult.reason,
                 })
                 .eq('id', existingScoreRecord.id);
+              if (updateError) {
+                console.error('[CronUpdateError]', updateError);
+                throw new Error(`Failed to update score: ${updateError.message}`);
+              }
             } else {
-              await serviceClient
+              const { error: insertError } = await serviceClient
                 .from('llumos_scores')
                 .insert({
                   org_id: org.id,
@@ -123,6 +134,42 @@ serve(async (req) => {
                   window_end: rpcResult.window.end,
                   reason: rpcResult.reason,
                 });
+              if (insertError) {
+                console.error('[CronInsertError]', insertError);
+                const msg = (insertError as any)?.message || '';
+                const code = (insertError as any)?.code;
+                if (code === '23505' || msg.includes('duplicate key') || msg.includes('already exists')) {
+                  console.warn('[CronInsertConflict] Retrying as update.');
+                  const { data: raceRecord } = await serviceClient
+                    .from('llumos_scores')
+                    .select('id')
+                    .eq('org_id', org.id)
+                    .eq('scope', 'org')
+                    .is('prompt_id', null)
+                    .eq('window_start', rpcResult.window.start)
+                    .maybeSingle();
+                  if (raceRecord?.id) {
+                    const { error: updateError2 } = await serviceClient
+                      .from('llumos_scores')
+                      .update({
+                        composite: rpcResult.composite,
+                        llumos_score: rpcResult.score,
+                        submetrics: rpcResult.submetrics,
+                        window_end: rpcResult.window.end,
+                        reason: rpcResult.reason,
+                      })
+                      .eq('id', raceRecord.id);
+                    if (updateError2) {
+                      console.error('[CronUpdateAfterConflictError]', updateError2);
+                      throw new Error(`Failed to update score after conflict: ${updateError2.message}`);
+                    }
+                  } else {
+                    throw new Error('Insert conflict occurred but no existing record was found.');
+                  }
+                } else {
+                  throw new Error(`Failed to save score: ${msg}`);
+                }
+              }
             }
             
             results.push({ org_id: org.id, org_name: org.name, score: rpcResult.score, success: true });
@@ -238,6 +285,14 @@ serve(async (req) => {
         cacheQuery = cacheQuery.is('prompt_id', null);
       }
       
+      console.log('[CacheLookup]', {
+        orgId,
+        scope,
+        promptId: scope === 'prompt' ? promptId : null,
+        windowStart: windowStart.toISOString(),
+        windowEnd: windowEnd.toISOString(),
+      });
+      
       const { data: existingScore } = await cacheQuery
         .order('window_end', { ascending: false })
         .limit(1)
@@ -295,7 +350,15 @@ serve(async (req) => {
       conflictQuery = conflictQuery.is('prompt_id', null);
     }
     
+    console.log('[UpsertLookup]', {
+      orgId,
+      scope,
+      promptId: scope === 'prompt' ? promptId : null,
+      windowStart: result.window.start,
+    });
+    
     const { data: existingScoreRecord } = await conflictQuery.maybeSingle();
+    console.log('[UpsertLookupResult]', { found: !!existingScoreRecord?.id, id: existingScoreRecord?.id });
     
     if (existingScoreRecord?.id) {
       const { error: updateError } = await serviceClient
@@ -318,7 +381,7 @@ serve(async (req) => {
         .from('llumos_scores')
         .insert({
           org_id: orgId,
-          prompt_id: promptId,
+          prompt_id: promptId ?? null,
           scope,
           composite: result.composite,
           llumos_score: result.score,
@@ -330,7 +393,32 @@ serve(async (req) => {
       
       if (insertError) {
         console.error('Insert error:', insertError);
-        throw new Error(`Failed to save score: ${insertError.message}`);
+        const msg = (insertError as any)?.message || '';
+        const code = (insertError as any)?.code;
+        if (code === '23505' || msg.includes('duplicate key') || msg.includes('already exists')) {
+          console.warn('Insert unique violation detected. Retrying as update.');
+          const { data: raceRecord } = await conflictQuery.maybeSingle();
+          if (raceRecord?.id) {
+            const { error: updateError2 } = await serviceClient
+              .from('llumos_scores')
+              .update({
+                composite: result.composite,
+                llumos_score: result.score,
+                submetrics: result.submetrics,
+                window_end: result.window.end,
+                reason: result.reason,
+              })
+              .eq('id', raceRecord.id);
+            if (updateError2) {
+              console.error('Update-after-conflict error:', updateError2);
+              throw new Error(`Failed to update score after conflict: ${updateError2.message}`);
+            }
+          } else {
+            throw new Error('Insert conflict occurred but no existing record was found.');
+          }
+        } else {
+          throw new Error(`Failed to save score: ${msg}`);
+        }
       }
     }
 
