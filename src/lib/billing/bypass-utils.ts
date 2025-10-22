@@ -15,8 +15,8 @@ export function isBillingBypassEligible(userEmail?: string | null): boolean {
     return false;
   }
 
-  // Basic eligibility check - starter@test.app is our primary test account
-  const commonTestEmails = ['starter@test.app', 'test@example.com'];
+  // Basic eligibility check - test accounts for development
+  const commonTestEmails = ['starter@test.app', 'test@example.com', 'aj@test.com'];
   return commonTestEmails.includes(userEmail.toLowerCase());
 }
 

@@ -38,6 +38,13 @@ const TEST_USERS = [
     orgName: 'Growth E2E Corp',
     domain: 'growth-e2e.test',
     planTier: 'growth'
+  },
+  {
+    email: 'aj@test.com',
+    password: 'dix123',
+    orgName: 'AJ Pro Test Corp',
+    domain: 'aj-pro.test',
+    planTier: 'pro'
   }
 ];
 
@@ -107,7 +114,9 @@ async function createTestUser(config: typeof TEST_USERS[0]) {
   
   // Create subscriber record
   const trialExpiry = new Date();
-  trialExpiry.setDate(trialExpiry.getDate() + 14); // 14 day trial
+  // Give AJ@test.com 12 months, others get 14 days
+  const daysToAdd = config.email === 'aj@test.com' ? 365 : 14;
+  trialExpiry.setDate(trialExpiry.getDate() + daysToAdd);
   
   const { error: subError } = await supabase
     .from('subscribers')
