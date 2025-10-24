@@ -103,17 +103,48 @@ Deno.serve(async (req) => {
         logger.info("User already linked to organization", { metadata: { orgId: existingOrg.id } });
         org = existingOrg;
       } else {
-        // Domain already taken by another organization
-        logger.error("Domain already in use", new Error("Domain already registered"));
-        return new Response(JSON.stringify({ 
-          error: "This domain is already registered. Please use a different domain or contact support." 
-        }), { 
-          status: 409,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        // Domain is taken by another org. To avoid blocking onboarding, create a unique, suffixed domain for this user.
+        const allowSuffix = (Deno.env.get("ONBOARDING_ALLOW_DOMAIN_SUFFIX") ?? "true") !== "false";
+        if (!allowSuffix) {
+          logger.error("Domain already in use", new Error("Domain already registered"));
+          return new Response(JSON.stringify({ 
+            error: "This domain is already registered. Please use a different domain or contact support." 
+          }), { 
+            status: 409,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const suffixedDomain = `${normDomain}-${userId.slice(0,8)}`;
+        logger.info("Domain conflict - creating suffixed trial org", { metadata: { original: normDomain, suffixed: suffixedDomain } });
+
+        const { data: newOrg, error: orgErr } = await supa
+          .from("organizations")
+          .insert({
+            name,
+            domain: suffixedDomain,
+            plan_tier: "starter",
+            domain_verification_method: "file",
+            business_description: business_description || null,
+            products_services: products_services || null,
+            target_audience: target_audience || null,
+            keywords: keywords ? keywords.split(',').map((k: string) => k.trim()).filter(Boolean) : []
+          })
+          .select()
+          .single();
+
+        if (orgErr) {
+          logger.error("Error creating organization", new Error(orgErr.message));
+          return new Response(JSON.stringify({ error: orgErr.message }), { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        org = newOrg;
       }
     } else {
-      // Create new organization
+      // Create new organization with the requested domain
       const { data: newOrg, error: orgErr } = await supa
         .from("organizations")
         .insert({
