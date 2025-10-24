@@ -70,36 +70,36 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
             {/* Score Dial */}
             <div className="flex-1 flex items-center justify-center">
               <div className="relative inline-flex items-center justify-center">
-                <svg className="w-28 h-28 transform -rotate-90">
+                <svg className="w-32 h-32 transform -rotate-90">
                   {/* Background circle */}
                   <circle
-                    cx="56"
-                    cy="56"
-                    r="48"
+                    cx="64"
+                    cy="64"
+                    r="52"
                     stroke="currentColor"
-                    strokeWidth="7"
+                    strokeWidth="6"
                     fill="none"
                     className="text-muted opacity-20"
                   />
                   {/* Progress circle */}
                   <circle
-                    cx="56"
-                    cy="56"
-                    r="48"
+                    cx="64"
+                    cy="64"
+                    r="52"
                     stroke="currentColor"
-                    strokeWidth="7"
+                    strokeWidth="6"
                     fill="none"
-                    strokeDasharray={`${(scoreData.composite / 100) * 301.6} 301.6`}
+                    strokeDasharray={`${(scoreData.composite / 100) * 326.7} 326.7`}
                     className={scoreColor}
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className={`text-3xl font-bold ${scoreColor}`}>
+                <div className="absolute inset-0 flex items-center justify-center px-6">
+                  <div className="text-center max-w-[80px]">
+                    <div className={`text-3xl font-bold leading-tight ${scoreColor}`}>
                       {scoreData.score}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
+                    <div className="text-[10px] text-muted-foreground mt-1 leading-tight">
                       {scoreData.tier}
                     </div>
                   </div>
