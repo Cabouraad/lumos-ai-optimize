@@ -12,12 +12,9 @@ export type GenerateRecsResponse = {
 };
 
 export async function generateVisibilityRecommendations(promptId?: string) {
-  // Use the new simplified generate-recommendations endpoint
-  return await invokeEdge("generate-recommendations", { 
-    body: { 
-      limit: 10,
-      forceAll: false 
-    } 
+  // Call the suggest-prompts-now edge function
+  return await invokeEdge("suggest-prompts-now", { 
+    body: {} 
   });
 }
 
