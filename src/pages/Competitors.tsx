@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompetitorCatalog } from '@/components/CompetitorCatalog';
 import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';
+import { ManualCompetitorAdd } from '@/components/ManualCompetitorAdd';
 import { useCompetitors } from '@/features/competitors/hooks';
 import FilterBar from '@/features/competitors/FilterBar';
 import CompetitorCard from '@/features/competitors/CompetitorCard';
@@ -631,9 +632,10 @@ export default function Competitors() {
 
             {/* Tabs for different competitor views */}
             <Tabs defaultValue="competitors" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+              <TabsList className="grid w-full grid-cols-4 max-w-3xl">
                 <TabsTrigger value="competitors">Competitors</TabsTrigger>
                 <TabsTrigger value="optimized">Optimized View</TabsTrigger>
+                <TabsTrigger value="manual-add">Add Competitors</TabsTrigger>
                 <TabsTrigger value="potential">Potential Competitors</TabsTrigger>
               </TabsList>
 
@@ -782,6 +784,11 @@ export default function Competitors() {
               {/* Optimized View Tab */}
               <TabsContent value="optimized" className="space-y-6">
                 <OptimizedCompetitorsView />
+              </TabsContent>
+
+              {/* Manual Add Competitors Tab */}
+              <TabsContent value="manual-add" className="space-y-6">
+                <ManualCompetitorAdd onCompetitorAdded={fetchCompetitorData} />
               </TabsContent>
 
               {/* Potential Competitors Tab */}
