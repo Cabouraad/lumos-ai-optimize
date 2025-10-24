@@ -70,15 +70,12 @@ export default function Onboarding() {
     return <Navigate to="/auth" replace />;
   }
 
-  // If user is onboarded but doesn't have valid access (subscription OR active trial), redirect to pricing
+  // Determine if user already has valid access (subscription OR active trial)
   const hasValidAccess = subscriptionData?.subscribed || 
     (subscriptionData?.trial_expires_at && 
      new Date(subscriptionData.trial_expires_at) > new Date() && 
      subscriptionData?.payment_collected === true);
-     
-  if (orgData && !hasValidAccess && subscriptionData?.requires_subscription && !subscriptionCompleted) {
-    return <Navigate to="/pricing" replace />;
-  }
+
 
   const handleSubscriptionSetup = async () => {
     setLoading(true);
@@ -222,17 +219,22 @@ export default function Onboarding() {
       // Clear temporary storage
       sessionStorage.removeItem('onboarding-data');
       
-      // Refresh subscription and route based on actual access (subscription OR active trial)
+      // Wait for subscription refresh then re-check access
       try {
         await EdgeFunctionClient.checkSubscription();
+        // Give the context providers time to update
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (_) {}
 
-      const access = hasAccessToApp();
-      if (access.hasAccess) {
-        setCurrentStep(4);
-      } else {
-        setCurrentStep(3);
-      }
+      // Re-check access after refresh using the hook which has the latest data
+      setTimeout(() => {
+        const access = hasAccessToApp();
+        if (access.hasAccess) {
+          setCurrentStep(4);
+        } else {
+          setCurrentStep(3);
+        }
+      }, 100);
     } catch (error: any) {
       console.error("Onboarding error:", error);
       
