@@ -41,14 +41,19 @@ export default function Onboarding() {
   const [showManualFillBanner, setShowManualFillBanner] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   
-  // Auto-complete onboarding for already-subscribed users who reached step 4
+  // Auto-complete onboarding for users with valid access who reached step 4
   const autoCompleteRef = useRef(false);
   useEffect(() => {
-    if (currentStep === 4 && subscriptionData?.subscribed && !orgData?.org_id && !autoCompleteRef.current) {
+    const hasValidAccess = subscriptionData?.subscribed || 
+      (subscriptionData?.trial_expires_at && 
+       new Date(subscriptionData.trial_expires_at) > new Date() && 
+       subscriptionData?.payment_collected === true);
+       
+    if (currentStep === 4 && hasValidAccess && !orgData?.org_id && !autoCompleteRef.current) {
       autoCompleteRef.current = true;
-      // Already subscribed users at step 4 should stay on step 4 to select prompts
+      // Users with valid access at step 4 should stay on step 4 to select prompts
     }
-  }, [currentStep, subscriptionData?.subscribed, orgData?.org_id]);
+  }, [currentStep, subscriptionData?.subscribed, subscriptionData?.trial_expires_at, subscriptionData?.payment_collected, orgData?.org_id]);
   const businessContextRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     orgName: '',
@@ -65,8 +70,13 @@ export default function Onboarding() {
     return <Navigate to="/auth" replace />;
   }
 
-  // If user is onboarded but doesn't have a subscription, they should be redirected to pricing
-  if (orgData && !subscriptionData?.subscribed && subscriptionData?.requires_subscription) {
+  // If user is onboarded but doesn't have valid access (subscription OR active trial), redirect to pricing
+  const hasValidAccess = subscriptionData?.subscribed || 
+    (subscriptionData?.trial_expires_at && 
+     new Date(subscriptionData.trial_expires_at) > new Date() && 
+     subscriptionData?.payment_collected === true);
+     
+  if (orgData && !hasValidAccess && subscriptionData?.requires_subscription) {
     return <Navigate to="/pricing" replace />;
   }
 
@@ -213,9 +223,13 @@ export default function Onboarding() {
       sessionStorage.removeItem('onboarding-data');
       
       // Now proceed to prompt selection (step 4)
-      // If user already has subscription, go directly to step 4
-      // Otherwise, go to pricing (step 3) first
-      if (subscriptionData?.subscribed) {
+      // Check if user has valid access (subscription OR active trial with payment)
+      const hasValidAccess = subscriptionData?.subscribed || 
+        (subscriptionData?.trial_expires_at && 
+         new Date(subscriptionData.trial_expires_at) > new Date() && 
+         subscriptionData?.payment_collected === true);
+      
+      if (hasValidAccess) {
         setCurrentStep(4);
       } else {
         setCurrentStep(3);
