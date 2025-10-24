@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
           billing_cycle: 'monthly'
         }
       },
-      success_url: `${baseUrl}/dashboard?subscription=success`,
+      success_url: `${baseUrl}/trial-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing`,
       metadata: {
         user_id: user.id,
