@@ -76,7 +76,7 @@ export default function Onboarding() {
      new Date(subscriptionData.trial_expires_at) > new Date() && 
      subscriptionData?.payment_collected === true);
      
-  if (orgData && !hasValidAccess && subscriptionData?.requires_subscription) {
+  if (orgData && !hasValidAccess && subscriptionData?.requires_subscription && !subscriptionCompleted) {
     return <Navigate to="/pricing" replace />;
   }
 
@@ -222,14 +222,13 @@ export default function Onboarding() {
       // Clear temporary storage
       sessionStorage.removeItem('onboarding-data');
       
-      // Now proceed to prompt selection (step 4)
-      // Check if user has valid access (subscription OR active trial with payment)
-      const hasValidAccess = subscriptionData?.subscribed || 
-        (subscriptionData?.trial_expires_at && 
-         new Date(subscriptionData.trial_expires_at) > new Date() && 
-         subscriptionData?.payment_collected === true);
-      
-      if (hasValidAccess) {
+      // Refresh subscription and route based on actual access (subscription OR active trial)
+      try {
+        await EdgeFunctionClient.checkSubscription();
+      } catch (_) {}
+
+      const access = hasAccessToApp();
+      if (access.hasAccess) {
         setCurrentStep(4);
       } else {
         setCurrentStep(3);
@@ -574,9 +573,9 @@ export default function Onboarding() {
                 <Button type="submit" disabled={loading || subscriptionLoading}>
                   {subscriptionLoading 
                     ? 'Checking subscription…' 
-                    : subscriptionData?.subscribed 
-                      ? 'Finish Setup & Go to Dashboard' 
-                      : 'Continue to Pricing'}
+                    : (hasValidAccess 
+                        ? 'Finish Setup'
+                        : 'Continue to Pricing')}
                 </Button>
               </div>
             </form>
