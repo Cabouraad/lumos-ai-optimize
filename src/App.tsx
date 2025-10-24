@@ -40,6 +40,7 @@ const Privacy = lazy(() => loadChunkWithRetry(() => import("./pages/Privacy")));
 const Terms = lazy(() => loadChunkWithRetry(() => import("./pages/Terms")));
 const CronSetup = lazy(() => loadChunkWithRetry(() => import("./pages/CronSetup")));
 const RunReports = lazy(() => loadChunkWithRetry(() => import("./pages/RunReports")));
+const UserGuide = lazy(() => loadChunkWithRetry(() => import("./pages/UserGuide")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -161,6 +162,11 @@ const App = () => {
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/user-guide" element={
+            <ProtectedRoute>
+              <UserGuide />
             </ProtectedRoute>
           } />
           <Route path="/domain-verification" element={

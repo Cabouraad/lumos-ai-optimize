@@ -28,7 +28,8 @@ import {
   Crown,
   Calendar,
   Beaker,
-  TestTube2
+  TestTube2,
+  BookOpen
 } from 'lucide-react';
 
 export function AppSidebar() {
@@ -50,6 +51,7 @@ export function AppSidebar() {
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
     { name: 'Reports', href: '/reports', icon: Calendar },
     { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'User Guide', href: '/user-guide', icon: BookOpen },
     ...(isAdmin ? [
       { name: 'Labs', href: '/labs', icon: Beaker },
       { name: 'Tests', href: '/tests', icon: TestTube2 }
