@@ -276,7 +276,8 @@ serve(async (req) => {
         .select('*')
         .eq('org_id', orgId)
         .eq('scope', scope)
-        .gte('window_end', windowStart.toISOString());
+        .eq('window_start', windowStart.toISOString())
+        .eq('window_end', windowEnd.toISOString());
       
       // Apply prompt filter based on scope
       if (scope === 'prompt' && promptId) {
@@ -293,10 +294,7 @@ serve(async (req) => {
         windowEnd: windowEnd.toISOString(),
       });
       
-      const { data: existingScore } = await cacheQuery
-        .order('window_end', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: existingScore } = await cacheQuery.maybeSingle();
 
       if (existingScore) {
         console.log('Returning cached score');
@@ -310,6 +308,7 @@ serve(async (req) => {
               start: existingScore.window_start,
               end: existingScore.window_end,
             },
+            refreshedAt: existingScore.updated_at || existingScore.created_at,
             cached: true,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -422,6 +421,16 @@ serve(async (req) => {
       }
     }
 
+    // Fetch the updated record to get refreshedAt
+    const { data: updatedScore } = await serviceClient
+      .from('llumos_scores')
+      .select('updated_at, created_at')
+      .eq('org_id', orgId)
+      .eq('scope', scope)
+      .eq('window_start', result.window.start)
+      .match(scope === 'prompt' ? { prompt_id: promptId } : { prompt_id: null })
+      .maybeSingle();
+
     // Return the computed score
     return new Response(
       JSON.stringify({
@@ -432,6 +441,8 @@ serve(async (req) => {
         window: result.window,
         reason: result.reason,
         totalResponses: result.total_responses,
+        refreshedAt: updatedScore?.updated_at || updatedScore?.created_at || new Date().toISOString(),
+        cached: false,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -129,11 +129,13 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
             {/* Last updated and actions */}
             {!compact && (
               <div className="space-y-2 mt-2">
-                {scoreData.window && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    Updated {formatDistanceToNow(new Date(scoreData.window.end), { addSuffix: true })}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground text-center">
+                  {scoreData.refreshedAt ? (
+                    <span>Refreshed {formatDistanceToNow(new Date(scoreData.refreshedAt), { addSuffix: true })}</span>
+                  ) : scoreData.window?.end ? (
+                    <span>Updated {formatDistanceToNow(new Date(scoreData.window.end), { addSuffix: true })}</span>
+                  ) : null}
+                </p>
                 <div className="flex gap-2">
                   <Button
                     variant="ghost"

@@ -38,6 +38,7 @@ export interface LlumosScoreResponse {
   };
   reason?: string;
   totalResponses?: number;
+  refreshedAt?: string;
   cached?: boolean;
 }
 
@@ -107,11 +108,10 @@ export function useLlumosScore(promptId?: string) {
 
       return data as LlumosScoreResponse;
     },
-    staleTime: 60 * 1000, // 1 minute (reduced from 1 hour)
-    refetchOnWindowFocus: true, // Re-check when user returns to tab
-    refetchOnReconnect: true, // Re-check on network reconnection
-    refetchOnMount: 'always', // Always check on mount
-    refetchInterval: 60 * 1000, // Poll every 60 seconds when tab is active
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: 'always',
   });
 }
 
@@ -135,8 +135,19 @@ export function useComputeLlumosScore() {
       if (error) throw error;
       return data as LlumosScoreResponse;
     },
-    onSuccess: () => {
-      // Invalidate all Llumos score queries (keys include orgId internally)
+    onSuccess: (data, variables) => {
+      // Immediately update the cache with the fresh score
+      const orgId = queryClient.getQueryData<string>(['org-id']);
+      const { scope, promptId } = variables;
+      
+      if (orgId) {
+        queryClient.setQueryData(
+          ['llumos-score', orgId, scope, promptId ?? null],
+          data
+        );
+      }
+      
+      // Then invalidate to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['llumos-score'] });
     },
     onError: (error) => {

@@ -199,11 +199,15 @@ export default function LlumosScore() {
               <p className="text-muted-foreground text-lg">
                 Comprehensive breakdown of your AI visibility performance
               </p>
-              {scoreData?.window && (
-                <Badge variant="secondary" className="text-xs">
-                  Updated {formatDistanceToNow(new Date(scoreData.window.end), { addSuffix: true })}
-                </Badge>
-              )}
+              <Badge variant="secondary" className="text-xs">
+                {scoreData.refreshedAt ? (
+                  <>Refreshed {formatDistanceToNow(new Date(scoreData.refreshedAt), { addSuffix: true })}</>
+                ) : scoreData.window?.end ? (
+                  <>Updated {formatDistanceToNow(new Date(scoreData.window.end), { addSuffix: true })}</>
+                ) : (
+                  <>Loading...</>
+                )}
+              </Badge>
             </div>
           </div>
 
