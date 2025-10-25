@@ -72,7 +72,8 @@ export function useSubscriptionGate() {
   
   const isOnTrial = currentTier === 'starter' && trialExpiresAt && subscriptionData?.payment_collected === true;
   const trialExpired = !hasValidAccess && trialExpiresAt && new Date(trialExpiresAt) <= new Date();
-  const daysRemainingInTrial = isOnTrial && hasValidAccess && trialExpiresAt
+  // Calculate days remaining for any active trial (not just starter tier)
+  const daysRemainingInTrial = trialExpiresAt && !trialExpired && hasValidAccess
     ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   
