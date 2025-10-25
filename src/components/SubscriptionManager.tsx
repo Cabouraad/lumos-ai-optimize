@@ -16,21 +16,33 @@ export function SubscriptionManager() {
   const [loading, setLoading] = useState(false);
   const [activePromptsCount, setActivePromptsCount] = useState(0);
 
-  useEffect(() => {
-    const fetchActivePrompts = async () => {
-      if (!orgData?.id) return;
-      
-      const { count, error } = await supabase
-        .from('prompts')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', orgData.id)
-        .eq('active', true);
-      
-      if (!error && count !== null) {
-        setActivePromptsCount(count);
-      }
-    };
+  const fetchActivePrompts = async () => {
+    if (!orgData?.id) {
+      console.log('No org_id available for fetching prompts');
+      return;
+    }
+    
+    console.log('Fetching active prompts for org:', orgData.id);
+    
+    const { count, error } = await supabase
+      .from('prompts')
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id', orgData.id)
+      .eq('active', true);
+    
+    console.log('Active prompts count result:', { count, error });
+    
+    if (error) {
+      console.error('Error fetching active prompts:', error);
+      return;
+    }
+    
+    if (count !== null) {
+      setActivePromptsCount(count);
+    }
+  };
 
+  useEffect(() => {
     fetchActivePrompts();
   }, [orgData?.id]);
 
@@ -65,6 +77,7 @@ export function SubscriptionManager() {
   const handleRefreshSubscription = async () => {
     setLoading(true);
     await checkSubscription();
+    await fetchActivePrompts();
     toast({
       title: "Subscription Refreshed",
       description: "Your subscription status has been updated.",
