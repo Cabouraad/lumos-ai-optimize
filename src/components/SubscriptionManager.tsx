@@ -24,22 +24,23 @@ export function SubscriptionManager() {
     
     console.log('Fetching active prompts for org:', orgData.id);
     
-    const { count, error } = await supabase
+    const res = await supabase
       .from('prompts')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact' })
       .eq('org_id', orgData.id)
       .eq('active', true);
     
-    console.log('Active prompts count result:', { count, error });
+    const { data, count, error } = res as { data: any[] | null; count: number | null; error: any };
+    
+    console.log('Active prompts count result:', { count, dataLength: data?.length, error });
     
     if (error) {
       console.error('Error fetching active prompts:', error);
       return;
     }
     
-    if (count !== null) {
-      setActivePromptsCount(count);
-    }
+    const resolved = typeof count === 'number' ? count : (Array.isArray(data) ? data.length : 0);
+    setActivePromptsCount(resolved);
   };
 
   useEffect(() => {
