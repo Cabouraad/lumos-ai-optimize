@@ -1713,6 +1713,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_org_brand_aliases: { Args: { p_org_id: string }; Returns: string[] }
       get_org_competitor_summary: {
         Args: { p_days?: number; p_org_id?: string }
         Returns: {
