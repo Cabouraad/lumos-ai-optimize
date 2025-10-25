@@ -50,7 +50,8 @@ export async function generateRecommendations(params?: {
     throw new Error('Authentication required');
   }
 
-  const { data, error } = await supabase.functions.invoke('generate-recommendations', {
+  // Call the correct edge function name
+  const { data, error } = await supabase.functions.invoke('generate-optimizations', {
     body: { limit: params?.limit || 10 },
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
@@ -61,13 +62,16 @@ export async function generateRecommendations(params?: {
     throw new Error(error.message || 'Failed to generate recommendations');
   }
 
-  return data as {
-    success: boolean;
-    count: number;
-    processed: number;
-    errors?: string[];
-    message?: string;
+  // Normalize common shapes returned by different function versions
+  const normalized = {
+    success: Boolean((data as any)?.success ?? true),
+    count: Number((data as any)?.count ?? (data as any)?.created ?? 0),
+    processed: Number((data as any)?.processed ?? (data as any)?.checked ?? 0),
+    errors: (data as any)?.errors ?? [],
+    message: (data as any)?.message ?? (Number((data as any)?.count ?? 0) === 0 ? 'No low-visibility prompts found' : undefined)
   };
+
+  return normalized;
 }
 
 /**
