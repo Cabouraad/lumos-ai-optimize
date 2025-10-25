@@ -1,11 +1,13 @@
-import { useLlumosScore, getScoreColor } from '@/hooks/useLlumosScore';
+import { useLlumosScore, getScoreColor, useComputeLlumosScore } from '@/hooks/useLlumosScore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Info, TrendingUp } from 'lucide-react';
+import { Info, TrendingUp, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LlumosScoreDrawer } from './LlumosScoreDrawer';
+import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 
 interface LlumosScoreWidgetProps {
   promptId?: string;
@@ -16,15 +18,32 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
   const { data: scoreData, isLoading, error } = useLlumosScore(promptId);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navigate = useNavigate();
+  const { mutate: recomputeScore, isPending: isRecomputing } = useComputeLlumosScore();
   
-  // For org-level scores (no promptId), navigate to the detail page
-  // For prompt-level scores, use the drawer
   const handleViewDetails = () => {
     if (promptId) {
       setDrawerOpen(true);
     } else {
       navigate('/llumos-score');
     }
+  };
+
+  const handleRefresh = () => {
+    recomputeScore(
+      { 
+        scope: promptId ? 'prompt' : 'org', 
+        promptId,
+        force: true 
+      },
+      {
+        onSuccess: () => {
+          toast.success('Score refreshed successfully');
+        },
+        onError: () => {
+          toast.error('Failed to refresh score');
+        }
+      }
+    );
   };
 
   if (isLoading) {
@@ -107,17 +126,36 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
               </div>
             </div>
 
-            {/* View details button */}
+            {/* Last updated and actions */}
             {!compact && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleViewDetails}
-                className="w-full mt-2"
-              >
-                <TrendingUp className="h-4 w-4 mr-2" />
-                View Full Analysis
-              </Button>
+              <div className="space-y-2 mt-2">
+                {scoreData.window && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Updated {formatDistanceToNow(new Date(scoreData.window.end), { addSuffix: true })}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isRecomputing}
+                    className="flex-1"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRecomputing ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleViewDetails}
+                    className="flex-1"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Details
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </CardContent>

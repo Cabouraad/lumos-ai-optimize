@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgIdSafe } from '@/lib/org-id';
+import { useEffect } from 'react';
 
 export interface LlumosSubmetrics {
   pr: number; // Presence Rate
@@ -42,6 +43,7 @@ export interface LlumosScoreResponse {
 
 export function useLlumosScore(promptId?: string) {
   const scope = promptId ? 'prompt' : 'org';
+  const queryClient = useQueryClient();
 
   // Resolve org id to avoid cross-org cache pollution
   const { data: orgId } = useQuery({
@@ -49,6 +51,42 @@ export function useLlumosScore(promptId?: string) {
     queryFn: getOrgIdSafe,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Subscribe to realtime updates for llumos_scores
+  useEffect(() => {
+    if (!orgId) return;
+
+    const channel = supabase
+      .channel('llumos-score-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'llumos_scores',
+          filter: `org_id=eq.${orgId}`,
+        },
+        (payload) => {
+          console.log('[Llumos Score] Realtime update received:', payload);
+          
+          // Check if this update matches our current query
+          const newData = payload.new as any;
+          if (newData && 
+              newData.scope === scope && 
+              (promptId ? newData.prompt_id === promptId : !newData.prompt_id)) {
+            // Invalidate the specific query to trigger a refetch
+            queryClient.invalidateQueries({ 
+              queryKey: ['llumos-score', orgId, scope, promptId ?? null] 
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, scope, promptId, queryClient]);
   
   return useQuery({
     queryKey: ['llumos-score', orgId ?? 'unknown-org', scope, promptId ?? null],
@@ -69,8 +107,11 @@ export function useLlumosScore(promptId?: string) {
 
       return data as LlumosScoreResponse;
     },
-    staleTime: 1000 * 60 * 60, // 1 hour
-    refetchOnWindowFocus: false,
+    staleTime: 60 * 1000, // 1 minute (reduced from 1 hour)
+    refetchOnWindowFocus: true, // Re-check when user returns to tab
+    refetchOnReconnect: true, // Re-check on network reconnection
+    refetchOnMount: 'always', // Always check on mount
+    refetchInterval: 60 * 1000, // Poll every 60 seconds when tab is active
   });
 }
 

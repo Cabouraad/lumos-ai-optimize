@@ -1,4 +1,4 @@
-import { useLlumosScore, getScoreColor } from '@/hooks/useLlumosScore';
+import { useLlumosScore, getScoreColor, useComputeLlumosScore } from '@/hooks/useLlumosScore';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, TrendingUp, Target, Eye, Award, Zap, RefreshCw, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 
 const submetricDetails = {
   pr: {
@@ -100,6 +102,24 @@ const scoreTiers = [
 export default function LlumosScore() {
   const navigate = useNavigate();
   const { data: scoreData, isLoading, error } = useLlumosScore();
+  const { mutate: recomputeScore, isPending: isRecomputing } = useComputeLlumosScore();
+
+  const handleRefresh = () => {
+    recomputeScore(
+      { 
+        scope: 'org', 
+        force: true 
+      },
+      {
+        onSuccess: () => {
+          toast.success('Score refreshed successfully');
+        },
+        onError: () => {
+          toast.error('Failed to refresh score');
+        }
+      }
+    );
+  };
 
   if (isLoading) {
     return (
@@ -155,20 +175,36 @@ export default function LlumosScore() {
         <div className="container mx-auto p-6 max-w-6xl space-y-8">
           {/* Header */}
           <div>
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/dashboard')}
-              className="mb-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/dashboard')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={isRecomputing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRecomputing ? 'animate-spin' : ''}`} />
+                Refresh Score
+              </Button>
+            </div>
             <h1 className="text-4xl font-display font-bold text-foreground mb-2">
               Llumos Score Analysis
             </h1>
-            <p className="text-muted-foreground text-lg">
-              Comprehensive breakdown of your AI visibility performance
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-muted-foreground text-lg">
+                Comprehensive breakdown of your AI visibility performance
+              </p>
+              {scoreData?.window && (
+                <Badge variant="secondary" className="text-xs">
+                  Updated {formatDistanceToNow(new Date(scoreData.window.end), { addSuffix: true })}
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Insufficient Data Warning */}
