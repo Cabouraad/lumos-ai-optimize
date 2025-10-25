@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -13,6 +14,25 @@ export function SubscriptionManager() {
   const { currentTier, limits, isBypassUser } = useSubscriptionGate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [activePromptsCount, setActivePromptsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchActivePrompts = async () => {
+      if (!orgData?.id) return;
+      
+      const { data, error } = await supabase
+        .from('prompts')
+        .select('id', { count: 'exact' })
+        .eq('org_id', orgData.id)
+        .eq('active', true);
+      
+      if (!error && data) {
+        setActivePromptsCount(data.length);
+      }
+    };
+
+    fetchActivePrompts();
+  }, [orgData?.id]);
 
   const handleManageSubscription = async () => {
     setLoading(true);
@@ -149,6 +169,17 @@ export function SubscriptionManager() {
       <CardContent>
         <div className="space-y-4">
           <div>
+            <h4 className="font-medium mb-3">Prompt Usage</h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Active Prompts</span>
+                <span className="font-medium">{activePromptsCount} / {limits.promptsPerDay}</span>
+              </div>
+              <Progress value={(activePromptsCount / limits.promptsPerDay) * 100} className="h-2" />
+            </div>
+          </div>
+
+          <div>
             <h4 className="font-medium mb-2">Current Plan Features</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="flex items-center justify-between p-2 bg-muted rounded">
@@ -160,21 +191,19 @@ export function SubscriptionManager() {
                 <Badge variant="secondary">{limits.providersPerPrompt}</Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-muted rounded">
-                <span className="text-sm">Optimizations</span>
+                <span className={limits.hasRecommendations ? "text-sm" : "text-sm font-bold text-red-600"}>
+                  Optimizations
+                </span>
                 <Badge variant={limits.hasRecommendations ? "default" : "outline"}>
                   {limits.hasRecommendations ? 'Included' : 'Not Available'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-muted rounded">
-                <span className="text-sm">Competitor Analysis</span>
+                <span className={limits.hasCompetitorAnalysis ? "text-sm" : "text-sm font-bold text-red-600"}>
+                  Competitor Analysis
+                </span>
                 <Badge variant={limits.hasCompetitorAnalysis ? "default" : "outline"}>
                   {limits.hasCompetitorAnalysis ? 'Included' : 'Not Available'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-muted rounded">
-                <span className="text-sm">Priority Support</span>
-                <Badge variant={limits.hasPrioritySupport ? "default" : "outline"}>
-                  {limits.hasPrioritySupport ? 'Included' : 'Standard'}
                 </Badge>
               </div>
             </div>
