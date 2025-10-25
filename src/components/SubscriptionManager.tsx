@@ -20,14 +20,14 @@ export function SubscriptionManager() {
     const fetchActivePrompts = async () => {
       if (!orgData?.id) return;
       
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from('prompts')
-        .select('id', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('org_id', orgData.id)
         .eq('active', true);
       
-      if (!error && data) {
-        setActivePromptsCount(data.length);
+      if (!error && count !== null) {
+        setActivePromptsCount(count);
       }
     };
 
