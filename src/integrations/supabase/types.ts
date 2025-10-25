@@ -1556,6 +1556,10 @@ export type Database = {
         Args: { p_candidate_id: string; p_candidate_name: string }
         Returns: undefined
       }
+      calculate_brand_prominence_from_response: {
+        Args: { p_org_brands: string[]; p_raw_response: string }
+        Returns: number
+      }
       clean_competitor_catalog: { Args: { p_dry_run?: boolean }; Returns: Json }
       compute_llumos_score: {
         Args: { p_org_id: string; p_prompt_id?: string }
