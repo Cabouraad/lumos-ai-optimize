@@ -338,10 +338,36 @@ Deno.serve(async (req) => {
     // Analyze the response - add await
     const analysis = await analyzeResponse(response.responseText, orgName);
     
+    // Extract citations from response
+    let citationsData = null;
+    try {
+      const { extractPerplexityCitations, extractGeminiCitations, extractOpenAICitations } = 
+        await import('../_shared/citations-enhanced.ts');
+      
+      switch (provider.toLowerCase()) {
+        case 'perplexity':
+          citationsData = extractPerplexityCitations({}, response.responseText);
+          break;
+        case 'gemini':
+          citationsData = extractGeminiCitations({}, response.responseText);
+          break;
+        case 'openai':
+          citationsData = extractOpenAICitations(response.responseText);
+          break;
+      }
+      
+      if (citationsData?.citations?.length > 0) {
+        console.log(`[${provider}] Extracted ${citationsData.citations.length} citations`);
+      }
+    } catch (citationError: any) {
+      console.error(`[${provider}] Citation extraction failed:`, citationError.message);
+    }
+    
     console.log(`✅ ${provider} success:`, {
       score: analysis.score,
       brandPresent: analysis.brandPresent,
-      competitors: analysis.competitors?.length || 0
+      competitors: analysis.competitors?.length || 0,
+      citations: citationsData?.citations?.length || 0
     });
 
     return new Response(
@@ -351,6 +377,8 @@ Deno.serve(async (req) => {
         responseText: response.responseText,
         tokenIn: response.tokenIn,
         tokenOut: response.tokenOut,
+        citations: citationsData?.citations || [],
+        citationCount: citationsData?.citations?.length || 0,
         subscriptionTier,
         providerAllowed: true,
         ...analysis

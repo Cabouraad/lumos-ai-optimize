@@ -199,12 +199,49 @@ async function processTask(
   try {
     let rawResponse = await callProviderAPI(provider, promptText);
     let citations = [];
+    let citationsData = null;
     
     // For Google AIO, extract summary and citations
     if (provider.name === 'google_ai_overview' && typeof rawResponse === 'object') {
       const aioData = rawResponse as any;
       citations = aioData.citations || [];
       rawResponse = aioData.summary || '';
+      citationsData = {
+        citations: citations,
+        provider: 'google_ai_overview',
+        collected_at: new Date().toISOString(),
+        ruleset_version: 'v1'
+      };
+    } else {
+      // Extract citations for other providers using enhanced extractor
+      try {
+        const { extractPerplexityCitations, extractGeminiCitations, extractOpenAICitations } = 
+          await import('../_shared/citations-enhanced.ts');
+        
+        switch (provider.name) {
+          case 'perplexity':
+            citationsData = extractPerplexityCitations({}, rawResponse);
+            break;
+          case 'gemini':
+            citationsData = extractGeminiCitations({}, rawResponse);
+            break;
+          case 'openai':
+            citationsData = extractOpenAICitations(rawResponse);
+            break;
+        }
+        
+        if (citationsData?.citations?.length > 0) {
+          console.log(`[${provider.name}] Extracted ${citationsData.citations.length} citations`);
+          citations = citationsData.citations.map(c => ({
+            url: c.url,
+            title: c.title,
+            domain: c.domain,
+            source_provider: provider.name
+          }));
+        }
+      } catch (citationError: any) {
+        console.error(`[${provider.name}] Citation extraction failed:`, citationError.message);
+      }
     }
     
     // Fetch organization data for brand analysis
@@ -261,7 +298,7 @@ async function processTask(
       competitors_count: (analysis.competitors_json || []).length,
       competitors_json: analysis.competitors_json || [],
       brands_json: analysis.brands_json || [],
-      citations_json: citations.length > 0 ? citations : null,
+      citations_json: citationsData || null,
       token_in: 0,
       token_out: 0,
       metadata: analysis.metadata || {}
