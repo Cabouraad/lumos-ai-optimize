@@ -50,8 +50,8 @@ export async function generateRecommendations(params?: {
     throw new Error('Authentication required');
   }
 
-  // Call the correct edge function name
-  const { data, error } = await supabase.functions.invoke('generate-optimizations', {
+  // Call the edge function (matches the actual function name in supabase/functions/)
+  const { data, error } = await supabase.functions.invoke('generate-recommendations', {
     body: { limit: params?.limit || 10 },
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
