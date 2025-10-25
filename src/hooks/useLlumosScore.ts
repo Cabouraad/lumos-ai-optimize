@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getOrgIdSafe } from '@/lib/org-id';
 
 export interface LlumosSubmetrics {
   pr: number; // Presence Rate
@@ -9,6 +10,7 @@ export interface LlumosSubmetrics {
   cs: number; // Competitive Share
   fc: number; // Freshness & Consistency
 }
+
 
 export interface LlumosScore {
   id: string;
@@ -40,11 +42,18 @@ export interface LlumosScoreResponse {
 
 export function useLlumosScore(promptId?: string) {
   const scope = promptId ? 'prompt' : 'org';
+
+  // Resolve org id to avoid cross-org cache pollution
+  const { data: orgId } = useQuery({
+    queryKey: ['org-id'],
+    queryFn: getOrgIdSafe,
+    staleTime: 5 * 60 * 1000,
+  });
   
   return useQuery({
-    queryKey: ['llumos-score', scope, promptId],
+    queryKey: ['llumos-score', orgId ?? 'unknown-org', scope, promptId ?? null],
+    enabled: !!orgId,
     queryFn: async () => {
-      // Call the edge function to compute/fetch score
       const { data, error } = await supabase.functions.invoke('compute-llumos-score', {
         body: { 
           scope,
@@ -85,11 +94,9 @@ export function useComputeLlumosScore() {
       if (error) throw error;
       return data as LlumosScoreResponse;
     },
-    onSuccess: (data, variables) => {
-      // Invalidate relevant queries to refresh in background
-      queryClient.invalidateQueries({ 
-        queryKey: ['llumos-score', variables.scope, variables.promptId] 
-      });
+    onSuccess: () => {
+      // Invalidate all Llumos score queries (keys include orgId internally)
+      queryClient.invalidateQueries({ queryKey: ['llumos-score'] });
     },
     onError: (error) => {
       // Silent failure - log for debugging only
