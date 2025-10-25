@@ -257,27 +257,18 @@ serve(async (req) => {
     // Use service role client for computation
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check for existing score (unless force=true)
+    // PHASE 5: Check for existing score with TTL-based cache (1 hour)
     if (!force) {
-      // Align with SQL RPC: use start of current ISO week (Monday)
-      const now = new Date();
-      const dayOfWeek = now.getUTCDay();
-      const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1); // Sunday=0, Monday=1
+      const cacheExpiryTime = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
       
-      const windowEnd = new Date(now);
-      windowEnd.setUTCDate(now.getUTCDate() - daysToMonday);
-      windowEnd.setUTCHours(0, 0, 0, 0);
-      
-      const windowStart = new Date(windowEnd);
-      windowStart.setDate(windowStart.getDate() - 28);
-
       let cacheQuery = serviceClient
         .from('llumos_scores')
         .select('*')
         .eq('org_id', orgId)
         .eq('scope', scope)
-        .eq('window_start', windowStart.toISOString())
-        .eq('window_end', windowEnd.toISOString());
+        .gte('updated_at', cacheExpiryTime.toISOString())
+        .order('updated_at', { ascending: false })
+        .limit(1);
       
       // Apply prompt filter based on scope
       if (scope === 'prompt' && promptId) {
@@ -286,18 +277,18 @@ serve(async (req) => {
         cacheQuery = cacheQuery.is('prompt_id', null);
       }
       
-      console.log('[CacheLookup]', {
+      console.log('[CacheLookup TTL]', {
         orgId,
         scope,
         promptId: scope === 'prompt' ? promptId : null,
-        windowStart: windowStart.toISOString(),
-        windowEnd: windowEnd.toISOString(),
+        cacheExpiry: cacheExpiryTime.toISOString(),
       });
       
       const { data: existingScore } = await cacheQuery.maybeSingle();
 
       if (existingScore) {
-        console.log('Returning cached score');
+        const cacheAge = Math.round((Date.now() - new Date(existingScore.updated_at || existingScore.created_at).getTime()) / 1000 / 60);
+        console.log(`[Cache Hit] Returning cached score (age: ${cacheAge} minutes)`);
         return new Response(
           JSON.stringify({
             score: existingScore.llumos_score,
@@ -308,12 +299,15 @@ serve(async (req) => {
               start: existingScore.window_start,
               end: existingScore.window_end,
             },
+            totalResponses: existingScore.reason === 'insufficient_data' ? 0 : undefined,
             refreshedAt: existingScore.updated_at || existingScore.created_at,
             cached: true,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      
+      console.log('[Cache Miss] Computing fresh score');
     }
 
     // Compute score using RPC

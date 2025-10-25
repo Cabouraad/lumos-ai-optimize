@@ -14,7 +14,7 @@ const submetricDetails = {
   pr: {
     icon: Eye,
     name: 'Presence Rate',
-    weight: 25,
+    weight: 30,
     description: 'How often your brand appears in AI responses',
     calculation: '(Responses with brand / Total responses) × 100',
     why: 'Higher presence means your brand is being considered and mentioned by AI systems when relevant topics are discussed.',
@@ -27,7 +27,7 @@ const submetricDetails = {
   pp: {
     icon: Target,
     name: 'Prominence Position',
-    weight: 20,
+    weight: 24,
     description: 'Your average position when mentioned in responses',
     calculation: '100 - (Average position index × 10), capped at 100',
     why: 'Being mentioned first or early in responses indicates AI systems view your brand as a primary authority.',
@@ -40,7 +40,7 @@ const submetricDetails = {
   cv: {
     icon: TrendingUp,
     name: 'Coverage Variance',
-    weight: 15,
+    weight: 18,
     description: 'Consistency of mentions across different prompts',
     calculation: '100 - (Standard deviation of presence rates × 100)',
     why: 'Consistent presence across topics shows comprehensive coverage and reduces vulnerability to prompt variations.',
@@ -53,7 +53,7 @@ const submetricDetails = {
   ca: {
     icon: Award,
     name: 'Citation Authority',
-    weight: 20,
+    weight: 0,
     description: 'Quality and authority of sources citing your brand',
     calculation: '(Org domain citations / Total citations) × 100',
     why: 'Being cited by authoritative sources increases trust signals and improves AI system confidence in your brand.',
@@ -61,14 +61,16 @@ const submetricDetails = {
       'Build relationships with authoritative sites in your industry',
       'Create link-worthy, original research and resources',
       'Engage with industry publications and thought leaders'
-    ]
+    ],
+    disabled: true,
+    disabledReason: 'Citations data not currently available'
   },
   cs: {
     icon: Zap,
     name: 'Competitive Share',
-    weight: 15,
-    description: 'Your share of mentions vs. competitors',
-    calculation: '(Org mentions / (Org + Competitor mentions)) × 100',
+    weight: 18,
+    description: 'Your share of responses vs. competitors',
+    calculation: '(Responses with brand / (Responses with brand + Responses with competitors)) × 100',
     why: 'Higher competitive share means AI systems favor your brand over alternatives in your space.',
     tips: [
       'Differentiate your content and value proposition',
@@ -79,7 +81,7 @@ const submetricDetails = {
   fc: {
     icon: RefreshCw,
     name: 'Freshness & Consistency',
-    weight: 5,
+    weight: 10,
     description: 'Recency and frequency of brand mentions',
     calculation: '(Frequency score × 0.4 + Recency score × 0.6)',
     why: 'Recent and frequent mentions signal active relevance and current authority in your field.',
@@ -218,10 +220,13 @@ export default function LlumosScore() {
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
                   <div>
-                    <h3 className="font-semibold text-warning mb-1">Insufficient Data</h3>
+                   <h3 className="font-semibold text-warning mb-1">Insufficient Data</h3>
                     <p className="text-sm text-muted-foreground">
-                      Your Llumos Score requires at least 5 successful responses within a 28-day window to calculate accurately. 
-                      Add more prompts and run them regularly to get your personalized score.
+                      Your Llumos Score requires at least 3 successful responses within the last 28 days to calculate accurately. 
+                      {scoreData.totalResponses !== undefined && (
+                        <> Currently: {scoreData.totalResponses} response(s).</>
+                      )}
+                      {' '}Add more prompts and run them regularly to get your personalized score.
                     </p>
                   </div>
                 </div>
@@ -290,8 +295,18 @@ export default function LlumosScore() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="secondary" className="text-sm">
-                      Last 28 days
+                      Rolling 28-day window
                     </Badge>
+                    {scoreData.totalResponses !== undefined && scoreData.totalResponses > 0 && (
+                      <Badge variant="outline" className="text-sm">
+                        {scoreData.totalResponses} response{scoreData.totalResponses !== 1 ? 's' : ''} analyzed
+                      </Badge>
+                    )}
+                    {scoreData.window?.start && scoreData.window?.end && (
+                      <Badge variant="outline" className="text-xs">
+                        {new Date(scoreData.window.start).toLocaleDateString()} - {new Date(scoreData.window.end).toLocaleDateString()}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -344,30 +359,46 @@ export default function LlumosScore() {
               {Object.entries(submetricDetails).map(([key, details]) => {
                 const submetricScore = scoreData.submetrics[key as keyof typeof scoreData.submetrics] || 0;
                 const Icon = details.icon;
+                const isDisabled = 'disabled' in details && details.disabled;
 
                 return (
-                  <Card key={key} className="hover:shadow-soft transition-smooth">
+                  <Card key={key} className={`hover:shadow-soft transition-smooth ${isDisabled ? 'opacity-60' : ''}`}>
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <Icon className="h-5 w-5 text-primary" />
+                          <div className={`p-2 rounded-lg ${isDisabled ? 'bg-muted' : 'bg-primary/10'}`}>
+                            <Icon className={`h-5 w-5 ${isDisabled ? 'text-muted-foreground' : 'text-primary'}`} />
                           </div>
                           <div>
-                            <CardTitle className="text-lg">{details.name}</CardTitle>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg">{details.name}</CardTitle>
+                              {isDisabled && (
+                                <Badge variant="secondary" className="text-xs">Not Available</Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {details.weight}% weight
+                              {details.weight > 0 ? `${details.weight}% weight` : 'Currently excluded'}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-2xl font-bold text-primary">{submetricScore}</div>
+                          <div className={`text-2xl font-bold ${isDisabled ? 'text-muted-foreground' : 'text-primary'}`}>
+                            {submetricScore}
+                          </div>
                           <div className="text-xs text-muted-foreground">/ 100</div>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <Progress value={submetricScore} className="h-2" />
+                      {isDisabled && 'disabledReason' in details && (
+                        <div className="p-3 bg-muted/50 rounded-lg border border-border">
+                          <p className="text-sm text-muted-foreground flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            {details.disabledReason}
+                          </p>
+                        </div>
+                      )}
+                      <Progress value={submetricScore} className={`h-2 ${isDisabled ? 'opacity-50' : ''}`} />
                       
                       <div>
                         <h4 className="text-sm font-semibold text-foreground mb-1">What it measures:</h4>
