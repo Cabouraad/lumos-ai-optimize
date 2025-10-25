@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
-import { TrialBanner } from '@/components/TrialBanner';
 import { AdminDiagnosticPanel } from '@/components/AdminDiagnosticPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -415,11 +414,6 @@ export default function Dashboard() {
     return (
       <Layout>
         <div className="container mx-auto p-6">
-          {/* Trial banner if user is on trial */}
-          {appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0 && (
-            <TrialBanner daysRemaining={appAccess.daysRemainingInTrial} />
-          )}
-          
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
             <p className="text-muted-foreground">AI visibility insights for your organization</p>
@@ -437,8 +431,6 @@ export default function Dashboard() {
       </Layout>
     );
   }
-
-  const showTrialBanner = appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0;
 
   // Debug logging for troubleshooting
   console.log('[Dashboard] Render state:', {
@@ -492,10 +484,6 @@ export default function Dashboard() {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
         <div className="container mx-auto p-6 space-y-8">
-          {!!showTrialBanner && (
-            <TrialBanner daysRemaining={appAccess.daysRemainingInTrial!} />
-          )}
-          
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="space-y-2">

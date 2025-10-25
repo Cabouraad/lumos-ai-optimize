@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
+import { TrialBanner } from '@/components/TrialBanner';
 import { GoogleAioSettings } from '@/components/GoogleAioSettings';
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
 import { Button } from '@/components/ui/button';
@@ -18,6 +20,8 @@ export default function Settings() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { hasAccessToApp } = useSubscriptionGate();
+  const appAccess = hasAccessToApp();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orgData, setOrgData] = useState<any>(null);
@@ -167,6 +171,11 @@ export default function Settings() {
     <Layout>
       <div className="p-6 space-y-8">
         <h1 className="text-3xl font-semibold">Settings</h1>
+        
+        {/* Trial banner if user is on trial */}
+        {appAccess.daysRemainingInTrial && appAccess.daysRemainingInTrial > 0 && (
+          <TrialBanner daysRemaining={appAccess.daysRemainingInTrial} />
+        )}
         
         <SubscriptionManager />
 
