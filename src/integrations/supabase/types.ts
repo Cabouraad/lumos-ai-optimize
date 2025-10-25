@@ -163,6 +163,13 @@ export type Database = {
             foreignKeyName: "batch_jobs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "batch_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -252,6 +259,13 @@ export type Database = {
             foreignKeyName: "brand_catalog_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "brand_catalog_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -322,6 +336,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "domain_invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "domain_invitations_org_id_fkey"
             columns: ["org_id"]
@@ -493,6 +514,13 @@ export type Database = {
             foreignKeyName: "llumos_scores_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "llumos_scores_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -605,6 +633,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "optimizations_v2_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "optimizations_v2_org_id_fkey"
             columns: ["org_id"]
@@ -834,6 +869,13 @@ export type Database = {
             foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -871,6 +913,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "recommendations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "recommendations_org_id_fkey"
             columns: ["org_id"]
@@ -918,6 +967,13 @@ export type Database = {
           week_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "reports_org_id_fkey"
             columns: ["org_id"]
@@ -1107,6 +1163,13 @@ export type Database = {
             foreignKeyName: "suggested_prompts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "suggested_prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -1145,6 +1208,13 @@ export type Database = {
             foreignKeyName: "user_roles_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "user_roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -1173,6 +1243,13 @@ export type Database = {
           role?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "users_org_id_fkey"
             columns: ["org_id"]
@@ -1345,10 +1422,30 @@ export type Database = {
             foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
+      }
+      org_brand_detection_health: {
+        Row: {
+          avg_score_7d: number | null
+          brand_detection_rate_pct: number | null
+          brand_found_last_7d: number | null
+          domain: string | null
+          org_brands_in_catalog: number | null
+          org_id: string | null
+          org_name: string | null
+          responses_last_7d: number | null
+        }
+        Relationships: []
       }
       org_competitor_analytics: {
         Row: {
@@ -1389,6 +1486,13 @@ export type Database = {
             foreignKeyName: "brand_catalog_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "brand_catalog_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -1403,6 +1507,13 @@ export type Database = {
           runs_14d: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "prompts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
@@ -1423,6 +1534,13 @@ export type Database = {
           tier: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
           {
             foreignKeyName: "users_org_id_fkey"
             columns: ["org_id"]
@@ -1452,6 +1570,16 @@ export type Database = {
       email_matches_org_domain: {
         Args: { email_address: string }
         Returns: boolean
+      }
+      fix_all_org_brand_classifications: {
+        Args: never
+        Returns: {
+          result_avg_score_improvement: number
+          result_brands_added: number
+          result_org_id: string
+          result_org_name: string
+          result_responses_fixed: number
+        }[]
       }
       fix_brand_classification_all_providers: { Args: never; Returns: string }
       fix_hubspot_brand_classification: { Args: never; Returns: string }
