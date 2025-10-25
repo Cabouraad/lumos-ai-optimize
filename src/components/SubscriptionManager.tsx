@@ -16,36 +16,36 @@ export function SubscriptionManager() {
   const [loading, setLoading] = useState(false);
   const [activePromptsCount, setActivePromptsCount] = useState(0);
 
+  // Resolve the correct organization ID from user data
+  const orgId = orgData?.org_id || orgData?.organizations?.id;
+
   const fetchActivePrompts = async () => {
-    if (!orgData?.id) {
+    if (!orgId) {
       console.log('No org_id available for fetching prompts');
       return;
     }
-    
-    console.log('Fetching active prompts for org:', orgData.id);
-    
-    const res = await supabase
+
+    console.log('Fetching active prompts for org:', orgId);
+
+    const { count, error } = await supabase
       .from('prompts')
-      .select('id', { count: 'exact' })
-      .eq('org_id', orgData.id)
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
       .eq('active', true);
-    
-    const { data, count, error } = res as { data: any[] | null; count: number | null; error: any };
-    
-    console.log('Active prompts count result:', { count, dataLength: data?.length, error });
-    
+
+    console.log('Active prompts count result:', { count, error });
+
     if (error) {
       console.error('Error fetching active prompts:', error);
       return;
     }
-    
-    const resolved = typeof count === 'number' ? count : (Array.isArray(data) ? data.length : 0);
-    setActivePromptsCount(resolved);
+
+    setActivePromptsCount(typeof count === 'number' ? count : 0);
   };
 
   useEffect(() => {
     fetchActivePrompts();
-  }, [orgData?.id]);
+  }, [orgId]);
 
   const handleManageSubscription = async () => {
     setLoading(true);
@@ -134,6 +134,10 @@ export function SubscriptionManager() {
     }
   };
 
+  // Clamp progress value for reliability
+  const denom = Math.max(1, limits?.promptsPerDay ?? 1);
+  const usagePct = Math.min(100, Math.max(0, (activePromptsCount / denom) * 100));
+
   return (
     <Card>
       <CardHeader>
@@ -189,7 +193,7 @@ export function SubscriptionManager() {
                 <span className="text-muted-foreground">Active Prompts</span>
                 <span className="font-medium">{activePromptsCount} / {limits.promptsPerDay}</span>
               </div>
-              <Progress value={(activePromptsCount / limits.promptsPerDay) * 100} className="h-2" />
+              <Progress value={usagePct} className="h-2" />
             </div>
           </div>
 
