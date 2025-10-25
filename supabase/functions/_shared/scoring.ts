@@ -7,7 +7,7 @@ export function computeVisibilityScore(
   prominenceIdx: number | null, 
   competitorsCount: number
 ): number {
-  if (!orgPresent) return 1;
+  if (!orgPresent) return 0;
   
   let score = 6; // Base score when org brand is present
   
@@ -22,7 +22,7 @@ export function computeVisibilityScore(
   if (competitorsCount > 8) score -= 2;
   else if (competitorsCount > 4) score -= 1;
   
-  return Math.max(1, Math.min(10, score));
+  return Math.max(0, Math.min(10, score));
 }
 
 export function normalizeScoreTo100(score: number): number {
