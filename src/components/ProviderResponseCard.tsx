@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
-import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle, Bot, Search, Sparkles, Globe } from 'lucide-react';
+import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle, Bot, Search, Sparkles, Globe, Link2, ExternalLink } from 'lucide-react';
 import { ResponseClassificationFixer } from './ResponseClassificationFixer';
 import { CompetitorChipList } from './CompetitorChip';
 import { useOrgBrands } from '@/hooks/useOrgBrands';
@@ -235,31 +235,104 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-medium">AI Response:</p>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-6 text-xs px-2">
-                        <FileText className="h-3 w-3 mr-1" />
-                        View Full
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh]">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          {config.name} Response
-                        </DialogTitle>
-                        <DialogDescription>
-                          Response to: "{promptText.substring(0, 100)}..."
-                        </DialogDescription>
-                      </DialogHeader>
-                      <ScrollArea className="max-h-96 mt-4">
-                        <div className="p-4 bg-muted rounded-lg">
-                          <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                            {response.raw_ai_response}
-                          </pre>
-                        </div>
-                      </ScrollArea>
-                    </DialogContent>
-                  </Dialog>
+                  <div className="flex items-center gap-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-6 text-xs px-2">
+                          <FileText className="h-3 w-3 mr-1" />
+                          View Full
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh]">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            {config.name} Response
+                          </DialogTitle>
+                          <DialogDescription>
+                            Response to: "{promptText.substring(0, 100)}..."
+                          </DialogDescription>
+                        </DialogHeader>
+                        <ScrollArea className="max-h-96 mt-4">
+                          <div className="p-4 bg-muted rounded-lg">
+                            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {response.raw_ai_response}
+                            </pre>
+                          </div>
+                        </ScrollArea>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    {/* Citations Button */}
+                    {response.citations_json && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-6 text-xs px-2">
+                            <Link2 className="h-3 w-3 mr-1" />
+                            Citations ({Array.isArray(response.citations_json?.citations) 
+                              ? response.citations_json.citations.length 
+                              : 0})
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[80vh]">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <Link2 className="h-5 w-5" />
+                              Citations from {config.name}
+                            </DialogTitle>
+                            <DialogDescription>
+                              Sources extracted from the AI response
+                            </DialogDescription>
+                          </DialogHeader>
+                          <ScrollArea className="max-h-96 mt-4">
+                            <div className="space-y-3">
+                              {Array.isArray(response.citations_json?.citations) && response.citations_json.citations.length > 0 ? (
+                                response.citations_json.citations.map((citation: any, index: number) => (
+                                  <div 
+                                    key={index} 
+                                    className="p-3 bg-muted/50 rounded-lg border border-border hover:bg-muted/70 transition-colors"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xs font-mono text-muted-foreground">#{index + 1}</span>
+                                          {citation.domain && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              {citation.domain}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {citation.title && (
+                                          <p className="text-sm font-medium mb-1 line-clamp-2">
+                                            {citation.title}
+                                          </p>
+                                        )}
+                                        {citation.url && (
+                                          <a 
+                                            href={citation.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-primary hover:underline flex items-center gap-1 break-all"
+                                          >
+                                            {citation.url}
+                                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <Link2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                  <p className="text-sm">No citations found</p>
+                                </div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30 line-clamp-3">
                   {response.raw_ai_response.length > 120 

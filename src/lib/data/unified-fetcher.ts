@@ -138,6 +138,7 @@ export interface ProviderResponseData {
   token_in: number;
   token_out: number;
   metadata?: { reason?: string; [key: string]: any };
+  citations_json?: any;
 }
 
 /**
