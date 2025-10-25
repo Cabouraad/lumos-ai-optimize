@@ -159,12 +159,27 @@ export async function getLowVisibilityPrompts(limit = 20) {
 
   if (!userData?.org_id) throw new Error('No organization found');
 
+  console.log('🔍 [getLowVisibilityPrompts] Calling RPC with:', { 
+    org_id: userData.org_id, 
+    limit 
+  });
+
   const { data, error } = await supabase.rpc('get_low_visibility_prompts', {
     p_org_id: userData.org_id,
     p_limit: limit
   });
 
-  if (error) throw error;
+  console.log('🔍 [getLowVisibilityPrompts] RPC result:', { 
+    dataLength: data?.length || 0,
+    error: error?.message,
+    sampleData: data?.[0]
+  });
+
+  if (error) {
+    console.error('🔍 [getLowVisibilityPrompts] RPC error:', error);
+    throw error;
+  }
+  
   return data as LowVisibilityPrompt[];
 }
 
