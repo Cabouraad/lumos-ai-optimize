@@ -27,15 +27,31 @@ export type CitationsData = {
 export function extractPerplexityCitations(response: any, responseText: string): CitationsData {
   const citations: Citation[] = [];
   
-  // First try to get provider-supplied citations
+  console.log('[Perplexity Citations] Response structure:', JSON.stringify(response).substring(0, 200));
+  
+  // Perplexity API returns citations as a string array in the root response object
+  // Example: { "citations": ["https://example.com", "https://example2.com"], "choices": [...] }
   if (response.citations && Array.isArray(response.citations)) {
-    response.citations.forEach((citation: any) => {
-      if (citation.url || citation.link) {
+    response.citations.forEach((citation: any, index: number) => {
+      // Handle both string URLs and object citations
+      if (typeof citation === 'string') {
+        // Citation is a URL string
+        citations.push({
+          url: citation,
+          domain: extractDomain(citation),
+          title: `Source ${index + 1}`,
+          source_type: guessSourceType(citation),
+          from_provider: true,
+          brand_mention: 'unknown',
+          brand_mention_confidence: 0.0
+        });
+      } else if (typeof citation === 'object' && (citation.url || citation.link)) {
+        // Citation is an object with url/link field
         const url = citation.url || citation.link;
         citations.push({
           url,
           domain: extractDomain(url),
-          title: citation.title || citation.text || undefined,
+          title: citation.title || citation.text || `Source ${index + 1}`,
           source_type: guessSourceType(url),
           from_provider: true,
           brand_mention: 'unknown',
@@ -43,6 +59,8 @@ export function extractPerplexityCitations(response: any, responseText: string):
         });
       }
     });
+    
+    console.log(`[Perplexity Citations] Extracted ${citations.length} citations from response.citations`);
   }
   
   // Also check for related sources

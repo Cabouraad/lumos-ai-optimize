@@ -5,7 +5,7 @@ import { getOrgSubscriptionTier, isProviderAllowed, auditProviderFilter } from '
 import { corsHeaders } from '../_shared/cors.ts';
 
 // Simple provider execution functions
-async function executeOpenAI(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number }> {
+async function executeOpenAI(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number; fullResponse: any }> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('OpenAI API key not configured');
 
@@ -33,10 +33,11 @@ async function executeOpenAI(promptText: string): Promise<{ responseText: string
     responseText: data.choices[0]?.message?.content || '',
     tokenIn: data.usage?.prompt_tokens || 0,
     tokenOut: data.usage?.completion_tokens || 0,
+    fullResponse: data
   };
 }
 
-async function executeGemini(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number }> {
+async function executeGemini(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number; fullResponse: any }> {
   console.log('=== GEMINI STANDARDIZED v2 ===');
   
   // Use multiple fallback environment variable names for compatibility
@@ -123,6 +124,7 @@ async function executeGemini(promptText: string): Promise<{ responseText: string
         responseText: content,
         tokenIn: usage.promptTokenCount || 0,
         tokenOut: usage.candidatesTokenCount || 0,
+        fullResponse: data
       };
     } catch (error: unknown) {
       lastError = error;
@@ -148,7 +150,7 @@ async function executeGemini(promptText: string): Promise<{ responseText: string
   throw finalError;
 }
 
-async function executePerplexity(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number }> {
+async function executePerplexity(promptText: string): Promise<{ responseText: string; tokenIn: number; tokenOut: number; fullResponse: any }> {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) throw new Error('Perplexity API key not configured');
 
@@ -171,10 +173,13 @@ async function executePerplexity(promptText: string): Promise<{ responseText: st
   }
 
   const data = await response.json();
+  console.log('[Perplexity] Full response structure:', JSON.stringify(data).substring(0, 300));
+  
   return {
     responseText: data.choices[0]?.message?.content || '',
     tokenIn: data.usage?.prompt_tokens || 0,
     tokenOut: data.usage?.completion_tokens || 0,
+    fullResponse: data // Return full API response for citation extraction
   };
 }
 
@@ -346,10 +351,11 @@ Deno.serve(async (req) => {
       
       switch (provider.toLowerCase()) {
         case 'perplexity':
-          citationsData = extractPerplexityCitations({}, response.responseText);
+          // Pass full API response for proper citation extraction
+          citationsData = extractPerplexityCitations(response.fullResponse || {}, response.responseText);
           break;
         case 'gemini':
-          citationsData = extractGeminiCitations({}, response.responseText);
+          citationsData = extractGeminiCitations(response.fullResponse || {}, response.responseText);
           break;
         case 'openai':
           citationsData = extractOpenAICitations(response.responseText);

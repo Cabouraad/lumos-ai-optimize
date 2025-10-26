@@ -38,22 +38,35 @@ Deno.serve(async (req) => {
       withCitations: recentResponses?.filter(r => 
         r.citations_json?.citations?.length > 0
       ).length || 0,
-      byProvider: {} as Record<string, { total: number; withCitations: number }>
+      withValidUrls: recentResponses?.filter(r => 
+        r.citations_json?.citations?.some((c: any) => c.url && c.url !== 'unknown' && c.url.startsWith('http'))
+      ).length || 0,
+      byProvider: {} as Record<string, { total: number; withCitations: number; withValidUrls: number }>
     };
 
-    // Calculate per-provider stats
+    // Calculate per-provider stats with URL validation
     recentResponses?.forEach(r => {
       if (!citationStats.byProvider[r.provider]) {
-        citationStats.byProvider[r.provider] = { total: 0, withCitations: 0 };
+        citationStats.byProvider[r.provider] = { total: 0, withCitations: 0, withValidUrls: 0 };
       }
       citationStats.byProvider[r.provider].total++;
       if (r.citations_json?.citations?.length > 0) {
         citationStats.byProvider[r.provider].withCitations++;
+        const hasValidUrl = r.citations_json.citations.some((c: any) => 
+          c.url && c.url !== 'unknown' && c.url.startsWith('http')
+        );
+        if (hasValidUrl) {
+          citationStats.byProvider[r.provider].withValidUrls++;
+        }
       }
     });
 
     const extractionRate = citationStats.total > 0 
       ? ((citationStats.withCitations / citationStats.total) * 100).toFixed(1) + '%'
+      : 'N/A';
+    
+    const qualityRate = citationStats.total > 0
+      ? ((citationStats.withValidUrls / citationStats.total) * 100).toFixed(1) + '%'
       : 'N/A';
 
     const healthStatus = {
@@ -70,12 +83,18 @@ Deno.serve(async (req) => {
       },
       citations: {
         extractionRate,
+        qualityRate,
         stats: citationStats,
-        health: citationStats.total > 10 && citationStats.withCitations > citationStats.total * 0.5
+        health: citationStats.total > 10 && citationStats.withValidUrls > citationStats.total * 0.5
           ? 'HEALTHY'
+          : citationStats.total > 0 && citationStats.withValidUrls > citationStats.total * 0.3
+          ? 'DEGRADED'
           : citationStats.total > 0
           ? 'NEEDS_ATTENTION'
-          : 'NO_DATA'
+          : 'NO_DATA',
+        alert: citationStats.total > 10 && citationStats.withValidUrls < citationStats.total * 0.5
+          ? `Citation quality below 50% (${qualityRate})`
+          : null
       },
       overall: {
         status: (stuckJobs?.length || 0) === 0 && citationStats.withCitations > citationStats.total * 0.5
