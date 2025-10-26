@@ -9,7 +9,7 @@ interface PromptTopCitationsProps {
   limit?: number;
 }
 
-export function PromptTopCitations({ promptId, limit = 5 }: PromptTopCitationsProps) {
+export function PromptTopCitations({ promptId, limit = 10 }: PromptTopCitationsProps) {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

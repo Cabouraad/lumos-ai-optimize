@@ -36,8 +36,8 @@ export function CitationsDisplay({ citations, provider, isCompact = false }: Cit
     );
   }
 
-  const visibleCitations = isCompact ? citations.slice(0, 3) : citations;
-  const remainingCount = isCompact ? Math.max(0, citations.length - 3) : 0;
+  const visibleCitations = isCompact ? citations.slice(0, 10) : citations;
+  const remainingCount = isCompact ? Math.max(0, citations.length - 10) : 0;
 
   return (
     <TooltipProvider>
