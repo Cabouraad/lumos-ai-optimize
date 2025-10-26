@@ -100,7 +100,7 @@ export function DashboardMetrics({ metrics, presenceStats, promptLimit }: Dashbo
           </div>
           <div className="flex-1 flex flex-col items-center justify-center space-y-3">
             <div className="text-4xl font-bold text-accent">
-              {metrics?.promptCount || metrics?.totalPrompts || 0}
+              {metrics?.activePrompts || 0}
               {promptLimit && <span className="text-muted-foreground"> / {promptLimit}</span>}
             </div>
             <p className="text-sm text-muted-foreground text-center">

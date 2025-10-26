@@ -193,7 +193,20 @@ export function SubscriptionManager() {
                 <span className="text-muted-foreground">Active Prompts</span>
                 <span className="font-medium">{activePromptsCount} / {limits.promptsPerDay}</span>
               </div>
-              <Progress value={usagePct} className="h-2" />
+              <Progress 
+                value={usagePct} 
+                className={`h-2 ${usagePct >= 90 ? '[&>div]:bg-error' : usagePct >= 75 ? '[&>div]:bg-warning' : ''}`}
+              />
+              {usagePct >= 90 && (
+                <p className="text-xs text-error">
+                  ⚠️ You're at {usagePct.toFixed(0)}% of your active prompt limit. Deactivate prompts or upgrade to add more.
+                </p>
+              )}
+              {usagePct >= 75 && usagePct < 90 && (
+                <p className="text-xs text-warning">
+                  You're using {usagePct.toFixed(0)}% of your active prompt limit.
+                </p>
+              )}
             </div>
           </div>
 

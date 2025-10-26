@@ -71,7 +71,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
 export default function Prompts() {
   const { orgData, user, ready } = useAuth();
   const { toast } = useToast();
-  const { canCreatePrompts, hasAccessToApp } = useSubscriptionGate();
+  const { canCreatePrompts, hasAccessToApp, limits } = useSubscriptionGate();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
   const [providerData, setProviderData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,11 +232,12 @@ export default function Prompts() {
       return;
     }
 
-    // Check billing limits before adding prompt
-    const canCreate = canCreatePrompts(rawPrompts.length);
+    // Check billing limits before adding prompt - count ACTIVE prompts only
+    const activePromptsCount = rawPrompts.filter(p => p.active).length;
+    const canCreate = canCreatePrompts(activePromptsCount);
     if (!canCreate.hasAccess) {
       toast({ 
-        title: 'Subscription Required', 
+        title: 'Subscription Limit Reached', 
         description: canCreate.reason, 
         variant: 'destructive' 
       });
@@ -275,6 +276,20 @@ export default function Prompts() {
   };
 
   const handleToggleActive = async (promptId: string, active: boolean) => {
+    // If activating, check if we're at the limit
+    if (active) {
+      const activePromptsCount = rawPrompts.filter(p => p.active).length;
+      const canCreate = canCreatePrompts(activePromptsCount);
+      if (!canCreate.hasAccess) {
+        toast({ 
+          title: 'Subscription Limit Reached', 
+          description: `You can only have ${limits.promptsPerDay} active prompts on your current plan. Please deactivate another prompt or upgrade your plan.`,
+          variant: 'destructive' 
+        });
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from('prompts')
@@ -303,6 +318,18 @@ export default function Prompts() {
 
 
   const handleAcceptSuggestion = async (suggestionId: string) => {
+    // Check billing limits before accepting suggestion (which creates an active prompt)
+    const activePromptsCount = rawPrompts.filter(p => p.active).length;
+    const canCreate = canCreatePrompts(activePromptsCount);
+    if (!canCreate.hasAccess) {
+      toast({ 
+        title: 'Subscription Limit Reached', 
+        description: `You can only have ${limits.promptsPerDay} active prompts on your current plan. Please deactivate a prompt or upgrade your plan.`,
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
       await acceptSuggestion(suggestionId);
       toast({
