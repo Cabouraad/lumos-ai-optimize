@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { CompetitorSummaryRow } from './api';
 
@@ -10,7 +11,7 @@ type Props = {
  * Card component for displaying individual competitor data
  * Shows mentions, prompts, avg score, share percentage, and trend
  */
-export default function CompetitorCard({ competitor, rank }: Props) {
+const CompetitorCardComponent = ({ competitor, rank }: Props) => {
   const trendValue = competitor.trend_score ?? 0;
   const isPositiveTrend = trendValue > 0.5; // threshold for visual indicator
   const isNegativeTrend = trendValue < 0.3;
@@ -58,4 +59,8 @@ export default function CompetitorCard({ competitor, rank }: Props) {
       </div>
     </div>
   );
-}
+};
+
+// Memoized export for performance
+const CompetitorCard = memo(CompetitorCardComponent);
+export default CompetitorCard;

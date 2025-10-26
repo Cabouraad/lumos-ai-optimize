@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ const getScoreIcon = (score: number) => {
   return '📊';
 };
 
-export function PromptRow({ 
+const PromptRowComponent = ({ 
   prompt, 
   promptDetails,
   onEdit, 
@@ -67,7 +67,7 @@ export function PromptRow({
   onDuplicatePrompt,
   isSelected,
   onSelect
-}: PromptRowProps) {
+}: PromptRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { limits, currentTier } = useSubscriptionGate();
 
@@ -88,8 +88,8 @@ export function PromptRow({
     onDuplicatePrompt(prompt.id);
   };
 
-  // Calculate 7-day performance and current stats from provider data
-  const calculate7DayPerformance = () => {
+  // Calculate 7-day performance and current stats from provider data - Memoized
+  const performance = useMemo(() => {
     if (!promptDetails?.providers) return { avgScore: 0, totalRuns: 0, trend: 0, brandVisible: 0, competitorCount: 0 };
     
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -129,10 +129,9 @@ export function PromptRow({
       brandVisible: brandVisibleCount,
       competitorCount: totalCompetitors
     };
-  };
+  }, [promptDetails]);
 
-  const performance = calculate7DayPerformance();
-  const category = getPromptCategory(prompt.text);
+  const category = useMemo(() => getPromptCategory(prompt.text), [prompt.text]);
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
@@ -297,4 +296,7 @@ export function PromptRow({
       </CardContent>
     </Card>
   );
-}
+};
+
+// Memoized export for performance
+export const PromptRow = memo(PromptRowComponent);

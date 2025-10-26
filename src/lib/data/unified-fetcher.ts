@@ -558,9 +558,18 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     });
 
     // Process detailed prompt data
+    // Create Map for O(1) lookup instead of O(n) filtering
+    const responsesByPrompt = new Map<string, any[]>();
+    latestResponses.forEach(r => {
+      if (!responsesByPrompt.has(r.prompt_id)) {
+        responsesByPrompt.set(r.prompt_id, []);
+      }
+      responsesByPrompt.get(r.prompt_id)!.push(r);
+    });
+
     const promptDetails = safePrompts.map(prompt => {
-      // Group latest responses by provider
-      const promptResponses = latestResponses.filter(r => r.prompt_id === prompt.id);
+      // Group latest responses by provider using Map lookup (O(1) instead of O(n))
+      const promptResponses = responsesByPrompt.get(prompt.id) || [];
       const providerData = {
         openai: promptResponses.find(r => r.provider === 'openai') as ProviderResponseData || null,
         gemini: promptResponses.find(r => r.provider === 'gemini') as ProviderResponseData || null,

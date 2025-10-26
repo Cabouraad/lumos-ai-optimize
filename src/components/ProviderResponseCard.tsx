@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ const PROVIDER_CONFIG = {
   google_ai_overview: { name: 'Google AI Overview', color: 'bg-orange-50 border-orange-200 text-orange-700', icon: Globe }
 };
 
-export function ProviderResponseCard({ provider, response, promptText }: ProviderResponseCardProps) {
+const ProviderResponseCardComponent = ({ provider, response, promptText }: ProviderResponseCardProps) => {
   const config = PROVIDER_CONFIG[provider];
   const { orgBrandVariants } = useOrgBrands();
   const { filterCompetitorsByCatalog } = useCatalogCompetitors();
@@ -381,4 +381,7 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
       </CardContent>
     </Card>
   );
-}
+};
+
+// Memoized export for performance
+export const ProviderResponseCard = memo(ProviderResponseCardComponent);
