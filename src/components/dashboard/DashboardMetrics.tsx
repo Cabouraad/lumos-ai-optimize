@@ -78,7 +78,7 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
             </div>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center space-y-3">
-            <div className="text-4xl font-bold text-secondary">{presenceStats.rate.toFixed(1)}%</div>
+            <div className="text-4xl font-bold text-secondary mt-4">{presenceStats.rate.toFixed(1)}%</div>
             <div className="w-20 h-10">
               <MiniSparkline data={presenceStats.sparklineData} color="hsl(var(--secondary))" />
             </div>
