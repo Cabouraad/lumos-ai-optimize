@@ -81,15 +81,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get all organizations with active prompts using service role
+    // Get ALL organizations on the platform using service role
     const { data: orgs, error: orgsError } = await supabase
       .from('organizations')
-      .select(`
-        id,
-        name,
-        prompts!inner(id)
-      `)
-      .eq('prompts.active', true);
+      .select('id, name')
+      .order('created_at', { ascending: true }); // Process oldest orgs first for fairness
 
     if (orgsError) {
       console.error('❌ Failed to fetch organizations:', orgsError);
@@ -100,10 +96,10 @@ Deno.serve(async (req) => {
     }
 
     if (!orgs || orgs.length === 0) {
-      console.log('No organizations with active prompts found');
+      console.log('No organizations found on the platform');
       return new Response(JSON.stringify({ 
         success: true, 
-        message: 'No organizations with active prompts to process',
+        message: 'No organizations to process',
         totalOrgs: 0,
         processedOrgs: 0,
         results: []
@@ -112,7 +108,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`📊 Found ${orgs.length} organizations with active prompts`);
+    console.log(`📊 Found ${orgs.length} total organizations to process`);
 
     let processedOrgs = 0;
     let successfulJobs = 0;

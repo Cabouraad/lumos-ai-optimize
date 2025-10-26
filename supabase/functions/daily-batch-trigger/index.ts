@@ -207,15 +207,11 @@ Deno.serve(async (req) => {
 
     console.log(`Starting daily batch trigger for ${todayKey} at ${currentTime.toISOString()}`);
 
-    // Get all organizations with active prompts
+    // Get ALL organizations on the platform (regardless of whether they have active prompts)
     const { data: orgs, error: orgsError } = await supabase
       .from('organizations')
-      .select(`
-        id,
-        name,
-        prompts!inner(id)
-      `)
-      .eq('prompts.active', true);
+      .select('id, name')
+      .order('created_at', { ascending: true }); // Process oldest orgs first for fairness
 
     if (orgsError) {
       console.error('❌ Failed to fetch organizations:', orgsError);
@@ -228,7 +224,7 @@ Deno.serve(async (req) => {
     }
 
     if (!orgs || orgs.length === 0) {
-      console.log('No organizations with active prompts found');
+      console.log('No organizations found on the platform');
       
       await supabase.from('scheduler_runs').update({
         status: 'completed',
@@ -250,6 +246,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log(`📊 Found ${orgs.length} total organizations to process`);
 
     let totalBatchJobs = 0;
     let successfulJobs = 0;
