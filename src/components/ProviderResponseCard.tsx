@@ -333,7 +333,9 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                                   <Link2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
                                   <p className="text-sm font-medium">No citations found</p>
                                   <p className="text-xs mt-1">
-                                    {!response.citations_json 
+                                    {provider === 'openai' 
+                                      ? 'OpenAI does not provide native citation support. Responses are generated from the model\'s training data.' 
+                                      : !response.citations_json 
                                       ? 'Citations were not extracted for this response' 
                                       : 'No sources were detected in the AI response'}
                                   </p>

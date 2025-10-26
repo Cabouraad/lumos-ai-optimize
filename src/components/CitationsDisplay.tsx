@@ -29,6 +29,15 @@ interface CitationsDisplayProps {
 
 export function CitationsDisplay({ citations, provider, isCompact = false }: CitationsDisplayProps) {
   if (!citations || citations.length === 0) {
+    // Show provider-specific messaging for OpenAI
+    if (provider.toLowerCase() === 'openai') {
+      return (
+        <div className="text-sm text-muted-foreground italic">
+          OpenAI does not provide native citation support
+        </div>
+      );
+    }
+    
     return (
       <div className="text-sm text-muted-foreground italic">
         No provider citations available
