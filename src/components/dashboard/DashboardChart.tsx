@@ -10,6 +10,7 @@ interface DashboardChartProps {
   chartView: 'score' | 'competitors';
   onChartViewChange: (view: 'score' | 'competitors') => void;
   loadingCompetitors: boolean;
+  hasCompetitorAccess?: boolean;
 }
 
 export function DashboardChart({ 
@@ -18,7 +19,8 @@ export function DashboardChart({
   competitors, 
   chartView, 
   onChartViewChange,
-  loadingCompetitors
+  loadingCompetitors,
+  hasCompetitorAccess = false
 }: DashboardChartProps) {
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];
@@ -46,14 +48,16 @@ export function DashboardChart({
           >
             Scores
           </Button>
-          <Button
-            variant={chartView === 'competitors' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onChartViewChange('competitors')}
-            disabled={loadingCompetitors}
-          >
-            Competitors
-          </Button>
+          {hasCompetitorAccess && (
+            <Button
+              variant={chartView === 'competitors' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onChartViewChange('competitors')}
+              disabled={loadingCompetitors}
+            >
+              Competitors
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>

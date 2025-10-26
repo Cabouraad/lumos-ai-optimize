@@ -24,8 +24,10 @@ import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
   const navigate = useNavigate();
-  const { hasAccessToApp, limits } = useSubscriptionGate();
+  const { hasAccessToApp, limits, canAccessRecommendations, canAccessCompetitorAnalysis } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
+  const recommendationsAccess = canAccessRecommendations();
+  const competitorAccess = canAccessCompetitorAnalysis();
   const { data: optimizations = [] } = useContentOptimizations();
   const [latestReport, setLatestReport] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
@@ -226,11 +228,12 @@ export default function Dashboard() {
       if (isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
         loadLatestReport();
       }
-      if (chartView === 'competitors') {
+      // Only load competitors if user has access
+      if (chartView === 'competitors' && competitorAccess.hasAccess) {
         loadCompetitors();
       }
     }
-  }, [orgData?.organizations?.id, chartView]);
+  }, [orgData?.organizations?.id, chartView, competitorAccess.hasAccess]);
 
   // Transform optimizations for Quick Wins display
   const quickWins = useMemo(() => {
@@ -523,57 +526,60 @@ export default function Dashboard() {
             chartView={chartView}
             onChartViewChange={setChartView}
             loadingCompetitors={loadingCompetitors}
+            hasCompetitorAccess={competitorAccess.hasAccess}
           />
 
           {/* Quick Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recommendations Card */}
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Lightbulb className="h-5 w-5 text-primary" />
-                  <CardTitle>Quick Wins</CardTitle>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate('/optimizations')}
-                  className="hover-lift"
-                >
-                  View All
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {quickWins.length > 0 ? (
-                  quickWins.map((rec) => (
-                    <div key={rec.id} className="border-l-4 border-l-primary pl-4 py-2 rounded-r bg-primary/5">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-sm">{rec.title}</h4>
-                        {rec.metadata?.impact && (
-                          <Badge variant={rec.metadata.impact === 'high' ? 'default' : 'secondary'}>
-                            {rec.metadata.impact}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.rationale}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No recommendations yet</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => navigate('/optimizations')}
-                      className="mt-2"
-                    >
-                      Generate Recommendations
-                    </Button>
+            {/* Recommendations Card - Only show if user has access */}
+            {recommendationsAccess.hasAccess && (
+              <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Lightbulb className="h-5 w-5 text-primary" />
+                    <CardTitle>Quick Wins</CardTitle>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/optimizations')}
+                    className="hover-lift"
+                  >
+                    View All
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {quickWins.length > 0 ? (
+                    quickWins.map((rec) => (
+                      <div key={rec.id} className="border-l-4 border-l-primary pl-4 py-2 rounded-r bg-primary/5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-sm">{rec.title}</h4>
+                          {rec.metadata?.impact && (
+                            <Badge variant={rec.metadata.impact === 'high' ? 'default' : 'secondary'}>
+                              {rec.metadata.impact}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.rationale}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No recommendations yet</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => navigate('/optimizations')}
+                        className="mt-2"
+                      >
+                        Generate Recommendations
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Weekly Reports Card */}
             {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (

@@ -8,8 +8,13 @@ import { Sparkles, RefreshCw, CheckCircle2, Clock, XCircle, Lightbulb } from "lu
 import { OptimizationCard } from "@/components/optimizations-v2/OptimizationCard";
 import { LowVisibilityTable } from "@/components/optimizations-v2/LowVisibilityTable";
 import { useOptimizations, useGenerateOptimizations } from "@/features/optimizations/hooks-v2";
+import { useSubscriptionGate } from "@/hooks/useSubscriptionGate";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
+import { TrialBanner } from "@/components/TrialBanner";
 
 export default function OptimizationsV2() {
+  const { canAccessRecommendations } = useSubscriptionGate();
+  const optimizationsAccess = canAccessRecommendations();
   const { data: optimizations, isLoading } = useOptimizations({ status: 'open', limit: 50 });
   const generateMutation = useGenerateOptimizations();
 
@@ -20,6 +25,34 @@ export default function OptimizationsV2() {
       console.error("Generation error:", error);
     }
   };
+
+  // Check access first
+  if (!optimizationsAccess.hasAccess) {
+    return (
+      <Layout>
+        <div className="container mx-auto p-6">
+          {/* Trial banner if user is on trial */}
+          {((optimizationsAccess.daysRemainingInTrial ?? 0) > 0) && (
+            <TrialBanner daysRemaining={optimizationsAccess.daysRemainingInTrial} />
+          )}
+          
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">AI Optimizations</h1>
+            <p className="text-muted-foreground">AI-powered visibility optimization recommendations</p>
+          </div>
+
+          <div className="max-w-md mx-auto">
+            <UpgradePrompt 
+              feature="AI Optimizations"
+              reason={optimizationsAccess.reason || ''}
+              isTrialExpired={optimizationsAccess.isTrialExpired}
+              daysRemainingInTrial={optimizationsAccess.daysRemainingInTrial}
+            />
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   // Group optimizations by status
   const openOptimizations = optimizations?.filter(o => o.status === 'open') || [];
