@@ -61,7 +61,7 @@ export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidg
         <CardContent className={compact ? 'p-0' : 'p-6'}>
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <h3 className="text-sm font-medium">
+              <h3 className="text-base font-medium">
                 {promptId ? 'Prompt Score' : 'Llumos Score'}
               </h3>
             </div>
