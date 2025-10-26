@@ -162,8 +162,12 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
 
         {response.status === 'error' && response.error ? (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
-            <p className="text-sm font-medium text-rose-800">Error</p>
-            <p className="text-xs text-rose-600 mt-1">{typeof response.error === 'string' ? response.error : (response.error as any)?.message || 'Unknown error'}</p>
+            <p className="text-sm font-medium text-rose-800">
+              {provider === 'google_ai_overview' ? 'No Response Available' : 'Error'}
+            </p>
+            {provider !== 'google_ai_overview' && (
+              <p className="text-xs text-rose-600 mt-1">{typeof response.error === 'string' ? response.error : (response.error as any)?.message || 'Unknown error'}</p>
+            )}
           </div>
         ) : (
           <>
@@ -295,16 +299,15 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                                     key={index} 
                                     className="p-3 bg-muted/50 rounded-lg border border-border hover:bg-muted/70 transition-colors"
                                   >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <span className="text-xs font-mono text-muted-foreground">#{index + 1}</span>
-                                          {citation.domain && (
-                                            <Badge variant="secondary" className="text-xs">
-                                              {citation.domain}
-                                            </Badge>
-                                          )}
-                                        </div>
+                                     <div className="flex items-start justify-between gap-3">
+                                       <div className="flex-1 min-w-0">
+                                         <div className="flex items-center gap-2 mb-1">
+                                           {citation.domain && (
+                                             <Badge variant="secondary" className="text-xs">
+                                               {citation.domain}
+                                             </Badge>
+                                           )}
+                                         </div>
                                         {(citation.title || citation.domain) && (
                                           <p className="text-sm font-medium mb-1 line-clamp-2">
                                             {citation.domain || citation.title}

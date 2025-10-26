@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, FileText, Video, File, CheckCircle, Clock, XCircle, AlertTriangle, Zap } from 'lucide-react';
+import { ExternalLink, FileText, Video, File, CheckCircle, Clock, XCircle, AlertTriangle, Zap, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -75,6 +75,28 @@ function CitationChip({ citation }: { citation: Citation }) {
     }
   };
 
+  const getSourceTypeBadge = () => {
+    const domain = citation.domain?.toLowerCase() || '';
+    const socialDomains = ['twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'reddit.com', 'tiktok.com', 'pinterest.com'];
+    const isSocial = socialDomains.some(social => domain.includes(social));
+    
+    if (isSocial) {
+      return (
+        <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+          <Users className="h-3 w-3 mr-1" />
+          Social
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50">
+        <FileText className="h-3 w-3 mr-1" />
+        Content
+      </Badge>
+    );
+  };
+
   const getBrandMentionBadge = () => {
     switch (citation.brand_mention) {
       case 'yes':
@@ -93,12 +115,7 @@ function CitationChip({ citation }: { citation: Citation }) {
         );
       case 'unknown':
       default:
-        return (
-          <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">
-            <Clock className="h-3 w-3 mr-1" />
-            Checking...
-          </Badge>
-        );
+        return getSourceTypeBadge();
     }
   };
 
