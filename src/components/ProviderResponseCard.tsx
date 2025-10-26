@@ -262,17 +262,21 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                       </DialogContent>
                     </Dialog>
                     
-                    {/* Citations Button */}
-                    {response.citations_json && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-6 text-xs px-2">
-                            <Link2 className="h-3 w-3 mr-1" />
-                            Citations ({Array.isArray(response.citations_json?.citations) 
-                              ? response.citations_json.citations.length 
-                              : 0})
-                          </Button>
-                        </DialogTrigger>
+                    {/* Citations Button - Always show */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-6 text-xs px-2 gap-1">
+                          <Link2 className="h-3 w-3" />
+                          {response.citations_json?.citations?.length || 0} Citations
+                          {(!response.citations_json || !response.citations_json.citations?.length) && (
+                            <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
+                              {response.run_at && new Date(response.run_at) < new Date('2025-10-26') 
+                                ? 'Legacy' 
+                                : 'None'}
+                            </Badge>
+                          )}
+                        </Button>
+                      </DialogTrigger>
                         <DialogContent className="max-w-4xl max-h-[80vh]">
                           <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
@@ -324,14 +328,18 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                               ) : (
                                 <div className="text-center py-8 text-muted-foreground">
                                   <Link2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                  <p className="text-sm">No citations found</p>
+                                  <p className="text-sm font-medium">No citations found</p>
+                                  <p className="text-xs mt-1">
+                                    {!response.citations_json 
+                                      ? 'Citations were not extracted for this response' 
+                                      : 'No sources were detected in the AI response'}
+                                  </p>
                                 </div>
                               )}
                             </div>
                           </ScrollArea>
                         </DialogContent>
                       </Dialog>
-                    )}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30 line-clamp-3">

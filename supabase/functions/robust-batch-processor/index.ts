@@ -10,7 +10,8 @@ const corsHeaders = {
 
 // Micro-batch configuration
 const MICRO_BATCH_SIZE = 15;
-const SAFETY_TIMEOUT = 75000;
+const SAFETY_TIMEOUT = 45000; // Reduced from 75s to 45s to prevent edge function timeout
+const MICRO_BATCH_TIMEOUT = 100000; // 100 seconds - overall timeout for entire micro-batch
 const CONCURRENCY = 3;
 
 interface ProviderConfig {
@@ -100,7 +101,7 @@ function getProviderConfigs(): ProviderConfig[] {
   return configs;
 }
 
-async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<string> {
+async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<{ fullResponse: any; text: string }> {
   const maxAttempts = 3;
   let lastError: Error | null = null;
 
@@ -160,12 +161,11 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
       const data = await response.json();
       console.log(`[${config.name}] Success on attempt ${attempt}`);
       
-      // For Google AIO, return the full response object to preserve citations
-      if (config.name === 'google_ai_overview') {
-        return data;
-      }
-      
-      return config.extractResponse(data);
+      // Return both full response and extracted text
+      return {
+        fullResponse: data,
+        text: config.name === 'google_ai_overview' ? (data.summary || '') : config.extractResponse(data)
+      };
       
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -197,50 +197,54 @@ async function processTask(
   provider: ProviderConfig
 ): Promise<boolean> {
   try {
-    let rawResponse = await callProviderAPI(provider, promptText);
+    const apiResult = await callProviderAPI(provider, promptText);
+    let rawResponse = apiResult.text;
     let citations = [];
     let citationsData = null;
     
     // For Google AIO, extract summary and citations
-    if (provider.name === 'google_ai_overview' && typeof rawResponse === 'object') {
-      const aioData = rawResponse as any;
+    if (provider.name === 'google_ai_overview' && typeof apiResult.fullResponse === 'object') {
+      const aioData = apiResult.fullResponse;
       citations = aioData.citations || [];
-      rawResponse = aioData.summary || '';
       citationsData = {
         citations: citations,
         provider: 'google_ai_overview',
         collected_at: new Date().toISOString(),
-        ruleset_version: 'v1'
+        ruleset_version: 'cite-v1'
       };
     } else {
-      // Extract citations for other providers using enhanced extractor
+      // Extract citations for other providers using enhanced extractor with FULL API response
       try {
         const { extractPerplexityCitations, extractGeminiCitations, extractOpenAICitations } = 
           await import('../_shared/citations-enhanced.ts');
         
         switch (provider.name) {
           case 'perplexity':
-            citationsData = extractPerplexityCitations({}, rawResponse);
+            // Pass FULL response object, not just text
+            citationsData = extractPerplexityCitations(apiResult.fullResponse, rawResponse);
             break;
           case 'gemini':
-            citationsData = extractGeminiCitations({}, rawResponse);
+            citationsData = extractGeminiCitations(apiResult.fullResponse, rawResponse);
             break;
           case 'openai':
+            // OpenAI only has text-based citations
             citationsData = extractOpenAICitations(rawResponse);
             break;
         }
         
         if (citationsData?.citations?.length > 0) {
-          console.log(`[${provider.name}] Extracted ${citationsData.citations.length} citations`);
+          console.log(`✅ [${provider.name}] Extracted ${citationsData.citations.length} citations`);
           citations = citationsData.citations.map(c => ({
             url: c.url,
             title: c.title,
             domain: c.domain,
             source_provider: provider.name
           }));
+        } else {
+          console.log(`⚠️ [${provider.name}] No citations found in response`);
         }
       } catch (citationError: any) {
-        console.error(`[${provider.name}] Citation extraction failed:`, citationError.message);
+        console.error(`❌ [${provider.name}] Citation extraction failed:`, citationError.message);
       }
     }
     
@@ -526,6 +530,9 @@ Deno.serve(async (req) => {
     const CIRCUIT_BREAKER_THRESHOLD = 3;
 
     console.log(`🔄 Processing ${tasksToProcess} tasks (${completedCombinations.length} already done)...`);
+    
+    const microBatchStart = Date.now();
+    let timeoutReached = false;
 
     for (let i = 0; i < tasksToProcess; i++) {
       const taskIndex = tasksProcessed + i;
@@ -533,6 +540,16 @@ Deno.serve(async (req) => {
       const providerIndex = taskIndex % providers.length;
 
       if (promptIndex >= prompts.length) break;
+      
+      // Check if we're approaching micro-batch timeout
+      const elapsed = Date.now() - microBatchStart;
+      if (elapsed > MICRO_BATCH_TIMEOUT) {
+        console.warn(`⏱️ Micro-batch timeout reached after ${elapsed}ms. Stopping early.`);
+        console.warn(`📊 Processed ${completed + failed}/${tasksToProcess} tasks before timeout`);
+        timeoutReached = true;
+        break;
+      }
+      
       if (Date.now() - startTime > SAFETY_TIMEOUT) {
         console.log('⏱️ Safety timeout reached, returning partial results');
         break;
@@ -580,7 +597,8 @@ Deno.serve(async (req) => {
           completed_combinations: completedCombinations,
           failed_combinations: failedCombinations,
           prompt_failures: promptFailures,
-          last_known_progress: job.completed_tasks + completed + job.failed_tasks + failed
+          last_known_progress: job.completed_tasks + completed + job.failed_tasks + failed,
+          timeout_recoveries: (job.metadata?.timeout_recoveries || 0) + (timeoutReached ? 1 : 0)
         }
       }).eq('id', job.id);
     }
@@ -595,7 +613,8 @@ Deno.serve(async (req) => {
           last_known_progress: job.completed_tasks + completed + job.failed_tasks + failed,
           completed_combinations: completedCombinations,
           failed_combinations: failedCombinations,
-          prompt_failures: promptFailures
+          prompt_failures: promptFailures,
+          timeout_recoveries: (job.metadata?.timeout_recoveries || 0) + (timeoutReached ? 1 : 0)
         }
       })
       .eq('id', job.id);
