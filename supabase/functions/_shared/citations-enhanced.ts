@@ -110,15 +110,15 @@ export function extractPerplexityCitations(response: any, responseText: string):
 export function extractGeminiCitations(response: any, responseText: string): CitationsData {
   const citations: Citation[] = [];
   
-  // Try to get grounding attributions from Gemini
-  if (response.candidates?.[0]?.groundingAttributions) {
-    response.candidates[0].groundingAttributions.forEach((attr: any) => {
-      if (attr.web?.uri) {
+  // Get citations from grounding metadata (Google Search retrieval)
+  if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+    response.candidates[0].groundingMetadata.groundingChunks.forEach((chunk: any) => {
+      if (chunk.web?.uri) {
         citations.push({
-          url: attr.web.uri,
-          domain: extractDomain(attr.web.uri),
-          title: attr.web.title || undefined,
-          source_type: guessSourceType(attr.web.uri),
+          url: chunk.web.uri,
+          domain: extractDomain(chunk.web.uri),
+          title: chunk.web.title || undefined,
+          source_type: guessSourceType(chunk.web.uri),
           from_provider: true,
           brand_mention: 'unknown',
           brand_mention_confidence: 0.0
@@ -127,7 +127,12 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     });
   }
   
-  // Fallback: extract URLs from text if no grounding attributions
+  // Log web search queries for debugging
+  if (response.candidates?.[0]?.groundingMetadata?.webSearchQueries) {
+    console.log('[Gemini] Web search queries:', response.candidates[0].groundingMetadata.webSearchQueries);
+  }
+  
+  // Fallback: extract URLs from text if no grounding citations found
   if (citations.length === 0) {
     const extractedCitations = extractCitations(responseText);
     extractedCitations.forEach((citation: any) => {

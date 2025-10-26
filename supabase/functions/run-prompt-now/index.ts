@@ -474,6 +474,14 @@ async function executeGemini(promptText: string) {
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptText }] }],
+          tools: [{
+            google_search_retrieval: {
+              dynamic_retrieval_config: {
+                mode: "MODE_DYNAMIC",
+                dynamic_threshold: 0.7
+              }
+            }
+          }],
           generationConfig: {
             temperature: 0.3,
             maxOutputTokens: 1000,
