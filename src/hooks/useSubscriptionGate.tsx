@@ -30,8 +30,17 @@ export function useSubscriptionGate() {
   // BYPASS LOGIC: Check for bypass metadata and enforce Starter entitlements
   const isBypassUser = subscriptionData?.metadata?.source === "bypass";
   
+  // For trial users without explicit tier, default to 'starter'
+  // This ensures trial users get proper Starter tier limits (25 prompts)
+  const hasActiveTrial = subscriptionData?.trial_expires_at && 
+    new Date(subscriptionData.trial_expires_at) > new Date() && 
+    subscriptionData?.payment_collected === true;
+  
   // If bypass user, force plan to 'starter' and never upgrade above it
-  const currentTier = isBypassUser ? 'starter' : (subscriptionData?.subscription_tier || 'free');
+  // If active trial without tier, default to 'starter'
+  const currentTier = isBypassUser 
+    ? 'starter' 
+    : (subscriptionData?.subscription_tier || (hasActiveTrial ? 'starter' : 'free'));
   const isSubscribed = subscriptionData?.subscribed || false;
   
   // Debug logging for subscription state changes
@@ -41,14 +50,23 @@ export function useSubscriptionGate() {
       status: subscriptionData?.subscribed ? 'active' : 'inactive',
       payment_collected: subscriptionData?.payment_collected,
       trial_expires_at: subscriptionData?.trial_expires_at,
-      loading: authLoading
+      loading: authLoading,
+      currentTier,
+      hasActiveTrial,
+      limits: {
+        promptsPerDay: getTierLimits(currentTier).promptsPerDay,
+        hasCompetitorAnalysis: getTierLimits(currentTier).hasCompetitorAnalysis,
+        hasRecommendations: getTierLimits(currentTier).hasRecommendations
+      }
     });
   }, [
     subscriptionData?.subscription_tier,
     subscriptionData?.subscribed,
     subscriptionData?.payment_collected,
     subscriptionData?.trial_expires_at,
-    authLoading
+    authLoading,
+    currentTier,
+    hasActiveTrial
   ]);
   
   // Debug logging only in development to reduce production noise
@@ -184,8 +202,21 @@ export function useSubscriptionGate() {
   };
 
   const canAccessAdvancedScoring = (): FeatureGate => {
+    // Check valid access first
+    if (!hasValidAccess) {
+      return {
+        hasAccess: false,
+        reason: 'Access requires an active subscription or valid trial with payment method.',
+        upgradeRequired: true,
+        isTrialExpired: trialExpired,
+      };
+    }
+    
+    // Check tier permissions
     if (limits.hasAdvancedScoring) {
-      return { hasAccess: true };
+      return { 
+        hasAccess: true,
+      };
     }
     return {
       hasAccess: false,

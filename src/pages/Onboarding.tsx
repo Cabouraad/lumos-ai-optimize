@@ -425,7 +425,7 @@ export default function Onboarding() {
       monthlyPrice: 39,
       yearlyPrice: 390,
       features: [
-        '10 prompts/day',
+        'Up to 25 prompts to track daily',
         '2 AI providers',
         'Basic visibility scoring',
         'Domain locking'

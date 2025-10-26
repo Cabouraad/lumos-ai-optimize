@@ -155,15 +155,15 @@ export default function TrialSuccess() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-sm text-muted-foreground">
-            You now have full access to:
+          <p className="text-sm text-muted-foreground mb-4">
+            Your 7-day Starter trial includes:
           </p>
           <ul className="text-sm space-y-2">
-            <li>✓ AI Recommendations</li>
-            <li>✓ Competitor Analysis</li>
-            <li>✓ Advanced Scoring</li>
-            <li>✓ Up to 10 prompts per day</li>
-            <li>✓ Multiple AI providers</li>
+            <li>✓ Basic Visibility Scoring</li>
+            <li>✓ Brand Catalog Tracking</li>
+            <li>✓ Email Support</li>
+            <li>✓ Up to 25 prompts per day</li>
+            <li>✓ 2 AI providers (OpenAI + Perplexity)</li>
           </ul>
           <Button onClick={() => navigate('/dashboard')} className="w-full">
             Go to Dashboard
