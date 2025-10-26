@@ -19,9 +19,10 @@ interface DashboardMetricsProps {
     totalCount: number;
     presenceCount: number;
   };
+  promptLimit?: number;
 }
 
-export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsProps) {
+export function DashboardMetrics({ metrics, presenceStats, promptLimit }: DashboardMetricsProps) {
   // Debug logging for troubleshooting
   console.log('[DashboardMetrics] Props received:', {
     metrics,
@@ -98,7 +99,10 @@ export function DashboardMetrics({ metrics, presenceStats }: DashboardMetricsPro
             </div>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center space-y-3">
-            <div className="text-4xl font-bold text-accent">{metrics?.promptCount || metrics?.totalPrompts || 0}</div>
+            <div className="text-4xl font-bold text-accent">
+              {metrics?.promptCount || metrics?.totalPrompts || 0}
+              {promptLimit && <span className="text-muted-foreground"> / {promptLimit}</span>}
+            </div>
             <p className="text-sm text-muted-foreground text-center">
               {metrics?.inactivePrompts || 0} inactive
             </p>

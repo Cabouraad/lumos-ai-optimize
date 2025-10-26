@@ -24,7 +24,7 @@ import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
   const navigate = useNavigate();
-  const { hasAccessToApp } = useSubscriptionGate();
+  const { hasAccessToApp, limits } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
   const { data: optimizations = [] } = useContentOptimizations();
   const [latestReport, setLatestReport] = useState<any>(null);
@@ -511,6 +511,7 @@ export default function Dashboard() {
             <DashboardMetrics 
               metrics={dashboardData?.metrics || {}}
               presenceStats={presenceStats}
+              promptLimit={limits.promptsPerDay}
             />
           </div>
 
