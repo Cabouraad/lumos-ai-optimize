@@ -186,23 +186,31 @@ export default function Competitors() {
           .eq('id', orgId)
           .single(),
         supabase
-          .rpc('get_org_competitor_summary', { p_org_id: orgId, p_days: 30 }),
+          .rpc('get_org_competitor_summary_v2', { p_org_id: null, p_days: 30, p_limit: 50, p_offset: 0, p_providers: null }),
         supabase
           .from('brand_catalog')
           .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score')
           .eq('org_id', orgId)
       ]);
 
+      let competitorRows = competitorSummaryResult.data as any[] | null;
+
       if (competitorSummaryResult.error) {
-        console.error('Error fetching competitor summary:', competitorSummaryResult.error);
-        return;
+        console.warn('get_org_competitor_summary_v2 failed, attempting legacy fallback', competitorSummaryResult.error);
+        const legacy = await supabase
+          .rpc('get_org_competitor_summary', { p_org_id: orgId, p_days: 30 });
+        if (legacy.error) {
+          console.error('Legacy competitor summary also failed:', legacy.error);
+          return;
+        }
+        competitorRows = legacy.data as any[] | null;
       }
 
       const currentOrgName = orgResult.data?.name || 'Your Brand';
       setOrgName(currentOrgName);
 
       // Convert RPC data to competitor format
-      const competitors: CompetitorData[] = competitorSummaryResult.data || [];
+      const competitors: CompetitorData[] = competitorRows || [];
       setCompetitorData(competitors);
 
       // Separate org brands from manual competitors
@@ -413,7 +421,7 @@ export default function Competitors() {
       <Layout>
         <div className="container mx-auto p-6">
           {/* Trial banner if user is on trial */}
-          {competitorAccess.daysRemainingInTrial && competitorAccess.daysRemainingInTrial > 0 && (
+          {((competitorAccess.daysRemainingInTrial ?? 0) > 0) && (
             <TrialBanner daysRemaining={competitorAccess.daysRemainingInTrial} />
           )}
           
@@ -436,7 +444,7 @@ export default function Competitors() {
   }
 
   // If user has access, show trial banner if on trial
-  const showTrialBanner = competitorAccess.daysRemainingInTrial && competitorAccess.daysRemainingInTrial > 0;
+  const showTrialBanner = (competitorAccess.daysRemainingInTrial ?? 0) > 0;
 
   if (loading) {
     return (
