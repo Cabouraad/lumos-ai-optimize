@@ -157,7 +157,7 @@ function CitationChip({ citation }: { citation: Citation }) {
                   </Tooltip>
                 )}
               </div>
-              {citation.title && (
+              {citation.title && !/^Source \d+$/.test(citation.title) && (
                 <div className="text-xs text-muted-foreground truncate">
                   {citation.title}
                 </div>
