@@ -305,9 +305,9 @@ export function ProviderResponseCard({ provider, response, promptText }: Provide
                                             </Badge>
                                           )}
                                         </div>
-                                        {citation.title && (
+                                        {(citation.title || citation.domain) && (
                                           <p className="text-sm font-medium mb-1 line-clamp-2">
-                                            {citation.title}
+                                            {citation.domain || citation.title}
                                           </p>
                                         )}
                                         {citation.url && (
