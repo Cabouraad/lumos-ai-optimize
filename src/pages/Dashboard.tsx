@@ -24,7 +24,7 @@ import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
   const navigate = useNavigate();
-  const { hasAccessToApp, limits, canAccessRecommendations, canAccessCompetitorAnalysis } = useSubscriptionGate();
+  const { hasAccessToApp, limits, canAccessRecommendations, canAccessCompetitorAnalysis, currentTier } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
   const recommendationsAccess = canAccessRecommendations();
   const competitorAccess = canAccessCompetitorAnalysis();
@@ -531,14 +531,14 @@ export default function Dashboard() {
 
           {/* Quick Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recommendations Card - Only show if user has access */}
-            {recommendationsAccess.hasAccess && (
-              <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Lightbulb className="h-5 w-5 text-primary" />
-                    <CardTitle>Quick Wins</CardTitle>
-                  </div>
+            {/* Recommendations Card - Show to all users */}
+            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Lightbulb className="h-5 w-5 text-primary" />
+                  <CardTitle>Quick Wins</CardTitle>
+                </div>
+                {recommendationsAccess.hasAccess && (
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -547,41 +547,53 @@ export default function Dashboard() {
                   >
                     View All
                   </Button>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {quickWins.length > 0 ? (
-                    quickWins.map((rec) => (
-                      <div key={rec.id} className="border-l-4 border-l-primary pl-4 py-2 rounded-r bg-primary/5">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-sm">{rec.title}</h4>
-                          {rec.metadata?.impact && (
-                            <Badge variant={rec.metadata.impact === 'high' ? 'default' : 'secondary'}>
-                              {rec.metadata.impact}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.rationale}</p>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!recommendationsAccess.hasAccess ? (
+                  <div className="text-center py-8">
+                    <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-sm font-medium mb-2">AI-Powered Optimization Recommendations</p>
+                    <p className="text-xs text-muted-foreground mb-4">Get actionable insights to improve your LLM visibility</p>
+                    <Button 
+                      onClick={() => navigate('/pricing')}
+                      size="sm"
+                    >
+                      Upgrade to Growth or Pro
+                    </Button>
+                  </div>
+                ) : quickWins.length > 0 ? (
+                  quickWins.map((rec) => (
+                    <div key={rec.id} className="border-l-4 border-l-primary pl-4 py-2 rounded-r bg-primary/5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">{rec.title}</h4>
+                        {rec.metadata?.impact && (
+                          <Badge variant={rec.metadata.impact === 'high' ? 'default' : 'secondary'}>
+                            {rec.metadata.impact}
+                          </Badge>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No recommendations yet</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => navigate('/optimizations')}
-                        className="mt-2"
-                      >
-                        Generate Recommendations
-                      </Button>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.rationale}</p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No recommendations yet</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate('/optimizations')}
+                      className="mt-2"
+                    >
+                      Generate Recommendations
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Weekly Reports Card */}
+            {/* Weekly Reports Card - Show to all users */}
             {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
               <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -589,17 +601,31 @@ export default function Dashboard() {
                     <FileText className="h-5 w-5 text-primary" />
                     <CardTitle>Weekly Reports</CardTitle>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate('/reports')}
-                    className="hover-lift"
-                  >
-                    View All
-                  </Button>
+                  {currentTier !== 'starter' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate('/reports')}
+                      className="hover-lift"
+                    >
+                      View All
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  {loadingReport ? (
+                  {currentTier === 'starter' ? (
+                    <div className="text-center py-8">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm font-medium mb-2">Automated Weekly Performance Reports</p>
+                      <p className="text-xs text-muted-foreground mb-4">Get weekly CSV reports of your visibility metrics</p>
+                      <Button 
+                        onClick={() => navigate('/pricing')}
+                        size="sm"
+                      >
+                        Upgrade to Growth or Pro
+                      </Button>
+                    </div>
+                  ) : loadingReport ? (
                     <div className="animate-pulse space-y-2">
                       <div className="h-4 bg-muted rounded w-3/4"></div>
                       <div className="h-4 bg-muted rounded w-1/2"></div>

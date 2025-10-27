@@ -6,6 +6,8 @@ import { Calendar, Download, RefreshCw, FileText, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { useNavigate } from 'react-router-dom';
 
 interface WeeklyReport {
   id: string;
@@ -22,6 +24,8 @@ interface WeeklyReport {
 export const WeeklyReports = () => {
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const { currentTier } = useSubscriptionGate();
+  const navigate = useNavigate();
   
 
   // Don't render if feature flag is disabled
@@ -53,6 +57,12 @@ export const WeeklyReports = () => {
 
 
   const downloadReport = async (report: WeeklyReport) => {
+    if (currentTier === 'starter') {
+      toast.error('Please upgrade to Growth or Pro to download reports');
+      navigate('/pricing');
+      return;
+    }
+
     if (!report.file_path) {
       toast.error('Report file not available');
       return;
@@ -127,7 +137,18 @@ export const WeeklyReports = () => {
       </div>
 
       <div className="grid gap-4">
-        {reports.length === 0 ? (
+        {currentTier === 'starter' ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">Automated Weekly Reports</h3>
+              <p className="text-muted-foreground mb-4 text-center">Get automated weekly CSV reports of your visibility performance</p>
+              <Button onClick={() => navigate('/pricing')}>
+                Upgrade to Growth or Pro
+              </Button>
+            </CardContent>
+          </Card>
+        ) : reports.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
@@ -186,7 +207,7 @@ export const WeeklyReports = () => {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {report.status === 'completed' && report.file_path && (
+                    {report.status === 'completed' && report.file_path && currentTier !== 'starter' && (
                       <Button
                         onClick={() => downloadReport(report)}
                         size="sm"
@@ -194,6 +215,15 @@ export const WeeklyReports = () => {
                       >
                         <Download className="h-4 w-4 mr-2" />
                         Download CSV
+                      </Button>
+                    )}
+                    {report.status === 'completed' && currentTier === 'starter' && (
+                      <Button
+                        onClick={() => navigate('/pricing')}
+                        size="sm"
+                        variant="default"
+                      >
+                        Upgrade to Download
                       </Button>
                     )}
                     {report.status === 'failed' && report.error_message && (
