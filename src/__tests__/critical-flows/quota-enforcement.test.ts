@@ -28,7 +28,7 @@ describe('Critical Quota Enforcement', () => {
   });
 
   describe('Daily Prompt Limits', () => {
-    it('should enforce starter plan daily limit (10 prompts)', async () => {
+    it('should enforce starter plan daily limit (25 prompts)', async () => {
       // Mock subscriber data
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
@@ -42,21 +42,21 @@ describe('Critical Quota Enforcement', () => {
 
       // Mock current usage at limit
       mockSupabase.from().select().eq().gte().lt.mockResolvedValue({
-        count: 10,
+        count: 25,
         error: null,
       });
 
       // Test quota enforcement logic
       const quotaCheck = {
         hasAccess: false,
-        reason: 'Daily quota exceeded (10 prompts per day)',
+        reason: 'Daily quota exceeded (25 prompts per day)',
       };
 
       expect(quotaCheck.hasAccess).toBe(false);
       expect(quotaCheck.reason).toContain('Daily quota exceeded');
     });
 
-    it('should enforce growth plan daily limit (50 prompts)', async () => {
+    it('should enforce growth plan daily limit (100 prompts)', async () => {
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
           subscribed: true,
@@ -68,19 +68,19 @@ describe('Critical Quota Enforcement', () => {
       });
 
       mockSupabase.from().select().eq().gte().lt.mockResolvedValue({
-        count: 50,
+        count: 100,
         error: null,
       });
 
       const quotaCheck = {
         hasAccess: false,
-        reason: 'Daily quota exceeded (50 prompts per day)',
+        reason: 'Daily quota exceeded (100 prompts per day)',
       };
 
       expect(quotaCheck.hasAccess).toBe(false);
     });
 
-    it('should enforce pro plan daily limit (200 prompts)', async () => {
+    it('should enforce pro plan daily limit (300 prompts)', async () => {
       mockSupabase.from().select().eq().single.mockResolvedValue({
         data: {
           subscribed: true,
@@ -92,13 +92,13 @@ describe('Critical Quota Enforcement', () => {
       });
 
       mockSupabase.from().select().eq().gte().lt.mockResolvedValue({
-        count: 200,
+        count: 300,
         error: null,
       });
 
       const quotaCheck = {
         hasAccess: false,
-        reason: 'Daily quota exceeded (200 prompts per day)',
+        reason: 'Daily quota exceeded (300 prompts per day)',
       };
 
       expect(quotaCheck.hasAccess).toBe(false);
@@ -176,14 +176,14 @@ describe('Critical Quota Enforcement', () => {
   describe('Rate Limiting by Tier', () => {
     it.skip('should apply different rate limits based on subscription tier', async () => {
       const tiers = [
-        { tier: 'starter', limit: 10 },
-        { tier: 'growth', limit: 50 },
-        { tier: 'pro', limit: 200 },
+        { tier: 'starter', limit: 25 },
+        { tier: 'growth', limit: 100 },
+        { tier: 'pro', limit: 300 },
       ];
 
       tiers.forEach(({ tier, limit }) => {
-        const dailyLimit = tier === 'pro' ? 200 : 
-                          tier === 'growth' ? 50 : 10;
+        const dailyLimit = tier === 'pro' ? 300 : 
+                          tier === 'growth' ? 100 : 25;
         expect(dailyLimit).toBe(limit);
       });
     });

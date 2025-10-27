@@ -442,12 +442,12 @@ export default function Onboarding() {
       monthlyPrice: 89,
       yearlyPrice: 890,
       features: [
-        '50 prompts/day',
-        '3 AI providers',
-        'Advanced scoring',
-        'Competitor analysis',
-        'AI recommendations',
-        'Priority support'
+        'Up to 100 prompts to track daily',
+        '4 AI providers (OpenAI, Perplexity, Gemini, Google AI Overviews)',
+        'Advanced visibility scoring',
+        'Competitor analysis & tracking',
+        'AI-powered visibility optimizations',
+        'Priority email support'
       ],
       limitations: [],
       isPopular: true
@@ -459,13 +459,12 @@ export default function Onboarding() {
       monthlyPrice: 250,
       yearlyPrice: 2500,
       features: [
-        '200 prompts/day',
-        '3 AI providers',
-        'Advanced scoring',
-        'Full competitor analysis',
-        'AI recommendations',
-        
-        'White-label reports'
+        'Up to 300 prompts to track daily',
+        '4 AI providers (OpenAI, Perplexity, Gemini, Google AI Overviews)',
+        'Advanced visibility scoring',
+        'Comprehensive competitor analysis',
+        'AI-powered visibility optimizations',
+        'Priority support + dedicated account manager'
       ],
       limitations: []
     }
