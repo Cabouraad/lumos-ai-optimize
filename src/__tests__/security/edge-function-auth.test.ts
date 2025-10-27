@@ -74,7 +74,7 @@ describe('Edge Function Authentication Security', () => {
   });
 
   describe('Input Sanitization', () => {
-    it.skip('should validate and sanitize prompt IDs', async () => {
+    it('should validate and sanitize prompt IDs', async () => {
       const validUuid = '123e4567-e89b-12d3-a456-426614174000';
       const invalidInputs = [
         '',
@@ -84,7 +84,7 @@ describe('Edge Function Authentication Security', () => {
         'DROP TABLE prompts;',
       ];
 
-      // UUID validation regex
+      // UUID validation regex (matching validation.ts)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       
       expect(uuidRegex.test(validUuid)).toBe(true);
@@ -93,18 +93,48 @@ describe('Edge Function Authentication Security', () => {
       });
     });
 
-    it.skip('should prevent SQL injection in prompt text', async () => {
+    it('should prevent SQL injection in prompt text', async () => {
       const maliciousInputs = [
         "'; DROP TABLE prompts; --",
         "' UNION SELECT * FROM users --",
         "1' OR '1'='1",
         "admin'/*",
+        "; DELETE FROM prompts WHERE 1=1 --",
       ];
 
-      // Should sanitize or reject these inputs
+      // SQL injection pattern detection (matching validation.ts patterns)
+      const sqlPatterns = [
+        /(\b(DROP|DELETE|TRUNCATE|ALTER|CREATE)\b.*\b(TABLE|DATABASE|SCHEMA)\b)/i,
+        /(\bUNION\b.*\bSELECT\b)/i,
+        /(\bINSERT\b.*\bINTO\b)/i,
+        /(--|;|\/\*|\*\/|xp_|sp_)/i,
+      ];
+
       maliciousInputs.forEach(input => {
-        const containsSqlKeywords = /\b(DROP|SELECT|UNION|INSERT|DELETE|UPDATE|OR|AND)\b/i.test(input);
-        expect(containsSqlKeywords).toBe(true); // These should be flagged as suspicious
+        const containsSqlInjection = sqlPatterns.some(pattern => pattern.test(input));
+        expect(containsSqlInjection).toBe(true); // These should be flagged as dangerous
+      });
+    });
+
+    it('should allow safe inputs with SQL-like words in context', async () => {
+      const safeInputs = [
+        "What CRM should I select for my business?",
+        "How to create a table of contents?",
+        "Database or spreadsheet for small business?",
+        "Which software to choose and compare?",
+      ];
+
+      // SQL injection pattern detection
+      const sqlPatterns = [
+        /(\b(DROP|DELETE|TRUNCATE|ALTER|CREATE)\b.*\b(TABLE|DATABASE|SCHEMA)\b)/i,
+        /(\bUNION\b.*\bSELECT\b)/i,
+        /(\bINSERT\b.*\bINTO\b)/i,
+        /(--|;|\/\*|\*\/|xp_|sp_)/i,
+      ];
+
+      safeInputs.forEach(input => {
+        const containsSqlInjection = sqlPatterns.some(pattern => pattern.test(input));
+        expect(containsSqlInjection).toBe(false); // These should NOT be flagged
       });
     });
   });
