@@ -163,12 +163,19 @@ export function SubscriptionManager() {
                   </Button>
                 )}
               </CardTitle>
-              {subscriptionData?.subscription_end && (
+              {subscriptionData?.trial_expires_at && !subscriptionData?.subscribed && (
                 <CardDescription>
-                  {subscriptionData.subscribed 
-                    ? `Renews on ${new Date(subscriptionData.subscription_end).toLocaleDateString()}`
-                    : `Expired on ${new Date(subscriptionData.subscription_end).toLocaleDateString()}`
-                  }
+                  Trial expires on {new Date(subscriptionData.trial_expires_at).toLocaleDateString()}
+                </CardDescription>
+              )}
+              {subscriptionData?.subscription_end && subscriptionData?.subscribed && (
+                <CardDescription>
+                  Renews on {new Date(subscriptionData.subscription_end).toLocaleDateString()}
+                </CardDescription>
+              )}
+              {subscriptionData?.subscription_end && !subscriptionData?.subscribed && !subscriptionData?.trial_expires_at && (
+                <CardDescription>
+                  Expired on {new Date(subscriptionData.subscription_end).toLocaleDateString()}
                 </CardDescription>
               )}
             </div>
