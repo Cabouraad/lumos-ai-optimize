@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ export function SubscriptionManager() {
   const { subscriptionData, checkSubscription, orgData } = useAuth();
   const { currentTier, limits, isBypassUser } = useSubscriptionGate();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [activePromptsCount, setActivePromptsCount] = useState(0);
 
@@ -262,7 +264,7 @@ export function SubscriptionManager() {
         )}
         <Button 
           variant={subscriptionData?.subscribed ? "outline" : "default"} 
-          onClick={() => window.open('/pricing', '_blank')}
+          onClick={() => navigate('/pricing')}
           className="flex-1"
         >
           {subscriptionData?.subscribed ? 'Change Plan' : 'Upgrade Plan'}
