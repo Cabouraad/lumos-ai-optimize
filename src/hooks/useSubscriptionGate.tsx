@@ -252,10 +252,19 @@ export function useSubscriptionGate() {
   };
 
   const hasAccessToApp = (): FeatureGate => {
-    // If subscription is still loading, allow access to prevent flickering
+    // If subscription is still loading, deny access to prevent bypass
     if (authLoading) {
-      return { hasAccess: true };
+      return { hasAccess: false, reason: 'Loading subscription data...' };
     }
+    
+    // SECURITY: Log access checks for audit trail
+    console.log('[SUBSCRIPTION_GATE] Access check:', {
+      hasValidAccess,
+      subscribed: subscriptionData?.subscribed,
+      trial_expires_at: subscriptionData?.trial_expires_at,
+      payment_collected: subscriptionData?.payment_collected,
+      currentTier
+    });
     
     if (!hasValidAccess) {
       return {

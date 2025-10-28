@@ -42,19 +42,7 @@ export default function Onboarding() {
   const [showManualFillBanner, setShowManualFillBanner] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   
-  // Auto-complete onboarding for users with valid access who reached step 4
-  const autoCompleteRef = useRef(false);
-  useEffect(() => {
-    const hasValidAccess = subscriptionData?.subscribed || 
-      (subscriptionData?.trial_expires_at && 
-       new Date(subscriptionData.trial_expires_at) > new Date() && 
-       subscriptionData?.payment_collected === true);
-       
-    if (currentStep === 4 && hasValidAccess && !orgData?.org_id && !autoCompleteRef.current) {
-      autoCompleteRef.current = true;
-      // Users with valid access at step 4 should stay on step 4 to select prompts
-    }
-  }, [currentStep, subscriptionData?.subscribed, subscriptionData?.trial_expires_at, subscriptionData?.payment_collected, orgData?.org_id]);
+  // REMOVED: Auto-complete logic that could bypass payment
   const businessContextRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     orgName: '',
@@ -71,11 +59,8 @@ export default function Onboarding() {
     return <Navigate to="/auth" replace />;
   }
 
-  // Determine if user already has valid access (subscription OR active trial)
-  const hasValidAccess = subscriptionData?.subscribed || 
-    (subscriptionData?.trial_expires_at && 
-     new Date(subscriptionData.trial_expires_at) > new Date() && 
-     subscriptionData?.payment_collected === true);
+  // SECURITY: Remove automatic hasValidAccess check that bypassed payment
+  // All users must explicitly complete payment step during onboarding
 
 
   const handleSubscriptionSetup = async () => {
@@ -232,15 +217,9 @@ export default function Onboarding() {
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (_) {}
 
-      // Re-check access after refresh using the hook which has the latest data
-      setTimeout(() => {
-        const access = hasAccessToApp();
-        if (access.hasAccess) {
-          setCurrentStep(4);
-        } else {
-          setCurrentStep(3);
-        }
-      }, 100);
+      // SECURITY: ALWAYS require payment step after org creation
+      // Never automatically grant access without explicit subscriber record
+      setCurrentStep(3); // Always proceed to payment step
     } catch (error: any) {
       console.error("Onboarding error:", error);
       
@@ -600,9 +579,7 @@ export default function Onboarding() {
                 <Button type="submit" disabled={loading || subscriptionLoading}>
                   {subscriptionLoading 
                     ? 'Checking subscription…' 
-                    : (hasValidAccess 
-                        ? 'Finish Setup'
-                        : 'Continue to Pricing')}
+                    : 'Continue to Pricing'}
                 </Button>
               </div>
             </form>

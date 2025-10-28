@@ -99,14 +99,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
       if (subError) {
         console.warn('[SubscriptionProvider] Error fetching subscription:', subError);
-        // Use org plan tier as fallback
+        // SECURITY: Never grant access without explicit subscriber record
+        // Fallback should default to free tier requiring payment
         finalSubscriptionData = {
-          subscribed: orgPlanTier !== 'free' && orgPlanTier !== null,
-          subscription_tier: orgPlanTier ?? 'free',
+          subscribed: false,
+          subscription_tier: 'free',
           subscription_end: null,
           trial_expires_at: null,
           trial_started_at: null,
-          payment_collected: orgPlanTier !== 'free' && orgPlanTier !== null,
+          payment_collected: false, // CRITICAL: No payment without subscriber record
           metadata: null
         };
       } else if (subscriberData) {
@@ -128,14 +129,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           metadata: null // Metadata is intentionally masked for security
         };
       } else {
-        // No subscription record found, use org plan tier
+        // SECURITY: No subscription record = no paid access
+        // Users MUST go through Stripe checkout to get subscriber record
         finalSubscriptionData = {
-          subscribed: orgPlanTier !== 'free' && orgPlanTier !== null,
-          subscription_tier: orgPlanTier ?? 'free',
+          subscribed: false,
+          subscription_tier: 'free',
           subscription_end: null,
           trial_expires_at: null,
           trial_started_at: null,
-          payment_collected: orgPlanTier !== 'free' && orgPlanTier !== null,
+          payment_collected: false, // CRITICAL: Require explicit subscriber record for access
           metadata: null
         };
       }
@@ -143,8 +145,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       console.log('[SubscriptionProvider] Final subscription data:', {
         tier: finalSubscriptionData.subscription_tier,
         subscribed: finalSubscriptionData.subscribed,
+        payment_collected: finalSubscriptionData.payment_collected,
+        trial_expires_at: finalSubscriptionData.trial_expires_at,
+        hasSubscriberRecord: !!subscriberData,
         orgPlanTier,
-        source: subscriberData ? 'subscriber' : 'org_fallback'
+        source: subscriberData ? 'subscriber' : 'org_fallback',
+        // SECURITY AUDIT: Track when access is granted without subscriber record
+        SECURITY_ALERT: !subscriberData && finalSubscriptionData.subscribed ? 'ACCESS_WITHOUT_SUBSCRIBER_RECORD' : null
       });
 
       setSubscriptionData(finalSubscriptionData);
