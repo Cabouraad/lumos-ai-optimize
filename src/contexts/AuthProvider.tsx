@@ -124,8 +124,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = useCallback(async () => {
     try {
-      // Clear org ID cache before signing out
+      // Clear org ID cache and onboarding data before signing out
       clearOrgIdCache();
+      
+      // Clear onboarding-related sessionStorage
+      sessionStorage.removeItem('onboarding-data');
+      sessionStorage.removeItem('selected-plan');
+      sessionStorage.removeItem('billing-cycle');
+      
       await supabase.auth.signOut();
     } catch (error) {
       console.error('[AuthProvider] Error signing out:', error);

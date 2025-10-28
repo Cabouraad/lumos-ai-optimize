@@ -36,23 +36,51 @@ export default function Onboarding() {
   const [autoFillLoading, setAutoFillLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: Business Context, 3: Pricing, 4: Prompts
   const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>('growth');
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>(() => {
+    const saved = sessionStorage.getItem('selected-plan');
+    return (saved as 'starter' | 'growth' | 'pro') || 'growth';
+  });
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(() => {
+    const saved = sessionStorage.getItem('billing-cycle');
+    return (saved as 'monthly' | 'yearly') || 'monthly';
+  });
   const [subscriptionCompleted, setSubscriptionCompleted] = useState(false);
   const [showManualFillBanner, setShowManualFillBanner] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   
   // REMOVED: Auto-complete logic that could bypass payment
   const businessContextRef = useRef<HTMLDivElement>(null);
-  const [formData, setFormData] = useState({
-    orgName: '',
-    domain: '',
-    industry: '',
-    keywords: '',
-    competitors: '',
-    business_description: '',
-    products_services: '',
-    target_audience: ''
+  const [formData, setFormData] = useState(() => {
+    // Try to recover from sessionStorage on component mount
+    const savedData = sessionStorage.getItem('onboarding-data');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        console.log('[Onboarding] Recovered data from sessionStorage');
+        return {
+          orgName: parsed.name || '',
+          domain: parsed.domain || '',
+          industry: parsed.industry || '',
+          keywords: parsed.keywords || '',
+          competitors: parsed.competitors || '',
+          business_description: parsed.businessDescription || '',
+          products_services: parsed.productsServices || '',
+          target_audience: parsed.targetAudience || ''
+        };
+      } catch (e) {
+        console.warn('[Onboarding] Failed to parse saved data');
+      }
+    }
+    return {
+      orgName: '',
+      domain: '',
+      industry: '',
+      keywords: '',
+      competitors: '',
+      business_description: '',
+      products_services: '',
+      target_audience: ''
+    };
   });
 
   if (!user) {
@@ -200,6 +228,32 @@ export default function Onboarding() {
   };
 
   const handleCompleteOnboarding = async () => {
+    // Validate required fields
+    if (!formData.orgName || !formData.domain) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide both organization name and domain.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate domain format
+    const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i;
+    const cleanedDomain = formData.domain.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/$/, '').toLowerCase();
+    
+    if (!domainRegex.test(cleanedDomain)) {
+      toast({
+        title: "Invalid Domain",
+        description: "Please enter a valid domain format (e.g., example.com)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Update formData with cleaned domain
+    setFormData(prev => ({ ...prev, domain: cleanedDomain }));
+
     setLoading(true);
 
     try {

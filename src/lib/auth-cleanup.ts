@@ -21,6 +21,11 @@ export function cleanupAuthState() {
       sessionStorage.removeItem(key);
     }
   });
+  
+  // Clear onboarding-related data to prevent cross-user contamination
+  sessionStorage.removeItem('onboarding-data');
+  sessionStorage.removeItem('selected-plan');
+  sessionStorage.removeItem('billing-cycle');
 }
 
 export async function signInWithCleanup(email: string, password: string) {

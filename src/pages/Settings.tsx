@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
 import { getAllowedProviders, type ProviderName, type SubscriptionTier } from '@/lib/providers/tier-policy';
 import { Bot, Search, Sparkles, Globe } from 'lucide-react';
+import { signOutWithCleanup } from '@/lib/auth-cleanup';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -103,9 +104,8 @@ export default function Settings() {
           description: "Your account has been permanently deleted.",
         });
         
-        // Sign out and redirect
-        await supabase.auth.signOut();
-        navigate('/auth');
+        // Sign out and redirect with cleanup
+        signOutWithCleanup();
       } else {
         throw new Error(data.error || 'Deletion failed');
       }

@@ -5,7 +5,7 @@ import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { signOutWithCleanup } from '@/lib/auth-cleanup';
 
 interface SubscriptionGateProps {
   children: ReactNode;
@@ -243,10 +243,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
               <Button 
                 variant="outline"
                 className="w-full" 
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  navigate('/auth');
-                }}
+                onClick={signOutWithCleanup}
               >
                 Sign Out
               </Button>
