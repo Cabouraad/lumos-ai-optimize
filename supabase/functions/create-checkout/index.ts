@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${baseUrl}/dashboard?subscription=success`,
+      success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/onboarding?subscription=cancelled`,
       metadata: {
         user_id: user.id,

@@ -28,6 +28,7 @@ const ActionableRecommendations = lazy(() => loadChunkWithRetry(() => import("./
 const Resources = lazy(() => loadChunkWithRetry(() => import("./pages/Resources")));
 const BlogPost = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPost")));
 const TrialSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/TrialSuccess")));
+const PaymentSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/PaymentSuccess")));
 const DomainVerification = lazy(() => loadChunkWithRetry(() => import("./pages/DomainVerification")));
 const NotFound = lazy(() => loadChunkWithRetry(() => import("./pages/NotFound")));
 const Reports = lazy(() => loadChunkWithRetry(() => import("./pages/Reports")));
@@ -83,6 +84,7 @@ const App = () => {
           <Route path="/resources" element={<Resources />} />
           <Route path="/resources/:slug" element={<BlogPost />} />
           <Route path="/trial-success" element={<TrialSuccess />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
           <Route path="/free-checker" element={<FreeChecker />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />

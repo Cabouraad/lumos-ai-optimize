@@ -213,6 +213,30 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
 
   // If user requires subscription and doesn't have one, show subscription required page (unless forced)
   if (!hasValidSubscription) {
+    // Special case: just returned from checkout - show processing state
+    const justPaid = new URLSearchParams(location.search).get('subscription') === 'success';
+    
+    if (justPaid && location.pathname === '/dashboard') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle>Processing Payment...</CardTitle>
+              <CardDescription>
+                We're activating your subscription. This usually takes 5-10 seconds.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <Button onClick={handleManualRetry} variant="outline" className="w-full">
+                Refresh Status
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    
     // Don't block access to pricing page
     if (location.pathname === '/pricing') {
       return <>{children}</>;

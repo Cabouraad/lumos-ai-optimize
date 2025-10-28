@@ -1,0 +1,282 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserProvider';
+
+export default function PaymentSuccess() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { refreshUserData } = useUser();
+  
+  const [loading, setLoading] = useState(true);
+  const [success, setSuccess] = useState(false);
+  const [retryError, setRetryError] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Processing your payment...');
+
+  useEffect(() => {
+    setupSubscription();
+  }, []);
+
+  const setupSubscription = async () => {
+    try {
+      setLoading(true);
+      setRetryError(false);
+      setStatusMessage('Processing your payment...');
+
+      // Get session_id from URL params
+      const params = new URLSearchParams(location.search);
+      const sessionId = params.get('session_id');
+
+      console.log('[PaymentSuccess] Starting setup, session_id:', sessionId);
+
+      // Step 1: Recover onboarding data from sessionStorage
+      const onboardingDataStr = sessionStorage.getItem('onboarding-data');
+      const selectedPlan = sessionStorage.getItem('selected-plan');
+      const billingCycle = sessionStorage.getItem('billing-cycle');
+
+      console.log('[PaymentSuccess] SessionStorage data:', {
+        hasOnboardingData: !!onboardingDataStr,
+        selectedPlan,
+        billingCycle
+      });
+
+      if (!onboardingDataStr) {
+        console.warn('[PaymentSuccess] No onboarding data in sessionStorage');
+        // Check if user already has org and subscription
+        await refreshUserData();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('org_id')
+            .eq('id', user.id)
+            .single();
+
+          if (userData?.org_id) {
+            // User already has org, just verify subscription and proceed
+            setStatusMessage('Verifying your subscription...');
+            const hasAccess = await verifySubscriptionAccess();
+            
+            if (hasAccess) {
+              setSuccess(true);
+              setLoading(false);
+              setTimeout(() => navigate('/dashboard'), 2000);
+              return;
+            }
+          }
+        }
+
+        // No org and no sessionStorage - prompt manual setup
+        setStatusMessage('Almost there! Please complete your organization setup.');
+        setLoading(false);
+        toast.error('Please complete your organization information');
+        setTimeout(() => navigate('/onboarding'), 2000);
+        return;
+      }
+
+      const onboardingData = JSON.parse(onboardingDataStr);
+
+      // Step 2: Activate the subscription based on plan type
+      setStatusMessage('Activating your subscription...');
+      
+      if (selectedPlan === 'starter') {
+        // Activate trial
+        console.log('[PaymentSuccess] Activating trial subscription');
+        const { data: activateData, error: activateError } = await supabase.functions.invoke('activate-trial', {
+          body: { session_id: sessionId }
+        });
+
+        if (activateError || !activateData?.success) {
+          throw new Error(activateData?.error || activateError?.message || 'Failed to activate trial');
+        }
+      } else {
+        // For Growth/Pro, webhook handles activation - just wait for it
+        console.log('[PaymentSuccess] Waiting for webhook to activate subscription');
+      }
+
+      // Step 3: Refresh user data to check for org
+      setStatusMessage('Setting up your organization...');
+      await refreshUserData();
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Step 4: Check if organization exists
+      const { data: userData } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+
+      let orgCreated = false;
+
+      if (!userData?.org_id) {
+        // Create organization via onboarding edge function
+        console.log('[PaymentSuccess] Creating organization:', onboardingData);
+        
+        const { data: onboardingResult, error: onboardingError } = await supabase.functions.invoke('onboarding', {
+          body: onboardingData
+        });
+
+        if (onboardingError || !onboardingResult?.success) {
+          throw new Error(onboardingResult?.error || onboardingError?.message || 'Failed to create organization');
+        }
+
+        orgCreated = true;
+        console.log('[PaymentSuccess] Organization created successfully');
+        
+        // Refresh user data after org creation
+        await refreshUserData();
+      } else {
+        console.log('[PaymentSuccess] Organization already exists');
+      }
+
+      // Step 5: Verify subscription access with retry logic
+      setStatusMessage('Verifying your subscription...');
+      const hasAccess = await verifySubscriptionAccess();
+
+      if (!hasAccess) {
+        throw new Error('Subscription verification failed');
+      }
+
+      // Step 6: Clean up sessionStorage
+      sessionStorage.removeItem('onboarding-data');
+      sessionStorage.removeItem('selected-plan');
+      sessionStorage.removeItem('billing-cycle');
+
+      // Success!
+      setSuccess(true);
+      setLoading(false);
+      
+      toast.success(orgCreated ? 'Organization created and subscription activated!' : 'Subscription activated!');
+      
+      // Redirect to dashboard after brief delay
+      setTimeout(() => navigate('/dashboard'), 2000);
+
+    } catch (error: any) {
+      console.error('[PaymentSuccess] Setup failed:', error);
+      setRetryError(true);
+      setLoading(false);
+      setStatusMessage('Setup failed. Please try again.');
+      toast.error(error.message || 'Failed to complete setup');
+    }
+  };
+
+  const verifySubscriptionAccess = async (retries = 3): Promise<boolean> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        console.log(`[PaymentSuccess] Verifying subscription access (attempt ${i + 1}/${retries})`);
+        
+        const { data: subData, error: subError } = await supabase.functions.invoke('check-subscription');
+        
+        if (!subError && subData?.hasAccess) {
+          console.log('[PaymentSuccess] Subscription verified successfully');
+          return true;
+        }
+
+        // Wait before retry (exponential backoff)
+        if (i < retries - 1) {
+          const delay = Math.min(1000 * Math.pow(2, i), 5000);
+          console.log(`[PaymentSuccess] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        console.error(`[PaymentSuccess] Verification attempt ${i + 1} failed:`, error);
+        if (i === retries - 1) {
+          return false;
+        }
+      }
+    }
+    
+    return false;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+            <CardTitle>Setting Up Your Account</CardTitle>
+            <CardDescription>{statusMessage}</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-sm text-muted-foreground">
+              This usually takes just a few seconds...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (retryError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4">
+              <AlertCircle className="h-12 w-12 text-destructive" />
+            </div>
+            <CardTitle>Setup Issue</CardTitle>
+            <CardDescription>
+              We encountered an issue completing your setup. Your payment was successful.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground text-center">
+              {statusMessage}
+            </p>
+            <Button onClick={setupSubscription} className="w-full">
+              Try Again
+            </Button>
+            <Button 
+              onClick={() => navigate('/onboarding')} 
+              variant="outline" 
+              className="w-full"
+            >
+              Complete Setup Manually
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4">
+              <CheckCircle className="h-12 w-12 text-green-500" />
+            </div>
+            <CardTitle>Welcome to Llumos!</CardTitle>
+            <CardDescription>
+              Your subscription is active and ready to use
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Redirecting you to your dashboard...
+            </p>
+            <Button onClick={() => navigate('/dashboard')} className="w-full">
+              Go to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return null;
+}

@@ -52,20 +52,31 @@ export default function AuthProcessing() {
           const { data: bootstrapData, error: bootstrapError } = await supabase.functions.invoke('bootstrap-auth');
           
           if (!bootstrapError && bootstrapData?.success) {
-            // Redirect based on org status
+            // Redirect based on org AND subscription status
             if (bootstrapData.org_id) {
-              setTimeout(() => navigate('/dashboard'), 1000);
+              // User has organization - check subscription before dashboard redirect
+              const { data: subData } = await supabase.functions.invoke('check-subscription');
+              
+              if (subData?.hasAccess) {
+                // Has org and subscription - go to dashboard
+                setTimeout(() => navigate('/dashboard'), 1000);
+              } else {
+                // Has org but no subscription - send to pricing
+                setTimeout(() => navigate('/pricing'), 1000);
+              }
             } else {
+              // No organization - send to onboarding
               setTimeout(() => navigate('/onboarding'), 1000);
             }
           } else {
-            // Default to dashboard if bootstrap fails
-            setTimeout(() => navigate('/dashboard'), 1000);
+            // Bootstrap failed - safe default to onboarding for new users
+            console.warn('Bootstrap failed:', bootstrapError);
+            setTimeout(() => navigate('/onboarding'), 1000);
           }
         } catch (bootstrapError) {
           console.warn('Bootstrap failed:', bootstrapError);
-          // Default to dashboard
-          setTimeout(() => navigate('/dashboard'), 1000);
+          // Default to onboarding for safety
+          setTimeout(() => navigate('/onboarding'), 1000);
         }
 
         setStatus('success');

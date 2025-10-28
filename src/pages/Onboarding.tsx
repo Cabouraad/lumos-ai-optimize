@@ -162,9 +162,21 @@ export default function Onboarding() {
       console.log('[Onboarding] Checkout URL received, storing onboarding data');
       
       // Store onboarding data temporarily to complete after payment
-      sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
-      sessionStorage.setItem('selected-plan', selectedPlan);
-      sessionStorage.setItem('billing-cycle', billingCycle);
+      try {
+        sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
+        sessionStorage.setItem('selected-plan', selectedPlan);
+        sessionStorage.setItem('billing-cycle', billingCycle);
+        console.log('[Onboarding] Data saved to sessionStorage for post-payment recovery');
+      } catch (storageError) {
+        console.error('[Onboarding] Failed to save to sessionStorage:', storageError);
+        setLoading(false);
+        toast({
+          title: "Storage Error",
+          description: "Please disable private browsing mode or allow storage for this site.",
+          variant: "destructive"
+        });
+        return; // Block checkout if storage fails
+      }
       
       console.log('[Onboarding] Redirecting to Stripe checkout:', data.url);
       
