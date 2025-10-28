@@ -185,8 +185,8 @@ export function useRealTimeDashboard(
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && !fetchInProgressRef.current) {
         const now = Date.now();
-        // Throttle to once every 10 seconds to prevent conflicts
-        if (now - lastVisibilityFetchRef.current > 10000) {
+        // Increased throttle to 30 seconds to prevent excessive refetching
+        if (now - lastVisibilityFetchRef.current > 30000) {
           console.log('[Dashboard] Tab visible, refreshing');
           lastVisibilityFetchRef.current = now;
           fetchData(false);

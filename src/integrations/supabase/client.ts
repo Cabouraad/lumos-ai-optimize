@@ -23,5 +23,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false, // Prevent conflicts with hash-based routing
+    flowType: 'pkce', // Use PKCE flow for better security
   }
 });

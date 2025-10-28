@@ -110,7 +110,7 @@ export function UserProvider({ children }: UserProviderProps) {
       setLoading(false);
       setUserReady(true);
     }
-  }, [user]);
+  }, [user?.id]); // Only depend on user ID, not entire user object
 
   useEffect(() => {
     if (ready) {

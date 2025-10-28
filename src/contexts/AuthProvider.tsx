@@ -79,7 +79,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
-    // Set up auth state change listener
+    // Set up auth state change listener with debounce for token refresh
+    let tokenRefreshTimeout: NodeJS.Timeout | null = null;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
@@ -89,6 +90,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Clear org ID cache on sign out to prevent cross-user data leakage
         if (event === 'SIGNED_OUT') {
           clearOrgIdCache();
+        }
+        
+        // Debounce token refresh to prevent rapid re-renders
+        if (event === 'TOKEN_REFRESHED' && tokenRefreshTimeout) {
+          return; // Skip if we recently refreshed
+        }
+        
+        if (event === 'TOKEN_REFRESHED') {
+          tokenRefreshTimeout = setTimeout(() => {
+            tokenRefreshTimeout = null;
+          }, 2000); // 2 second cooldown
         }
         
         setSession(session);
