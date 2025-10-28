@@ -34,32 +34,11 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const [lastRetryTime, setLastRetryTime] = useState<number | null>(null);
   const [orgDataLoading, setOrgDataLoading] = useState(false);
   
-  const [forceAccess, setForceAccess] = useState(false);
-  const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
+  // Removed insecure forceAccess and loadingTimeout states
 
-  // Emergency timeout - prevent infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      console.warn('[SUBSCRIPTION_GATE] Loading timeout reached - forcing access');
-      setLoadingTimeoutReached(true);
-      setForceAccess(true);
-    }, 60000); // 60 seconds
-    
-    return () => clearTimeout(timeout);
-  }, []);
+  // Removed insecure emergency timeouts that previously forced access
 
-  // Emergency fallback after aggressive timeout
-  useEffect(() => {
-    const aggressiveTimeout = setTimeout(() => {
-      console.warn('[SUBSCRIPTION_GATE] Aggressive timeout reached - forcing access immediately');
-      setLoadingTimeoutReached(true);
-      setForceAccess(true);
-    }, 30000); // 30 seconds
-    
-    return () => clearTimeout(aggressiveTimeout);
-  }, []);
-
-  // Debug effect - logs the status periodically
+  // Debug effect - logs the status periodically (no forced access)
   useEffect(() => {
     const interval = setInterval(() => {
       console.log('[SUBSCRIPTION_GATE] Status check:', {
@@ -70,14 +49,12 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
         loading,
         subscriptionLoading,
         ready,
-        hasAccess,
-        forceAccess,
-        loadingTimeoutReached
+        hasAccess
       });
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [user, orgData, orgStatus, subscriptionData, loading, subscriptionLoading, ready, hasAccess, forceAccess, loadingTimeoutReached]);
+  }, [user, orgData, orgStatus, subscriptionData, loading, subscriptionLoading, ready, hasAccess]);
 
   // Monitor subscription status changes
   useEffect(() => {
@@ -91,31 +68,9 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     }
   }, [subscriptionData, hasAccess]);
 
-  // Aggressive timeout if we get stuck
-  useEffect(() => {
-    if (user && ready && !loadingTimeoutReached) {
-      const aggressiveTimer = setTimeout(() => {
-        if (loading || isChecking) {
-          console.warn('[SUBSCRIPTION_GATE] Still loading after 15s - forcing access');
-          setForceAccess(true);
-        }
-      }, 15000);
+  // Removed aggressive timeout that previously forced access
 
-      return () => clearTimeout(aggressiveTimer);
-    }
-  }, [user, ready, loading, isChecking, loadingTimeoutReached]);
-
-  // Emergency fallback - if we don't get subscription data within 20s and have user/org, allow access
-  useEffect(() => {
-    if (user && orgData && !subscriptionData && !subscriptionError && ready) {
-      const emergencyTimer = setTimeout(() => {
-        console.warn('[SUBSCRIPTION_GATE] Emergency access granted - no subscription data after 20s');
-        setForceAccess(true);
-      }, 20000);
-
-      return () => clearTimeout(emergencyTimer);
-    }
-  }, [user, orgData, subscriptionData, subscriptionError, ready]);
+  // Removed emergency fallback that previously granted access without subscription
 
   // Manual retry function for users - uses bootstrap
   const handleManualRetry = useCallback(async () => {
@@ -149,9 +104,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     hasUser: !!user,
     hasSubscriptionData: !!subscriptionData,
     hasOrgData: !!orgData,
-    orgStatus,
-    forceAccess,
-    loadingTimeoutReached
+    orgStatus
   });
 
   // Extract orgId from orgData structure (handle both formats)
@@ -159,8 +112,8 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   
   // Determine if we should show loading screen - don't block if we have last-known data
   const shouldShowLoading = (loading || !ready || 
-    (user && subscriptionData === null && !subscriptionError && !forceAccess) || 
-    (user && orgStatus === 'loading' && !forceAccess)) && !loadingTimeoutReached;
+    (user && subscriptionData === null && !subscriptionError) || 
+    (user && orgStatus === 'loading'));
 
   if (shouldShowLoading) {
     return (
@@ -221,7 +174,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   }
 
   // If org loading failed with error but we might be able to recover
-  if (orgStatus === 'error' && userError && !orgDataLoading && !forceAccess) {
+  if (orgStatus === 'error' && userError && !orgDataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md border-destructive">
@@ -243,13 +196,6 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => setForceAccess(true)}
-                className="w-full"
-              >
-                Continue Anyway
-              </Button>
-              <Button 
-                variant="outline"
                 onClick={() => navigate('/auth')}
                 className="w-full"
               >
@@ -263,10 +209,10 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   }
 
   // Check if subscription is required - with fallback for forced access
-  const hasValidSubscription = forceAccess || hasAccess;
+  const hasValidSubscription = hasAccess;
 
   // If user requires subscription and doesn't have one, show subscription required page (unless forced)
-  if (!forceAccess && !hasValidSubscription) {
+  if (!hasValidSubscription) {
     // Don't block access to pricing page
     if (location.pathname === '/pricing') {
       return <>{children}</>;

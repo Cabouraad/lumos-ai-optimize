@@ -27,9 +27,9 @@ export default function Onboarding() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Defensive check: If user already has org_id, redirect to dashboard
-  // This acts as a safety net if users somehow land on onboarding incorrectly
-  if (orgData?.org_id) {
+  // Only redirect to dashboard if user truly has access (paid or valid trial)
+  const access = hasAccessToApp();
+  if (orgData?.org_id && access.hasAccess) {
     return <Navigate to="/dashboard" replace />;
   }
   const [loading, setLoading] = useState(false);
@@ -241,10 +241,10 @@ export default function Onboarding() {
               .eq('id', user.id)
               .maybeSingle();
             if (u?.org_id) {
-              // Org actually created; proceed without blocking the user
+              // Org actually created; proceed to payment step (never skip pricing)
               try { updateOrgIdCache(u.org_id); } catch {}
               toast({ title: 'Setup Complete!', description: 'Your organization has been created.' });
-              setCurrentStep(4);
+              setCurrentStep(3);
               setLoading(false);
               return;
             }
