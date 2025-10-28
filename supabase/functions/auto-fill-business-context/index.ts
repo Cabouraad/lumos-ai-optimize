@@ -1,9 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0'
-import { extractBusinessContextOpenAI, generateKeywordsOnly, extractMetaKeywords, extractHeuristicKeywords, type BusinessContextExtraction } from '../_shared/providers.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Helper to safely convert errors to messages
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
 }
 
 interface BusinessContext {
@@ -65,7 +71,7 @@ async function acquireWebsiteContent(targetDomain: string): Promise<{
         }
       }
     } catch (error: unknown) {
-      console.log(`Direct fetch failed for ${url}: ${error.message}`)
+      console.log(`Direct fetch failed for ${url}: ${toErrorMessage(error)}`)
     }
   }
   
@@ -164,7 +170,7 @@ async function tryFirecrawl(domain: string): Promise<{ success: boolean; content
       }
     }
   } catch (error: unknown) {
-    console.log(`Firecrawl failed: ${error.message}`)
+    console.log(`Firecrawl failed: ${toErrorMessage(error)}`)
   }
   
   return { success: false, content: '', html: '', method: '' }
@@ -189,7 +195,7 @@ async function tryLLMSTxt(domain: string): Promise<{ success: boolean; content: 
       }
     }
   } catch (error: unknown) {
-    console.log(`LLMS.txt failed: ${error.message}`)
+    console.log(`LLMS.txt failed: ${toErrorMessage(error)}`)
   }
   
   return { success: false, content: '' }
@@ -219,7 +225,7 @@ async function tryReadabilityProxy(domain: string): Promise<{ success: boolean; 
       }
     }
   } catch (error: unknown) {
-    console.log(`Readability proxy failed: ${error.message}`)
+    console.log(`Readability proxy failed: ${toErrorMessage(error)}`)
   }
   
   return { success: false, content: '' }
@@ -257,12 +263,12 @@ async function trySitemapDiscovery(domain: string): Promise<{ success: boolean; 
             }
           }
         } catch (pageError: unknown) {
-          console.log(`Sitemap page fetch failed for ${url}: ${pageError.message}`)
+          console.log(`Sitemap page fetch failed for ${url}: ${toErrorMessage(pageError)}`)
         }
       }
     }
   } catch (error: unknown) {
-    console.log(`Sitemap discovery failed: ${error.message}`)
+    console.log(`Sitemap discovery failed: ${toErrorMessage(error)}`)
   }
   
   return { success: false, content: '' }
@@ -341,14 +347,14 @@ Deno.serve(async (req) => {
   console.log('=== AUTO-FILL FUNCTION STARTED ===')
   
   try {
-    // Check if OpenAI API key is available
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      console.error('OpenAI API key not found in environment')
+    // Check if Lovable API key is available
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
+    if (!lovableApiKey) {
+      console.error('Lovable API key not found in environment')
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'OpenAI API key not configured. Please add your OpenAI API key in the project settings.',
+          error: 'AI service not configured. Please contact support.',
           needsApiKey: true,
           missingApiKey: true
         }),
@@ -488,23 +494,127 @@ Deno.serve(async (req) => {
       metaKeywords = extractMetaKeywords(contentResult.html)
     }
 
-    console.log('Analyzing content with OpenAI...')
+    console.log('Analyzing content with Lovable AI...')
     const aiStartTime = Date.now()
     
-    // Use OpenAI to analyze content
-    let businessContextResult: BusinessContextExtraction & { model_used: string; source?: string }
+    // Use Lovable AI to analyze content with brand-specific focus
+    let businessContext: BusinessContext
     try {
-      businessContextResult = await extractBusinessContextOpenAI(contentResult.content, openaiApiKey)
-      console.log('Token usage - Input:', businessContextResult.tokenIn, 'Output:', businessContextResult.tokenOut)
-    } catch (openaiError: unknown) {
-      console.error('OpenAI analysis failed:', openaiError.message)
+      const analysisPrompt = `Analyze this website content for "${orgData?.name || targetDomain}" and extract SPECIFIC business information about THIS brand.
+
+CRITICAL: Extract information that is UNIQUE and SPECIFIC to this business. Avoid generic terms.
+
+Website content:
+${contentResult.content.substring(0, 12000)}
+
+Return ONLY a valid JSON object with this structure:
+{
+  "keywords": ["specific keyword 1", "specific keyword 2", ...],
+  "competitors": ["Actual Competitor Name 1", "Actual Competitor Name 2", ...],
+  "business_description": "What this specific business does",
+  "products_services": "Their specific products or services",
+  "target_audience": "Their specific target customers"
+}
+
+Guidelines:
+- Keywords: 6-10 SPECIFIC terms related to their actual industry, products, or unique services (not "business solutions")
+- Competitors: 3-6 ACTUAL competitor company names mentioned or implied (not generic terms like "other businesses")
+- Descriptions: Focus on CONCRETE business activities and specific offerings
+- Target audience: Describe their ACTUAL customer base with specifics
+- If unclear from content, make reasonable inferences based on industry context
+
+Return only the JSON object:`;
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a business analyst expert. Extract specific, brand-unique information. Always respond with valid JSON only. Be concrete and specific, never generic.'
+            },
+            {
+              role: 'user',
+              content: analysisPrompt
+            }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
+      }
+
+      const aiResult = await response.json();
+      const analysisText = aiResult.choices[0]?.message?.content?.trim();
       
-      // Use synthetic context as fallback for AI failure
-      const syntheticContext = generateSyntheticContext(targetDomain, orgData?.name)
+      console.log('AI analysis response length:', analysisText?.length || 0);
+
+      if (!analysisText) {
+        throw new Error('Empty AI response');
+      }
+
+      // Parse and validate the JSON response
+      let parsed: any;
+      try {
+        // Clean response
+        let cleaned = analysisText.replace(/```json\n?|\n?```/g, '').trim();
+        const jsonStart = cleaned.indexOf('{');
+        const jsonEnd = cleaned.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+        }
+        parsed = JSON.parse(cleaned);
+      } catch (parseError) {
+        console.error('JSON parse failed:', analysisText);
+        throw new Error('Failed to parse AI response as JSON');
+      }
+
+      // Extract and validate fields
+      const keywords = Array.isArray(parsed.keywords) ? 
+        parsed.keywords
+          .filter((k: any) => k && typeof k === 'string' && k.trim().length > 0)
+          .map((k: string) => k.trim())
+          .slice(0, 10) : [];
+
+      const competitors = Array.isArray(parsed.competitors) ? 
+        parsed.competitors
+          .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
+          .map((c: string) => c.trim())
+          .slice(0, 8) : [];
+
+      // Add meta keywords if AI didn't find enough
+      let finalKeywords = keywords;
+      if (finalKeywords.length < 4 && metaKeywords.length > 0) {
+        finalKeywords = [...new Set([...finalKeywords, ...metaKeywords])].slice(0, 10);
+      }
+
+      businessContext = {
+        keywords: finalKeywords,
+        competitors,
+        business_description: typeof parsed.business_description === 'string' ? parsed.business_description : '',
+        products_services: typeof parsed.products_services === 'string' ? parsed.products_services : '',
+        target_audience: typeof parsed.target_audience === 'string' ? parsed.target_audience : ''
+      };
+
+    } catch (aiError: unknown) {
+      const errorMsg = toErrorMessage(aiError);
+      console.error('Lovable AI analysis failed:', errorMsg);
+      
+      // Use synthetic context as fallback
+      const syntheticContext = generateSyntheticContext(targetDomain, orgData?.name);
       
       // Add any meta keywords we found
       if (metaKeywords.length > 0) {
-        syntheticContext.keywords = [...new Set([...syntheticContext.keywords, ...metaKeywords])].slice(0, 10)
+        syntheticContext.keywords = [...new Set([...syntheticContext.keywords, ...metaKeywords])].slice(0, 10);
       }
 
       if (userData?.org_id && orgData) {
@@ -517,7 +627,7 @@ Deno.serve(async (req) => {
             products_services: syntheticContext.products_services,
             target_audience: syntheticContext.target_audience
           })
-          .eq('id', userData.org_id)
+          .eq('id', userData.org_id);
       }
 
       return new Response(
@@ -534,64 +644,24 @@ Deno.serve(async (req) => {
             total_ms: Date.now() - fetchStartTime 
           },
           hasOrganization: !!orgData,
-          fallbackReason: 'ai_analysis_failed'
+          fallbackReason: 'ai_analysis_failed',
+          error: errorMsg
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         }
-      )
+      );
     }
 
     const aiDuration = Date.now() - aiStartTime
-    
-    // Enhance keywords if needed
-    let finalKeywords = businessContextResult.keywords || []
-    
-    if (finalKeywords.length < 3) {
-      console.log(`Only ${finalKeywords.length} keywords found, enhancing...`)
-      
-      // Add meta keywords
-      if (metaKeywords.length > 0) {
-        finalKeywords = [...finalKeywords, ...metaKeywords]
-      }
-      
-      // Try AI keyword generation
-      if (finalKeywords.length < 3) {
-        try {
-          const aiKeywords = await generateKeywordsOnly(contentResult.content, openaiApiKey)
-          finalKeywords = [...finalKeywords, ...aiKeywords]
-        } catch (keywordError: unknown) {
-          console.log('AI keywords generation failed:', keywordError.message)
-        }
-      }
-      
-      // Heuristic keywords as final fallback
-      if (finalKeywords.length < 3) {
-        const heuristicKeywords = extractHeuristicKeywords(contentResult.content)
-        finalKeywords = [...finalKeywords, ...heuristicKeywords]
-      }
-      
-      // Clean and deduplicate
-      finalKeywords = [...new Set(finalKeywords)]
-        .filter(k => k && k.trim().length > 0)
-        .slice(0, 10)
-    }
-
-    // Create final business context
-    const businessContext: BusinessContext = {
-      keywords: finalKeywords,
-      competitors: businessContextResult.competitors || [],
-      business_description: businessContextResult.business_description || '',
-      products_services: businessContextResult.products_services || '',
-      target_audience: businessContextResult.target_audience || ''
-    }
 
     console.log('Final business context:', {
       ...businessContext,
-      keywordsCount: finalKeywords.length,
+      keywordsCount: businessContext.keywords.length,
+      competitorsCount: businessContext.competitors.length,
       source: contentResult.method,
-      model: businessContextResult.model_used
+      model: 'gemini-2.5-flash'
     })
 
     // Update organization if it exists
@@ -623,14 +693,13 @@ Deno.serve(async (req) => {
           ? 'Business context auto-filled successfully from your website!'
           : 'Business context extracted successfully! Complete the onboarding to save it.',
         source: contentResult.method,
-        model_used: businessContextResult.model_used,
+        model_used: 'gemini-2.5-flash',
         durations: {
           fetch_ms: fetchDuration,
           ai_ms: aiDuration,
           total_ms: Date.now() - fetchStartTime
         },
-        hasOrganization: !!orgData,
-        keywordsEnhanced: finalKeywords.length > (businessContextResult.keywords?.length || 0)
+        hasOrganization: !!orgData
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -639,11 +708,12 @@ Deno.serve(async (req) => {
     )
 
   } catch (error: unknown) {
-    console.error('Auto-fill error:', error)
+    const errorMsg = toErrorMessage(error);
+    console.error('Auto-fill error:', errorMsg);
     
     // Even in case of unexpected errors, try to return synthetic context
     try {
-      const syntheticContext = generateSyntheticContext('example.com', 'Your Business')
+      const syntheticContext = generateSyntheticContext('example.com', 'Your Business');
       
       return new Response(
         JSON.stringify({ 
@@ -656,25 +726,25 @@ Deno.serve(async (req) => {
           durations: { fetch_ms: 0, ai_ms: 0, total_ms: 0 },
           hasOrganization: false,
           fallbackReason: 'unexpected_error',
-          originalError: error.message
+          originalError: errorMsg
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         }
-      )
+      );
     } catch (syntheticError: unknown) {
       // Absolute final fallback
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: error.message || 'Failed to auto-fill business context'
+          error: errorMsg || 'Failed to auto-fill business context'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
-      )
+      );
     }
   }
 })

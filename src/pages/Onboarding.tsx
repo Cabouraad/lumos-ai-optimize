@@ -64,10 +64,24 @@ export default function Onboarding() {
 
 
   const handleSubscriptionSetup = async () => {
+    if (!selectedPlan) {
+      toast({
+        title: "Plan Selection Required",
+        description: "Please select a plan before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
+    setRetryError(null);
+    
     try {
+      console.log(`[Onboarding] Starting subscription setup for ${selectedPlan} plan`);
+      
       // Check if user is eligible for billing bypass (only for starter tier)
       if (selectedPlan === 'starter' && isBillingBypassEligible(user?.email)) {
+        console.log('[Onboarding] Eligible for billing bypass - granting test access');
         await grantStarterBypass(user!.email!);
         toast({
           title: 'Test Access Granted',
@@ -75,64 +89,82 @@ export default function Onboarding() {
         });
         
         // Post-bypass entitlement check
-        setLoading(true);
         let attempts = 0;
-        const maxAttempts = 6;
+        const maxAttempts = 8;
         
-        const checkEntitlement = async () => {
-          while (attempts < maxAttempts) {
-            await EdgeFunctionClient.checkSubscription();
-            
-            // Check if access is granted
-            const access = hasAccessToApp();
-            if (access.hasAccess) {
-              navigate('/dashboard');
-              return;
-            }
-            
-            attempts++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        while (attempts < maxAttempts) {
+          await EdgeFunctionClient.checkSubscription();
+          
+          // Check if access is granted
+          const access = hasAccessToApp();
+          if (access.hasAccess) {
+            console.log('[Onboarding] Test access verified - proceeding to dashboard');
+            navigate('/dashboard');
+            return;
           }
           
-          // Failed after max attempts
-          setLoading(false);
-          toast({
-            title: "Verification Timeout", 
-            description: "We couldn't verify your access yet. Please try again.",
-            variant: "destructive"
-          });
-        };
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
         
-        checkEntitlement();
-        return;
+        // Failed after max attempts
+        throw new Error("Verification timeout - access not granted");
       }
 
       // Use trial checkout for Starter, regular checkout for others
       const functionName = selectedPlan === 'starter' ? 'create-trial-checkout' : 'create-checkout';
       const body = selectedPlan === 'starter' ? {} : { tier: selectedPlan, billingCycle };
       
+      console.log(`[Onboarding] Calling ${functionName} edge function`, body);
+      
       const { data, error } = await EnhancedEdgeFunctionClient.invoke(functionName, {
         body,
       });
 
-      if (error) throw error;
-      
-      if (data?.url) {
-        // Store onboarding data temporarily to complete after payment
-        sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
-        
-        // Redirect to Stripe checkout (robust across preview iframe/new tab)
-        openExternalUrl(data.url);
+      if (error) {
+        console.error(`[Onboarding] ${functionName} error:`, error);
+        throw error;
       }
-    } catch (error: any) {
-      console.error("Subscription error:", error);
+      
+      if (!data?.url) {
+        console.error('[Onboarding] No checkout URL returned:', data);
+        throw new Error("Failed to create checkout session - no URL returned");
+      }
+      
+      console.log('[Onboarding] Checkout URL received, storing onboarding data');
+      
+      // Store onboarding data temporarily to complete after payment
+      sessionStorage.setItem('onboarding-data', JSON.stringify(formData));
+      sessionStorage.setItem('selected-plan', selectedPlan);
+      sessionStorage.setItem('billing-cycle', billingCycle);
+      
+      console.log('[Onboarding] Redirecting to Stripe checkout:', data.url);
+      
+      // Small delay to ensure storage completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Redirect to Stripe checkout (robust across preview iframe/new tab)
+      openExternalUrl(data.url);
+      
+      // Keep loading state while redirect happens
       toast({
-        title: "Error",
-        description: error.message || "Failed to create subscription",
+        title: "Redirecting to Checkout",
+        description: "Opening secure payment page...",
+      });
+      
+    } catch (error: any) {
+      console.error("[Onboarding] Subscription setup error:", error);
+      setLoading(false);
+      
+      const errorMessage = error.message || "Failed to create subscription";
+      setRetryError(errorMessage);
+      
+      toast({
+        title: "Subscription Error",
+        description: errorMessage,
         variant: "destructive",
       });
     }
-    setLoading(false);
   };
 
   const refreshSubscriptionWithRetry = async () => {
@@ -853,15 +885,18 @@ export default function Onboarding() {
           </Button>
           
           <Button 
-            onClick={async () => {
-              await handleSubscriptionSetup();
-              // After successful subscription, user will return and go to step 4
-            }}
-            disabled={loading}
+            onClick={handleSubscriptionSetup}
+            disabled={loading || !selectedPlan}
             size="lg"
+            className="min-w-[300px]"
           >
             {loading 
-              ? 'Processing...' 
+              ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin">⏳</span>
+                  Redirecting to checkout...
+                </span>
+              )
               : `Start ${selectedPlan === 'starter' ? '7-Day Free Trial' : 'Subscription'} - ${pricingTiers.find(t => t.tier === selectedPlan)?.title} Plan`
             }
           </Button>
