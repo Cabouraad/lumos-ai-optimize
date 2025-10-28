@@ -5,9 +5,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
 
+// Guard utils
+const isValidUUID = (id: string | null | undefined) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+
 export async function getSuggestedPrompts() {
   try {
     const orgId = await getOrgId();
+    if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please retry in a moment.');
 
     const { data: suggestions, error } = await supabase
       .from('suggested_prompts')
@@ -29,6 +34,7 @@ export async function getSuggestedPrompts() {
 export async function acceptSuggestion(suggestionId: string) {
   try {
     const orgId = await getOrgId();
+    if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please retry.');
 
     // Get the suggestion first
     const { data: suggestion, error: fetchError } = await supabase
@@ -70,6 +76,7 @@ export async function acceptSuggestion(suggestionId: string) {
 export async function dismissSuggestion(suggestionId: string) {
   try {
     const orgId = await getOrgId();
+    if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please retry.');
 
     const { error } = await supabase
       .from('suggested_prompts')
@@ -90,6 +97,7 @@ export async function generateSuggestionsNow() {
   try {
     // Check if business context is filled before generating suggestions
     const orgId = await getOrgId();
+    if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please complete setup and try again.');
     
     const { data: orgData, error: orgError } = await supabase
       .from('organizations')
@@ -154,6 +162,7 @@ export async function acceptMultipleSuggestions(
 ) {
   try {
     const orgId = await getOrgId();
+    if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please complete setup and try again.');
 
     // Fetch selected suggestions
     const { data: suggestions, error: fetchError } = await supabase

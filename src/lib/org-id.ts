@@ -5,6 +5,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+// UUID validator to avoid 'undefined' leaks
+const isValidUUID = (id: string | null | undefined) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
 // Cache for org ID to reduce RPC calls
 let cachedOrgId: string | null = null;
 let cacheTimestamp: number | null = null;
@@ -29,11 +32,11 @@ export async function getOrgIdSafe(): Promise<string> {
     throw new Error('No authenticated user');
   }
 
-  // Try localStorage cache for authenticated users
+// Try localStorage cache for authenticated users
   const localCached = localStorage.getItem('sb_last_org_id');
   const localTimestamp = localStorage.getItem('sb_org_cache_timestamp');
   
-  if (localCached && localTimestamp) {
+  if (localCached && localCached !== 'undefined' && isValidUUID(localCached) && localTimestamp) {
     const age = Date.now() - parseInt(localTimestamp);
     // Use local cache if less than 1 hour old and we have network issues
     if (age < 60 * 60 * 1000) {
@@ -41,6 +44,10 @@ export async function getOrgIdSafe(): Promise<string> {
       cacheTimestamp = Date.now();
       return localCached;
     }
+  } else if (localCached && !isValidUUID(localCached)) {
+    // Clean up bad cache values like literal 'undefined'
+    localStorage.removeItem('sb_last_org_id');
+    localStorage.removeItem('sb_org_cache_timestamp');
   }
 
   // Make RPC call with timeout and retry logic
@@ -66,7 +73,7 @@ export async function getOrgIdSafe(): Promise<string> {
       throw new Error(`Failed to get org ID: ${error.message}`);
     }
 
-    if (!data) {
+    if (!data || !isValidUUID(data)) {
       throw new Error('No organization found for user');
     }
 

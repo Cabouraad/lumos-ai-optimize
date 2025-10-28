@@ -199,7 +199,7 @@ export function OnboardingPromptSelection({
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-4xl">
+      <Card className="w-full max-w-4xl" aria-labelledby="onboarding-prompt-setup">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -210,6 +210,8 @@ export function OnboardingPromptSelection({
               <CardDescription className="mt-2">
                 Select AI-generated prompts and/or add your own to start monitoring your visibility
               </CardDescription>
+              <meta name="description" content="Onboarding prompt tracking setup - select AI-generated suggestions or add custom prompts." />
+              <link rel="canonical" href="/onboarding/prompts" />
             </div>
             {loading && (
               <Clock className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -372,7 +374,7 @@ export function OnboardingPromptSelection({
                   disabled={totalSelected === 0}
                   className="flex-1 bg-primary hover:bg-primary/90"
                 >
-                  Continue to {isSubscribed ? 'Dashboard' : 'Payment'}
+                  Continue
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>

@@ -19,6 +19,7 @@ import { openExternalUrl } from '@/lib/navigation';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
 import { OnboardingPromptSelection } from '@/components/onboarding/OnboardingPromptSelection';
 import { acceptMultipleSuggestions } from '@/lib/suggestions/data';
+import { updateOrgIdCache } from '@/lib/org-id';
 
 export default function Onboarding() {
   const { user, orgData, subscriptionData, subscriptionLoading } = useAuth();
@@ -216,6 +217,11 @@ export default function Onboarding() {
         description: "Your organization has been created successfully",
       });
 
+      // Cache org ID immediately for downstream API calls
+      if (data?.orgId) {
+        try { updateOrgIdCache(data.orgId); } catch {}
+      }
+
       // Clear temporary storage
       sessionStorage.removeItem('onboarding-data');
       
@@ -257,6 +263,7 @@ export default function Onboarding() {
               .maybeSingle();
             if (u?.org_id) {
               // Org actually created; proceed without blocking the user
+              try { updateOrgIdCache(u.org_id); } catch {}
               toast({ title: 'Setup Complete!', description: 'Your organization has been created.' });
               setCurrentStep(4);
               setLoading(false);
