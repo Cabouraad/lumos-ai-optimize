@@ -473,15 +473,29 @@ if (customers.data.length === 0) {
 
     const nowDate = new Date();
     const trialActive = updateData.trial_expires_at && new Date(updateData.trial_expires_at) > nowDate;
+    const subscribed = !!(hasActiveSub || trialActive);
+    const requiresSubscription = !(hasActiveSub || trialActive);
+
+    // Compute hasAccess field for convenience
+    const hasAccess = Boolean(
+      subscribed ||
+      (
+        updateData.trial_expires_at &&
+        new Date(updateData.trial_expires_at) > nowDate &&
+        updateData.payment_collected
+      ) ||
+      !requiresSubscription
+    );
 
     return new Response(JSON.stringify({
-      subscribed: !!(hasActiveSub || trialActive),
+      subscribed,
       subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,
       trial_expires_at: updateData.trial_expires_at || null,
       trial_started_at: updateData.trial_started_at || null,
       payment_collected: updateData.payment_collected || false,
-      requires_subscription: !(hasActiveSub || trialActive),
+      requires_subscription: requiresSubscription,
+      hasAccess,
       metadata: existingSubscriber?.metadata || null, // Include existing metadata
     }), {
       headers: { ...corsHeaders, "content-type": "application/json" },

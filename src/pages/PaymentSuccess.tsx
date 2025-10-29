@@ -65,7 +65,7 @@ export default function PaymentSuccess() {
             if (hasAccess) {
               setSuccess(true);
               setLoading(false);
-              setTimeout(() => navigate('/dashboard'), 2000);
+              setTimeout(() => navigate('/dashboard?subscription=success'), 2000);
               return;
             } else {
               // Subscription verification failed - don't redirect, show error
@@ -87,7 +87,7 @@ export default function PaymentSuccess() {
         // Activate trial
         console.log('[PaymentSuccess] Activating trial subscription');
         const { data: activateData, error: activateError } = await supabase.functions.invoke('activate-trial', {
-          body: { session_id: sessionId }
+          body: { sessionId }
         });
 
         if (activateError || !activateData?.success) {
@@ -156,8 +156,8 @@ export default function PaymentSuccess() {
       
       toast.success(orgCreated ? 'Organization created and subscription activated!' : 'Subscription activated!');
       
-      // Redirect to dashboard after brief delay
-      setTimeout(() => navigate('/dashboard'), 2000);
+      // Redirect to dashboard after brief delay with subscription=success flag
+      setTimeout(() => navigate('/dashboard?subscription=success'), 2000);
 
     } catch (error: any) {
       console.error('[PaymentSuccess] Setup failed:', error);
@@ -178,7 +178,26 @@ export default function PaymentSuccess() {
         
         const { data: subData, error: subError } = await supabase.functions.invoke('check-subscription');
         
-        if (!subError && subData?.hasAccess) {
+        // Compute hasAccess from the response fields
+        const hasAccess = Boolean(
+          subData?.subscribed ||
+          (
+            subData?.trial_expires_at &&
+            new Date(subData.trial_expires_at) > new Date() &&
+            subData?.payment_collected
+          ) ||
+          subData?.requires_subscription === false
+        );
+
+        console.log('[PaymentSuccess] Verification attempt:', {
+          attempt: i + 1,
+          hasAccess,
+          subscribed: subData?.subscribed,
+          trialExpiresAt: subData?.trial_expires_at,
+          paymentCollected: subData?.payment_collected,
+        });
+        
+        if (!subError && hasAccess) {
           console.log('[PaymentSuccess] Subscription verified successfully');
           return true;
         }
