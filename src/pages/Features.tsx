@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { 
   Search, 
@@ -16,12 +17,15 @@ import {
   Lightbulb,
   Shield,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Star,
+  Award,
+  Sparkles
 } from 'lucide-react';
 
 const Features = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-bg">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -36,7 +40,7 @@ const Features = () => {
             <Button variant="outline" asChild>
               <Link to="/auth">Sign In</Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="shadow-glow">
               <Link to="/auth">Get Started</Link>
             </Button>
           </nav>
@@ -44,15 +48,45 @@ const Features = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto text-center max-w-4xl">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6 leading-tight">
-            Essential AI Search Features
-            <span className="text-primary block">That Actually Drive Results</span>
+      <section className="py-20 px-4 relative overflow-hidden">
+        <div className="container mx-auto text-center max-w-5xl relative z-10">
+          <Badge className="mb-6 text-sm py-1 px-4 shadow-soft animate-fade-in">
+            <Sparkles className="w-3 h-3 mr-1 inline" />
+            Complete AI Search Optimization Platform
+          </Badge>
+          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight animate-fade-in">
+            Powerful Features Built For
+            <span className="text-primary block mt-2 bg-gradient-primary bg-clip-text text-transparent">AI Search Domination</span>
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            We've stripped away the noise and focused on the three core capabilities that make or break your AI search performance. No fluff, no overwhelm, just results.
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
+            Everything you need to monitor, analyze, and optimize your brand's presence across all major AI platforms - in one unified dashboard.
           </p>
+          <Button size="lg" asChild className="shadow-glow hover-lift">
+            <Link to="/auth">
+              Start Free Trial
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Value Props Bar */}
+      <section className="py-8 px-4 bg-card/50 backdrop-blur border-y">
+        <div className="container mx-auto max-w-5xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+            <div className="flex items-center justify-center gap-3">
+              <Award className="w-6 h-6 text-primary" />
+              <span className="text-sm font-medium text-foreground">Industry-Leading Accuracy</span>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <Clock className="w-6 h-6 text-primary" />
+              <span className="text-sm font-medium text-foreground">Real-Time Monitoring</span>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <Star className="w-6 h-6 text-primary fill-primary" />
+              <span className="text-sm font-medium text-foreground">4.9/5 Customer Rating</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -63,8 +97,10 @@ const Features = () => {
             
             {/* Feature 1: Brand Visibility Monitoring */}
             <div className="space-y-8">
-              <Card className="p-8 h-full">
-                <Target className="w-12 h-12 text-primary mb-6" />
+              <Card className="p-8 h-full hover-lift border-2 hover:border-primary/50 transition-all shadow-soft">
+                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                  <Target className="w-8 h-8 text-primary" />
+                </div>
                 <h2 className="text-2xl font-bold text-foreground mb-4">Brand Visibility Monitoring</h2>
                 <p className="text-muted-foreground mb-6">
                   Real-time tracking of your brand's presence across all major AI search platforms. Know exactly when and how you appear in AI responses.
@@ -125,8 +161,10 @@ const Features = () => {
 
             {/* Feature 2: Competitive Analysis */}
             <div className="space-y-8">
-              <Card className="p-8 h-full">
-                <TrendingUp className="w-12 h-12 text-primary mb-6" />
+              <Card className="p-8 h-full hover-lift border-2 hover:border-primary/50 transition-all shadow-soft">
+                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                  <TrendingUp className="w-8 h-8 text-primary" />
+                </div>
                 <h2 className="text-2xl font-bold text-foreground mb-4">Competitive Analysis</h2>
                 <p className="text-muted-foreground mb-6">
                   See exactly where competitors dominate AI search results and identify untapped opportunities to outrank them.
@@ -187,8 +225,10 @@ const Features = () => {
 
             {/* Feature 3: Actionable Recommendations */}
             <div className="space-y-8">
-              <Card className="p-8 h-full">
-                <Zap className="w-12 h-12 text-primary mb-6" />
+              <Card className="p-8 h-full hover-lift border-2 hover:border-primary/50 transition-all shadow-soft">
+                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                  <Zap className="w-8 h-8 text-primary" />
+                </div>
                 <h2 className="text-2xl font-bold text-foreground mb-4">Actionable Recommendations</h2>
                 <p className="text-muted-foreground mb-6">
                   Skip the guesswork. Get specific, prioritized actions you can implement today to improve your AI search rankings.
@@ -263,36 +303,52 @@ const Features = () => {
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Search className="w-6 h-6 text-primary" />
+            <Card className="p-6 text-center hover-lift">
+              <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow">
+                <Search className="w-8 h-8 text-primary-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-1">ChatGPT</h3>
+              <h3 className="font-semibold text-foreground mb-2">ChatGPT</h3>
               <p className="text-sm text-muted-foreground">OpenAI's flagship model</p>
+              <Badge className="mt-3 text-xs" variant="secondary">Most Popular</Badge>
             </Card>
             
-            <Card className="p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Search className="w-6 h-6 text-primary" />
+            <Card className="p-6 text-center hover-lift">
+              <div className="w-16 h-16 bg-gradient-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow">
+                <Search className="w-8 h-8 text-primary-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-1">Gemini</h3>
+              <h3 className="font-semibold text-foreground mb-2">Gemini</h3>
               <p className="text-sm text-muted-foreground">Google's AI model</p>
+              <Badge className="mt-3 text-xs" variant="secondary">Enterprise</Badge>
             </Card>
             
-            <Card className="p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Search className="w-6 h-6 text-primary" />
+            <Card className="p-6 text-center hover-lift">
+              <div className="w-16 h-16 bg-gradient-accent rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow">
+                <Search className="w-8 h-8 text-accent-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-1">Perplexity</h3>
+              <h3 className="font-semibold text-foreground mb-2">Perplexity</h3>
               <p className="text-sm text-muted-foreground">AI-powered search engine</p>
+              <Badge className="mt-3 text-xs" variant="secondary">Growing Fast</Badge>
             </Card>
             
-            <Card className="p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Search className="w-6 h-6 text-primary" />
+            <Card className="p-6 text-center hover-lift">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="font-semibold text-foreground mb-1">Google AI Overviews</h3>
-              <p className="text-sm text-muted-foreground">Google's enhanced search results</p>
+              <h3 className="font-semibold text-foreground mb-2">Google AI Overviews</h3>
+              <p className="text-sm text-muted-foreground">Enhanced search results</p>
+              <Badge className="mt-3 text-xs" variant="secondary">Essential</Badge>
+            </Card>
+          </div>
+          
+          {/* Additional Platform Info */}
+          <div className="mt-12 text-center">
+            <Card className="p-6 bg-accent/5 border-accent/20">
+              <p className="text-muted-foreground mb-2">
+                <strong className="text-foreground">Track across all platforms simultaneously</strong>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Get a unified view of your AI search presence with automated daily scans and instant notifications when your visibility changes.
+              </p>
             </Card>
           </div>
         </div>
@@ -332,27 +388,104 @@ const Features = () => {
         </div>
       </section>
 
+      {/* ROI Section */}
+      <section className="py-20 px-4">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <Badge className="mb-4">Proven Results</Badge>
+            <h2 className="text-4xl font-bold text-foreground mb-4">
+              Real Results From Real Customers
+            </h2>
+            <p className="text-xl text-muted-foreground">
+              See the measurable impact these features deliver
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            <Card className="p-8 border-2 border-success/20 bg-success/5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-6 h-6 text-success" />
+                </div>
+                <div>
+                  <div className="text-4xl font-bold text-success mb-2">200%</div>
+                  <h4 className="font-semibold text-foreground mb-2">Average Visibility Increase</h4>
+                  <p className="text-muted-foreground text-sm">
+                    Companies using our platform see their AI search visibility double within the first 90 days of implementation.
+                  </p>
+                </div>
+              </div>
+            </Card>
+            
+            <Card className="p-8 border-2 border-primary/20 bg-primary/5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <BarChart3 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-4xl font-bold text-primary mb-2">3.2M</div>
+                  <h4 className="font-semibold text-foreground mb-2">Additional Impressions/Month</h4>
+                  <p className="text-muted-foreground text-sm">
+                    Average increase in brand mentions across AI platforms for our enterprise customers.
+                  </p>
+                </div>
+              </div>
+            </Card>
+            
+            <Card className="p-8 border-2 border-accent/20 bg-accent/5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <Target className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <div className="text-4xl font-bold text-accent mb-2">85%</div>
+                  <h4 className="font-semibold text-foreground mb-2">Competitive Win Rate</h4>
+                  <p className="text-muted-foreground text-sm">
+                    Percentage of tracked queries where users outrank their top 3 competitors after 6 months.
+                  </p>
+                </div>
+              </div>
+            </Card>
+            
+            <Card className="p-8 border-2 border-warning/20 bg-warning/5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-6 h-6 text-warning" />
+                </div>
+                <div>
+                  <div className="text-4xl font-bold text-warning mb-2">12 hrs</div>
+                  <h4 className="font-semibold text-foreground mb-2">Time Saved Per Week</h4>
+                  <p className="text-muted-foreground text-sm">
+                    Average time marketing teams save by automating AI search monitoring and analysis.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
-      <section className="py-16 px-4 bg-primary/5">
+      <section className="py-20 px-4 bg-gradient-primary text-primary-foreground">
         <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            See These Features in Action
+          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            Ready to Transform Your AI Visibility?
           </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Start your free trial and experience the focused approach to AI search optimization.
+          <p className="text-xl mb-8 opacity-90">
+            Join hundreds of companies already dominating AI search results
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" asChild className="text-lg px-8 py-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+            <Button size="lg" variant="secondary" asChild className="text-lg px-10 py-7 shadow-elevated hover-lift">
               <Link to="/auth">Start Free Trial <ArrowRight className="ml-2 w-5 h-5" /></Link>
             </Button>
-            <Button variant="outline" size="lg" asChild className="text-lg px-8 py-6">
+            <Button variant="outline" size="lg" asChild className="text-lg px-10 py-7 bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
               <Link to="/pricing">View Pricing</Link>
             </Button>
           </div>
           
-          <p className="text-sm text-muted-foreground mt-4">
-            14-day free trial • No credit card required • Full feature access
+          <p className="text-sm opacity-80">
+            ✓ Full access for 14 days  ✓ No credit card needed  ✓ Expert support included
           </p>
         </div>
       </section>
