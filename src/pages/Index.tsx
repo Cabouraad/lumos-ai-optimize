@@ -86,14 +86,17 @@ const Index = () => {
             Track Your Brand's AI Search Visibility
             <span className="text-primary block mt-2 bg-gradient-primary bg-clip-text text-transparent">Before Your Competitors Do</span>
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl md:text-2xl text-muted-foreground mb-3 max-w-3xl mx-auto leading-relaxed">
+            73% of B2B buyers research on AI platforms first. If your brand isn't showing up, you're invisible to your best prospects.
+          </p>
+          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
             Monitor how ChatGPT, Gemini, and other AI platforms mention your brand. 
             Get real-time insights and actionable recommendations to dominate AI search results.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
             <Button size="lg" asChild className="text-lg px-10 py-7 shadow-glow hover-lift">
               <Link to="/auth">
-                Start Free Trial
+                Start 7-Day Free Trial
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
@@ -101,9 +104,24 @@ const Index = () => {
               <Link to="/pricing">View Pricing</Link>
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            ✓ 7-day free trial  ✓ Payment method required  ✓ Setup in 5 minutes
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              7-day free trial
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              Cancel anytime
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              30-day money-back guarantee
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              Setup in 5 minutes
+            </span>
+          </div>
         </div>
       </section>
 

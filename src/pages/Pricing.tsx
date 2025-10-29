@@ -161,7 +161,7 @@ export default function Pricing() {
           </p>
           <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg border border-green-200 dark:border-green-800 mb-6">
             <p className="text-sm text-green-800 dark:text-green-200">
-              <strong>Starter Plan Special:</strong> Get a 7-day free trial! No charge until your trial ends.
+              <strong>Starter Plan Special:</strong> Get a 7-day free trial! Payment method required but no charge until your trial ends. Cancel anytime with no fees.
             </p>
           </div>
           
@@ -265,6 +265,33 @@ export default function Pricing() {
               </CardHeader>
               <CardContent>
                 <p>Yes, all plans include domain verification and locking to ensure your subscription is tied to your verified domain and prevent unauthorized usage.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">How do I cancel my subscription?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>You can cancel anytime from your account settings. If you cancel during your trial, you won't be charged at all. If you cancel after your trial, you'll retain access until the end of your current billing period.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Do you offer refunds?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>Yes! We offer a 30-day money-back guarantee on all paid plans. If you're not satisfied with Llumos within the first 30 days, contact support for a full refund—no questions asked.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">What payment methods do you accept?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>We accept all major credit cards (Visa, MasterCard, American Express, Discover) through our secure payment processor Stripe. All transactions are encrypted and PCI-compliant.</p>
               </CardContent>
             </Card>
           </div>

@@ -485,7 +485,7 @@ const Features = () => {
           </div>
           
           <p className="text-sm opacity-80">
-            ✓ Full access for 14 days  ✓ No credit card needed  ✓ Expert support included
+            ✓ 7-day free trial  ✓ Cancel anytime  ✓ 30-day money-back guarantee  ✓ Expert support included
           </p>
         </div>
       </section>

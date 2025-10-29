@@ -366,7 +366,7 @@ const Resources = () => {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-4">
-              14-day free trial • No credit card required
+              7-day free trial • Payment method required • No charge until trial ends • Cancel anytime
             </p>
           </section>
         </main>

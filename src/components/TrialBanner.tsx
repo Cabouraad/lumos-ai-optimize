@@ -39,7 +39,7 @@ export function TrialBanner({ daysRemaining, onUpgrade }: TrialBannerProps) {
       <AlertDescription className={`flex items-center justify-between ${textColor[urgencyLevel]}`}>
         <span>
           <strong>{daysRemaining} day{daysRemaining !== 1 ? 's' : ''} left</strong> in your free trial. 
-          Card required; no charge during trial.
+          No charge until trial ends. Cancel anytime.
         </span>
         <Button 
           size="sm" 

@@ -91,6 +91,9 @@ export default function Auth() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Llumos</CardTitle>
           <CardDescription>AI Search Optimization Platform</CardDescription>
+          <p className="text-xs text-muted-foreground mt-2">
+            7-day free trial • Cancel anytime • 30-day money-back guarantee
+          </p>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
