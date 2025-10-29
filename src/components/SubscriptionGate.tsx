@@ -6,6 +6,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SubscriptionGateProps {
   children: ReactNode;
@@ -33,6 +34,8 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [lastRetryTime, setLastRetryTime] = useState<number | null>(null);
   const [orgDataLoading, setOrgDataLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [autoVerifiedOnce, setAutoVerifiedOnce] = useState(false);
   
   // Removed insecure forceAccess and loadingTimeout states
 
@@ -95,6 +98,26 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
       setAuthError(error instanceof Error ? error.message : 'Retry failed');
     }
   }, [refreshSubscription, lastRetryTime, retryCount]);
+
+  // Automatic one-time verification to recover previously-paid users
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setVerifying(true);
+        await supabase.functions.invoke('check-subscription');
+        await refreshSubscription();
+      } catch (e) {
+        console.error('[SUBSCRIPTION_GATE] Auto verification failed:', e);
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    if (user && ready && !isChecking && !hasAccess && !autoVerifiedOnce) {
+      setAutoVerifiedOnce(true);
+      run();
+    }
+  }, [user, ready, isChecking, hasAccess, autoVerifiedOnce, refreshSubscription]);
 
   // Debug current loading states
   console.log('[SUBSCRIPTION_GATE] Loading states:', {
@@ -213,6 +236,28 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
 
   // If user requires subscription and doesn't have one, show subscription required page (unless forced)
   if (!hasValidSubscription) {
+    // If we're auto-verifying in the background, show processing state
+    if (verifying) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle>Verifying Subscription...</CardTitle>
+              <CardDescription>
+                We’re syncing your payment. This can take up to a minute after checkout.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <Button onClick={handleManualRetry} variant="outline" className="w-full">
+                Refresh Status
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     // Special case: just returned from checkout - show processing state
     const justPaid = new URLSearchParams(location.search).get('subscription') === 'success';
     
