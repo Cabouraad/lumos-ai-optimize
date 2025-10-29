@@ -75,28 +75,97 @@ export function ProofSection() {
             </CardContent>
           </Card>
 
-          {/* Case Study */}
+          {/* Llumos Score Explanation */}
           <Card className="shadow-elevated hover-lift">
             <CardContent className="p-8">
-              <Badge className="mb-4">Case Study</Badge>
+              <Badge className="mb-4">How It Works</Badge>
               <h3 className="text-2xl font-bold mb-4">
-                How DataCore Increased AI Visibility by 300% in 60 Days
+                Understanding Your Llumos Score
               </h3>
               
               <div className="space-y-6">
-                <div>
-                  <p className="text-muted-foreground mb-4">
-                    A B2B SaaS company struggling with low brand awareness in AI search results.
-                  </p>
+                <p className="text-muted-foreground">
+                  Your Llumos Score is a comprehensive metric (0-10) that measures how effectively your brand appears in AI search results across all major platforms.
+                </p>
+
+                {/* Score Visualization */}
+                <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-6">
+                  <div className="flex items-center justify-center mb-6">
+                    <div className="relative">
+                      <svg width="160" height="160" viewBox="0 0 160 160">
+                        {/* Background circle */}
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="70"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="12"
+                          className="text-muted/20"
+                        />
+                        {/* Progress circle */}
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="70"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="12"
+                          strokeDasharray={`${2 * Math.PI * 70}`}
+                          strokeDashoffset={`${2 * Math.PI * 70 * (1 - 0.84)}`}
+                          strokeLinecap="round"
+                          className="text-primary"
+                          transform="rotate(-90 80 80)"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-4xl font-bold text-primary">8.4</div>
+                          <div className="text-xs text-muted-foreground">Overall Score</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-background/80 rounded p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-primary"></div>
+                        <span className="font-semibold">High Score (8-10)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Excellent visibility across AI platforms</p>
+                    </div>
+                    <div className="bg-background/80 rounded p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-secondary"></div>
+                        <span className="font-semibold">Mid Score (5-7)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Good presence with room to grow</p>
+                    </div>
+                    <div className="bg-background/80 rounded p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-accent"></div>
+                        <span className="font-semibold">Low Score (0-4)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Needs optimization urgently</p>
+                    </div>
+                    <div className="bg-background/80 rounded p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground"></div>
+                        <span className="font-semibold">Tracking</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Updated daily with trend analysis</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
                     <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-semibold mb-1">The Challenge</p>
+                      <p className="font-semibold mb-1">Weighted Algorithm</p>
                       <p className="text-sm text-muted-foreground">
-                        Brand mentioned in only 12% of relevant AI queries, losing to competitors
+                        Combines mention frequency, ranking position, and sentiment across all platforms
                       </p>
                     </div>
                   </div>
@@ -104,9 +173,9 @@ export function ProofSection() {
                   <div className="flex items-start gap-3">
                     <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-semibold mb-1">The Solution</p>
+                      <p className="font-semibold mb-1">Daily Updates</p>
                       <p className="text-sm text-muted-foreground">
-                        Implemented Llumos tracking + followed AI optimization recommendations
+                        Track your score changes over time and identify what's working
                       </p>
                     </div>
                   </div>
@@ -114,27 +183,10 @@ export function ProofSection() {
                   <div className="flex items-start gap-3">
                     <Award className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-semibold mb-1">The Results</p>
+                      <p className="font-semibold mb-1">Competitive Context</p>
                       <p className="text-sm text-muted-foreground">
-                        Now mentioned in 48% of queries, ranked #1 in their category
+                        See how your score compares to competitors in your category
                       </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-3xl font-bold text-primary">300%</p>
-                      <p className="text-xs text-muted-foreground">Visibility Increase</p>
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold text-primary">60</p>
-                      <p className="text-xs text-muted-foreground">Days to Results</p>
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold text-primary">#1</p>
-                      <p className="text-xs text-muted-foreground">Category Rank</p>
                     </div>
                   </div>
                 </div>
