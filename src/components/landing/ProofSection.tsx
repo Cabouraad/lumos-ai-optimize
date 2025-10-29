@@ -1,18 +1,22 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, TrendingUp, Award } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, Award, BarChart3, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function ProofSection() {
+  const navigate = useNavigate();
+
   return (
     <section className="py-20 px-4 bg-muted/20">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-12">
-          <Badge className="mb-4">Proven Results</Badge>
+          <Badge className="mb-4">Get Your Score Now</Badge>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Real Companies. Real Results.
+            Where Does Your Brand Rank in AI Search?
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            See how leading brands transformed their AI search visibility
+            Discover your Llumos Score and see how you stack up against competitors in ChatGPT, Gemini, and Perplexity
           </p>
         </div>
 
@@ -75,122 +79,109 @@ export function ProofSection() {
             </CardContent>
           </Card>
 
-          {/* Llumos Score Explanation */}
-          <Card className="shadow-elevated hover-lift">
-            <CardContent className="p-8">
-              <Badge className="mb-4">How It Works</Badge>
-              <h3 className="text-2xl font-bold mb-4">
-                Understanding Your Llumos Score
-              </h3>
-              
-              <div className="space-y-6">
-                <p className="text-muted-foreground">
-                  Your Llumos Score is a comprehensive metric (0-10) that measures how effectively your brand appears in AI search results across all major platforms.
+          {/* CTA Card with Score */}
+          <Card className="shadow-elevated hover-lift relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+            <CardContent className="p-8 relative">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold mb-3">
+                  Your Llumos Score Awaits
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Join brands already dominating AI search results
                 </p>
+              </div>
 
-                {/* Score Visualization */}
-                <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-6">
-                  <div className="flex items-center justify-center mb-6">
-                    <div className="relative">
-                      <svg width="160" height="160" viewBox="0 0 160 160">
-                        {/* Background circle */}
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="70"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          className="text-muted/20"
-                        />
-                        {/* Progress circle */}
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="70"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          strokeDasharray={`${2 * Math.PI * 70}`}
-                          strokeDashoffset={`${2 * Math.PI * 70 * (1 - 0.84)}`}
-                          strokeLinecap="round"
-                          className="text-primary"
-                          transform="rotate(-90 80 80)"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-4xl font-bold text-primary">8.4</div>
-                          <div className="text-xs text-muted-foreground">Overall Score</div>
-                        </div>
+              {/* Score Visualization */}
+              <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-8 mb-6">
+                <div className="flex items-center justify-center mb-6">
+                  <div className="relative">
+                    <svg width="140" height="140" viewBox="0 0 140 140">
+                      {/* Background circle */}
+                      <circle
+                        cx="70"
+                        cy="70"
+                        r="60"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="10"
+                        className="text-muted/20"
+                      />
+                      {/* Progress circle with animation suggestion */}
+                      <circle
+                        cx="70"
+                        cy="70"
+                        r="60"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="10"
+                        strokeDasharray={`${2 * Math.PI * 60}`}
+                        strokeDashoffset={`${2 * Math.PI * 60 * (1 - 0.84)}`}
+                        strokeLinecap="round"
+                        className="text-primary"
+                        transform="rotate(-90 70 70)"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-primary mb-1">?</div>
+                        <div className="text-xs text-muted-foreground">Your Score</div>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="bg-background/80 rounded p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        <span className="font-semibold">High Score (8-10)</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Excellent visibility across AI platforms</p>
-                    </div>
-                    <div className="bg-background/80 rounded p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-secondary"></div>
-                        <span className="font-semibold">Mid Score (5-7)</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Good presence with room to grow</p>
-                    </div>
-                    <div className="bg-background/80 rounded p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-accent"></div>
-                        <span className="font-semibold">Low Score (0-4)</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Needs optimization urgently</p>
-                    </div>
-                    <div className="bg-background/80 rounded p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground"></div>
-                        <span className="font-semibold">Tracking</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Updated daily with trend analysis</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold mb-1">Weighted Algorithm</p>
-                      <p className="text-sm text-muted-foreground">
-                        Combines mention frequency, ranking position, and sentiment across all platforms
-                      </p>
-                    </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-primary">?</div>
+                    <div className="text-xs text-muted-foreground">ChatGPT</div>
                   </div>
-
-                  <div className="flex items-start gap-3">
-                    <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold mb-1">Daily Updates</p>
-                      <p className="text-sm text-muted-foreground">
-                        Track your score changes over time and identify what's working
-                      </p>
-                    </div>
+                  <div>
+                    <div className="text-2xl font-bold text-secondary">?</div>
+                    <div className="text-xs text-muted-foreground">Gemini</div>
                   </div>
-
-                  <div className="flex items-start gap-3">
-                    <Award className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold mb-1">Competitive Context</p>
-                      <p className="text-sm text-muted-foreground">
-                        See how your score compares to competitors in your category
-                      </p>
-                    </div>
+                  <div>
+                    <div className="text-2xl font-bold text-accent">?</div>
+                    <div className="text-xs text-muted-foreground">Perplexity</div>
                   </div>
                 </div>
               </div>
+
+              {/* Benefits List */}
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-sm">Track visibility across all major AI platforms</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Award className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-sm">See your competitive ranking instantly</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-sm">Get actionable insights to improve your score</p>
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <Button 
+                onClick={() => navigate('/auth')} 
+                className="w-full" 
+                size="lg"
+              >
+                Get Your Free Llumos Score
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+              
+              <p className="text-xs text-center text-muted-foreground mt-4">
+                No credit card required • Takes less than 2 minutes
+              </p>
             </CardContent>
           </Card>
         </div>
