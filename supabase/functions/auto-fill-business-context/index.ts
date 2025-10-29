@@ -304,8 +304,47 @@ function cleanHtmlContent(html: string): string {
     .substring(0, 15000)
 }
 
+// Extract keywords from meta tags
+function extractMetaKeywords(html: string): string[] {
+  const keywords: string[] = []
+  
+  // Extract from meta keywords tag
+  const keywordsMatch = html.match(/<meta\s+name=["']keywords["']\s+content=["']([^"']+)["']/i)
+  if (keywordsMatch && keywordsMatch[1]) {
+    const metaKeywords = keywordsMatch[1]
+      .split(/[,;]/)
+      .map(k => k.trim())
+      .filter(k => k.length > 2 && k.length < 50)
+    keywords.push(...metaKeywords)
+  }
+  
+  // Extract from meta description
+  const descMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)
+  if (descMatch && descMatch[1]) {
+    const desc = descMatch[1]
+    const descWords = desc
+      .split(/\s+/)
+      .filter(w => w.length > 4 && w.length < 30)
+      .slice(0, 5)
+    keywords.push(...descWords)
+  }
+  
+  // Extract from title tag
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
+  if (titleMatch && titleMatch[1]) {
+    const titleWords = titleMatch[1]
+      .split(/[\s-|•]/)
+      .map(w => w.trim())
+      .filter(w => w.length > 2 && w.length < 40)
+    keywords.push(...titleWords.slice(0, 3))
+  }
+  
+  // Remove duplicates and return
+  return [...new Set(keywords)].slice(0, 10)
+}
+
 // Generate synthetic business context as absolute fallback
-function generateSyntheticContext(domain: string, orgName?: string): BusinessContext {
+function generateSyntheticContext(domain: string, orgName?: string, metaKeywords: string[] = []): BusinessContext {
   console.log(`🔄 Generating synthetic context for domain: ${domain}, org: ${orgName}`)
   
   // Extract meaningful keywords from domain and org name
@@ -315,26 +354,26 @@ function generateSyntheticContext(domain: string, orgName?: string): BusinessCon
     .filter(word => word.length > 2)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
   
-  const orgKeywords = orgName 
+  const orgKeywords = orgName && orgName !== 'Your Business'
     ? orgName.split(/\s+/).filter((word: string) => word.length > 2)
     : []
   
-  const baseKeywords = [...new Set([...domainKeywords, ...orgKeywords])]
+  // Combine domain, org, and meta keywords
+  const allKeywords = [...new Set([...domainKeywords, ...orgKeywords, ...metaKeywords])]
   
-  // Industry-agnostic keywords that work for most businesses
-  const universalKeywords = [
-    'business solutions', 'professional services', 'technology',
-    'innovation', 'customer service', 'digital transformation'
-  ]
+  // Only add generic keywords if we don't have enough specific ones
+  const keywords = allKeywords.length >= 5 
+    ? allKeywords.slice(0, 10)
+    : [...allKeywords, 'services', 'solutions', 'quality'].slice(0, 10)
   
-  const keywords = [...baseKeywords, ...universalKeywords].slice(0, 8)
+  const businessName = orgName && orgName !== 'Your Business' ? orgName : domain
   
   return {
     keywords,
     competitors: [], 
-    business_description: `${orgName || domain} provides professional business solutions and services. Visit ${domain} to learn more about their offerings and capabilities.`,
-    products_services: `Professional services from ${orgName || domain}, Business solutions, Customer support`,
-    target_audience: 'Businesses and professionals seeking quality solutions and services'
+    business_description: `${businessName} - Please describe what your business does, your main offerings, and what makes you unique. This information helps generate better AI prompts for your needs.`,
+    products_services: `List your key products or services here. For example: ${keywords.slice(0, 3).join(', ')}`,
+    target_audience: `Describe your ideal customers or clients. Who do you serve and what problems do you solve for them?`
   }
 }
 
@@ -414,16 +453,16 @@ Deno.serve(async (req) => {
 
     // If we don't have a domain from either source, use synthetic fallback
     if (!targetDomain) {
-      console.log('No domain available - generating synthetic context')
-      const syntheticContext = generateSyntheticContext('example.com', 'Your Business')
+      console.log('No domain available - generating instructional context')
+      const instructionalContext = generateSyntheticContext('your-domain.com', 'Your Company Name', [])
       
       return new Response(
         JSON.stringify({ 
           success: true,
-          data: syntheticContext,
-          businessContext: syntheticContext,
-          message: 'Please enter your business domain and information below to get personalized context.',
-          source: 'synthetic-fallback',
+          data: instructionalContext,
+          businessContext: instructionalContext,
+          message: 'Please enter your business domain above and click Auto-fill again, or manually fill in the information below.',
+          source: 'no-domain',
           model_used: 'none',
           durations: { fetch_ms: 0, ai_ms: 0, total_ms: 0 },
           hasOrganization: !!orgData,
@@ -452,19 +491,19 @@ Deno.serve(async (req) => {
 
     // If content acquisition failed completely, use synthetic context
     if (!contentResult.success) {
-      console.log('All content acquisition methods failed - generating synthetic context')
-      const syntheticContext = generateSyntheticContext(targetDomain, orgData?.name)
+      console.log('All content acquisition methods failed - generating instructional context')
+      const instructionalContext = generateSyntheticContext(targetDomain, orgData?.name, [])
       
       // Still try to update organization if it exists
       if (userData?.org_id && orgData) {
         await supabaseClient
           .from('organizations')
           .update({
-            keywords: syntheticContext.keywords,
-            competitors: syntheticContext.competitors,
-            business_description: syntheticContext.business_description,
-            products_services: syntheticContext.products_services,
-            target_audience: syntheticContext.target_audience
+            keywords: instructionalContext.keywords,
+            competitors: instructionalContext.competitors,
+            business_description: instructionalContext.business_description,
+            products_services: instructionalContext.products_services,
+            target_audience: instructionalContext.target_audience
           })
           .eq('id', userData.org_id)
       }
@@ -472,10 +511,10 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          data: syntheticContext,
-          businessContext: syntheticContext,
-          message: `Generated business context based on your domain ${targetDomain}. Please review and customize the information below.`,
-          source: 'synthetic-fallback',
+          data: instructionalContext,
+          businessContext: instructionalContext,
+          message: `Could not access ${targetDomain}. Please manually fill in your business information below to get started.`,
+          source: 'content-acquisition-failed',
           model_used: 'none',
           durations: { fetch_ms: fetchDuration, ai_ms: 0, total_ms: fetchDuration },
           hasOrganization: !!orgData,
@@ -609,23 +648,18 @@ Return only the JSON object:`;
       const errorMsg = toErrorMessage(aiError);
       console.error('Lovable AI analysis failed:', errorMsg);
       
-      // Use synthetic context as fallback
-      const syntheticContext = generateSyntheticContext(targetDomain, orgData?.name);
-      
-      // Add any meta keywords we found
-      if (metaKeywords.length > 0) {
-        syntheticContext.keywords = [...new Set([...syntheticContext.keywords, ...metaKeywords])].slice(0, 10);
-      }
+      // Use synthetic context with meta keywords as fallback
+      const instructionalContext = generateSyntheticContext(targetDomain, orgData?.name, metaKeywords);
 
       if (userData?.org_id && orgData) {
         await supabaseClient
           .from('organizations')
           .update({
-            keywords: syntheticContext.keywords,
-            competitors: syntheticContext.competitors,
-            business_description: syntheticContext.business_description,
-            products_services: syntheticContext.products_services,
-            target_audience: syntheticContext.target_audience
+            keywords: instructionalContext.keywords,
+            competitors: instructionalContext.competitors,
+            business_description: instructionalContext.business_description,
+            products_services: instructionalContext.products_services,
+            target_audience: instructionalContext.target_audience
           })
           .eq('id', userData.org_id);
       }
@@ -633,11 +667,11 @@ Return only the JSON object:`;
       return new Response(
         JSON.stringify({ 
           success: true,
-          data: syntheticContext,
-          businessContext: syntheticContext,
-          message: `Successfully extracted content from ${targetDomain} but AI analysis failed. Generated fallback context - please review and customize.`,
+          data: instructionalContext,
+          businessContext: instructionalContext,
+          message: `We extracted content from ${targetDomain} but couldn't automatically analyze it. Please review and customize the information below.`,
           source: contentResult.method,
-          model_used: 'synthetic-fallback',
+          model_used: 'manual-entry-required',
           durations: { 
             fetch_ms: fetchDuration, 
             ai_ms: Date.now() - aiStartTime, 
@@ -711,18 +745,18 @@ Return only the JSON object:`;
     const errorMsg = toErrorMessage(error);
     console.error('Auto-fill error:', errorMsg);
     
-    // Even in case of unexpected errors, try to return synthetic context
+    // Even in case of unexpected errors, try to return instructional context
     try {
-      const syntheticContext = generateSyntheticContext('example.com', 'Your Business');
+      const instructionalContext = generateSyntheticContext('your-domain.com', 'Your Business Name', []);
       
       return new Response(
         JSON.stringify({ 
           success: true,
-          data: syntheticContext,
-          businessContext: syntheticContext,
-          message: 'An error occurred during auto-fill. Please review and customize the generated context below.',
+          data: instructionalContext,
+          businessContext: instructionalContext,
+          message: 'An error occurred during auto-fill. Please manually fill in your business information below.',
           source: 'error-fallback',
-          model_used: 'synthetic-fallback',
+          model_used: 'manual-entry',
           durations: { fetch_ms: 0, ai_ms: 0, total_ms: 0 },
           hasOrganization: false,
           fallbackReason: 'unexpected_error',
@@ -738,7 +772,7 @@ Return only the JSON object:`;
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: errorMsg || 'Failed to auto-fill business context'
+          error: errorMsg || 'Auto-fill failed. Please enter your information manually.'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
