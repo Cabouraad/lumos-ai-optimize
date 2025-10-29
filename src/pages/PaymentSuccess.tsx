@@ -183,10 +183,10 @@ export default function PaymentSuccess() {
           subData?.subscribed ||
           (
             subData?.trial_expires_at &&
-            new Date(subData.trial_expires_at) > new Date() &&
-            subData?.payment_collected
+            new Date(subData.trial_expires_at) > new Date()
           ) ||
-          subData?.requires_subscription === false
+          subData?.requires_subscription === false ||
+          (subData?.subscription_tier && subData.subscription_tier !== 'free')
         );
 
         console.log('[PaymentSuccess] Verification attempt:', {

@@ -183,10 +183,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
   // Calculate access level
   const hasAccess = subscriptionData ? (
-    subscriptionData.subscribed || 
-    (subscriptionData.trial_expires_at && 
-     new Date(subscriptionData.trial_expires_at) > new Date() &&
-     subscriptionData.payment_collected)
+    subscriptionData.subscribed ||
+    (subscriptionData.trial_expires_at &&
+      new Date(subscriptionData.trial_expires_at) > new Date()) ||
+    (subscriptionData.subscription_tier && subscriptionData.subscription_tier !== 'free')
   ) : false;
 
   // Auto-verify once for users who completed checkout but are still locked out
