@@ -212,15 +212,20 @@ async function handleSubscriptionCancellation(
     metadata: { subscriptionId: subscription.id }
   });
 
-  // Update subscription to mark as cancelled
+  // Update subscription to mark as cancelled and revoke tier access
   await supabaseClient
     .from("subscribers")
     .update({
       subscribed: false,
+      subscription_tier: 'free',
       subscription_end: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
     .eq("stripe_subscription_id", subscription.id);
+  
+  logger.info("Subscription cancelled and tier set to free", { 
+    metadata: { subscriptionId: subscription.id }
+  });
 }
 
 async function handlePaymentSuccess(
