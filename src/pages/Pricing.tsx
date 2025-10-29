@@ -10,6 +10,7 @@ import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { FeatureComparisonTable } from '@/components/pricing/FeatureComparisonTable';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -80,17 +81,17 @@ export default function Pricing() {
       monthlyPrice: 39,
       yearlyPrice: 390,
       features: [
-        'Up to 25 prompts to track daily',
-        '2 AI providers (OpenAI + Perplexity)',
-        'Basic visibility scoring',
-        'Email support',
-        'Brand catalog tracking',
-        'Domain verification & locking'
+        'Track 25 search queries your customers actually use (updated daily)',
+        'Monitor on 2 major AI platforms (ChatGPT + Perplexity)',
+        'See exactly how often AI platforms mention your brand',
+        'Get direct email support when you need help',
+        'Automatically track your brand catalog across platforms',
+        'Secure your subscription with domain verification'
       ],
       limitations: [
-        'No competitor analysis',
-        'No visibility optimizations',
-        'Limited to basic reporting'
+        'No competitor benchmarking',
+        'No AI-powered optimization recommendations',
+        'Basic reporting only'
       ]
     },
     {
@@ -100,15 +101,15 @@ export default function Pricing() {
       monthlyPrice: 89,
       yearlyPrice: 890,
       features: [
-        'Up to 100 prompts to track daily',
-        '4 AI providers (OpenAI, Perplexity, Gemini, Google AI Overviews)',
-        'Advanced visibility scoring',
-        'Competitor analysis & tracking',
-        'AI-powered visibility optimizations',
-        'Priority email support',
-        'Advanced reporting & insights',
-        'Brand catalog tracking',
-        'Domain verification & locking'
+        'Track 100 search queries across all customer touchpoints (updated daily)',
+        'Full coverage: ChatGPT, Perplexity, Gemini & Google AI Overviews',
+        'Advanced scoring shows your exact mention rate vs competitors',
+        'Track up to 3 competitors and see exactly where they win',
+        'Get AI-powered recommendations to improve your ranking',
+        'Priority support with faster response times',
+        'Export reports and share insights with your team',
+        'Comprehensive brand catalog tracking',
+        'Domain verification & account security'
       ],
       limitations: [],
       isPopular: true
@@ -120,15 +121,15 @@ export default function Pricing() {
       monthlyPrice: 250,
       yearlyPrice: 2500,
       features: [
-        'Up to 300 prompts to track daily',
-        '4 AI providers (OpenAI, Perplexity, Gemini, Google AI Overviews)',
-        'Advanced visibility scoring',
-        'Comprehensive competitor analysis',
-        'AI-powered visibility optimizations',
-        'Priority support + dedicated account manager',
-        'Advanced reporting & insights',
-        'Brand catalog tracking',
-        'Domain verification & locking'
+        'Track 300 search queries for maximum market coverage (updated daily)',
+        'Full coverage: ChatGPT, Perplexity, Gemini & Google AI Overviews',
+        'Advanced visibility scoring with predictive analytics',
+        'Monitor up to 10 competitors with deep competitive intelligence',
+        'Custom optimization plans based on your industry',
+        'Dedicated account manager + priority support',
+        'White-label reports for client presentations',
+        'Multi-brand catalog management',
+        'Enterprise-grade security & domain verification'
       ],
       limitations: []
     }
@@ -218,6 +219,71 @@ export default function Pricing() {
           ))}
         </div>
 
+        {/* Feature Comparison Table */}
+        <div className="mb-12">
+          <FeatureComparisonTable />
+        </div>
+
+        {/* What Happens After Trial */}
+        <div className="max-w-3xl mx-auto mb-12">
+          <Card className="shadow-elevated">
+            <CardHeader>
+              <CardTitle className="text-2xl text-center">What Happens After My Trial?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-lg">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-primary font-bold">1</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold mb-1">Day 1-7: Full Access</p>
+                    <p className="text-sm text-muted-foreground">
+                      Enjoy complete access to all Starter plan features. No restrictions, no hidden fees.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-lg">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-primary font-bold">2</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold mb-1">Day 5: Reminder Email</p>
+                    <p className="text-sm text-muted-foreground">
+                      We&apos;ll send you a friendly reminder that your trial is ending soon. You can cancel anytime.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-lg">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-primary font-bold">3</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold mb-1">Day 7: Trial Ends</p>
+                    <p className="text-sm text-muted-foreground">
+                      If you haven&apos;t canceled, your subscription begins at $39/month. If you cancel before day 7, you won&apos;t be charged anything.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-primary font-bold">✓</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold mb-1">Cancel Anytime</p>
+                    <p className="text-sm text-muted-foreground">
+                      You can cancel your subscription at any time from your account settings. No questions asked, no cancellation fees.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* FAQ Section */}
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
@@ -292,6 +358,15 @@ export default function Pricing() {
               </CardHeader>
               <CardContent>
                 <p>We accept all major credit cards (Visa, MasterCard, American Express, Discover) through our secure payment processor Stripe. All transactions are encrypted and PCI-compliant.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">How long does setup take?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>Setup is incredibly fast! Most users are fully set up and tracking their first queries within 5 minutes. Our onboarding wizard guides you through brand verification, selecting prompts to track, and adding competitors. No technical knowledge required.</p>
               </CardContent>
             </Card>
           </div>
