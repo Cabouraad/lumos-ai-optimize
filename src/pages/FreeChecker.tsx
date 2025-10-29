@@ -1,455 +1,469 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/Logo";
+import { Label } from "@/components/ui/label";
 import { 
   Search, 
   BarChart3, 
-  Mail, 
   CheckCircle, 
   ArrowRight, 
   Star,
   TrendingUp,
-  Shield,
-  Clock,
-  Users,
+  TrendingDown,
+  AlertCircle,
+  Target,
   Zap
 } from 'lucide-react';
-import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const INDUSTRIES = [
+  "Software & Technology",
+  "E-commerce & Retail",
+  "Healthcare & Medical",
+  "Financial Services",
+  "Marketing & Advertising",
+  "Education & Training",
+  "Real Estate",
+  "Manufacturing",
+  "Professional Services",
+  "Other"
+];
 
 export default function FreeChecker() {
-  const [email, setEmail] = useState('');
-  const [domain, setDomain] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [brandName, setBrandName] = useState('');
+  const [competitor1, setCompetitor1] = useState('');
+  const [competitor2, setCompetitor2] = useState('');
+  const [competitor3, setCompetitor3] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !domain) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide both email and domain.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      // Call edge function to process the request
-      const { data, error } = await supabase.functions.invoke('free-visibility-checker', {
-        body: { email, domain }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Analysis Started!",
-        description: "We're analyzing your brand visibility across AI platforms. Results will be emailed to you within 5 minutes.",
-        duration: 6000
-      });
-
-      // Reset form
-      setEmail('');
-      setDomain('');
-    } catch (error) {
-      console.error('Submission error:', error);
-      toast({
-        title: "Something went wrong",
-        description: "Please try again or contact support.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  // Generate simulated scores based on brand name (deterministic)
+  const generateScore = (name: string, offset: number = 0): number => {
+    if (!name) return 0;
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return Math.min(10, Math.max(3, ((hash + offset) % 6) + 4));
   };
+
+  const handleAnalyze = () => {
+    if (!brandName || !industry) return;
+    
+    setIsAnalyzing(true);
+    // Simulate analysis delay for realistic feel
+    setTimeout(() => {
+      setShowResults(true);
+      setIsAnalyzing(false);
+      // Scroll to results
+      setTimeout(() => {
+        document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }, 2000);
+  };
+
+  const brandScore = generateScore(brandName, 0);
+  const comp1Score = competitor1 ? generateScore(competitor1, 7) : 0;
+  const comp2Score = competitor2 ? generateScore(competitor2, 13) : 0;
+  const comp3Score = competitor3 ? generateScore(competitor3, 19) : 0;
+
+  const competitors = [
+    { name: competitor1, score: comp1Score },
+    { name: competitor2, score: comp2Score },
+    { name: competitor3, score: comp3Score }
+  ].filter(c => c.name);
+
+  const averageCompScore = competitors.length > 0 
+    ? competitors.reduce((acc, c) => acc + c.score, 0) / competitors.length 
+    : 0;
+
+  const ranking = [
+    { name: brandName, score: brandScore, isBrand: true },
+    ...competitors.map(c => ({ ...c, isBrand: false }))
+  ].sort((a, b) => b.score - a.score);
+
+  const brandRank = ranking.findIndex(r => r.isBrand) + 1;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Logo />
-          <Button variant="outline" asChild>
-            <Link to="/dashboard">Dashboard</Link>
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" asChild>
+              <Link to="/pricing">Pricing</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/auth">Sign In</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 bg-gradient-to-br from-background to-muted/20">
-        <div className="container mx-auto px-4 text-center max-w-4xl">
-          <Badge variant="secondary" className="mb-6">
-            Free AI Visibility Check
+      <section className="py-16 px-4 text-center bg-gradient-to-br from-background to-muted/20">
+        <div className="container mx-auto max-w-4xl">
+          <Badge className="mb-4 shadow-soft">
+            <Star className="w-3 h-3 mr-1 inline fill-current" />
+            Free AI Visibility Check - No Signup Required
           </Badge>
           
-          <h1 className="text-4xl md:text-6xl font-display font-bold mb-6 gradient-primary bg-clip-text text-transparent">
-            See How Your Brand Appears in AI Search Results
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+            See How Your Brand Ranks
+            <span className="text-primary block mt-2">Against Competitors in AI Search</span>
           </h1>
           
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Get instant insights into your brand's visibility across ChatGPT, Gemini, and Perplexity. 
-            See what your customers find when they ask AI about your industry.
+            Instantly discover how your brand's AI visibility compares to your competitors across ChatGPT, Gemini, and Perplexity.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button size="lg" className="w-full sm:w-auto" onClick={() => document.getElementById('checker-form')?.scrollIntoView()}>
-              Get Free Analysis
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              ✓ No credit card required • ✓ Instant analysis
-            </p>
-          </div>
-
-          {/* Trust indicators */}
-          <div className="flex justify-center items-center gap-8 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Star className="h-4 w-4 fill-primary text-primary" />
-              <span>4.9/5 rating</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span>10,000+ brands analyzed</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              <span>Enterprise secure</span>
-            </div>
+          <div className="flex justify-center items-center gap-6 text-sm text-muted-foreground mb-8">
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              No signup required
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              Instant results
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-primary" />
+              Compare with competitors
+            </span>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
-              How It Works
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Our AI-powered analysis runs your brand through multiple scenarios to give you actionable insights
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-display font-semibold mb-2">1. AI Query Analysis</h3>
-              <p className="text-muted-foreground">
-                We run 5 industry-specific prompts across ChatGPT, Gemini, and Perplexity
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <BarChart3 className="h-8 w-8 text-secondary" />
-              </div>
-              <h3 className="text-xl font-display font-semibold mb-2">2. Visibility Scoring</h3>
-              <p className="text-muted-foreground">
-                Our algorithm analyzes mentions, positioning, and competitive landscape
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="h-8 w-8 text-accent" />
-              </div>
-              <h3 className="text-xl font-display font-semibold mb-2">3. Instant Report</h3>
-              <p className="text-muted-foreground">
-                Get a detailed visibility snapshot delivered to your inbox in minutes
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Results Preview */}
-      <section className="py-20 bg-muted/20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
-              What You'll Discover
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Sample insights from our AI visibility analysis
-            </p>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <Card className="p-8">
-              <div className="grid md:grid-cols-2 gap-8 items-center">
+      {/* Checker Form */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto max-w-3xl">
+          <Card className="shadow-elevated">
+            <CardHeader>
+              <CardTitle className="text-2xl text-center">Get Your Free Visibility Report</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-2xl font-display font-bold mb-4">
-                    AI Visibility Score
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-secondary"></div>
-                        ChatGPT
-                      </span>
-                      <span className="font-mono font-bold">8.2/10</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-primary"></div>
-                        Gemini
-                      </span>
-                      <span className="font-mono font-bold">6.7/10</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-accent"></div>
-                        Perplexity
-                      </span>
-                      <span className="font-mono font-bold">7.4/10</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-muted-foreground"></div>
-                        Average
-                      </span>
-                      <span className="font-mono font-bold">7.1/10</span>
-                    </div>
-                  </div>
+                  <Label htmlFor="brand" className="text-base">Your Brand Name *</Label>
+                  <Input
+                    id="brand"
+                    placeholder="e.g., Acme Corp"
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    className="mt-2"
+                  />
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold mb-3">Key Insights</h4>
+                <div>
+                  <Label htmlFor="industry" className="text-base">Industry *</Label>
+                  <Select value={industry} onValueChange={setIndustry}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select your industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDUSTRIES.map((ind) => (
+                        <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="pt-2">
+                  <Label className="text-base mb-3 block">Add Competitors (Optional - up to 3)</Label>
                   <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="h-5 w-5 text-secondary mt-0.5" />
-                      <p className="text-sm">Your brand appears in 73% of industry-related queries</p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <TrendingUp className="h-5 w-5 text-primary mt-0.5" />
-                      <p className="text-sm">Ranked #2 most mentioned in your category</p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Clock className="h-5 w-5 text-accent mt-0.5" />
-                      <p className="text-sm">Opportunities to improve positioning across all platforms</p>
-                    </div>
+                    <Input
+                      placeholder="Competitor 1"
+                      value={competitor1}
+                      onChange={(e) => setCompetitor1(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Competitor 2"
+                      value={competitor2}
+                      onChange={(e) => setCompetitor2(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Competitor 3"
+                      value={competitor3}
+                      onChange={(e) => setCompetitor3(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
-            </Card>
-          </div>
+
+              <Button 
+                size="lg" 
+                className="w-full"
+                onClick={handleAnalyze}
+                disabled={!brandName || !industry || isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Zap className="mr-2 h-5 w-5 animate-pulse" />
+                    Analyzing AI Visibility...
+                  </>
+                ) : (
+                  <>
+                    Get Free Analysis
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
-      {/* Lead Capture Form */}
-      <section id="checker-form" className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
-              Get Your Free AI Visibility Report
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8">
-              Enter your details below and we'll analyze your brand across the major AI platforms
-            </p>
+      {/* Results Section */}
+      {showResults && (
+        <section id="results" className="py-16 px-4 bg-muted/20">
+          <div className="container mx-auto max-w-5xl">
+            <div className="text-center mb-12">
+              <Badge variant="secondary" className="mb-4">
+                <BarChart3 className="w-3 h-3 mr-1 inline" />
+                Sample Visibility Report
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Your AI Search Visibility Analysis
+              </h2>
+              <p className="text-muted-foreground">
+                Based on simulated data for {brandName} in {industry}
+              </p>
+            </div>
 
-            <Card className="p-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium mb-2">
-                      Business Email
-                    </label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="john@company.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="w-full"
-                    />
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              {/* Overall Score */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Your Visibility Score</span>
+                    <Badge variant={brandScore >= 7 ? "default" : brandScore >= 5 ? "secondary" : "destructive"}>
+                      {brandScore >= 7 ? "Good" : brandScore >= 5 ? "Fair" : "Needs Improvement"}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center mb-6">
+                    <div className="text-6xl font-bold text-primary mb-2">{brandScore.toFixed(1)}</div>
+                    <div className="text-2xl text-muted-foreground">/10</div>
                   </div>
-                  <div>
-                    <label htmlFor="domain" className="block text-sm font-medium mb-2">
-                      Company Domain
-                    </label>
-                    <Input
-                      id="domain"
-                      type="text"
-                      placeholder="company.com"
-                      value={domain}
-                      onChange={(e) => setDomain(e.target.value)}
-                      required
-                      className="w-full"
-                    />
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">ChatGPT</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary" style={{ width: `${(brandScore + 0.5) * 10}%` }}></div>
+                        </div>
+                        <span className="text-sm font-mono w-8">{(brandScore + 0.5).toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Gemini</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-secondary" style={{ width: `${(brandScore - 0.3) * 10}%` }}></div>
+                        </div>
+                        <span className="text-sm font-mono w-8">{(brandScore - 0.3).toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Perplexity</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-accent" style={{ width: `${(brandScore + 0.2) * 10}%` }}></div>
+                        </div>
+                        <span className="text-sm font-mono w-8">{(brandScore + 0.2).toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Competitive Ranking */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Competitive Ranking</span>
+                    {brandRank === 1 ? (
+                      <TrendingUp className="w-5 h-5 text-primary" />
+                    ) : (
+                      <TrendingDown className="w-5 h-5 text-destructive" />
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center mb-6">
+                    <div className="text-6xl font-bold mb-2">#{brandRank}</div>
+                    <div className="text-sm text-muted-foreground">out of {ranking.length} {ranking.length === 1 ? 'brand' : 'brands'}</div>
+                  </div>
+                  <div className="space-y-2">
+                    {ranking.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`flex items-center justify-between p-3 rounded-lg ${
+                          item.isBrand ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-lg font-bold w-6">#{idx + 1}</span>
+                          <span className={item.isBrand ? 'font-semibold' : ''}>{item.name}</span>
+                          {item.isBrand && <Badge variant="outline" className="text-xs">You</Badge>}
+                        </div>
+                        <span className="font-mono font-bold">{item.score.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Key Insights */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Key Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      {brandScore >= averageCompScore ? (
+                        <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className="font-medium mb-1">Competitive Position</p>
+                        <p className="text-sm text-muted-foreground">
+                          {brandScore >= averageCompScore 
+                            ? `You're performing ${((brandScore / averageCompScore - 1) * 100).toFixed(0)}% better than competitors on average`
+                            : `You're ${((1 - brandScore / averageCompScore) * 100).toFixed(0)}% behind competitor average`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium mb-1">Visibility Coverage</p>
+                        <p className="text-sm text-muted-foreground">
+                          Estimated {Math.round(brandScore * 8)}% mention rate in industry-related AI queries
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <Target className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium mb-1">Optimization Potential</p>
+                        <p className="text-sm text-muted-foreground">
+                          {brandScore < 7 
+                            ? `High potential to improve positioning across all AI platforms`
+                            : `Opportunities to maintain leadership position`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Search className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium mb-1">Platform Performance</p>
+                        <p className="text-sm text-muted-foreground">
+                          Strongest on ChatGPT, opportunity to improve on Gemini
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Zap className="mr-2 h-4 w-4 animate-spin" />
-                      Running Analysis...
-                    </>
-                  ) : (
-                    <>
-                      Get Free Analysis
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-
-                <p className="text-xs text-muted-foreground">
-                  By submitting, you agree to receive your free report and occasional updates about AI search optimization. 
-                  No spam, unsubscribe anytime.
+            {/* CTA */}
+            <Card className="bg-primary text-primary-foreground">
+              <CardContent className="p-8 text-center">
+                <h3 className="text-2xl font-bold mb-4">Want to See Your REAL Data?</h3>
+                <p className="text-lg mb-6 opacity-90">
+                  This is a simulated report. Get accurate, real-time visibility tracking with detailed recommendations to improve your AI search presence.
                 </p>
-              </form>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button size="lg" variant="secondary" asChild>
+                    <Link to="/auth">
+                      Start 7-Day Free Trial
+                      <ArrowRight className="ml-2 h-5 h-5" />
+                    </Link>
+                  </Button>
+                  <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary" asChild>
+                    <Link to="/pricing">View Pricing</Link>
+                  </Button>
+                </div>
+                <p className="text-sm mt-4 opacity-75">
+                  7-day free trial • Cancel anytime • Setup in 5 minutes
+                </p>
+              </CardContent>
             </Card>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Why Brands Use Llumos */}
-      <section className="py-20 bg-muted/20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
-              Why 10,000+ Brands Trust Llumos
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              The complete AI search optimization platform for modern brands
+      {/* Benefits Section */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Get the Full Picture with Llumos</h2>
+            <p className="text-lg text-muted-foreground">
+              Real-time monitoring, competitor analysis, and actionable recommendations
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            <div className="text-center">
+          <div className="grid md:grid-cols-3 gap-8">
+            <Card className="text-center p-6">
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Search className="h-6 w-6 text-primary" />
+                <BarChart3 className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Real-time Monitoring</h3>
-              <p className="text-muted-foreground text-sm">
-                Track your brand mentions across all AI platforms 24/7
+              <h3 className="text-lg font-semibold mb-2">Real-Time Tracking</h3>
+              <p className="text-sm text-muted-foreground">
+                Monitor your brand across all major AI platforms 24/7 with automated daily updates
               </p>
-            </div>
-
-            <div className="text-center">
+            </Card>
+            <Card className="text-center p-6">
               <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="h-6 w-6 text-secondary" />
+                <Target className="w-6 h-6 text-secondary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Competitive Intelligence</h3>
-              <p className="text-muted-foreground text-sm">
-                See how you stack up against competitors in AI responses
+              <h3 className="text-lg font-semibold mb-2">Competitor Intelligence</h3>
+              <p className="text-sm text-muted-foreground">
+                Track up to 10 competitors and see exactly how they're positioning themselves
               </p>
-            </div>
-
-            <div className="text-center">
+            </Card>
+            <Card className="text-center p-6">
               <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <BarChart3 className="h-6 w-6 text-accent" />
+                <Zap className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Actionable Insights</h3>
-              <p className="text-muted-foreground text-sm">
-                Get specific recommendations to improve AI visibility
+              <h3 className="text-lg font-semibold mb-2">AI Recommendations</h3>
+              <p className="text-sm text-muted-foreground">
+                Get specific, actionable steps to improve your visibility and ranking
               </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Mail className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Weekly Reports</h3>
-              <p className="text-muted-foreground text-sm">
-                Automated insights delivered to your inbox every week
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-6 w-6 text-secondary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Data Protection</h3>
-              <p className="text-muted-foreground text-sm">
-                Industry-standard security with encrypted data handling
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Users className="h-6 w-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Expert Support</h3>
-              <p className="text-muted-foreground text-sm">
-                Dedicated AI search optimization specialists
-              </p>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <Button size="lg" variant="outline" asChild>
-              <Link to="/pricing">
-                View Full Platform
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            </Card>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-16 border-t bg-muted/10">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <Logo />
-              <p className="text-sm text-muted-foreground mt-4">
-                AI search optimization platform for modern brands
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
-                <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
-                <li><Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
-                <li><Link to="/resources" className="hover:text-foreground transition-colors">Resources</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
-                <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t pt-8 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              © 2024 Llumos. All rights reserved.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Disclaimer: Results are estimates based on AI platform analysis. Individual results may vary. 
-              This free analysis provides a sample of our full platform capabilities.
-            </p>
+      <footer className="py-12 border-t bg-muted/10">
+        <div className="container mx-auto px-4 text-center">
+          <Logo />
+          <p className="text-sm text-muted-foreground mt-4 mb-6">
+            AI search optimization platform for modern brands
+          </p>
+          <div className="flex justify-center gap-6 text-sm text-muted-foreground">
+            <Link to="/features" className="hover:text-foreground transition-colors">Features</Link>
+            <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
+            <Link to="/resources" className="hover:text-foreground transition-colors">Resources</Link>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           </div>
         </div>
       </footer>

@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight, Star, Quote, BarChart3, Users, DollarSign } from 'lucide-react';
+import { ROICalculator } from '@/components/landing/ROICalculator';
+import { ComparisonTable } from '@/components/landing/ComparisonTable';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -197,6 +199,12 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* ROI Calculator */}
+      <ROICalculator />
+
+      {/* Comparison Table */}
+      <ComparisonTable />
 
       {/* Features Section */}
       <section id="features" className="py-20 px-4">
