@@ -282,7 +282,7 @@ export default function Pricing() {
                 <CardTitle className="text-lg">Do you offer refunds?</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>Yes! We offer a 30-day money-back guarantee on all paid plans. If you're not satisfied with Llumos within the first 30 days, contact support for a full refund—no questions asked.</p>
+                <p>Refunds are handled on a case-by-case basis. If you experience issues with our service, please contact support and we'll work with you to find a solution.</p>
               </CardContent>
             </Card>
 

@@ -92,7 +92,7 @@ export default function Auth() {
           <CardTitle className="text-2xl">Llumos</CardTitle>
           <CardDescription>AI Search Optimization Platform</CardDescription>
           <p className="text-xs text-muted-foreground mt-2">
-            7-day free trial • Cancel anytime • 30-day money-back guarantee
+            7-day free trial • Cancel anytime
           </p>
         </CardHeader>
         <CardContent>

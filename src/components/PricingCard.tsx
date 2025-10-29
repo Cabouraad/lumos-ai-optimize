@@ -271,7 +271,6 @@ export function PricingCard({
             )}
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <Badge variant="outline" className="text-xs py-0 px-2">Cancel Anytime</Badge>
-              <Badge variant="outline" className="text-xs py-0 px-2">30-Day Money-Back</Badge>
             </div>
           </div>
         )}

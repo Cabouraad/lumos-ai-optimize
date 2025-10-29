@@ -115,10 +115,6 @@ const Index = () => {
             </span>
             <span className="flex items-center gap-1">
               <CheckCircle className="w-4 h-4 text-primary" />
-              30-day money-back guarantee
-            </span>
-            <span className="flex items-center gap-1">
-              <CheckCircle className="w-4 h-4 text-primary" />
               Setup in 5 minutes
             </span>
           </div>
