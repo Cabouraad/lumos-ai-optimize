@@ -1,8 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { CheckCircle, TrendingUp, Award, PlayCircle, ExternalLink } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { CheckCircle, TrendingUp, Award } from 'lucide-react';
 
 export function ProofSection() {
   return (
@@ -143,45 +141,6 @@ export function ProofSection() {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Video Testimonial Placeholder */}
-        <Card className="max-w-3xl mx-auto shadow-elevated">
-          <CardContent className="p-8">
-            <div className="flex flex-col md:flex-row gap-6 items-center">
-              <div className="relative w-full md:w-48 h-48 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <PlayCircle className="w-16 h-16 text-primary" />
-                <Badge className="absolute top-3 right-3">2:34</Badge>
-              </div>
-              
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-3">
-                  "Llumos helped us dominate AI search in our category"
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Watch how Sarah Chen, CMO of TechFlow, transformed their AI visibility strategy and captured 3x more qualified leads through AI-powered search.
-                </p>
-                <Button variant="outline" asChild>
-                  <Link to="/resources">
-                    <PlayCircle className="w-4 h-4 mr-2" />
-                    Watch Full Story
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Media Mentions */}
-        <div className="mt-16 text-center">
-          <p className="text-sm text-muted-foreground mb-6">As featured in leading industry publications</p>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-60">
-            <div className="text-xl font-bold text-muted-foreground">TechCrunch</div>
-            <div className="text-xl font-bold text-muted-foreground">VentureBeat</div>
-            <div className="text-xl font-bold text-muted-foreground">Forbes</div>
-            <div className="text-xl font-bold text-muted-foreground">MarTech</div>
-            <div className="text-xl font-bold text-muted-foreground">Search Engine Journal</div>
-          </div>
         </div>
       </div>
     </section>
