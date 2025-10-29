@@ -539,30 +539,48 @@ Deno.serve(async (req) => {
     // Use Lovable AI to analyze content with brand-specific focus
     let businessContext: BusinessContext
     try {
-      const analysisPrompt = `Analyze this website content for "${orgData?.name || targetDomain}" and extract SPECIFIC business information about THIS brand.
+      const analysisPrompt = `You are analyzing the website ${targetDomain}${orgData?.name ? ` (${orgData.name})` : ''}.
 
-CRITICAL: Extract information that is UNIQUE and SPECIFIC to this business. Avoid generic terms.
+CRITICAL RULES:
+1. Extract ONLY information that is SPECIFIC and UNIQUE to THIS business
+2. NEVER use generic terms like "business solutions", "professional services", "quality", "innovation"
+3. NEVER use placeholders like "Your Business", "example.com", "businesses and professionals"
+4. Extract CONCRETE, SPECIFIC details about what this exact company does
 
 Website content:
 ${contentResult.content.substring(0, 12000)}
 
-Return ONLY a valid JSON object with this structure:
+Analyze the content and return a JSON object with:
+
+1. keywords (array): 6-10 SPECIFIC industry terms, product names, service types, or technical terms this business actually uses
+   - Example GOOD: ["skin care", "anti-aging serums", "LED face masks", "microneedling", "dermaplaning"]
+   - Example BAD: ["business", "solutions", "services", "quality", "innovation", "technology"]
+
+2. competitors (array): 3-6 ACTUAL competitor company names if mentioned, or specific industry leaders
+   - Example GOOD: ["The Ordinary", "CeraVe", "Paula's Choice"]
+   - Example BAD: ["other businesses", "competitors", "industry leaders"]
+   - If no specific competitors found, return empty array []
+
+3. business_description (string): 2-3 sentences describing EXACTLY what this business does, with specific details
+   - Example GOOD: "Skin Ashoba specializes in professional-grade skincare products and at-home beauty treatments. They offer LED therapy devices, microneedling tools, and clinical-strength serums for anti-aging and skin rejuvenation."
+   - Example BAD: "Your Business provides professional business solutions and services."
+
+4. products_services (string): Specific product names, service offerings, or categories they sell/provide
+   - Example GOOD: "LED face masks, derma rollers, vitamin C serums, retinol treatments, collagen boosters, microcurrent devices"
+   - Example BAD: "Professional services, Business solutions, Customer support"
+
+5. target_audience (string): WHO specifically buys from them (demographics, needs, problems they solve)
+   - Example GOOD: "Women aged 30-60 seeking professional-grade skincare solutions for wrinkles, fine lines, and skin aging at home"
+   - Example BAD: "Businesses and professionals seeking quality solutions"
+
+RESPOND WITH ONLY THE JSON OBJECT - NO MARKDOWN, NO EXPLANATIONS:
 {
-  "keywords": ["specific keyword 1", "specific keyword 2", ...],
-  "competitors": ["Actual Competitor Name 1", "Actual Competitor Name 2", ...],
-  "business_description": "What this specific business does",
-  "products_services": "Their specific products or services",
-  "target_audience": "Their specific target customers"
-}
-
-Guidelines:
-- Keywords: 6-10 SPECIFIC terms related to their actual industry, products, or unique services (not "business solutions")
-- Competitors: 3-6 ACTUAL competitor company names mentioned or implied (not generic terms like "other businesses")
-- Descriptions: Focus on CONCRETE business activities and specific offerings
-- Target audience: Describe their ACTUAL customer base with specifics
-- If unclear from content, make reasonable inferences based on industry context
-
-Return only the JSON object:`;
+  "keywords": [],
+  "competitors": [],
+  "business_description": "",
+  "products_services": "",
+  "target_audience": ""
+}`;
 
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -571,11 +589,11 @@ Return only the JSON object:`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-pro',
           messages: [
             {
               role: 'system',
-              content: 'You are a business analyst expert. Extract specific, brand-unique information. Always respond with valid JSON only. Be concrete and specific, never generic.'
+              content: 'You are an expert business analyst specializing in extracting specific, concrete business information from website content. You NEVER use generic terms or placeholders. You always provide detailed, brand-specific insights based on actual website content. Respond ONLY with valid JSON, no markdown formatting.'
             },
             {
               role: 'user',
@@ -583,7 +601,7 @@ Return only the JSON object:`;
             }
           ],
           response_format: { type: 'json_object' },
-          temperature: 0.3
+          temperature: 0.2
         })
       });
 
@@ -617,32 +635,78 @@ Return only the JSON object:`;
         throw new Error('Failed to parse AI response as JSON');
       }
 
-      // Extract and validate fields
+      // Extract and validate fields with strict quality checks
       const keywords = Array.isArray(parsed.keywords) ? 
         parsed.keywords
           .filter((k: any) => k && typeof k === 'string' && k.trim().length > 0)
           .map((k: string) => k.trim())
+          .filter((k: string) => {
+            // Filter out generic business keywords
+            const generic = ['business', 'solution', 'service', 'quality', 'innovation', 
+                           'professional', 'customer', 'technology', 'digital'];
+            const lower = k.toLowerCase();
+            return !generic.some(g => lower === g || lower === `${g}s`);
+          })
           .slice(0, 10) : [];
 
       const competitors = Array.isArray(parsed.competitors) ? 
         parsed.competitors
           .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
           .map((c: string) => c.trim())
+          .filter((c: string) => {
+            // Filter out generic competitor terms
+            const generic = ['competitor', 'business', 'company', 'industry', 'market'];
+            const lower = c.toLowerCase();
+            return !generic.some(g => lower.includes(g));
+          })
           .slice(0, 8) : [];
 
-      // Add meta keywords if AI didn't find enough
+      // Validate descriptions are not generic
+      const description = typeof parsed.business_description === 'string' ? parsed.business_description : '';
+      const products = typeof parsed.products_services === 'string' ? parsed.products_services : '';
+      const audience = typeof parsed.target_audience === 'string' ? parsed.target_audience : '';
+
+      // Check for generic content indicators
+      const hasGenericContent = 
+        description.includes('Your Business') || 
+        description.includes('example.com') ||
+        description.includes('provides professional business solutions') ||
+        products.includes('Professional services from') ||
+        audience.includes('Businesses and professionals seeking');
+
+      if (hasGenericContent) {
+        console.error('AI returned generic content, rejecting response');
+        throw new Error('AI analysis produced generic content instead of specific business information');
+      }
+
+      // Add meta keywords ONLY if we have few specific keywords
       let finalKeywords = keywords;
-      if (finalKeywords.length < 4 && metaKeywords.length > 0) {
+      if (finalKeywords.length < 3 && metaKeywords.length > 0) {
         finalKeywords = [...new Set([...finalKeywords, ...metaKeywords])].slice(0, 10);
+      }
+
+      // Require minimum quality threshold
+      if (finalKeywords.length < 2 || description.length < 50) {
+        console.error('AI analysis below quality threshold', {
+          keywordCount: finalKeywords.length,
+          descriptionLength: description.length
+        });
+        throw new Error('AI analysis did not extract sufficient business information');
       }
 
       businessContext = {
         keywords: finalKeywords,
         competitors,
-        business_description: typeof parsed.business_description === 'string' ? parsed.business_description : '',
-        products_services: typeof parsed.products_services === 'string' ? parsed.products_services : '',
-        target_audience: typeof parsed.target_audience === 'string' ? parsed.target_audience : ''
+        business_description: description,
+        products_services: products,
+        target_audience: audience
       };
+
+      console.log('✅ AI analysis passed quality checks:', {
+        keywordCount: finalKeywords.length,
+        competitorCount: competitors.length,
+        descriptionLength: description.length
+      });
 
     } catch (aiError: unknown) {
       const errorMsg = toErrorMessage(aiError);
