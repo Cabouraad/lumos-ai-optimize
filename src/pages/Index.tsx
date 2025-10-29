@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight, Star, Quote, BarChart3, Users, DollarSign } from 'lucide-react';
 import { ROICalculator } from '@/components/landing/ROICalculator';
 import { ComparisonTable } from '@/components/landing/ComparisonTable';
+import { ProofSection } from '@/components/landing/ProofSection';
+import { ExitIntentPopup } from '@/components/landing/ExitIntentPopup';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -44,6 +46,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-bg">
+      {/* Exit Intent Popup */}
+      <ExitIntentPopup />
+      
       {/* Sticky CTA Bar */}
       {showStickyBar && (
         <div className="fixed bottom-0 left-0 right-0 bg-primary shadow-elevated z-50 animate-fade-in">
@@ -80,32 +85,43 @@ const Index = () => {
       {/* Hero Section */}
       <section className="py-20 px-4 text-center relative overflow-hidden">
         <div className="container mx-auto max-w-5xl relative z-10">
-          <Badge className="mb-4 text-sm py-1 px-4 shadow-soft">
-            <Star className="w-3 h-3 mr-1 inline fill-current" />
-            Trusted by 500+ B2B Marketing Teams
-          </Badge>
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
+            <Badge className="text-sm py-1 px-4 shadow-soft">
+              <Star className="w-3 h-3 mr-1 inline fill-current" />
+              Trusted by 500+ B2B Marketing Teams
+            </Badge>
+            <Badge variant="secondary" className="text-sm py-1 px-4 shadow-soft">
+              🔥 New: Google AI Overviews Supported
+            </Badge>
+          </div>
+          
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in">
-            Track Your Brand's AI Search Visibility
+            Track Your Brand&apos;s AI Search Visibility
             <span className="text-primary block mt-2 bg-gradient-primary bg-clip-text text-transparent">Before Your Competitors Do</span>
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-3 max-w-3xl mx-auto leading-relaxed">
-            73% of B2B buyers research on AI platforms first. If your brand isn't showing up, you're invisible to your best prospects.
+          
+          <p className="text-xl md:text-2xl text-muted-foreground mb-3 max-w-3xl mx-auto leading-relaxed font-semibold">
+            73% of B2B buyers research on AI platforms first. 
+            <span className="text-destructive"> If your brand isn&apos;t showing up, you&apos;re invisible to your best prospects.</span>
           </p>
+          
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
             Monitor how ChatGPT, Gemini, and other AI platforms mention your brand. 
             Get real-time insights and actionable recommendations to dominate AI search results.
           </p>
+          
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
             <Button size="lg" asChild className="text-lg px-10 py-7 shadow-glow hover-lift">
-              <Link to="/auth">
-                Start 7-Day Free Trial
+              <Link to="/free-checker">
+                See Where Your Brand Ranks (Free)
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
             <Button variant="outline" size="lg" asChild className="text-lg px-10 py-7">
-              <Link to="/pricing">View Pricing</Link>
+              <Link to="/auth">Start 7-Day Free Trial</Link>
             </Button>
           </div>
+          
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <CheckCircle className="w-4 h-4 text-primary" />
@@ -120,12 +136,43 @@ const Index = () => {
               Setup in 5 minutes
             </span>
           </div>
+
+          {/* Social Proof Stats */}
+          <div className="mt-12 pt-8 border-t border-border/50">
+            <div className="flex flex-wrap justify-center items-center gap-8 text-sm">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">500+</div>
+                <div className="text-muted-foreground">Marketing Teams</div>
+              </div>
+              <div className="hidden sm:block w-px h-8 bg-border"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">10M+</div>
+                <div className="text-muted-foreground">AI Queries Tracked</div>
+              </div>
+              <div className="hidden sm:block w-px h-8 bg-border"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">4.9★</div>
+                <div className="text-muted-foreground">Customer Rating</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* Proof Section */}
+      <ProofSection />
 
       {/* Stats Section */}
       <section className="py-12 px-4 bg-card/50 backdrop-blur border-y">
         <div className="container mx-auto max-w-5xl">
+          <div className="text-center mb-8">
+            <Badge variant="secondary" className="mb-2">
+              🚀 Most Popular for B2B SaaS Companies
+            </Badge>
+            <p className="text-sm text-muted-foreground">
+              Join 500+ teams already dominating AI search
+            </p>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div className="animate-fade-in">
               <div className="text-4xl font-bold text-primary mb-2">500+</div>
