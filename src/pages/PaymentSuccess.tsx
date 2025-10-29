@@ -59,7 +59,7 @@ export default function PaymentSuccess() {
 
           if (userData?.org_id) {
             // User already has org, just verify subscription and proceed
-            setStatusMessage('Verifying your subscription...');
+            setStatusMessage('Verifying your subscription... This may take up to 60 seconds.');
             const hasAccess = await verifySubscriptionAccess();
             
             if (hasAccess) {
@@ -67,16 +67,15 @@ export default function PaymentSuccess() {
               setLoading(false);
               setTimeout(() => navigate('/dashboard'), 2000);
               return;
+            } else {
+              // Subscription verification failed - don't redirect, show error
+              throw new Error('Unable to verify subscription. Your payment was successful, but activation is delayed.');
             }
           }
         }
 
-        // No org and no sessionStorage - prompt manual setup
-        setStatusMessage('Almost there! Please complete your organization setup.');
-        setLoading(false);
-        toast.error('Please complete your organization information');
-        setTimeout(() => navigate('/onboarding'), 2000);
-        return;
+        // No org and no sessionStorage - show error, don't redirect
+        throw new Error('Payment successful, but setup data was lost. Please contact support or try manual setup.');
       }
 
       const onboardingData = JSON.parse(onboardingDataStr);
@@ -138,12 +137,12 @@ export default function PaymentSuccess() {
         console.log('[PaymentSuccess] Organization already exists');
       }
 
-      // Step 5: Verify subscription access with retry logic
-      setStatusMessage('Verifying your subscription...');
+      // Step 5: Verify subscription access with retry logic (up to 60 seconds)
+      setStatusMessage('Verifying your subscription... This may take up to 60 seconds.');
       const hasAccess = await verifySubscriptionAccess();
 
       if (!hasAccess) {
-        throw new Error('Subscription verification failed');
+        throw new Error('Payment processed successfully, but subscription activation is delayed. Please wait a moment and try refreshing.');
       }
 
       // Step 6: Clean up sessionStorage
@@ -164,15 +163,18 @@ export default function PaymentSuccess() {
       console.error('[PaymentSuccess] Setup failed:', error);
       setRetryError(true);
       setLoading(false);
-      setStatusMessage('Setup failed. Please try again.');
-      toast.error(error.message || 'Failed to complete setup');
+      setStatusMessage(error.message || 'Setup encountered an issue. Your payment was successful.');
+      toast.error(error.message || 'Failed to complete setup', { duration: 5000 });
     }
   };
 
-  const verifySubscriptionAccess = async (retries = 3): Promise<boolean> => {
+  const verifySubscriptionAccess = async (retries = 15): Promise<boolean> => {
     for (let i = 0; i < retries; i++) {
       try {
         console.log(`[PaymentSuccess] Verifying subscription access (attempt ${i + 1}/${retries})`);
+        
+        // Refresh subscription data from provider
+        await refreshUserData();
         
         const { data: subData, error: subError } = await supabase.functions.invoke('check-subscription');
         
@@ -181,9 +183,9 @@ export default function PaymentSuccess() {
           return true;
         }
 
-        // Wait before retry (exponential backoff)
+        // Wait before retry (start with 2s, increase to 4s after 5 tries)
         if (i < retries - 1) {
-          const delay = Math.min(1000 * Math.pow(2, i), 5000);
+          const delay = i < 5 ? 2000 : 4000;
           console.log(`[PaymentSuccess] Waiting ${delay}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -191,6 +193,10 @@ export default function PaymentSuccess() {
         console.error(`[PaymentSuccess] Verification attempt ${i + 1} failed:`, error);
         if (i === retries - 1) {
           return false;
+        }
+        // Wait 3 seconds on error before retry
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
     }
@@ -233,18 +239,23 @@ export default function PaymentSuccess() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground text-center">
-              {statusMessage}
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center">
+                {statusMessage}
+              </p>
+            </div>
+            <p className="text-xs text-center text-muted-foreground">
+              Stripe webhooks can take 30-60 seconds to process. Your payment was successful.
             </p>
             <Button onClick={setupSubscription} className="w-full">
-              Try Again
+              Retry Verification
             </Button>
             <Button 
-              onClick={() => navigate('/onboarding')} 
+              onClick={() => navigate('/dashboard')} 
               variant="outline" 
               className="w-full"
             >
-              Complete Setup Manually
+              Go to Dashboard
             </Button>
           </CardContent>
         </Card>
