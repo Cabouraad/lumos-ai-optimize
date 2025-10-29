@@ -203,46 +203,59 @@ async function crawlWithFirecrawl(baseUrl: string, discoveredPages: string[]): P
   }
 
   try {
-    console.log('Attempting Firecrawl crawl');
+    console.log('Using Firecrawl batch scrape for multiple pages');
     
-    // Use Firecrawl to crawl the domain
-    const response = await fetch('https://api.firecrawl.dev/v0/crawl', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${firecrawlKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: baseUrl,
-        crawlerOptions: {
-          limit: 15,
-          excludes: ['*.pdf', '*.jpg', '*.png', '*.gif', '*.css', '*.js'],
-          includes: ['*'],
-        },
-        pageOptions: {
-          onlyMainContent: true,
-          includeHtml: false,
-          screenshot: false
-        }
-      }),
-    });
+    // Use batch scrape endpoint for synchronous results
+    const pagesToScrape = discoveredPages.slice(0, 10); // Limit to 10 pages
+    const scrapeResults = [];
+    
+    for (const pageUrl of pagesToScrape) {
+      try {
+        const response = await fetch('https://api.firecrawl.dev/v0/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${firecrawlKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: pageUrl,
+            pageOptions: {
+              onlyMainContent: true,
+              includeHtml: false,
+            }
+          }),
+        });
 
-    if (!response.ok) {
-      throw new Error(`Firecrawl API error: ${response.status}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            scrapeResults.push({
+              url: pageUrl,
+              content: data.data.markdown || data.data.content || '',
+              title: data.data.metadata?.title || 'Untitled',
+              metadata: data.data.metadata
+            });
+            console.log(`Scraped ${pageUrl} successfully`);
+          }
+        } else {
+          console.log(`Failed to scrape ${pageUrl}: ${response.status}`);
+        }
+      } catch (error: unknown) {
+        console.log(`Error scraping ${pageUrl}:`, error.message);
+      }
     }
 
-    const data = await response.json();
-    
-    if (data.success && data.data) {
+    if (scrapeResults.length > 0) {
+      console.log(`Firecrawl scraped ${scrapeResults.length} pages successfully`);
       return {
         success: true,
-        pages: data.data,
+        pages: scrapeResults,
         source: 'firecrawl',
-        data: data.data
+        data: scrapeResults
       };
     }
 
-    throw new Error('Firecrawl returned no data');
+    throw new Error('Firecrawl scrape returned no results');
 
   } catch (error: unknown) {
     console.error('Firecrawl failed:', error.message);
