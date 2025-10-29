@@ -57,6 +57,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoVerifiedOnce, setAutoVerifiedOnce] = useState(false);
 
   const fetchSubscriptionData = useCallback(async () => {
     if (!user) {
@@ -187,6 +188,24 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
      new Date(subscriptionData.trial_expires_at) > new Date() &&
      subscriptionData.payment_collected)
   ) : false;
+
+  // Auto-verify once for users who completed checkout but are still locked out
+  useEffect(() => {
+    const run = async () => {
+      try {
+        console.log('[SubscriptionProvider] Auto-verifying subscription via edge function');
+        await supabase.functions.invoke('check-subscription');
+        await fetchSubscriptionData();
+      } catch (e) {
+        console.error('[SubscriptionProvider] Auto verification failed', e);
+      }
+    };
+
+    if (ready && user && !loading && !hasAccess && !autoVerifiedOnce) {
+      setAutoVerifiedOnce(true);
+      run();
+    }
+  }, [ready, user, loading, hasAccess, autoVerifiedOnce, fetchSubscriptionData]);
 
   const value: SubscriptionContextType = {
     subscriptionData,
