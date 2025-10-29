@@ -182,11 +182,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   }, [ready, fetchSubscriptionData]);
 
   // Calculate access level
+  // SECURITY: ALWAYS require payment_collected for any access (trial or paid)
   const hasAccess = subscriptionData ? (
-    subscriptionData.subscribed ||
+    // Paid subscription: must be subscribed AND have payment collected
+    (subscriptionData.subscribed && subscriptionData.payment_collected === true) ||
+    // Active trial: must have valid trial date AND payment method on file
     (subscriptionData.trial_expires_at &&
-      new Date(subscriptionData.trial_expires_at) > new Date()) ||
-    (subscriptionData.subscription_tier && subscriptionData.subscription_tier !== 'free')
+      new Date(subscriptionData.trial_expires_at) > new Date() &&
+      subscriptionData.payment_collected === true)
   ) : false;
 
   // Auto-verify once for users who completed checkout but are still locked out

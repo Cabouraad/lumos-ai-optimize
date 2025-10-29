@@ -12,6 +12,7 @@ import {
   createErrorResponse, 
   ErrorCode 
 } from '../_shared/error-responses.ts';
+import { validateSubscription, createSubscriptionErrorResponse } from '../_shared/subscription-validator.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
@@ -29,11 +30,34 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client with user's JWT
+    // SECURITY: Validate subscription BEFORE any business logic
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization');
+    
+    const subscriptionValidation = await validateSubscription(
+      authHeader,
+      supabaseUrl,
+      supabaseServiceKey
+    );
+    
+    if (!subscriptionValidation.valid) {
+      console.warn('[SECURITY] Subscription validation failed:', {
+        reason: subscriptionValidation.reason,
+        userId: subscriptionValidation.userId
+      });
+      return createSubscriptionErrorResponse(subscriptionValidation, corsHeaders);
+    }
+    
+    console.log('[SECURITY] Subscription validated:', {
+      tier: subscriptionValidation.tier,
+      userId: subscriptionValidation.userId
+    });
+
+    // Initialize Supabase client with user's JWT
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: req.headers.get('Authorization')! } }
+      global: { headers: { Authorization: authHeader! } }
     });
 
     // Verify authentication and get user's org ID (ignore orgId from request for security)

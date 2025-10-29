@@ -212,13 +212,14 @@ async function handleSubscriptionCancellation(
     metadata: { subscriptionId: subscription.id }
   });
 
-  // Update subscription to mark as cancelled and revoke tier access
+  // SECURITY: Revoke all access immediately on cancellation
   await supabaseClient
     .from("subscribers")
     .update({
       subscribed: false,
       subscription_tier: 'free',
       subscription_end: new Date().toISOString(),
+      payment_collected: false, // CRITICAL: Revoke payment status to block all access
       updated_at: new Date().toISOString()
     })
     .eq("stripe_subscription_id", subscription.id);

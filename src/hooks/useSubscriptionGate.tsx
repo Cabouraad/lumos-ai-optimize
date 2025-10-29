@@ -27,8 +27,10 @@ export interface TierLimits {
 export function useSubscriptionGate() {
   const { subscriptionData, loading: authLoading } = useAuth();
   
-  // BYPASS LOGIC: Check for bypass metadata and enforce Starter entitlements
-  const isBypassUser = subscriptionData?.metadata?.source === "bypass";
+  // SECURITY: Bypass is controlled server-side only via subscribers table
+  // Client cannot set this flag - it's managed by admin-only edge functions
+  const isBypassUser = subscriptionData?.metadata?.source === "bypass" && 
+    subscriptionData?.payment_collected === true; // Still require payment flag even for bypass
   
   // For trial users without explicit tier, default to 'starter'
   // This ensures trial users get proper Starter tier limits (25 prompts)
