@@ -359,10 +359,10 @@ const Resources = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" asChild>
-                <Link to="/auth">Start Free Trial</Link>
+                <Link to="/auth">Put Insights Into Action - Start Free Trial</Link>
               </Button>
               <Button variant="outline" size="lg" asChild>
-                <Link to="/pricing">View Pricing</Link>
+                <Link to="/free-checker">Get Free Visibility Report</Link>
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-4">

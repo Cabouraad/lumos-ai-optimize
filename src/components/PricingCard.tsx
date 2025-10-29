@@ -242,8 +242,10 @@ export function PricingCard({
             : isCurrentTier
             ? 'Current Plan'
             : tier === 'starter'
-            ? 'Start 7-Day Free Trial'
-            : `Subscribe to ${title}`
+            ? 'Start 7-Day Free Trial (No Charge Now)'
+            : tier === 'growth'
+            ? 'Start Free Trial'
+            : 'Book a Demo'
           }
         </Button>
         
@@ -266,12 +268,20 @@ export function PricingCard({
           <div className="w-full space-y-1">
             {tier === 'starter' && (
               <p className="text-xs text-muted-foreground text-center">
-                No charge until trial ends
+                Payment method required • No charge until trial ends
               </p>
             )}
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="text-xs py-0 px-2">Cancel Anytime</Badge>
-            </div>
+            {tier !== 'pro' && (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="outline" className="text-xs py-0 px-2">Cancel Anytime</Badge>
+                <Badge variant="outline" className="text-xs py-0 px-2">Money-Back Guarantee</Badge>
+              </div>
+            )}
+            {tier === 'pro' && (
+              <p className="text-xs text-muted-foreground text-center">
+                Schedule a call to discuss your needs
+              </p>
+            )}
           </div>
         )}
       </CardFooter>

@@ -61,12 +61,17 @@ const Features = () => {
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
             Everything you need to monitor, analyze, and optimize your brand's presence across all major AI platforms - in one unified dashboard.
           </p>
-          <Button size="lg" asChild className="shadow-glow hover-lift">
-            <Link to="/auth">
-              Start Free Trial
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" asChild className="shadow-glow hover-lift">
+              <Link to="/free-checker">
+                See How It Works - Free Report
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link to="/auth">Start 7-Day Free Trial</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
