@@ -183,16 +183,9 @@ const Index = () => {
             <Badge variant="secondary" className="mb-2">
               🚀 Most Popular for B2B SaaS Companies
             </Badge>
-            <p className="text-sm text-muted-foreground">
-              Join 500+ teams already dominating AI search
-            </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-8 text-center">
             <div className="animate-fade-in">
-              <div className="text-4xl font-bold text-primary mb-2">500+</div>
-              <div className="text-sm text-muted-foreground">Active Clients</div>
-            </div>
-            <div className="animate-fade-in" style={{animationDelay: '0.1s'}}>
               <div className="text-4xl font-bold text-primary mb-2">10M+</div>
               <div className="text-sm text-muted-foreground">AI Queries Tracked</div>
             </div>
