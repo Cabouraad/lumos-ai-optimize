@@ -93,7 +93,7 @@ const Index = () => {
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
             <Badge className="text-sm py-1 px-4 shadow-soft">
               <Star className="w-3 h-3 mr-1 inline fill-current" />
-              Trusted by 500+ B2B Marketing Teams
+              Trusted B2B Marketing Teams and Agencies
             </Badge>
             <Badge variant="secondary" className="text-sm py-1 px-4 shadow-soft">
               🔥 New: Google AI Overviews Supported
@@ -150,8 +150,8 @@ const Index = () => {
           <div className="mt-12 pt-8 border-t border-border/50">
             <div className="flex flex-wrap justify-center items-center gap-8 text-sm">
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">500+</div>
-                <div className="text-muted-foreground">Marketing Teams</div>
+                <div className="text-2xl font-bold text-primary">47%</div>
+                <div className="text-muted-foreground">Avg. Visibility Increase</div>
               </div>
               <div className="hidden sm:block w-px h-8 bg-border"></div>
               <div className="text-center">
