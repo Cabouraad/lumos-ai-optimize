@@ -71,6 +71,29 @@ export function ProofSection() {
                   </div>
                 </div>
               </div>
+              
+              {/* Additional Feature Highlight */}
+              <div className="p-6 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Historical Trends</p>
+                    <p className="text-xs text-muted-foreground">Track your score changes over time</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                    <BarChart3 className="w-4 h-4 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Competitor Analysis</p>
+                    <p className="text-xs text-muted-foreground">See where you rank vs competitors</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="p-4 bg-muted/30">
                 <p className="text-sm text-center text-muted-foreground">
                   Real-time tracking across all major AI platforms
