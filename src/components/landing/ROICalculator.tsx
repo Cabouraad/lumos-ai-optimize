@@ -164,25 +164,22 @@ export function ROICalculator() {
               </CardContent>
             </Card>
 
-            <Card className="bg-primary text-primary-foreground shadow-elevated">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-xl font-bold mb-2">
-                  {showResults ? 'Ready to Capture This Revenue?' : 'See Your Full Potential'}
-                </h3>
-                <p className="text-sm mb-4 opacity-90">
-                  {showResults 
-                    ? 'Track and optimize your AI search visibility to stop losing customers'
-                    : 'Get your Llumos Score and discover how to dominate AI search results'
-                  }
-                </p>
-                <Button variant="secondary" size="lg" asChild className="w-full">
-                  <Link to="/auth">
-                    {showResults ? 'Start Free Trial' : 'Get Your Free Score'}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+            {showResults && (
+              <Card className="bg-primary text-primary-foreground shadow-elevated">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-xl font-bold mb-2">Ready to Capture This Revenue?</h3>
+                  <p className="text-sm mb-4 opacity-90">
+                    Track and optimize your AI search visibility to stop losing customers
+                  </p>
+                  <Button variant="secondary" size="lg" asChild className="w-full">
+                    <Link to="/auth">
+                      Start Free Trial
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
