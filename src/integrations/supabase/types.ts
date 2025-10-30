@@ -412,6 +412,33 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          processed: boolean
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          processed?: boolean
+          source: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          processed?: boolean
+          source?: string
+        }
+        Relationships: []
+      }
       llm_providers: {
         Row: {
           enabled: boolean

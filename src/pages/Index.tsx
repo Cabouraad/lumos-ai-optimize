@@ -9,8 +9,9 @@ import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight
 import { ROICalculator } from '@/components/landing/ROICalculator';
 import { ComparisonTable } from '@/components/landing/ComparisonTable';
 import { LlumosScoreChecker } from '@/components/home/LlumosScoreChecker';
+import { ExitIntentPopup } from '@/components/home/ExitIntentPopup';
+import { LinkedInPixel } from '@/components/tracking/LinkedInPixel';
 import { ProofSection } from '@/components/landing/ProofSection';
-import { ExitIntentPopup } from '@/components/landing/ExitIntentPopup';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -408,6 +409,12 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Exit Intent Popup */}
+      <ExitIntentPopup />
+
+      {/* LinkedIn Retargeting Pixel - Add your Partner ID here */}
+      {/* <LinkedInPixel partnerId="YOUR_LINKEDIN_PARTNER_ID" /> */}
     </div>
   );
 };
