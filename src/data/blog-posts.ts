@@ -1125,8 +1125,8 @@ The goal isn't to achieve perfect AI visibility immediately – it's to understa
     keywords: "Google AI Overviews, SGE optimization, Google SGE, AI search results, Google AI search, AI overview optimization",
     category: "AI Search",
     tags: ["Google AI", "AI SEO", "Search Optimization"],
-    publishedAt: "2024-03-20T09:00:00Z",
-    updatedAt: "2024-03-20T09:00:00Z",
+    publishedAt: "2025-01-30T09:00:00Z",
+    updatedAt: "2025-01-30T09:00:00Z",
     readTime: 11,
     featured: true,
     content: `# Google AI Overviews: Complete Optimization Guide for 2025
@@ -1420,8 +1420,8 @@ Stop optimizing for search engines. Start optimizing for being the best answer t
     keywords: "ChatGPT vs Perplexity, Claude AI search, AI platform comparison, AI visibility strategy, multi-platform AI optimization",
     category: "AI Search",
     tags: ["Platform Comparison", "AI SEO", "Strategy"],
-    publishedAt: "2024-03-18T11:30:00Z",
-    updatedAt: "2024-03-18T11:30:00Z",
+    publishedAt: "2025-01-28T11:30:00Z",
+    updatedAt: "2025-01-28T11:30:00Z",
     readTime: 12,
     featured: true,
     content: `# ChatGPT vs Perplexity vs Claude: Which AI Platform Matters Most for Your Brand?
@@ -1733,8 +1733,8 @@ Start with the platforms that matter most for your business, nail the fundamenta
     keywords: "AI search competitor analysis, competitive intelligence AI, brand visibility competitors, AI search benchmarking, competitor tracking",
     category: "Competitive Intelligence",
     tags: ["Competitor Analysis", "Strategy", "AI Monitoring"],
-    publishedAt: "2024-03-12T13:15:00Z",
-    updatedAt: "2024-03-12T13:15:00Z",
+    publishedAt: "2025-01-25T13:15:00Z",
+    updatedAt: "2025-01-25T13:15:00Z",
     readTime: 10,
     content: `# AI Search Competitor Analysis: Track Who's Winning and Why
 
@@ -2046,8 +2046,8 @@ The brands winning in AI search aren't necessarily the biggest or most establish
     keywords: "AI content strategy, AI search content planning, ChatGPT content optimization, AI-first content marketing, conversational content strategy",
     category: "Content Strategy",
     tags: ["Content Marketing", "Strategy", "AI SEO"],
-    publishedAt: "2024-03-08T10:45:00Z",
-    updatedAt: "2024-03-08T10:45:00Z",
+    publishedAt: "2025-01-22T10:45:00Z",
+    updatedAt: "2025-01-22T10:45:00Z",
     readTime: 13,
     content: `# Building an AI-First Content Strategy: From Planning to Execution
 
@@ -2403,8 +2403,8 @@ Stop creating content for search engines. Start creating content that makes AI a
     keywords: "local business AI search, local AI SEO, Google AI local, ChatGPT local business, local search optimization AI",
     category: "Local SEO",
     tags: ["Local Business", "AI SEO", "Google AI"],
-    publishedAt: "2024-03-05T14:20:00Z",
-    updatedAt: "2024-03-05T14:20:00Z",
+    publishedAt: "2025-01-20T14:20:00Z",
+    updatedAt: "2025-01-20T14:20:00Z",
     readTime: 9,
     content: `# Local Business AI Search: How to Dominate Local AI Queries
 
