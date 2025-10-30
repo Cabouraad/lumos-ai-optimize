@@ -11,11 +11,14 @@ import { ComparisonTable } from '@/components/landing/ComparisonTable';
 import { LlumosScoreChecker } from '@/components/home/LlumosScoreChecker';
 import { ExitIntentPopup } from '@/components/home/ExitIntentPopup';
 import { LinkedInPixel } from '@/components/tracking/LinkedInPixel';
+import { GoogleAnalytics } from '@/components/tracking/GoogleAnalytics';
 import { ProofSection } from '@/components/landing/ProofSection';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const { trackCtaClick } = useAnalytics();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -110,11 +113,20 @@ const Index = () => {
             <Button 
               size="lg" 
               className="text-lg px-10 py-7 shadow-glow hover-lift"
-              onClick={() => document.getElementById('proof-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              onClick={() => {
+                trackCtaClick('hero_check_score');
+                document.getElementById('proof-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
             >
               Check Your Llumos Score Free →
             </Button>
-            <Button variant="outline" size="lg" asChild className="text-lg px-10 py-7">
+            <Button 
+              variant="outline" 
+              size="lg" 
+              asChild 
+              className="text-lg px-10 py-7"
+              onClick={() => trackCtaClick('hero_start_trial')}
+            >
               <Link to="/auth">Start 7-Day Free Trial</Link>
             </Button>
           </div>
@@ -412,6 +424,9 @@ const Index = () => {
 
       {/* Exit Intent Popup */}
       <ExitIntentPopup />
+
+      {/* Google Analytics - Add your GA4 Measurement ID here */}
+      {/* <GoogleAnalytics measurementId="G-XXXXXXXXXX" /> */}
 
       {/* LinkedIn Retargeting Pixel - Add your Partner ID here */}
       {/* <LinkedInPixel partnerId="YOUR_LINKEDIN_PARTNER_ID" /> */}

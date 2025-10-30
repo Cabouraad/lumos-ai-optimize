@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePasswordStrength } from '@/hooks/usePasswordStrength';
 import { PasswordStrengthMeter } from '@/components/ui/password-strength';
 import { Search } from 'lucide-react';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 export default function Auth() {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const { trackSignupBegin, trackSignupSuccess } = useAnalytics();
   
   // Password strength analysis for sign-up
   const { strength: passwordStrength, loading: strengthLoading } = usePasswordStrength(
@@ -49,6 +51,9 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     
+    // Track signup begin
+    trackSignupBegin('email');
+    
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -64,6 +69,9 @@ export default function Auth() {
         variant: "destructive",
       });
     } else {
+      // Track signup success
+      trackSignupSuccess('email');
+      
       toast({
         title: "Success",
         description: "Check your email for the confirmation link!",

@@ -6,6 +6,7 @@ import { ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { getScoreColor } from '@/hooks/useLlumosScore';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface DemoScoreResponse {
   score: number;
@@ -21,6 +22,7 @@ export function LlumosScoreChecker() {
   const [isLoading, setIsLoading] = useState(false);
   const [scoreData, setScoreData] = useState<DemoScoreResponse | null>(null);
   const [error, setError] = useState('');
+  const { trackScoreCheck } = useAnalytics();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +44,9 @@ export function LlumosScoreChecker() {
       if (invokeError) throw invokeError;
       
       setScoreData(data as DemoScoreResponse);
+      
+      // Track the score check event
+      trackScoreCheck(domain.trim());
     } catch (err) {
       console.error('Error fetching demo score:', err);
       setError('Failed to calculate score. Please try again.');

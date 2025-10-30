@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 
@@ -14,6 +15,7 @@ export function ExitIntentPopup() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const { trackEvent } = useAnalytics();
 
   useEffect(() => {
     // Check if user has already seen the popup in this session
@@ -80,6 +82,9 @@ export function ExitIntentPopup() {
       if (insertError) throw insertError;
 
       setIsSubmitted(true);
+      
+      // Track lead capture event
+      trackEvent('exit_popup_lead_captured', { email: email.trim().toLowerCase() });
       
       // Track LinkedIn conversion event if pixel is loaded
       if (typeof window !== 'undefined' && (window as any).lintrk) {
