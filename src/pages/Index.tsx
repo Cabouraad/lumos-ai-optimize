@@ -352,7 +352,7 @@ const Index = () => {
             Ready to Dominate AI Search Results?
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Join 500+ companies already winning in the AI search era
+            Optimize your brand for the AI search era
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
             <Button size="lg" variant="secondary" asChild className="text-lg px-10 py-7 shadow-elevated">
@@ -374,7 +374,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-12 px-4 border-t bg-background">
         <div className="container mx-auto max-w-6xl">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid md:grid-cols-3 gap-8 mb-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <Search className="w-6 h-6 text-primary" />
@@ -393,19 +393,10 @@ const Index = () => {
               </div>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 text-foreground">Company</h4>
-              <div className="space-y-2 text-sm">
-                <a href="#" className="block text-muted-foreground hover:text-foreground">About</a>
-                <a href="#" className="block text-muted-foreground hover:text-foreground">Blog</a>
-                <a href="#" className="block text-muted-foreground hover:text-foreground">Careers</a>
-              </div>
-            </div>
-            <div>
               <h4 className="font-semibold mb-3 text-foreground">Legal</h4>
               <div className="space-y-2 text-sm">
                 <a href="#" className="block text-muted-foreground hover:text-foreground">Privacy</a>
                 <a href="#" className="block text-muted-foreground hover:text-foreground">Terms</a>
-                <a href="#" className="block text-muted-foreground hover:text-foreground">Security</a>
               </div>
             </div>
           </div>
