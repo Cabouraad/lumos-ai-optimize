@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { EdgeFunctionClient } from '@/lib/edge-functions/client';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/Logo';
@@ -288,88 +289,88 @@ export default function Pricing() {
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
           
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Do you offer a free trial?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Yes! The Starter plan includes a 7-day free trial. You'll need to provide a payment method, but you won't be charged until your trial period ends. You can cancel anytime during the trial at no cost.</p>
-              </CardContent>
-            </Card>
+          <Accordion type="single" collapsible className="w-full space-y-2">
+            <AccordionItem value="item-1" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                Do you offer a free trial?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes! The Starter plan includes a 7-day free trial. You'll need to provide a payment method, but you won't be charged until your trial period ends. You can cancel anytime during the trial at no cost.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Is there a free plan?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>We don't offer a free tier to ensure we can provide the best AI search visibility tracking experience. However, our Starter plan includes a 7-day free trial so you can fully evaluate our platform risk-free.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-2" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                Is there a free plan?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                We don't offer a free tier to ensure we can provide the best AI search visibility tracking experience. However, our Starter plan includes a 7-day free trial so you can fully evaluate our platform risk-free.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Can I change plans anytime?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Yes! You can upgrade or downgrade your plan at any time. Changes take effect at your next billing cycle, and you'll receive prorated credits for any unused time.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-3" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                Can I change plans anytime?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes! You can upgrade or downgrade your plan at any time. Changes take effect at your next billing cycle, and you'll receive prorated credits for any unused time.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">What AI providers do you support?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>We currently support OpenAI (ChatGPT), Perplexity AI, Google Gemini, and Google AI Overviews. Starter plans include 2 providers (OpenAI + Perplexity), while Growth and Pro plans include all 4 providers.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-4" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                What AI providers do you support?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                We currently support OpenAI (ChatGPT), Perplexity AI, Google Gemini, and Google AI Overviews. Starter plans include 2 providers (OpenAI + Perplexity), while Growth and Pro plans include all 4 providers.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Is domain locking included in all plans?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Yes, all plans include domain verification and locking to ensure your subscription is tied to your verified domain and prevent unauthorized usage.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-5" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                Is domain locking included in all plans?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes, all plans include domain verification and locking to ensure your subscription is tied to your verified domain and prevent unauthorized usage.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">How do I cancel my subscription?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>You can cancel anytime from your account settings. If you cancel during your trial, you won't be charged at all. If you cancel after your trial, you'll retain access until the end of your current billing period.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-6" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                How do I cancel my subscription?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                You can cancel anytime from your account settings. If you cancel during your trial, you won't be charged at all. If you cancel after your trial, you'll retain access until the end of your current billing period.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Do you offer refunds?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Refunds are handled on a case-by-case basis. If you experience issues with our service, please contact support and we'll work with you to find a solution.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-7" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                Do you offer refunds?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Refunds are handled on a case-by-case basis. If you experience issues with our service, please contact support and we'll work with you to find a solution.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">What payment methods do you accept?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>We accept all major credit cards (Visa, MasterCard, American Express, Discover) through our secure payment processor Stripe. All transactions are encrypted and PCI-compliant.</p>
-              </CardContent>
-            </Card>
+            <AccordionItem value="item-8" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                What payment methods do you accept?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                We accept all major credit cards (Visa, MasterCard, American Express, Discover) through our secure payment processor Stripe. All transactions are encrypted and PCI-compliant.
+              </AccordionContent>
+            </AccordionItem>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">How long does setup take?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Setup is incredibly fast! Most users are fully set up and tracking their first queries within 5 minutes. Our onboarding wizard guides you through brand verification, selecting prompts to track, and adding competitors. No technical knowledge required.</p>
-              </CardContent>
-            </Card>
-          </div>
+            <AccordionItem value="item-9" className="border rounded-lg px-6 bg-card">
+              <AccordionTrigger className="text-left hover:no-underline">
+                How long does setup take?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Setup is incredibly fast! Most users are fully set up and tracking their first queries within 5 minutes. Our onboarding wizard guides you through brand verification, selecting prompts to track, and adding competitors. No technical knowledge required.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
 
         {/* Dev Tools */}
