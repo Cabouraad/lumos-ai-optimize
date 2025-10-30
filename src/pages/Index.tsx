@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Search, Target, TrendingUp, Zap, Shield, Clock, ArrowRight, Star, Quote, BarChart3, Users, DollarSign } from 'lucide-react';
 import { ROICalculator } from '@/components/landing/ROICalculator';
 import { ComparisonTable } from '@/components/landing/ComparisonTable';
+import { LlumosScoreChecker } from '@/components/home/LlumosScoreChecker';
 import { ProofSection } from '@/components/landing/ProofSection';
 import { ExitIntentPopup } from '@/components/landing/ExitIntentPopup';
 
@@ -153,6 +154,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Score Checker Section */}
+      <LlumosScoreChecker />
 
       {/* Proof Section */}
       <div id="proof-section">

@@ -192,6 +192,12 @@ verify_jwt = false
 [functions.compute-llumos-score]
 verify_jwt = false
 
+[functions.get-llumos-score-demo]
+verify_jwt = false
+
+[functions.analyze-free-checker]
+verify_jwt = false
+
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===
