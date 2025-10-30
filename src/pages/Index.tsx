@@ -96,26 +96,21 @@ const Index = () => {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in">
-            Track Your Brand&apos;s AI Search Visibility
-            <span className="text-primary block mt-2 bg-gradient-primary bg-clip-text text-transparent">Before Your Competitors Do</span>
+            AI is rewriting search.
+            <span className="text-primary block mt-2 bg-gradient-primary bg-clip-text text-transparent">Is your brand being mentioned?</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-muted-foreground mb-3 max-w-3xl mx-auto leading-relaxed font-semibold">
-            73% of B2B buyers research on AI platforms first. 
-            <span className="text-destructive"> If your brand isn&apos;t showing up, you&apos;re invisible to your best prospects.</span>
-          </p>
-          
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Monitor how ChatGPT, Gemini, and other AI platforms mention your brand. 
-            Get real-time insights and actionable recommendations to dominate AI search results.
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
+            Monitor and grow your brand's visibility on ChatGPT, Gemini, and Perplexity — without breaking your budget.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
-            <Button size="lg" asChild className="text-lg px-10 py-7 shadow-glow hover-lift">
-              <Link to="/free-checker">
-                See Where Your Brand Ranks (Free)
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
+            <Button 
+              size="lg" 
+              className="text-lg px-10 py-7 shadow-glow hover-lift"
+              onClick={() => document.getElementById('proof-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            >
+              Check Your Llumos Score Free →
             </Button>
             <Button variant="outline" size="lg" asChild className="text-lg px-10 py-7">
               <Link to="/auth">Start 7-Day Free Trial</Link>
@@ -160,7 +155,9 @@ const Index = () => {
       </section>
 
       {/* Proof Section */}
-      <ProofSection />
+      <div id="proof-section">
+        <ProofSection />
+      </div>
 
       {/* Stats Section */}
       <section className="py-12 px-4 bg-card/50 backdrop-blur border-y">
