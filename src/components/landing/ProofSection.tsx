@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Award, BarChart3, ArrowRight } from 'lucide-react';
+import { TrendingUp, Award, BarChart3, ArrowRight, Bell, Target, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function ProofSection() {
@@ -72,7 +72,7 @@ export function ProofSection() {
                 </div>
               </div>
               
-              {/* Additional Feature Highlight */}
+              {/* Additional Feature Highlights */}
               <div className="p-6 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -90,6 +90,33 @@ export function ProofSection() {
                   <div>
                     <p className="font-semibold text-sm">Competitor Analysis</p>
                     <p className="text-xs text-muted-foreground">See where you rank vs competitors</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                    <Target className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Citation Tracking</p>
+                    <p className="text-xs text-muted-foreground">Monitor every mention across AI platforms</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Bell className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Smart Alerts</p>
+                    <p className="text-xs text-muted-foreground">Get notified when your ranking changes</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                    <Zap className="w-4 h-4 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Actionable Insights</p>
+                    <p className="text-xs text-muted-foreground">Get specific recommendations to improve your score</p>
                   </div>
                 </div>
               </div>
