@@ -15,6 +15,10 @@ interface DemoScoreResponse {
   domain: string;
   isDemo: boolean;
   message: string;
+  insights?: {
+    strengths: string[];
+    improvements: string[];
+  };
 }
 
 export function LlumosScoreChecker() {
@@ -148,6 +152,32 @@ export function LlumosScoreChecker() {
                   <div className="text-center mb-6">
                     <p className="text-lg font-medium mb-1">{scoreData.domain}</p>
                     <p className="text-sm text-muted-foreground">{scoreData.message}</p>
+                    
+                    {/* Display insights if available */}
+                    {scoreData.insights && (
+                      <div className="mt-4 text-left space-y-3">
+                        {scoreData.insights.strengths.length > 0 && (
+                          <div>
+                            <p className="text-sm font-semibold text-primary mb-1">✓ Strengths:</p>
+                            <ul className="text-xs text-muted-foreground space-y-1 pl-4">
+                              {scoreData.insights.strengths.map((strength, idx) => (
+                                <li key={idx}>• {strength}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {scoreData.insights.improvements.length > 0 && (
+                          <div>
+                            <p className="text-sm font-semibold text-orange-500 mb-1">→ Improvements:</p>
+                            <ul className="text-xs text-muted-foreground space-y-1 pl-4">
+                              {scoreData.insights.improvements.map((improvement, idx) => (
+                                <li key={idx}>• {improvement}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Success Message */}

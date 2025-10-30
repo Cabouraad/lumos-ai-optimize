@@ -25,51 +25,157 @@ Deno.serve(async (req) => {
       .replace(/^(https?:\/\/)?(www\.)?/, '')
       .replace(/\/$/, '');
 
-    console.log('Generating demo score for domain:', cleanDomain);
+    console.log('Analyzing domain:', cleanDomain);
 
-    // Generate a consistent score based on domain hash
-    const hash = Array.from(cleanDomain).reduce((acc, char) => {
-      return ((acc << 5) - acc) + char.charCodeAt(0);
-    }, 0);
+    // Fetch website content
+    let websiteContent = '';
+    let fetchError = null;
     
-    // Map hash to score range 400-850
-    const baseScore = 400 + (Math.abs(hash) % 451);
+    try {
+      const url = `https://${cleanDomain}`;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Llumos-Score-Checker/1.0'
+        },
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+      
+      if (response.ok) {
+        const html = await response.text();
+        // Extract text content (simple approach - just remove HTML tags)
+        websiteContent = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 8000); // Limit to 8000 chars for AI analysis
+        
+        console.log(`Fetched ${websiteContent.length} chars from ${cleanDomain}`);
+      } else {
+        fetchError = `HTTP ${response.status}`;
+      }
+    } catch (error) {
+      console.error('Error fetching website:', error);
+      fetchError = error.message;
+    }
+
+    // If we couldn't fetch content, use AI with just domain info
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY not configured');
+    }
+
+    const analysisPrompt = websiteContent 
+      ? `Analyze this website content from ${cleanDomain} and score its AI search visibility potential (0-100):
+
+Website content:
+${websiteContent}
+
+Evaluate based on:
+1. Content quality and depth (25 points)
+2. Brand clarity and messaging (20 points)
+3. SEO elements and structure (20 points)
+4. Authority signals (15 points)
+5. Topic relevance and expertise (20 points)
+
+Return ONLY a JSON object with this exact structure (no markdown, no extra text):
+{
+  "score": <number 400-850>,
+  "composite": <number 0-100>,
+  "tier": "<Excellent|Very Good|Good|Fair|Needs Improvement>",
+  "analysis": "<2-3 sentence summary of key findings>",
+  "strengths": ["<strength 1>", "<strength 2>"],
+  "improvements": ["<improvement 1>", "<improvement 2>"]
+}`
+      : `Analyze the domain ${cleanDomain} and estimate its AI search visibility potential (0-100).
+Note: Website content could not be fetched (${fetchError}), so provide a conservative estimate based on domain characteristics.
+
+Return ONLY a JSON object with this exact structure (no markdown, no extra text):
+{
+  "score": <number 400-650>,
+  "composite": <number 0-60>,
+  "tier": "<Good|Fair|Needs Improvement>",
+  "analysis": "Unable to fetch website content for full analysis. Score is a conservative estimate.",
+  "strengths": ["Domain is accessible"],
+  "improvements": ["Enable content analysis for accurate scoring"]
+}`;
+
+    console.log('Calling Lovable AI for analysis...');
     
-    // Add slight randomization for realism (+/- 10 points)
-    const randomOffset = Math.floor(Math.random() * 21) - 10;
-    const score = Math.max(400, Math.min(850, baseScore + randomOffset));
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an AI search visibility analyst. Provide accurate, data-driven scores based on content analysis. Always return valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ],
+        temperature: 0.3,
+      }),
+    });
 
-    // Calculate composite (0-100 scale)
-    const composite = Math.round(((score - 400) / 450) * 100);
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI Gateway error:', aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Service temporarily unavailable. Please try again later.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+    }
 
-    // Determine tier
-    let tier = 'Needs Improvement';
-    if (score >= 760) tier = 'Excellent';
-    else if (score >= 700) tier = 'Very Good';
-    else if (score >= 640) tier = 'Good';
-    else if (score >= 580) tier = 'Fair';
+    const aiData = await aiResponse.json();
+    const aiContent = aiData.choices[0]?.message?.content;
+    
+    if (!aiContent) {
+      throw new Error('No response from AI');
+    }
 
-    // Generate simulated submetrics
-    const submetrics = {
-      pr: Math.round(composite * 0.95 + Math.random() * 10),
-      pp: Math.round(composite * 1.05 - Math.random() * 10),
-      cv: Math.round(composite * 0.90 + Math.random() * 15),
-      ca: Math.round(composite * 1.02 - Math.random() * 8),
-      cs: Math.round(composite * 0.98 + Math.random() * 12),
-      fc: Math.round(composite * 0.93 + Math.random() * 14),
-    };
+    console.log('AI Response:', aiContent);
+
+    // Parse AI response (remove markdown code blocks if present)
+    const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Invalid AI response format');
+    }
+    
+    const analysisResult = JSON.parse(jsonMatch[0]);
 
     const response = {
-      score,
-      composite,
-      tier,
-      submetrics,
+      score: analysisResult.score,
+      composite: analysisResult.composite,
+      tier: analysisResult.tier,
       domain: cleanDomain,
-      isDemo: true,
-      message: 'This is a simulated score for demonstration purposes.',
+      isDemo: false,
+      message: analysisResult.analysis,
+      insights: {
+        strengths: analysisResult.strengths || [],
+        improvements: analysisResult.improvements || []
+      }
     };
 
-    console.log('Demo score generated:', response);
+    console.log('Analysis complete:', response);
 
     return new Response(
       JSON.stringify(response),
@@ -82,7 +188,7 @@ Deno.serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to generate demo score',
+        error: 'Failed to analyze domain',
         details: error.message 
       }),
       { 
