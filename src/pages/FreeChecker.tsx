@@ -19,6 +19,8 @@ import {
   Zap
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const INDUSTRIES = [
   "Software & Technology",
@@ -35,12 +37,15 @@ const INDUSTRIES = [
 
 export default function FreeChecker() {
   const [brandName, setBrandName] = useState('');
+  const [domain, setDomain] = useState('');
+  const [email, setEmail] = useState('');
   const [competitor1, setCompetitor1] = useState('');
   const [competitor2, setCompetitor2] = useState('');
   const [competitor3, setCompetitor3] = useState('');
   const [industry, setIndustry] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisData, setAnalysisData] = useState<any>(null);
 
   // Generate simulated scores based on brand name (deterministic)
   const generateScore = (name: string, offset: number = 0): number => {
@@ -49,30 +54,68 @@ export default function FreeChecker() {
     return Math.min(10, Math.max(3, ((hash + offset) % 6) + 4));
   };
 
-  const handleAnalyze = () => {
-    if (!brandName || !industry) return;
+  const handleAnalyze = async () => {
+    if (!brandName || !industry || !domain || !email) return;
     
     setIsAnalyzing(true);
-    // Simulate analysis delay for realistic feel
-    setTimeout(() => {
+    
+    try {
+      // Save lead to database
+      const { error: leadError } = await supabase
+        .from('free_checker_leads')
+        .insert({
+          email,
+          domain,
+          brand_name: brandName,
+          industry,
+          competitors: [competitor1, competitor2, competitor3].filter(Boolean)
+        });
+
+      if (leadError) {
+        console.error('Error saving lead:', leadError);
+      }
+
+      // Call edge function for analysis
+      const { data, error } = await supabase.functions.invoke('analyze-free-checker', {
+        body: {
+          brandName,
+          domain,
+          industry,
+          competitors: [competitor1, competitor2, competitor3].filter(Boolean)
+        }
+      });
+
+      if (error) {
+        console.error('Analysis error:', error);
+        toast.error('Failed to analyze. Showing sample results.');
+      } else if (data) {
+        setAnalysisData(data);
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      toast.error('Failed to analyze. Showing sample results.');
+    } finally {
       setShowResults(true);
       setIsAnalyzing(false);
       // Scroll to results
       setTimeout(() => {
         document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    }, 2000);
+    }
   };
 
-  const brandScore = generateScore(brandName, 0);
-  const comp1Score = competitor1 ? generateScore(competitor1, 7) : 0;
-  const comp2Score = competitor2 ? generateScore(competitor2, 13) : 0;
-  const comp3Score = competitor3 ? generateScore(competitor3, 19) : 0;
+  // Use analysis data if available, otherwise fall back to simulated scores
+  const brandScore = analysisData?.overallScore || generateScore(brandName, 0);
+  const platformScores = analysisData?.platformScores || {
+    chatgpt: brandScore + 0.5,
+    gemini: brandScore - 0.3,
+    perplexity: brandScore + 0.2
+  };
 
-  const competitors = [
-    { name: competitor1, score: comp1Score },
-    { name: competitor2, score: comp2Score },
-    { name: competitor3, score: comp3Score }
+  const competitors = analysisData?.competitors || [
+    { name: competitor1, score: competitor1 ? generateScore(competitor1, 7) : 0 },
+    { name: competitor2, score: competitor2 ? generateScore(competitor2, 13) : 0 },
+    { name: competitor3, score: competitor3 ? generateScore(competitor3, 19) : 0 }
   ].filter(c => c.name);
 
   const averageCompScore = competitors.length > 0 
@@ -158,6 +201,30 @@ export default function FreeChecker() {
                 </div>
 
                 <div>
+                  <Label htmlFor="domain" className="text-base">Your Website Domain *</Label>
+                  <Input
+                    id="domain"
+                    type="url"
+                    placeholder="e.g., acmecorp.com"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email" className="text-base">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
                   <Label htmlFor="industry" className="text-base">Industry *</Label>
                   <Select value={industry} onValueChange={setIndustry}>
                     <SelectTrigger className="mt-2">
@@ -197,7 +264,7 @@ export default function FreeChecker() {
                 size="lg" 
                 className="w-full"
                 onClick={handleAnalyze}
-                disabled={!brandName || !industry || isAnalyzing}
+                disabled={!brandName || !industry || !domain || !email || isAnalyzing}
               >
                 {isAnalyzing ? (
                   <>
@@ -229,7 +296,7 @@ export default function FreeChecker() {
                 Your AI Search Visibility Analysis
               </h2>
               <p className="text-muted-foreground">
-                Based on simulated data for {brandName} in {industry}
+                {analysisData ? `Analysis for ${brandName} in ${industry}` : `Based on simulated data for ${brandName} in ${industry}`}
               </p>
             </div>
 
@@ -254,27 +321,27 @@ export default function FreeChecker() {
                       <span className="text-sm">ChatGPT</span>
                       <div className="flex items-center gap-2">
                         <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary" style={{ width: `${(brandScore + 0.5) * 10}%` }}></div>
+                          <div className="h-full bg-primary" style={{ width: `${platformScores.chatgpt * 10}%` }}></div>
                         </div>
-                        <span className="text-sm font-mono w-8">{(brandScore + 0.5).toFixed(1)}</span>
+                        <span className="text-sm font-mono w-8">{platformScores.chatgpt.toFixed(1)}</span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm">Gemini</span>
                       <div className="flex items-center gap-2">
                         <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-secondary" style={{ width: `${(brandScore - 0.3) * 10}%` }}></div>
+                          <div className="h-full bg-secondary" style={{ width: `${platformScores.gemini * 10}%` }}></div>
                         </div>
-                        <span className="text-sm font-mono w-8">{(brandScore - 0.3).toFixed(1)}</span>
+                        <span className="text-sm font-mono w-8">{platformScores.gemini.toFixed(1)}</span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm">Perplexity</span>
                       <div className="flex items-center gap-2">
                         <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-accent" style={{ width: `${(brandScore + 0.2) * 10}%` }}></div>
+                          <div className="h-full bg-accent" style={{ width: `${platformScores.perplexity * 10}%` }}></div>
                         </div>
-                        <span className="text-sm font-mono w-8">{(brandScore + 0.2).toFixed(1)}</span>
+                        <span className="text-sm font-mono w-8">{platformScores.perplexity.toFixed(1)}</span>
                       </div>
                     </div>
                   </div>
@@ -386,9 +453,12 @@ export default function FreeChecker() {
             {/* CTA */}
             <Card className="bg-primary text-primary-foreground">
               <CardContent className="p-8 text-center">
-                <h3 className="text-2xl font-bold mb-4">Want to See Your REAL Data?</h3>
+                <h3 className="text-2xl font-bold mb-4">Want {analysisData ? 'Deeper' : 'to See Your REAL'} Insights?</h3>
                 <p className="text-lg mb-6 opacity-90">
-                  This is a simulated report. Get accurate, real-time visibility tracking with detailed recommendations to improve your AI search presence.
+                  {analysisData 
+                    ? 'Get continuous real-time monitoring, detailed recommendations, and competitor tracking to dominate AI search.'
+                    : 'This is a simulated report. Get accurate, real-time visibility tracking with detailed recommendations to improve your AI search presence.'
+                  }
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button size="lg" variant="secondary" asChild>
