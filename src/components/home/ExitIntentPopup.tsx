@@ -25,23 +25,13 @@ export function ExitIntentPopup() {
     let timeoutId: NodeJS.Timeout;
     let hasTriggered = false;
 
-    // Trigger after 45 seconds
-    timeoutId = setTimeout(() => {
-      if (!hasTriggered) {
-        hasTriggered = true;
-        setIsOpen(true);
-        sessionStorage.setItem('exitIntentShown', 'true');
-      }
-    }, 45000);
-
-    // Trigger on mouse leave
+    // Only trigger on mouse leave from top (removed auto-trigger after time)
     const handleMouseLeave = (e: MouseEvent) => {
       // Only trigger if mouse is leaving from the top of the viewport
       if (e.clientY <= 0 && !hasTriggered) {
         hasTriggered = true;
         setIsOpen(true);
         sessionStorage.setItem('exitIntentShown', 'true');
-        clearTimeout(timeoutId);
       }
     };
 
