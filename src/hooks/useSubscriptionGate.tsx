@@ -16,6 +16,7 @@ export interface FeatureGate {
 export interface TierLimits {
   promptsPerDay: number;
   providersPerPrompt: number;
+  maxUsers: number;
   allowedProviders: string[];
   hasRecommendations: boolean;
   hasCompetitorAnalysis: boolean;
@@ -109,6 +110,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay, // Standard Starter quota enforcement
           providersPerPrompt: quotas.providersPerPrompt,
+          maxUsers: quotas.maxUsers,
           allowedProviders: getAllowedProviders('starter'),
           hasRecommendations: false,
           hasCompetitorAnalysis: false,
@@ -120,6 +122,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay,
           providersPerPrompt: quotas.providersPerPrompt,
+          maxUsers: quotas.maxUsers,
           allowedProviders: getAllowedProviders('growth'),
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
@@ -131,6 +134,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: quotas.promptsPerDay,
           providersPerPrompt: quotas.providersPerPrompt,
+          maxUsers: quotas.maxUsers,
           allowedProviders: getAllowedProviders('pro'),
           hasRecommendations: true,
           hasCompetitorAnalysis: true,
@@ -142,6 +146,7 @@ export function useSubscriptionGate() {
         return {
           promptsPerDay: 5, // Free tier gets 5 prompts
           providersPerPrompt: 1,
+          maxUsers: 1,
           allowedProviders: getAllowedProviders('free'),
           hasRecommendations: false,
           hasCompetitorAnalysis: false,

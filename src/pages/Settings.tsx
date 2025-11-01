@@ -6,6 +6,7 @@ import { getOrgMembership } from '@/lib/org';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
+import { TeamManagement } from '@/components/TeamManagement';
 import { TrialBanner } from '@/components/TrialBanner';
 import { GoogleAioSettings } from '@/components/GoogleAioSettings';
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
@@ -178,6 +179,12 @@ export default function Settings() {
         )}
         
         <SubscriptionManager />
+
+        {/* Team Management */}
+        <section className="rounded-xl border p-4">
+          <h2 className="font-medium mb-3">Team Members</h2>
+          <TeamManagement />
+        </section>
 
         {/* Domain Enforcement Demo */}
         <section className="rounded-xl border p-4">
