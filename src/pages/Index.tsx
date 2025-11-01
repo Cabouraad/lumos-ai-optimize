@@ -406,9 +406,6 @@ const Index = () => {
         </div>
       </footer>
 
-      {/* Exit Intent Popup */}
-      <ExitIntentPopup />
-
       {/* Google Analytics - Add your GA4 Measurement ID here */}
       {/* <GoogleAnalytics measurementId="G-XXXXXXXXXX" /> */}
 

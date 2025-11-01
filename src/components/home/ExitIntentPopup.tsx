@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,10 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 
+// Timing constants
+const POPUP_DELAY_MS = 90000; // 90 seconds
+const EXIT_INTENT_ENABLE_MS = 30000; // 30 seconds before enabling exit intent
+
 export function ExitIntentPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -16,30 +20,60 @@ export function ExitIntentPopup() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
   const { trackEvent } = useAnalytics();
+  const hasTriggeredRef = useRef(false);
 
   useEffect(() => {
+    // Global singleton guard to prevent multiple instances
+    if ((window as any).__EXIT_INTENT_IN_USE) {
+      return;
+    }
+    (window as any).__EXIT_INTENT_IN_USE = true;
+
     // Check if user has already seen the popup in this session
     const hasSeenPopup = sessionStorage.getItem('exitIntentShown');
-    if (hasSeenPopup) return;
+    if (hasSeenPopup) {
+      return;
+    }
 
-    let timeoutId: NodeJS.Timeout;
-    let hasTriggered = false;
+    let popupTimeoutId: NodeJS.Timeout;
+    let exitIntentTimeoutId: NodeJS.Timeout;
+    let isExitIntentEnabled = false;
 
-    // Only trigger on mouse leave from top (removed auto-trigger after time)
-    const handleMouseLeave = (e: MouseEvent) => {
-      // Only trigger if mouse is leaving from the top of the viewport
-      if (e.clientY <= 0 && !hasTriggered) {
-        hasTriggered = true;
+    // Function to trigger the popup (only once)
+    const trigger = () => {
+      if (!hasTriggeredRef.current) {
+        hasTriggeredRef.current = true;
         setIsOpen(true);
         sessionStorage.setItem('exitIntentShown', 'true');
+      }
+    };
+
+    // Set timeout for automatic popup after 90 seconds
+    popupTimeoutId = setTimeout(() => {
+      trigger();
+    }, POPUP_DELAY_MS);
+
+    // Enable exit intent detection after 30 seconds
+    exitIntentTimeoutId = setTimeout(() => {
+      isExitIntentEnabled = true;
+    }, EXIT_INTENT_ENABLE_MS);
+
+    // Mouse leave handler for exit intent
+    const handleMouseLeave = (e: MouseEvent) => {
+      // Only trigger if mouse is leaving from the top of the viewport
+      // and exit intent is enabled and hasn't already triggered
+      if (e.clientY <= 0 && isExitIntentEnabled && !hasTriggeredRef.current) {
+        trigger();
       }
     };
 
     document.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(popupTimeoutId);
+      clearTimeout(exitIntentTimeoutId);
       document.removeEventListener('mouseleave', handleMouseLeave);
+      delete (window as any).__EXIT_INTENT_IN_USE;
     };
   }, []);
 
