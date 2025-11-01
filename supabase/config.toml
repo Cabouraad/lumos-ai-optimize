@@ -204,6 +204,9 @@ verify_jwt = true
 [functions.remove-user]
 verify_jwt = true
 
+[functions.test-ca-calculation]
+verify_jwt = true
+
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===
