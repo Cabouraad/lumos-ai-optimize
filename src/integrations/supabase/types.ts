@@ -783,6 +783,7 @@ export type Database = {
           domain: string
           domain_locked_at: string | null
           domain_verification_method: string | null
+          enable_ca_scoring: boolean | null
           enable_localized_prompts: boolean | null
           id: string
           keywords: string[] | null
@@ -809,6 +810,7 @@ export type Database = {
           domain: string
           domain_locked_at?: string | null
           domain_verification_method?: string | null
+          enable_ca_scoring?: boolean | null
           enable_localized_prompts?: boolean | null
           id?: string
           keywords?: string[] | null
@@ -835,6 +837,7 @@ export type Database = {
           domain?: string
           domain_locked_at?: string | null
           domain_verification_method?: string | null
+          enable_ca_scoring?: boolean | null
           enable_localized_prompts?: boolean | null
           id?: string
           keywords?: string[] | null
@@ -1654,6 +1657,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_toggle_ca_scoring: {
+        Args: { p_enable: boolean; p_org_id: string }
+        Returns: undefined
+      }
       approve_brand_candidate: {
         Args: { p_candidate_id: string; p_candidate_name: string }
         Returns: undefined
