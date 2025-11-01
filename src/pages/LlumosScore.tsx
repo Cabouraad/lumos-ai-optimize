@@ -462,6 +462,63 @@ export default function LlumosScore() {
             </CardContent>
           </Card>
 
+          {/* Citation Authority Insights */}
+          {scoreData?.submetrics?.ca > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  Citation Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Your Citation Authority score measures the quality and authority of sources that cite your brand in AI responses. 
+                    Higher scores indicate stronger trust signals from authoritative domains.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <div className="text-2xl font-bold text-primary">{scoreData.submetrics.ca.toFixed(0)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Citation Authority Score</div>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <div className="text-2xl font-bold text-foreground">20%</div>
+                      <div className="text-xs text-muted-foreground mt-1">Weight in Overall Score</div>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <div className="text-2xl font-bold text-foreground">Active</div>
+                      <div className="text-xs text-muted-foreground mt-1">Feature Status</div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-2 text-sm">How to Improve Citation Authority</h4>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>Focus on earning citations from high-authority domains (Tier 1 & 2 sources)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>Ensure your brand is properly mentioned when cited in authoritative content</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>Build relationships with industry publications and thought leaders</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>Create original research and resources worthy of citation</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Back Button */}
           <div className="flex justify-center pt-4">
             <Button
