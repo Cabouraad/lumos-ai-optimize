@@ -340,6 +340,39 @@ export type Database = {
         }
         Relationships: []
       }
+      domain_authority_reference: {
+        Row: {
+          authority_score: number
+          category: string | null
+          created_at: string | null
+          domain: string
+          id: string
+          last_updated: string | null
+          notes: string | null
+          tier: string
+        }
+        Insert: {
+          authority_score: number
+          category?: string | null
+          created_at?: string | null
+          domain: string
+          id?: string
+          last_updated?: string | null
+          notes?: string | null
+          tier: string
+        }
+        Update: {
+          authority_score?: number
+          category?: string | null
+          created_at?: string | null
+          domain?: string
+          id?: string
+          last_updated?: string | null
+          notes?: string | null
+          tier?: string
+        }
+        Relationships: []
+      }
       domain_invitations: {
         Row: {
           created_at: string | null
@@ -1629,6 +1662,19 @@ export type Database = {
         Args: { p_org_brands: string[]; p_raw_response: string }
         Returns: number
       }
+      calculate_ca_submetric: {
+        Args: {
+          p_org_id: string
+          p_prompt_id: string
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: number
+      }
+      calculate_citation_authority_score: {
+        Args: { p_citations_json: Json; p_org_domains: string[] }
+        Returns: number
+      }
       clean_competitor_catalog: { Args: { p_dry_run?: boolean }; Returns: Json }
       compute_daily_llumos_scores: { Args: never; Returns: undefined }
       compute_llumos_score: {
@@ -1703,6 +1749,10 @@ export type Database = {
           prompts_used: number
           providers_used: number
         }[]
+      }
+      get_domain_authority_score: {
+        Args: { p_domain: string }
+        Returns: number
       }
       get_feature_flag: { Args: { flag_name: string }; Returns: boolean }
       get_latest_prompt_provider_responses: {
