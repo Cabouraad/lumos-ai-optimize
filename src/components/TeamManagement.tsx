@@ -44,10 +44,10 @@ export function TeamManagement() {
   
   const { user } = useAuth();
   const { userData } = useUser();
-  const { getTierLimits } = useSubscriptionGate();
+  const { limits } = useSubscriptionGate();
   const { toast } = useToast();
 
-  const { limits } = useSubscriptionGate();
+  const isOwner = userData?.role === 'owner';
 
   useEffect(() => {
     if (userData?.org_id) {

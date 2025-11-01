@@ -17,6 +17,7 @@ export function SubscriptionManager() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [activePromptsCount, setActivePromptsCount] = useState(0);
+  const [teamMembersCount, setTeamMembersCount] = useState(0);
 
   // Resolve the correct organization ID from user data
   const orgId = orgData?.org_id || orgData?.organizations?.id;
@@ -45,8 +46,28 @@ export function SubscriptionManager() {
     setActivePromptsCount(typeof count === 'number' ? count : 0);
   };
 
+  const fetchTeamMembers = async () => {
+    if (!orgId) {
+      console.log('No org_id available for fetching team members');
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId);
+
+    if (error) {
+      console.error('Error fetching team members:', error);
+      return;
+    }
+
+    setTeamMembersCount(typeof count === 'number' ? count : 0);
+  };
+
   useEffect(() => {
     fetchActivePrompts();
+    fetchTeamMembers();
   }, [orgId]);
 
   const handleManageSubscription = async () => {
@@ -81,6 +102,7 @@ export function SubscriptionManager() {
     setLoading(true);
     await checkSubscription();
     await fetchActivePrompts();
+    await fetchTeamMembers();
     toast({
       title: "Subscription Refreshed",
       description: "Your subscription status has been updated.",
@@ -229,6 +251,10 @@ export function SubscriptionManager() {
               <div className="flex items-center justify-between p-2 bg-muted rounded">
                 <span className="text-sm">AI Providers</span>
                 <Badge variant="secondary">{limits.providersPerPrompt}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm">Team Members</span>
+                <Badge variant="secondary">{teamMembersCount} / {limits.maxUsers}</Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-muted rounded">
                 <span className={limits.hasRecommendations ? "text-sm" : "text-sm font-bold text-red-600"}>
