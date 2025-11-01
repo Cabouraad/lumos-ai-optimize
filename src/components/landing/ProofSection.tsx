@@ -225,7 +225,7 @@ export function ProofSection() {
                 className="w-full" 
                 size="lg"
               >
-                Get Your Free Llumos Score
+                Start tracking your Llumos Score today
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               
