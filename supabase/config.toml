@@ -198,6 +198,12 @@ verify_jwt = false
 [functions.analyze-free-checker]
 verify_jwt = false
 
+[functions.invite-user]
+verify_jwt = true
+
+[functions.remove-user]
+verify_jwt = true
+
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===

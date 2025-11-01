@@ -1814,6 +1814,8 @@ export type Database = {
           trend_score: number
         }[]
       }
+      get_org_user_count: { Args: { org_id_param: string }; Returns: number }
+      get_org_user_limit: { Args: { org_id_param: string }; Returns: number }
       get_prompt_competitors:
         | {
             Args: { p_days?: number; p_prompt_id: string }
