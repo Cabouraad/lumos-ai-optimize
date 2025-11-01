@@ -53,17 +53,17 @@ const submetricDetails = {
   ca: {
     icon: Award,
     name: 'Citation Authority',
-    weight: 0,
+    weight: 20,
     description: 'Quality and authority of sources citing your brand',
-    calculation: '(Org domain citations / Total citations) × 100',
+    calculation: 'Weighted average of citation quality based on domain authority and brand mentions',
     why: 'Being cited by authoritative sources increases trust signals and improves AI system confidence in your brand.',
     tips: [
       'Build relationships with authoritative sites in your industry',
       'Create link-worthy, original research and resources',
-      'Engage with industry publications and thought leaders'
+      'Engage with industry publications and thought leaders',
+      'Ensure your brand is mentioned in high-quality citations'
     ],
-    disabled: true,
-    disabledReason: 'Citations data not currently available'
+    disabled: false
   },
   cs: {
     icon: Zap,
@@ -394,7 +394,7 @@ export default function LlumosScore() {
                         <div className="p-3 bg-muted/50 rounded-lg border border-border">
                           <p className="text-sm text-muted-foreground flex items-center gap-2">
                             <AlertCircle className="h-4 w-4" />
-                            {details.disabledReason}
+                            {(details as any).disabledReason}
                           </p>
                         </div>
                       )}

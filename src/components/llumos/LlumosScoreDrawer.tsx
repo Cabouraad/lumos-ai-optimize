@@ -41,7 +41,7 @@ const submetricDetails = {
     icon: LinkIcon,
     label: 'Citation Authority',
     description: 'Quality and authority of sources citing your brand',
-    tip: 'Build relationships with authoritative sites and earn quality backlinks.',
+    tip: 'Build relationships with authoritative sites, earn quality citations, and ensure your brand is mentioned in authoritative sources.',
   },
   cs: {
     icon: Users,
