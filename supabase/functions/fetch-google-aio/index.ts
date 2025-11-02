@@ -1,124 +1,193 @@
-// deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { corsHeaders } from '../_shared/cors.ts';
 
-const ENABLE_GOOGLE_AIO = (Deno.env.get("ENABLE_GOOGLE_AIO") || "").toLowerCase() === "true";
-const SERPAPI_KEY = Deno.env.get("SERPAPI_KEY") || "";
-const DEBUG = (Deno.env.get("DEBUG_AIO") || "").toLowerCase() === "true";
+/**
+ * Google AI Overview fetcher using SerpAPI
+ * Fetches AI Overview results from Google Search
+ */
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function json(body: any, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json", ...corsHeaders }
-  });
+interface AioRequest {
+  query: string;
+  gl?: string;  // Geographic location (country code)
+  hl?: string;  // Language
+  dry_run?: boolean;  // Check if feature is enabled without making API call
 }
 
-function normDomain(link: string): string {
-  try {
-    const u = new URL(link);
-    return u.hostname.replace(/^www\./, "");
-  } catch {
-    return link.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
-  }
+interface AioResult {
+  summary: string;
+  references: Array<{
+    title?: string;
+    link: string;
+    domain?: string;
+    source?: string;
+    index?: number;
+  }>;
+  follow_up_questions?: string[];
+  raw?: any;
 }
 
-async function callSerp(query: string, gl = "us", hl = "en") {
-  const url = new URL("https://serpapi.com/search");
-  url.searchParams.set("engine", "google_ai_mode");
-  url.searchParams.set("q", query);
-  url.searchParams.set("gl", gl);
-  url.searchParams.set("hl", hl);
-  url.searchParams.set("api_key", SERPAPI_KEY);
-
-  const r = await fetch(url.toString(), { method: "GET" });
-  const text = await r.text();
-  let data: any = null;
-  try { data = JSON.parse(text); } catch { /* non-json error from SerpApi */ }
-
-  if (!r.ok) {
-    return { ok: false, status: r.status, body: data || text };
-  }
-  return { ok: true, status: r.status, body: data };
-}
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
+Deno.serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
   try {
-    const auth = req.headers.get("authorization") || "";
-    // Allow: service role (internal), cron, or user JWT (bearer anything)
-    if (!auth.startsWith("Bearer ")) {
-      return json({ enabled: ENABLE_GOOGLE_AIO, error: "unauthorized" }, 401);
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+    const ENABLE_GOOGLE_AIO = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
+
+    // Parse request
+    const body: AioRequest = await req.json();
+    
+    // Handle dry run check (for availability testing)
+    if (body.dry_run) {
+      return new Response(
+        JSON.stringify({ 
+          enabled: ENABLE_GOOGLE_AIO && !!SERPAPI_KEY,
+          configured: !!SERPAPI_KEY
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
     }
 
-    const body = await req.json().catch(() => ({}));
-    const query: string = body?.query || "";
-    const gl: string = body?.gl || "us";
-    const hl: string = body?.hl || "en";
-    const dryRun: boolean = !!body?.dry_run;
-
-    // Feature gate: never return 204; always JSON so callers can .json()
+    // Check if feature is enabled and configured
     if (!ENABLE_GOOGLE_AIO || !SERPAPI_KEY) {
-      return json({ enabled: false, summary: "", text: "", citations: [], reason: "disabled" }, 200);
+      console.log('Google AIO disabled or not configured', {
+        enabled: ENABLE_GOOGLE_AIO,
+        hasKey: !!SERPAPI_KEY
+      });
+      return new Response(null, { 
+        status: 204,  // No content - feature disabled
+        headers: corsHeaders 
+      });
     }
 
-    if (dryRun) {
-      // Used by availability check; never calls SerpApi
-      return json({ enabled: true, summary: "", text: "", citations: [], reason: "dry_run" }, 200);
+    const { query, gl = 'us', hl = 'en' } = body;
+
+    if (!query) {
+      return new Response(
+        JSON.stringify({ error: 'Query is required' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    if (!query?.trim()) {
-      return json({ enabled: true, summary: "", text: "", citations: [], reason: "empty_query" }, 200);
+    console.log('[Google AIO] Fetching AI Overview', { query, gl, hl });
+
+    // Call SerpAPI with Google Search engine
+    const serpApiUrl = new URL('https://serpapi.com/search.json');
+    serpApiUrl.searchParams.set('engine', 'google');
+    serpApiUrl.searchParams.set('q', query);
+    serpApiUrl.searchParams.set('api_key', SERPAPI_KEY);
+    serpApiUrl.searchParams.set('gl', gl);
+    serpApiUrl.searchParams.set('hl', hl);
+    serpApiUrl.searchParams.set('no_cache', 'false'); // Use cache to save quota
+
+    const response = await fetch(serpApiUrl.toString());
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Google AIO] SerpAPI error:', {
+        status: response.status,
+        error: errorText
+      });
+      throw new Error(`SerpAPI error: ${response.status} - ${errorText}`);
     }
 
-    const resp = await callSerp(query, gl, hl);
-    if (!resp.ok) {
-      // Respect rate limits but still return JSON
-      if (resp.status === 429) {
-        return json({ enabled: true, summary: "", text: "", citations: [], error: "rate_limited", retry_after: 3600 }, 429);
-      }
-      return json({ enabled: true, summary: "", text: "", citations: [], error: "serp_error", detail: resp.body }, 502);
+    const data = await response.json();
+    
+    // Check if AI Overview is present
+    if (!data.ai_overview) {
+      console.log('[Google AIO] No AI Overview in response');
+      return new Response(
+        JSON.stringify({ 
+          summary: '',
+          references: [],
+          raw: data 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    const raw = resp.body;
-    const ai = raw?.ai_overview || raw?.answer_box || null;
-    const summary =
-      ai?.text?.trim?.() ||
-      ai?.answer?.trim?.() ||
-      ai?.snippet?.trim?.() ||
-      "";
+    const aiOverview = data.ai_overview;
+    
+    // Extract summary text from text_blocks
+    let summary = '';
+    if (aiOverview.text_blocks && Array.isArray(aiOverview.text_blocks)) {
+      summary = aiOverview.text_blocks
+        .map((block: any) => {
+          if (block.type === 'paragraph' || block.type === 'heading') {
+            return block.snippet || '';
+          }
+          if (block.type === 'list' && block.list) {
+            return block.list.map((item: any) => item.snippet || '').join(' ');
+          }
+          return '';
+        })
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    }
 
-    const citations = ((ai?.citations ?? []) as any[])
-      .map((c) => {
-        const link = c?.link || c?.url || "";
-        if (!link) return null;
-        return {
-          title: c?.title || c?.snippet || "",
-          link,
-          domain: normDomain(link),
-          source_provider: "google_ai_overview",
-        };
-      })
-      .filter(Boolean)
-      .slice(0, 10);
+    // Extract references
+    const references = (aiOverview.references || []).map((ref: any) => ({
+      title: ref.title,
+      link: ref.link,
+      source: ref.source,
+      domain: extractDomain(ref.link),
+      index: ref.index
+    }));
 
-    // Always JSON, always include both fields for downstream compatibility
-    return json({
-      enabled: true,
+    const result: AioResult = {
       summary,
-      text: summary, // alias for existing downstream code
-      citations,
-      follow_up_questions: ai?.follow_up_questions ?? ai?.related_questions ?? [],
-      reason: summary ? "ok" : "no_ai_overview",
-      raw: DEBUG ? raw : undefined,
-    }, 200);
-  } catch (e) {
-    return json({ enabled: ENABLE_GOOGLE_AIO, summary: "", text: "", citations: [], error: "crash", detail: String(e) }, 500);
+      references,
+      follow_up_questions: data.related_questions?.map((q: any) => q.question) || [],
+      raw: aiOverview
+    };
+
+    console.log('[Google AIO] Success', {
+      summaryLength: summary.length,
+      referencesCount: references.length
+    });
+
+    return new Response(
+      JSON.stringify(result),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+
+  } catch (error) {
+    console.error('[Google AIO] Error:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        summary: '',
+        references: []
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
+
+/**
+ * Extract domain from URL
+ */
+function extractDomain(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return 'unknown';
+  }
+}
