@@ -78,64 +78,51 @@ export default function Pricing() {
     {
       tier: 'starter' as const,
       title: 'Starter',
-      description: 'Perfect for getting started with AI search visibility tracking',
+      description: 'For small companies tracking AI visibility',
       monthlyPrice: 39,
       yearlyPrice: 390,
       features: [
         '1 user account',
-        'Track 25 search queries your customers actually use (updated daily)',
-        'Monitor on 2 major AI platforms (ChatGPT + Perplexity)',
-        'See exactly how often AI platforms mention your brand',
-        'Get direct email support when you need help',
-        'Automatically track your brand catalog across platforms',
-        'Secure your subscription with domain verification'
-      ],
-      limitations: [
-        'No competitor benchmarking',
-        'No AI-powered optimization recommendations',
-        'Basic reporting only'
+        '25 prompts tracked daily',
+        '2 AI platforms (ChatGPT + Perplexity)',
+        'Real-time tracking',
+        'Email support',
+        'Brand catalog tracking'
       ]
     },
     {
       tier: 'growth' as const,
       title: 'Growth',
-      description: 'Best for businesses serious about AI search optimization',
+      description: 'For growing companies needing deeper insights',
       monthlyPrice: 89,
       yearlyPrice: 890,
       features: [
         'Up to 3 user accounts',
-        'Track 100 search queries across all customer touchpoints (updated daily)',
-        'Full coverage: ChatGPT, Perplexity, Gemini & Google AI Overviews',
-        'Advanced scoring shows your exact mention rate vs competitors',
-        'Track up to 3 competitors and see exactly where they win',
-        'Get AI-powered recommendations to improve your ranking',
-        'Priority support with faster response times',
-        'Export reports and share insights with your team',
-        'Comprehensive brand catalog tracking',
-        'Domain verification & account security'
+        '100 prompts tracked daily',
+        'All 4 AI platforms',
+        'Track 3 competitors',
+        'AI-powered recommendations',
+        'Priority support',
+        'Advanced reporting & exports'
       ],
-      limitations: [],
       isPopular: true
     },
     {
       tier: 'pro' as const,
       title: 'Pro',
-      description: 'For enterprises and agencies managing multiple brands',
+      description: 'For enterprises managing multiple brands',
       monthlyPrice: 250,
       yearlyPrice: 2500,
       features: [
         'Up to 10 user accounts',
-        'Track 300 search queries for maximum market coverage (updated daily)',
-        'Full coverage: ChatGPT, Perplexity, Gemini & Google AI Overviews',
-        'Advanced visibility scoring with predictive analytics',
-        'Monitor up to 10 competitors with deep competitive intelligence',
-        'Custom optimization plans based on your industry',
-        'Dedicated account manager + priority support',
-        'White-label reports for client presentations',
-        'Multi-brand catalog management',
-        'Enterprise-grade security & domain verification'
-      ],
-      limitations: []
+        '300 prompts tracked daily',
+        'All 4 AI platforms',
+        'Track 10 competitors',
+        'Custom optimization plans',
+        'Dedicated account manager',
+        'White-label reports',
+        'Multi-brand management'
+      ]
     }
   ];
 

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { EdgeFunctionClient } from "@/lib/edge-functions/client";
 import { EnhancedEdgeFunctionClient } from "@/lib/edge-functions/enhanced-client";
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,6 @@ interface PricingCardProps {
   monthlyPrice: number;
   yearlyPrice: number;
   features: string[];
-  limitations: string[];
   isPopular?: boolean;
   billingCycle: 'monthly' | 'yearly';
   currentTier?: string;
@@ -32,7 +31,6 @@ export function PricingCard({
   monthlyPrice,
   yearlyPrice,
   features,
-  limitations,
   isPopular = false,
   billingCycle,
   currentTier,
@@ -177,79 +175,64 @@ export function PricingCard({
   };
 
   return (
-    <Card className={`relative ${isPopular ? 'border-primary ring-1 ring-primary' : ''}`}>
+    <Card className={`relative flex flex-col ${isPopular ? 'border-primary ring-2 ring-primary shadow-lg' : ''}`}>
       {isPopular && (
-        <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
           Most Popular
         </Badge>
       )}
       
-      <CardHeader className="text-center pb-2">
-        <CardTitle className="text-xl">{title}</CardTitle>
-        <CardDescription className="text-sm">{description}</CardDescription>
-        <div className="mt-4">
-          <span className="text-3xl font-bold">${price}</span>
-          <span className="text-muted-foreground">
-            /{billingCycle === 'yearly' ? 'year' : 'month'}
-          </span>
-          {billingCycle === 'yearly' && (
-            <div className="text-sm text-green-600 font-medium">
-              Save ~17% annually
-            </div>
-          )}
-        </div>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-2xl font-bold">{title}</CardTitle>
+        <CardDescription className="text-sm text-muted-foreground mt-1">
+          {description}
+        </CardDescription>
       </CardHeader>
 
-      <CardContent className="pt-2">
-        <div className="space-y-3">
-          <div>
-            <h4 className="font-medium text-sm mb-2">Features included:</h4>
-            <ul className="space-y-1">
-              {features.map((feature, index) => (
-                <li key={index} className="flex items-center text-sm">
-                  <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
+      <CardContent className="flex-1 pt-0">
+        <div className="mb-6">
+          <div className="flex items-baseline gap-1">
+            <span className="text-4xl font-bold">${price}</span>
+            <span className="text-muted-foreground text-sm">
+              / {billingCycle === 'yearly' ? 'year' : 'month'}
+            </span>
           </div>
-          
-          {limitations.length > 0 && (
-            <div>
-              <h4 className="font-medium text-sm mb-2 text-muted-foreground">Not included:</h4>
-              <ul className="space-y-1">
-                {limitations.map((limitation, index) => (
-                  <li key={index} className="flex items-center text-sm text-muted-foreground">
-                    <X className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />
-                    <span>{limitation}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {billingCycle === 'yearly' && (
+            <p className="text-sm text-green-600 dark:text-green-500 font-medium mt-1">
+              Save 17% annually
+            </p>
           )}
         </div>
-      </CardContent>
 
-      <CardFooter className="flex-col space-y-2">
         <Button
-          className="w-full"
+          className="w-full mb-6"
           onClick={handleSubscribe}
           disabled={loading || isCurrentTier}
           variant={isCurrentTier ? "secondary" : isPopular ? "default" : "outline"}
+          size="lg"
         >
           {loading
             ? 'Loading...'
             : isCurrentTier
             ? 'Current Plan'
-            : tier === 'starter'
-            ? 'Start 7-Day Free Trial (No Charge Now)'
-            : tier === 'growth'
-            ? 'Start Free Trial'
-            : 'Book a Demo'
+            : tier === 'pro'
+            ? 'Book a demo'
+            : 'Get started'
           }
         </Button>
-        
-        {retryError && (
+
+        <ul className="space-y-3">
+          {features.map((feature, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <span className="text-sm">{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+
+      {retryError && (
+        <CardFooter className="pt-0">
           <div className="w-full p-2 bg-destructive/10 border border-destructive/20 rounded text-center">
             <p className="text-xs text-destructive mb-1">{retryError}</p>
             <Button 
@@ -262,29 +245,16 @@ export function PricingCard({
               Try Again
             </Button>
           </div>
-        )}
-        
-        {!isCurrentTier && !retryError && (
-          <div className="w-full space-y-1">
-            {tier === 'starter' && (
-              <p className="text-xs text-muted-foreground text-center">
-                Payment method required • No charge until trial ends
-              </p>
-            )}
-            {tier !== 'pro' && (
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-xs py-0 px-2">Cancel Anytime</Badge>
-                <Badge variant="outline" className="text-xs py-0 px-2">Money-Back Guarantee</Badge>
-              </div>
-            )}
-            {tier === 'pro' && (
-              <p className="text-xs text-muted-foreground text-center">
-                Schedule a call to discuss your needs
-              </p>
-            )}
-          </div>
-        )}
-      </CardFooter>
+        </CardFooter>
+      )}
+      
+      {!isCurrentTier && !retryError && tier === 'starter' && (
+        <CardFooter className="pt-0 pb-6">
+          <p className="text-xs text-muted-foreground text-center w-full">
+            7-day free trial • No charge until trial ends
+          </p>
+        </CardFooter>
+      )}
     </Card>
   );
 }
