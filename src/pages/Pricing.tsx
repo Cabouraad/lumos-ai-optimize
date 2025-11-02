@@ -82,6 +82,7 @@ export default function Pricing() {
       monthlyPrice: 39,
       yearlyPrice: 390,
       features: [
+        '1 user account',
         'Track 25 search queries your customers actually use (updated daily)',
         'Monitor on 2 major AI platforms (ChatGPT + Perplexity)',
         'See exactly how often AI platforms mention your brand',
@@ -102,6 +103,7 @@ export default function Pricing() {
       monthlyPrice: 89,
       yearlyPrice: 890,
       features: [
+        'Up to 3 user accounts',
         'Track 100 search queries across all customer touchpoints (updated daily)',
         'Full coverage: ChatGPT, Perplexity, Gemini & Google AI Overviews',
         'Advanced scoring shows your exact mention rate vs competitors',
@@ -122,6 +124,7 @@ export default function Pricing() {
       monthlyPrice: 250,
       yearlyPrice: 2500,
       features: [
+        'Up to 10 user accounts',
         'Track 300 search queries for maximum market coverage (updated daily)',
         'Full coverage: ChatGPT, Perplexity, Gemini & Google AI Overviews',
         'Advanced visibility scoring with predictive analytics',

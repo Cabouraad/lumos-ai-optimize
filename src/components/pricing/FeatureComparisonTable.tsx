@@ -15,6 +15,7 @@ const FEATURES = [
   {
     category: 'Tracking & Monitoring',
     features: [
+      { name: 'Team members', starter: '1 user', growth: '3 users', pro: '10 users' },
       { name: 'Daily prompt tracking', starter: '25', growth: '100', pro: '300' },
       { name: 'Real-time updates', starter: true, growth: true, pro: true },
       { name: 'Historical data', starter: '30 days', growth: '90 days', pro: 'Unlimited' },
