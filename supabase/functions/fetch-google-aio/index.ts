@@ -15,11 +15,10 @@ interface AioRequest {
 
 interface AioResult {
   summary: string;
-  references: Array<{
+  citations: Array<{
     title?: string;
     link: string;
     domain?: string;
-    source?: string;
     index?: number;
   }>;
   follow_up_questions?: string[];
@@ -107,7 +106,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           summary: '',
-          references: [],
+          citations: [],
           raw: data 
         }),
         { 
@@ -137,24 +136,23 @@ Deno.serve(async (req) => {
     }
 
     // Extract references
-    const references = (aiOverview.references || []).map((ref: any) => ({
+    const citations = (aiOverview.references || []).map((ref: any) => ({
       title: ref.title,
       link: ref.link,
-      source: ref.source,
       domain: extractDomain(ref.link),
       index: ref.index
     }));
 
     const result: AioResult = {
       summary,
-      references,
+      citations,
       follow_up_questions: data.related_questions?.map((q: any) => q.question) || [],
       raw: aiOverview
     };
 
     console.log('[Google AIO] Success', {
       summaryLength: summary.length,
-      referencesCount: references.length
+      citationsCount: citations.length
     });
 
     return new Response(
@@ -170,7 +168,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
         summary: '',
-        references: []
+        citations: []
       }),
       { 
         status: 500,
