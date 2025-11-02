@@ -21,6 +21,7 @@ import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
+import { useCompetitors } from '@/features/competitors/hooks';
 
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
@@ -33,10 +34,15 @@ export default function Dashboard() {
   const [latestReport, setLatestReport] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [chartView, setChartView] = useState<'score' | 'competitors'>('score');
-  const [competitors, setCompetitors] = useState<any[]>([]);
-  const [loadingCompetitors, setLoadingCompetitors] = useState(false);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  
+  // Use optimized competitor hook - only fetch when viewing competitors
+  const { data: competitorData = [], isLoading: loadingCompetitors } = useCompetitors({
+    days: 30,
+    limit: 5, // Top 5 competitors only for dashboard chart
+    offset: 0
+  });
   
   // Post-checkout: refresh subscription and clean URL
   useEffect(() => {
@@ -171,7 +177,7 @@ export default function Dashboard() {
 
   // Compute competitor presence chart data
   const competitorChartData = useMemo(() => {
-    if (chartView !== 'competitors' || !dashboardData?.responses || competitors.length === 0) {
+    if (chartView !== 'competitors' || !dashboardData?.responses || competitorData.length === 0) {
       return [];
     }
 
@@ -204,13 +210,13 @@ export default function Dashboard() {
         dayData.orgPresence = Math.round((orgPresent / totalDayResponses) * 100);
       }
 
-      // Calculate competitor presence rates
-      competitors.forEach((competitor, index) => {
+      // Calculate competitor presence rates using competitor_name from API
+      competitorData.forEach((competitor, index) => {
         const competitorResponses = dayResponses.filter((response: any) => {
           if (!response.competitors_json) return false;
           const competitors = Array.isArray(response.competitors_json) ? response.competitors_json : [response.competitors_json];
           return competitors.some((brand: string) => 
-            brand && brand.toLowerCase().trim() === competitor.name.toLowerCase().trim()
+            brand && brand.toLowerCase().trim() === competitor.competitor_name.toLowerCase().trim()
           );
         });
         
@@ -222,19 +228,13 @@ export default function Dashboard() {
     }
 
     return chartData;
-  }, [chartView, dashboardData?.responses, competitors]);
+  }, [chartView, dashboardData?.responses, competitorData]);
 
   useEffect(() => {
-    if (orgData?.organizations?.id) {
-      if (isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
-        loadLatestReport();
-      }
-      // Only load competitors if user has access
-      if (chartView === 'competitors' && competitorAccess.hasAccess) {
-        loadCompetitors();
-      }
+    if (orgData?.organizations?.id && isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
+      loadLatestReport();
     }
-  }, [orgData?.organizations?.id, chartView, competitorAccess.hasAccess]);
+  }, [orgData?.organizations?.id]);
 
   // Transform optimizations for Quick Wins display
   const quickWins = useMemo(() => {
@@ -322,86 +322,6 @@ export default function Dashboard() {
     }
   };
 
-  const loadCompetitors = async () => {
-    try {
-      setLoadingCompetitors(true);
-      const orgId = orgData?.organizations?.id;
-      if (!orgId) return;
-
-      console.log('[Dashboard] Loading competitors for org:', orgId);
-
-      const { data, error } = await supabase.rpc('get_org_competitor_summary', {
-        p_org_id: orgId,
-        p_days: 30
-      });
-
-      if (error) {
-        console.error('[Dashboard] RPC error, triggering sync and falling back:', error);
-        
-        // Trigger competitor sync to populate brand_catalog
-        try {
-          const syncResult = await supabase.functions.invoke('trigger-competitor-sync');
-          console.log('[Dashboard] Competitor sync triggered:', syncResult);
-        } catch (syncError) {
-          console.warn('[Dashboard] Could not trigger competitor sync:', syncError);
-        }
-        
-        // Improved fallback: aggregate competitors from existing dashboard data
-        const competitorMap = new Map();
-        if (dashboardData?.responses) {
-          dashboardData.responses.forEach((response: any) => {
-            if (response.competitors_json && response.status === 'success') {
-              const competitors = Array.isArray(response.competitors_json) ? response.competitors_json : [response.competitors_json];
-              competitors.forEach((competitor: string) => {
-                // More lenient filtering - include most legitimate competitors
-                const trimmed = competitor.trim();
-                if (trimmed && 
-                    trimmed.length >= 2 && // Reduced from 3 to 2
-                    !/^(price|these|offers|trade|cost|free|paid|premium|basic|pro|standard|email|web|app|system|data)$/i.test(trimmed) &&
-                    !trimmed.match(/^[\d\s]*$/) && // Only exclude purely numeric/space strings
-                    !trimmed.includes('<') && !trimmed.includes('>')) { // Exclude obvious HTML
-                  const existing = competitorMap.get(trimmed);
-                  competitorMap.set(trimmed, (existing || 0) + 1);
-                }
-              });
-            }
-          });
-        }
-        
-        // Include competitors with 1+ mentions to provide better fallback data
-        const fallbackCompetitors = Array.from(competitorMap.entries())
-          .filter(([name, count]) => count >= 1) // Include all mentions for better coverage
-          .map(([name, count]) => ({ name, total_mentions: count }))
-          .sort((a, b) => b.total_mentions - a.total_mentions)
-          .slice(0, 8); // Increased from 5 to 8 for more data
-        
-        console.log('[Dashboard] Fallback competitors loaded:', fallbackCompetitors.length, 'competitors found');
-        setCompetitors(fallbackCompetitors);
-        return;
-      }
-      
-      // If RPC succeeded, use catalog data
-      if (data && data.length > 0) {
-        const mappedCompetitors = data
-          .slice(0, 8)
-          .map((competitor: any) => ({
-            ...competitor,
-            name: competitor.competitor_name || competitor.name
-          }));
-        
-        console.log('[Dashboard] Catalog competitors loaded:', mappedCompetitors.length, 'competitors');
-        setCompetitors(mappedCompetitors);
-        return;
-      }
-      
-      // If no catalog data, fall through to client-side aggregation
-      console.log('[Dashboard] No catalog data found, using fallback');
-    } catch (error) {
-      console.error('Error loading competitors:', error);
-    } finally {
-      setLoadingCompetitors(false);
-    }
-  };
 
   const formatWeekPeriod = (start: string, end: string): string => {
     const startDate = new Date(start);
@@ -523,7 +443,7 @@ export default function Dashboard() {
           <DashboardChart 
             chartData={memoizedChartData}
             competitorChartData={competitorChartData}
-            competitors={competitors}
+            competitors={competitorData.map(c => ({ name: c.competitor_name }))}
             chartView={chartView}
             onChartViewChange={setChartView}
             loadingCompetitors={loadingCompetitors}
