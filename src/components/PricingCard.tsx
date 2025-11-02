@@ -182,16 +182,16 @@ export function PricingCard({
         </Badge>
       )}
       
-      <CardHeader className="pb-4">
-        <CardTitle className="text-2xl font-bold">{title}</CardTitle>
-        <CardDescription className="text-sm text-muted-foreground mt-1">
+      <CardHeader className="pb-4 text-center">
+        <CardTitle className="text-3xl font-bold mb-2">{title}</CardTitle>
+        <CardDescription className="text-sm text-muted-foreground">
           {description}
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex-1 pt-0">
+      <CardContent className="flex-1 pt-0 text-center">
         <div className="mb-6">
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-1 justify-center">
             <span className="text-4xl font-bold">${price}</span>
             <span className="text-muted-foreground text-sm">
               / {billingCycle === 'yearly' ? 'year' : 'month'}
