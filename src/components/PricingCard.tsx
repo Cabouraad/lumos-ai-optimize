@@ -1,14 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check } from 'lucide-react';
+import { Check, ArrowRight } from 'lucide-react';
 import { EdgeFunctionClient } from "@/lib/edge-functions/client";
 import { EnhancedEdgeFunctionClient } from "@/lib/edge-functions/enhanced-client";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { openExternalUrl } from '@/lib/navigation';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
@@ -221,7 +221,7 @@ export function PricingCard({
           }
         </Button>
 
-        <ul className="space-y-3">
+        <ul className="space-y-3 mb-4">
           {features.map((feature, index) => (
             <li key={index} className="flex items-start gap-3">
               <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -229,6 +229,13 @@ export function PricingCard({
             </li>
           ))}
         </ul>
+
+        <Link 
+          to={`/plans/${tier}`} 
+          className="inline-flex items-center text-sm text-primary hover:underline"
+        >
+          Learn more about {title} <ArrowRight className="ml-1 h-3 w-3" />
+        </Link>
       </CardContent>
 
       {retryError && (

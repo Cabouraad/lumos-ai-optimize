@@ -43,6 +43,9 @@ const CronSetup = lazy(() => loadChunkWithRetry(() => import("./pages/CronSetup"
 const RunReports = lazy(() => loadChunkWithRetry(() => import("./pages/RunReports")));
 const DomainAuthority = lazy(() => loadChunkWithRetry(() => import("./pages/admin/DomainAuthority")));
 const UserGuide = lazy(() => loadChunkWithRetry(() => import("./pages/UserGuide")));
+const StarterPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/StarterPlan")));
+const GrowthPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/GrowthPlan")));
+const ProPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/ProPlan")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -78,6 +81,9 @@ const App = () => {
           <Route path="/" element={<Index />} />
           <Route path="/health" element={<Health />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/plans/starter" element={<StarterPlan />} />
+          <Route path="/plans/growth" element={<GrowthPlan />} />
+          <Route path="/plans/pro" element={<ProPlan />} />
           <Route path="/features" element={<Features />} />
           <Route path="/features/brand-visibility" element={<BrandVisibility />} />
           <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
