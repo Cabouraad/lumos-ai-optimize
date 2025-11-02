@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { FeatureComparisonTable } from '@/components/pricing/FeatureComparisonTable';
+import { SEOHelmet } from '@/components/SEOHelmet';
+import { Footer } from '@/components/Footer';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -127,7 +129,14 @@ export default function Pricing() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-bg">
+    <>
+      <SEOHelmet
+        title="Pricing Plans - AI Search Visibility Tracking"
+        description="Choose the perfect Llumos plan for your business. Track AI search visibility across ChatGPT, Perplexity, Gemini and more. Plans start at $39/month with a 7-day free trial."
+        keywords="AI search pricing, ChatGPT tracking pricing, Perplexity monitoring cost, AI SEO pricing, brand visibility pricing"
+        canonicalPath="/pricing"
+      />
+      <div className="min-h-screen bg-gradient-bg">
       {/* Standalone Header */}
       <header className="border-b border-border/30 bg-card/30 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -145,8 +154,8 @@ export default function Pricing() {
       </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
+      <main className="container mx-auto px-4 py-8">
+        <header className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
           <p className="text-lg text-muted-foreground mb-4">
             Start tracking your AI search visibility today. All plans require a payment method.
@@ -179,7 +188,7 @@ export default function Pricing() {
               <Badge variant="secondary" className="ml-2">Save 17%</Badge>
             </span>
           </div>
-        </div>
+        </header>
 
         {/* Current Subscription Status */}
         {subscriptionData && (
@@ -276,7 +285,7 @@ export default function Pricing() {
         </div>
 
         {/* FAQ Section */}
-        <div className="max-w-3xl mx-auto">
+        <section className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
           
           <Accordion type="single" collapsible className="w-full space-y-2">
@@ -361,7 +370,7 @@ export default function Pricing() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </div>
+        </section>
 
         {/* Dev Tools */}
         {isDev && (
@@ -415,7 +424,11 @@ export default function Pricing() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <Footer />
     </div>
+    </>
   );
 }

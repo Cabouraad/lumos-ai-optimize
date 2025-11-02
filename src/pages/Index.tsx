@@ -14,6 +14,8 @@ import { LinkedInPixel } from '@/components/tracking/LinkedInPixel';
 import { GoogleAnalytics } from '@/components/tracking/GoogleAnalytics';
 import { ProofSection } from '@/components/landing/ProofSection';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { SEOHelmet } from '@/components/SEOHelmet';
+import { Footer } from '@/components/Footer';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -50,9 +52,16 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-bg">
-      {/* Exit Intent Popup */}
-      <ExitIntentPopup />
+    <>
+      <SEOHelmet
+        title="AI Search Visibility Tracking for Modern Brands"
+        description="Monitor and grow your brand's visibility on ChatGPT, Gemini, and Perplexity. Track AI search mentions, analyze competitors, and get actionable recommendations to improve your AI search presence."
+        keywords="AI search visibility, ChatGPT tracking, Perplexity monitoring, AI SEO, brand visibility tracking, AI search optimization, Gemini search"
+        canonicalPath="/"
+      />
+      <div className="min-h-screen bg-gradient-bg">
+        {/* Exit Intent Popup */}
+        <ExitIntentPopup />
       
       {/* Sticky CTA Bar */}
       {showStickyBar && (
@@ -90,6 +99,7 @@ const Index = () => {
       {/* Hero Section */}
       <section className="py-20 px-4 text-center relative overflow-hidden">
         <div className="container mx-auto max-w-5xl relative z-10">
+          <header>
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
             <Badge className="text-sm py-1 px-4 shadow-soft">
               <Star className="w-3 h-3 mr-1 inline fill-current" />
@@ -165,6 +175,7 @@ const Index = () => {
               </div>
             </div>
           </div>
+          </header>
         </div>
       </section>
 
@@ -205,7 +216,7 @@ const Index = () => {
       <section className="py-20 px-4 bg-muted/30">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-8">
-            Why Pay More for Less?
+            Traditional SEO Tools vs Llumos AI Search Tracking
           </h2>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <Card className="p-8 bg-destructive/5 border-destructive/20 hover-lift">
@@ -266,7 +277,7 @@ const Index = () => {
           <div className="text-center mb-16">
             <Badge className="mb-4">Core Features</Badge>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Simple. Focused. Effective.
+              AI Search Visibility Tools for Modern Brands
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Three core features that actually matter for brand visibility tracking on AI platforms.
@@ -372,46 +383,15 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 border-t bg-background">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Search className="w-6 h-6 text-primary" />
-                <span className="text-xl font-bold text-foreground">Llumos</span>
-              </div>
-              <p className="text-muted-foreground text-sm">
-                AI Search Optimization. Simplified.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3 text-foreground">Product</h4>
-              <div className="space-y-2 text-sm">
-                <Link to="/features" className="block text-muted-foreground hover:text-foreground">Features</Link>
-                <Link to="/pricing" className="block text-muted-foreground hover:text-foreground">Pricing</Link>
-                <Link to="/resources" className="block text-muted-foreground hover:text-foreground">Resources</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3 text-foreground">Legal</h4>
-              <div className="space-y-2 text-sm">
-                <a href="#" className="block text-muted-foreground hover:text-foreground">Privacy</a>
-                <a href="#" className="block text-muted-foreground hover:text-foreground">Terms</a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t pt-8 text-center text-sm text-muted-foreground">
-            © 2025 Llumos. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Google Analytics - Add your GA4 Measurement ID here */}
-      {/* <GoogleAnalytics measurementId="G-XXXXXXXXXX" /> */}
-
-      {/* LinkedIn Retargeting Pixel - Add your Partner ID here */}
-      {/* <LinkedInPixel partnerId="YOUR_LINKEDIN_PARTNER_ID" /> */}
+      <GoogleAnalytics />
+      
+      {/* LinkedIn Conversion Tracking */}
+      <LinkedInPixel />
     </div>
+    </>
   );
 };
 
