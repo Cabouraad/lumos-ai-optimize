@@ -62,27 +62,21 @@ export function MostCitedDomains({ orgId }: MostCitedDomainsProps) {
       let totalCount = 0;
 
       data?.forEach((response) => {
-        const citations = response.citations_json;
-        if (!citations) return;
+        // Handle the nested structure: citations_json.citations is the array
+        const citationsData = response.citations_json;
+        if (!citationsData || typeof citationsData !== 'object') return;
 
-        const citationArray = Array.isArray(citations) ? citations : [citations];
+        // Extract the citations array from the wrapper object
+        const citationsArray = (citationsData as any).citations;
+        if (!Array.isArray(citationsArray)) return;
         
-        citationArray.forEach((citation: any) => {
-          let url: string | null = null;
+        citationsArray.forEach((citation: any) => {
+          // Each citation has domain and url fields
+          const domain = citation.domain;
           
-          // Handle different citation formats
-          if (typeof citation === 'string') {
-            url = citation;
-          } else if (citation && typeof citation === 'object') {
-            url = citation.url || citation.link || citation.source || citation.domain;
-          }
-
-          if (url) {
-            const domain = extractDomain(url);
-            if (domain && domain.length > 3 && !domain.includes('localhost')) {
-              domainMap.set(domain, (domainMap.get(domain) || 0) + 1);
-              totalCount++;
-            }
+          if (domain && typeof domain === 'string' && domain.length > 3 && !domain.includes('localhost')) {
+            domainMap.set(domain, (domainMap.get(domain) || 0) + 1);
+            totalCount++;
           }
         });
       });
@@ -92,7 +86,7 @@ export function MostCitedDomains({ orgId }: MostCitedDomainsProps) {
         .map(([domain, count]) => ({
           domain,
           count,
-          percentage: (count / totalCount) * 100
+          percentage: totalCount > 0 ? (count / totalCount) * 100 : 0
         }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
