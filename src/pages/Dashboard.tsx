@@ -20,6 +20,7 @@ import { DashboardChart } from '@/components/dashboard/DashboardChart';
 import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
+import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
 
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
@@ -593,78 +594,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Weekly Reports Card - Show to all users */}
-            {isFeatureEnabled('FEATURE_WEEKLY_REPORT') && (
-              <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <CardTitle>Weekly Reports</CardTitle>
-                  </div>
-                  {currentTier !== 'starter' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate('/reports')}
-                      className="hover-lift"
-                    >
-                      View All
-                    </Button>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {currentTier === 'starter' ? (
-                    <div className="text-center py-8">
-                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm font-medium mb-2">Automated Weekly Performance Reports</p>
-                      <p className="text-xs text-muted-foreground mb-4">Get weekly CSV reports of your visibility metrics</p>
-                      <Button 
-                        onClick={() => navigate('/pricing')}
-                        size="sm"
-                      >
-                        Upgrade to Growth or Pro
-                      </Button>
-                    </div>
-                  ) : loadingReport ? (
-                    <div className="animate-pulse space-y-2">
-                      <div className="h-4 bg-muted rounded w-3/4"></div>
-                      <div className="h-4 bg-muted rounded w-1/2"></div>
-                    </div>
-                  ) : latestReport ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">Week of {formatWeekPeriod(latestReport.period_start, latestReport.period_end)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Generated {new Date(latestReport.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={downloadLatestReport}
-                          disabled={loadingReport}
-                          className="hover-lift"
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </Button>
-                      </div>
-                      {latestReport.byte_size && (
-                        <p className="text-xs text-muted-foreground">
-                          Size: {(latestReport.byte_size / 1024).toFixed(1)} KB
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground text-sm">No reports available</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Most Cited Domains Card */}
+            <MostCitedDomains orgId={orgData?.organizations?.id} />
           </div>
 
           {/* Admin Panel for Test Users */}
