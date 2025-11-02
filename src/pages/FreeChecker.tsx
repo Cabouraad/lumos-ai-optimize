@@ -140,7 +140,7 @@ export default function FreeChecker() {
               <Link to="/pricing">Pricing</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/auth">Sign In</Link>
+              <Link to="/signin">Sign In</Link>
             </Button>
           </div>
         </div>
@@ -462,7 +462,7 @@ export default function FreeChecker() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button size="lg" variant="secondary" asChild>
-                    <Link to="/auth">
+                    <Link to="/signup">
                       Start 7-Day Free Trial
                       <ArrowRight className="ml-2 h-5 h-5" />
                     </Link>

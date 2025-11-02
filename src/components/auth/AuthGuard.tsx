@@ -25,7 +25,7 @@ export function AuthGuard({ children, requireAuth = true }: AuthGuardProps) {
 
   // Redirect to auth page if authentication is required but user is not logged in
   if (requireAuth && !user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   // Redirect authenticated users away from auth page

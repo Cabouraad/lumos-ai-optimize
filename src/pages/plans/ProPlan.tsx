@@ -90,7 +90,7 @@ export default function ProPlan() {
               <Link to="/pricing">
                 <Button variant="outline">View All Plans</Button>
               </Link>
-              <Link to="/auth">
+              <Link to="/signup">
                 <Button>Get Started</Button>
               </Link>
             </div>
@@ -120,7 +120,7 @@ export default function ProPlan() {
                 <Badge variant="secondary" className="mt-2">Save 17%</Badge>
               </div>
             </div>
-            <Link to="/auth">
+            <Link to="/signup">
               <Button size="lg" className="text-lg px-8">
                 Get Started <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -258,7 +258,7 @@ export default function ProPlan() {
                 <Link to="/pricing">
                   <Button variant="outline">Compare All Plans</Button>
                 </Link>
-                <Link to="/auth">
+                <Link to="/signup">
                   <Button>Start Pro Trial</Button>
                 </Link>
               </CardContent>

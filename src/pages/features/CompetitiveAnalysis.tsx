@@ -41,10 +41,10 @@ const CompetitiveAnalysis = () => {
             <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
             <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
             <Button variant="outline" asChild>
-              <Link to="/auth">Sign In</Link>
+              <Link to="/signin">Sign In</Link>
             </Button>
             <Button asChild>
-              <Link to="/auth">Get Started</Link>
+              <Link to="/signup">Get Started</Link>
             </Button>
           </nav>
         </div>
@@ -64,7 +64,7 @@ const CompetitiveAnalysis = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" asChild className="text-lg px-8 py-6">
-                  <Link to="/auth">Start Analysis <ArrowRight className="ml-2 w-5 h-5" /></Link>
+                  <Link to="/signup">Start Analysis <ArrowRight className="ml-2 w-5 h-5" /></Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild className="text-lg px-8 py-6">
                   <Link to="/features">All Features</Link>
@@ -265,7 +265,7 @@ const CompetitiveAnalysis = () => {
                 Businesses using competitive analysis gain market share 3x faster than those optimizing blindly.
               </p>
               <Button asChild>
-                <Link to="/auth">Start Your Analysis</Link>
+                <Link to="/signup">Start Your Analysis</Link>
               </Button>
             </Card>
           </div>
@@ -390,7 +390,7 @@ const CompetitiveAnalysis = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button size="lg" asChild className="text-lg px-8 py-6">
-              <Link to="/auth">Start Free Trial <ArrowRight className="ml-2 w-5 h-5" /></Link>
+              <Link to="/signup">Start Free Trial <ArrowRight className="ml-2 w-5 h-5" /></Link>
             </Button>
             <Button variant="outline" size="lg" asChild className="text-lg px-8 py-6">
               <Link to="/pricing">View Pricing</Link>
@@ -417,7 +417,7 @@ const CompetitiveAnalysis = () => {
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/features" className="hover:text-foreground transition-colors">Features</Link>
             <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-            <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
+            <Link to="/signin" className="hover:text-foreground transition-colors">Sign In</Link>
           </div>
         </div>
       </footer>

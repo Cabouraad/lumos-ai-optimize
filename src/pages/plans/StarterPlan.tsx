@@ -64,7 +64,7 @@ export default function StarterPlan() {
               <Link to="/pricing">
                 <Button variant="outline">View All Plans</Button>
               </Link>
-              <Link to="/auth">
+              <Link to="/signup">
                 <Button>Get Started</Button>
               </Link>
             </div>
@@ -97,7 +97,7 @@ export default function StarterPlan() {
                 <strong>7-Day Free Trial:</strong> Full access with no charge until trial ends. Cancel anytime.
               </p>
             </div>
-            <Link to="/auth">
+            <Link to="/signup">
               <Button size="lg" className="text-lg px-8">
                 Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
               </Button>

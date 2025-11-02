@@ -69,7 +69,7 @@ const Index = () => {
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <span className="text-primary-foreground font-semibold">Start tracking your AI visibility today</span>
             <Button size="sm" variant="secondary" asChild>
-              <Link to="/auth">Start Free Trial <ArrowRight className="ml-1 w-4 h-4" /></Link>
+              <Link to="/signup">Start Free Trial <ArrowRight className="ml-1 w-4 h-4" /></Link>
             </Button>
           </div>
         </div>
@@ -87,10 +87,10 @@ const Index = () => {
             <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
             <Link to="/resources" className="text-muted-foreground hover:text-foreground transition-colors">Resources</Link>
             <Button variant="outline" asChild>
-              <Link to="/auth">Sign In</Link>
+              <Link to="/signin">Sign In</Link>
             </Button>
             <Button asChild className="shadow-glow">
-              <Link to="/auth">Get Started</Link>
+              <Link to="/signup">Get Started</Link>
             </Button>
           </nav>
         </div>
@@ -137,7 +137,7 @@ const Index = () => {
               className="text-lg px-10 py-7"
               onClick={() => trackCtaClick('hero_start_trial')}
             >
-              <Link to="/auth">Start 7-Day Free Trial</Link>
+              <Link to="/signup">Start 7-Day Free Trial</Link>
             </Button>
           </div>
           
@@ -367,7 +367,7 @@ const Index = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
             <Button size="lg" variant="secondary" asChild className="text-lg px-10 py-7 shadow-elevated">
-              <Link to="/auth">
+              <Link to="/signup">
                 Start Free Trial
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>

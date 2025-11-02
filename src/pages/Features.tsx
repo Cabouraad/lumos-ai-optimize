@@ -38,10 +38,10 @@ const Features = () => {
             <Link to="/features" className="text-foreground font-medium">Features</Link>
             <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
             <Button variant="outline" asChild>
-              <Link to="/auth">Sign In</Link>
+              <Link to="/signin">Sign In</Link>
             </Button>
             <Button asChild className="shadow-glow">
-              <Link to="/auth">Get Started</Link>
+              <Link to="/signup">Get Started</Link>
             </Button>
           </nav>
         </div>
@@ -69,7 +69,7 @@ const Features = () => {
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/auth">Start 7-Day Free Trial</Link>
+              <Link to="/signup">Start 7-Day Free Trial</Link>
             </Button>
           </div>
         </div>
@@ -482,7 +482,7 @@ const Features = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
             <Button size="lg" variant="secondary" asChild className="text-lg px-10 py-7 shadow-elevated hover-lift">
-              <Link to="/auth">Start Free Trial <ArrowRight className="ml-2 w-5 h-5" /></Link>
+              <Link to="/signup">Start Free Trial <ArrowRight className="ml-2 w-5 h-5" /></Link>
             </Button>
             <Button variant="outline" size="lg" asChild className="text-lg px-10 py-7 bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
               <Link to="/pricing">View Pricing</Link>
@@ -508,7 +508,7 @@ const Features = () => {
           <div className="flex justify-center space-x-6 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-            <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
+            <Link to="/signin" className="hover:text-foreground transition-colors">Sign In</Link>
           </div>
         </div>
       </footer>

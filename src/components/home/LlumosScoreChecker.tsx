@@ -194,7 +194,7 @@ export function LlumosScoreChecker() {
                     asChild 
                     className="flex-1 text-base shadow-glow"
                   >
-                    <Link to="/auth">
+                    <Link to="/signup">
                       Get Your Full Report
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Link>

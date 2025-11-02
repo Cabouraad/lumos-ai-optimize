@@ -39,7 +39,7 @@ export function ProtectedRoute({
 
   // Redirect to auth if authentication is required but user is not logged in
   if (requireAuth && !user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   // Redirect authenticated users away from auth page
@@ -97,7 +97,7 @@ export function ProtectedRoute({
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/signin')}
                 className="w-full"
               >
                 Sign Out and Try Again
@@ -155,7 +155,7 @@ export function ProtectedRoute({
                 className="w-full" 
                 onClick={async () => {
                   await signOut();
-                  navigate('/auth');
+                  navigate('/signin');
                 }}
               >
                 Sign Out

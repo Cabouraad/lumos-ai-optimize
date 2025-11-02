@@ -188,7 +188,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
 
   // If not authenticated, redirect to auth
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   // If no org data and status indicates error, redirect to onboarding

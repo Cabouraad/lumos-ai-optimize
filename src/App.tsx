@@ -1,5 +1,5 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
@@ -9,7 +9,8 @@ import { OnboardingGate } from "@/components/auth/OnboardingGate";
 
 // Lazy load all page components with retry logic to handle chunk loading failures
 const Index = lazy(() => loadChunkWithRetry(() => import("./pages/Index")));
-const Auth = lazy(() => loadChunkWithRetry(() => import("./pages/Auth")));
+const SignIn = lazy(() => loadChunkWithRetry(() => import("./pages/SignIn")));
+const SignUp = lazy(() => loadChunkWithRetry(() => import("./pages/SignUp")));
 const AuthProcessing = lazy(() => loadChunkWithRetry(() => import("./pages/AuthProcessing")));
 const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboarding")));
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
@@ -97,11 +98,17 @@ const App = () => {
           <Route path="/terms" element={<Terms />} />
           
           {/* Auth routes - redirect if already authenticated */}
-          <Route path="/auth" element={
+          <Route path="/signin" element={
             <ProtectedRoute requireAuth={false}>
-              <Auth />
+              <SignIn />
             </ProtectedRoute>
           } />
+          <Route path="/signup" element={
+            <ProtectedRoute requireAuth={false}>
+              <SignUp />
+            </ProtectedRoute>
+          } />
+          <Route path="/auth" element={<Navigate to="/signin" replace />} />
           <Route path="/auth/processing" element={<AuthProcessing />} />
           
           {/* Protected routes - require authentication and subscription */}

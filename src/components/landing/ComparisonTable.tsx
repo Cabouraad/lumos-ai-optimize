@@ -138,7 +138,7 @@ export function ComparisonTable() {
                 className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary"
                 asChild
               >
-                <Link to="/auth">Start 7-Day Trial</Link>
+                <Link to="/signup">Start 7-Day Trial</Link>
               </Button>
             </div>
           </CardContent>

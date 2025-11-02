@@ -84,7 +84,7 @@ export default function Onboarding() {
   });
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   // SECURITY: Remove automatic hasValidAccess check that bypassed payment

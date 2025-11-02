@@ -172,7 +172,7 @@ export function ROICalculator() {
                     Track and optimize your AI search visibility to stop losing customers
                   </p>
                   <Button variant="secondary" size="lg" asChild className="w-full">
-                    <Link to="/auth">
+                    <Link to="/signup">
                       Start Free Trial
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Link>

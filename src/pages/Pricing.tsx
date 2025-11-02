@@ -143,10 +143,10 @@ export default function Pricing() {
           <Logo collapsed={false} />
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Link to="/auth">
+            <Link to="/signin">
               <Button variant="outline">Sign In</Button>
             </Link>
-            <Link to="/auth">
+            <Link to="/signup">
               <Button>Get Started</Button>
             </Link>
           </div>

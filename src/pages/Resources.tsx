@@ -119,10 +119,10 @@ const Resources = () => {
               <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
               <Link to="/resources" className="text-foreground font-medium">Resources</Link>
               <Button variant="outline" asChild>
-                <Link to="/auth">Sign In</Link>
+                <Link to="/signin">Sign In</Link>
               </Button>
               <Button asChild>
-                <Link to="/auth">Get Started</Link>
+                <Link to="/signup">Get Started</Link>
               </Button>
             </nav>
           </div>
@@ -359,7 +359,7 @@ const Resources = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" asChild>
-                <Link to="/auth">Put Insights Into Action - Start Free Trial</Link>
+                <Link to="/signup">Put Insights Into Action - Start Free Trial</Link>
               </Button>
               <Button variant="outline" size="lg" asChild>
                 <Link to="/free-checker">Get Free Visibility Report</Link>
@@ -384,7 +384,7 @@ const Resources = () => {
             <div className="flex justify-center space-x-6 text-sm text-muted-foreground">
               <Link to="/resources" className="text-foreground font-medium">Resources</Link>
               <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-              <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
+              <Link to="/signin" className="hover:text-foreground transition-colors">Sign In</Link>
             </div>
           </div>
         </footer>
