@@ -5,16 +5,12 @@
 export function extractCitations(aiResponse: string): Array<{ url: string; title?: string; domain?: string }> {
   const citations: Array<{ url: string; title?: string; domain?: string }> = [];
   
-  // Extract URLs from the response
-  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
-  const urls = aiResponse.match(urlRegex) || [];
-  
-  // Extract markdown-style links [title](url)
+  // Extract markdown-style links [title](url) - prioritize these as they have context
   const markdownRegex = /\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g;
   let match: RegExpExecArray | null;
   while ((match = markdownRegex.exec(aiResponse)) !== null) {
     const title = match[1];
-    const url = match[2];
+    const url = match[2].trim();
     citations.push({
       url,
       title,
@@ -22,12 +18,31 @@ export function extractCitations(aiResponse: string): Array<{ url: string; title
     });
   }
   
-  // Add standalone URLs
-  urls.forEach((url: string) => {
+  // Extract reference-style citations: [1] https://example.com or 1. https://example.com
+  const referenceRegex = /(?:\[\d+\]|\d+\.)\s*(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+  while ((match = referenceRegex.exec(aiResponse)) !== null) {
+    const url = match[1].trim();
     if (!citations.some((c: any) => c.url === url)) {
       citations.push({
         url,
+        title: `Reference ${citations.length + 1}`,
         domain: extractDomain(url)
+      });
+    }
+  }
+  
+  // Extract standalone URLs - improved regex to handle trailing punctuation
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;:!?)]/g;
+  const urls = aiResponse.match(urlRegex) || [];
+  
+  urls.forEach((url: string) => {
+    // Clean up URL - remove common trailing characters that might be punctuation
+    let cleanUrl = url.replace(/[.,;:!?)\]]+$/, '');
+    
+    if (!citations.some((c: any) => c.url === cleanUrl)) {
+      citations.push({
+        url: cleanUrl,
+        domain: extractDomain(cleanUrl)
       });
     }
   });

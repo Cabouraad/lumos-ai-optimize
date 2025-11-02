@@ -49,6 +49,10 @@ Deno.serve(async (req) => {
           model: 'gpt-4.1-2025-04-14',
           messages: [
             {
+              role: 'system',
+              content: 'You are a helpful AI assistant. When providing information, always cite your sources by including relevant URLs as inline citations throughout your response. Use the format [Source Title](https://example.com) for each citation. Include at least 2-3 credible sources when possible.'
+            },
+            {
               role: 'user',
               content: prompt
             }

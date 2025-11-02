@@ -17,7 +17,13 @@ async function executeOpenAI(promptText: string): Promise<{ responseText: string
     },
     body: JSON.stringify({
       model: 'gpt-5-2025-08-07',
-      messages: [{ role: 'user', content: promptText }],
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are a helpful AI assistant. When providing information, always cite your sources by including relevant URLs as inline citations throughout your response. Use the format [Source Title](https://example.com) for each citation. Include at least 2-3 credible sources when possible.' 
+        },
+        { role: 'user', content: promptText }
+      ],
       max_completion_tokens: 2000,
     }),
   });

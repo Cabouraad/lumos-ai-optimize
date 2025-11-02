@@ -381,7 +381,13 @@ async function executeOpenAI(promptText: string) {
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: promptText }],
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are a helpful AI assistant. When providing information, always cite your sources by including relevant URLs as inline citations throughout your response. Use the format [Source Title](https://example.com) for each citation. Include at least 2-3 credible sources when possible.' 
+        },
+        { role: 'user', content: promptText }
+      ],
       max_tokens: 1000,
       temperature: 0.7
     }),
