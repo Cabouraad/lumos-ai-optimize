@@ -102,7 +102,7 @@ export default function Pricing() {
         'Up to 3 user accounts',
         '100 prompts tracked daily',
         'All 4 AI platforms',
-        'Track 3 competitors',
+        'Track 50 competitors',
         'AI-powered recommendations',
         'Priority support',
         'Advanced reporting & exports'
@@ -119,7 +119,7 @@ export default function Pricing() {
         'Up to 10 user accounts',
         '300 prompts tracked daily',
         'All 4 AI platforms',
-        'Track 10 competitors',
+        'Track 50 competitors',
         'Custom optimization plans',
         'Dedicated account manager',
         'White-label reports',

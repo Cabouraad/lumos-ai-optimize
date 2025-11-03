@@ -26,7 +26,7 @@ const FEATURES = [
     category: 'Visibility Analytics',
     features: [
       { name: 'Visibility scoring', starter: 'Basic', growth: 'Advanced', pro: 'Advanced' },
-      { name: 'Competitor tracking', starter: false, growth: '3 competitors', pro: '10 competitors' },
+      { name: 'Competitor tracking', starter: false, growth: '50 competitors', pro: '50 competitors' },
       { name: 'Market positioning insights', starter: false, growth: true, pro: true },
       { name: 'Trend analysis', starter: false, growth: true, pro: true }
     ]
