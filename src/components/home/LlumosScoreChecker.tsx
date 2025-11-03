@@ -26,6 +26,9 @@ export function LlumosScoreChecker() {
   const [isLoading, setIsLoading] = useState(false);
   const [scoreData, setScoreData] = useState<DemoScoreResponse | null>(null);
   const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportRequested, setReportRequested] = useState(false);
   const { trackScoreCheck } = useAnalytics();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -187,30 +190,117 @@ export function LlumosScoreChecker() {
                   </div>
                 </div>
 
-                {/* CTA Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button 
-                    size="lg" 
-                    asChild 
-                    className="flex-1 text-base shadow-glow"
-                  >
-                    <Link to="/signup">
-                      Get Your Full Report
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={() => {
-                      setScoreData(null);
-                      setDomain('');
-                    }}
-                    className="flex-1 text-base"
-                  >
-                    Check Another Domain
-                  </Button>
-                </div>
+                {/* Email Collection Form or Success Message */}
+                {!reportRequested ? (
+                  <div className="space-y-4">
+                    <div className="text-center mb-4">
+                      <h3 className="text-xl font-semibold mb-2">Get Your Free Visibility Report</h3>
+                      <p className="text-sm text-muted-foreground">
+                        We'll analyze your brand's AI visibility and email you a comprehensive report with actionable insights.
+                      </p>
+                    </div>
+                    
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      
+                      if (!email.trim() || !email.includes('@')) {
+                        setError('Please enter a valid email address');
+                        return;
+                      }
+
+                      setIsSubmittingReport(true);
+                      setError('');
+
+                      try {
+                        const { error: invokeError } = await supabase.functions.invoke('request-visibility-report', {
+                          body: { 
+                            email: email.trim(),
+                            domain: scoreData.domain,
+                            score: scoreData.score
+                          },
+                        });
+
+                        if (invokeError) throw invokeError;
+                        
+                        setReportRequested(true);
+                      } catch (err) {
+                        console.error('Error requesting report:', err);
+                        setError('Failed to send report request. Please try again.');
+                      } finally {
+                        setIsSubmittingReport(false);
+                      }
+                    }} className="space-y-3">
+                      <Input
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="text-base h-12"
+                        disabled={isSubmittingReport}
+                      />
+                      {error && (
+                        <p className="text-sm text-destructive">{error}</p>
+                      )}
+                      
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button 
+                          type="submit"
+                          size="lg" 
+                          className="flex-1 text-base shadow-glow"
+                          disabled={isSubmittingReport}
+                        >
+                          {isSubmittingReport ? (
+                            <>
+                              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              Send Me My Free Report
+                              <ArrowRight className="ml-2 h-5 w-5" />
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          onClick={() => {
+                            setScoreData(null);
+                            setDomain('');
+                            setEmail('');
+                          }}
+                          className="flex-1 text-base"
+                        >
+                          Check Another Domain
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-4 py-6">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                      <CheckCircle className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold">Report Requested Successfully!</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      We're generating your comprehensive visibility report. You'll receive it at <span className="font-medium text-foreground">{email}</span> within the next few minutes.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => {
+                        setScoreData(null);
+                        setDomain('');
+                        setEmail('');
+                        setReportRequested(false);
+                      }}
+                      className="mt-4"
+                    >
+                      Check Another Domain
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
