@@ -1449,6 +1449,7 @@ export type Database = {
           domain: string
           email: string
           id: string
+          metadata: Json | null
           processed_at: string | null
           report_sent_at: string | null
           score: number | null
@@ -1459,6 +1460,7 @@ export type Database = {
           domain: string
           email: string
           id?: string
+          metadata?: Json | null
           processed_at?: string | null
           report_sent_at?: string | null
           score?: number | null
@@ -1469,6 +1471,7 @@ export type Database = {
           domain?: string
           email?: string
           id?: string
+          metadata?: Json | null
           processed_at?: string | null
           report_sent_at?: string | null
           score?: number | null
