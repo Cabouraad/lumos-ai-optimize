@@ -103,7 +103,7 @@ const Index = () => {
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
             <Badge className="text-sm py-1 px-4 shadow-soft">
               <Star className="w-3 h-3 mr-1 inline fill-current" />
-              Trusted B2B Marketing Teams and Agencies
+              Trusted by B2B Marketing Teams and Agencies
             </Badge>
             <Badge variant="secondary" className="text-sm py-1 px-4 shadow-soft">
               🔥 New: Google AI Overviews Supported
