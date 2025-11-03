@@ -78,6 +78,14 @@ function getProviderConfigs(): ProviderConfig[] {
       authType: 'google-api-key',
       buildRequest: (prompt) => ({
         contents: [{ parts: [{ text: prompt }] }],
+        tools: [{
+          google_search_retrieval: {
+            dynamic_retrieval_config: {
+              mode: "MODE_DYNAMIC",
+              dynamic_threshold: 0.7
+            }
+          }
+        }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 500,

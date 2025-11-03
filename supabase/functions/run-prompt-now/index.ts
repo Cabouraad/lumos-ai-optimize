@@ -579,7 +579,13 @@ async function executeGemini(promptText: string) {
         console.log(`[Gemini] Waiting ${delay}ms before next retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
+    }
   }
+  
+  // If all attempts failed, throw the last error
+  const finalError = lastError || new Error('Gemini API failed after all attempts');
+  console.error('[Gemini] ALL ATTEMPTS FAILED:', finalError.message);
+  throw finalError;
 }
 
 // Google AI Overview execution function
@@ -629,10 +635,5 @@ async function executeGoogleAio(promptText: string) {
     console.error('[Google AIO] Execution failed:', error.message);
     throw new Error(`Google AI Overview execution failed: ${error.message}`);
   }
-}
-
-  const finalError = lastError || new Error('Gemini API failed after all attempts');
-  console.error('[Gemini] ALL ATTEMPTS FAILED:', finalError.message);
-  throw finalError;
 }
 

@@ -39,7 +39,7 @@ export function ProviderDebugPanel() {
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<DebugResult[]>([]);
 
-  const providers = ['openai', 'gemini', 'perplexity'];
+  const providers = ['openai', 'gemini', 'perplexity', 'google_ai_overview'];
 
   // Load prompts on component mount
   useEffect(() => {
@@ -100,14 +100,38 @@ export function ProviderDebugPanel() {
       try {
         console.log(`Running ${provider}...`);
         
-        const { data, error } = await supabase.functions.invoke('test-single-provider', {
+        // Create a temporary prompt for testing
+        const { data: tempPrompt, error: promptError } = await supabase
+          .from('prompts')
+          .insert({
+            text: selectedPrompt.text,
+            org_id: orgId,
+            active: false, // Inactive so it doesn't pollute regular prompts
+            metadata: { test_prompt: true, original_id: selectedPrompt.id }
+          })
+          .select()
+          .single();
+        
+        if (promptError || !tempPrompt) {
+          console.error(`${provider} failed to create temp prompt:`, promptError);
+          return { 
+            provider, 
+            status: 'error' as const, 
+            error: 'Failed to create test prompt', 
+            startTime, 
+            endTime: Date.now() 
+          };
+        }
+        
+        // Run the prompt using the actual run-prompt-now function
+        const { data, error } = await supabase.functions.invoke('run-prompt-now', {
           body: {
-            promptText: selectedPrompt.text,
-            provider,
-            orgId,
-            promptId: selectedPrompt.id
+            promptId: tempPrompt.id
           }
         });
+        
+        // Clean up the temp prompt
+        await supabase.from('prompts').delete().eq('id', tempPrompt.id);
 
         const endTime = Date.now();
 
@@ -123,8 +147,8 @@ export function ProviderDebugPanel() {
         }
         
         // Check if we got valid data back
-        if (!data) {
-          console.error(`${provider} returned null data`);
+        if (!data || !data.results) {
+          console.error(`${provider} returned invalid data`);
           return { 
             provider, 
             status: 'error' as const, 
@@ -134,23 +158,39 @@ export function ProviderDebugPanel() {
           };
         }
         
-        // Check if response indicates failure
-        if (data && !data.success) {
-          console.error(`${provider} API failure:`, data.error);
+        // Get the results and find the provider's result from prompt_provider_responses
+        const { data: providerResponse } = await supabase
+          .from('prompt_provider_responses')
+          .select('*')
+          .eq('prompt_id', tempPrompt.id)
+          .eq('provider', provider)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (!providerResponse) {
+          console.error(`${provider} - no response found in database`);
           return { 
             provider, 
             status: 'error' as const, 
-            error: data.error || 'API call failed', 
+            error: 'Provider response not found', 
             startTime, 
             endTime 
           };
         }
 
-        console.log(`✅ ${provider} success:`, data);
+        console.log(`✅ ${provider} success:`, providerResponse);
         return { 
           provider, 
           status: 'success' as const, 
-          response: data, 
+          response: {
+            score: providerResponse.score,
+            brandPresent: providerResponse.org_brand_present,
+            competitors: providerResponse.competitors_json || [],
+            tokenIn: providerResponse.token_in || 0,
+            tokenOut: providerResponse.token_out || 0,
+            responseText: providerResponse.raw_ai_response
+          }, 
           startTime, 
           endTime 
         };
