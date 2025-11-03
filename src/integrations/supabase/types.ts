@@ -1443,6 +1443,39 @@ export type Database = {
           },
         ]
       }
+      visibility_report_requests: {
+        Row: {
+          created_at: string
+          domain: string
+          email: string
+          id: string
+          processed_at: string | null
+          report_sent_at: string | null
+          score: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          email: string
+          id?: string
+          processed_at?: string | null
+          report_sent_at?: string | null
+          score?: number | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          email?: string
+          id?: string
+          processed_at?: string | null
+          report_sent_at?: string | null
+          score?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           created_at: string

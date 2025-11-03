@@ -195,6 +195,9 @@ verify_jwt = false
 [functions.get-llumos-score-demo]
 verify_jwt = false
 
+[functions.request-visibility-report]
+verify_jwt = false
+
 [functions.analyze-free-checker]
 verify_jwt = false
 
