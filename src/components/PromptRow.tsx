@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProviderResponseCard } from './ProviderResponseCard';
 import { PromptTopCitations } from './PromptTopCitations';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -147,11 +148,20 @@ const PromptRowComponent = ({
           {/* Main content */}
           <div className="flex-1 min-w-0">
             {/* Prompt text and basic info */}
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1 pr-4">
-                <p className="text-sm font-medium leading-relaxed line-clamp-2 mb-2">
-                  {prompt.text}
-                </p>
+            <div className="flex flex-col sm:flex-row items-start justify-between mb-2 gap-2">
+              <div className="flex-1 w-full sm:pr-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-sm font-medium leading-relaxed line-clamp-2 mb-2 cursor-help">
+                        {prompt.text}
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-md">
+                      <p className="text-sm">{prompt.text}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
@@ -174,7 +184,7 @@ const PromptRowComponent = ({
               </div>
 
               {/* Category and Actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <Badge 
                   variant="outline" 
                   className={`text-xs px-2 py-1 ${getCategoryColor(category)}`}
@@ -204,7 +214,7 @@ const PromptRowComponent = ({
             </div>
 
             {/* 7-Day Performance Summary - Compact Grid */}
-            <div className="grid grid-cols-3 gap-3 p-2.5 bg-muted/30 rounded-lg mb-2">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 p-2.5 bg-muted/30 rounded-lg mb-2">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
                   <TrendingUp className="h-3 w-3" />

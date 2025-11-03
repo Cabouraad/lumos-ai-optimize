@@ -194,9 +194,9 @@ export function PromptList({
               </div>
 
               {/* Filters */}
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
+                  <SelectTrigger className="w-full sm:w-32 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="bg-card/95 backdrop-blur-sm border-border/50">
@@ -207,7 +207,7 @@ export function PromptList({
                 </Select>
 
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-44 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
+                  <SelectTrigger className="w-full sm:w-44 h-10 bg-background/50 border-border/50 hover:border-primary/50 transition-smooth">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent className="bg-card/95 backdrop-blur-sm border-border/50">
