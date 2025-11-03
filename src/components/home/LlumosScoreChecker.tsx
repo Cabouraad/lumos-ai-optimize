@@ -27,6 +27,7 @@ export function LlumosScoreChecker() {
   const [scoreData, setScoreData] = useState<DemoScoreResponse | null>(null);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportRequested, setReportRequested] = useState(false);
   const { trackScoreCheck } = useAnalytics();
@@ -203,6 +204,11 @@ export function LlumosScoreChecker() {
                     <form onSubmit={async (e) => {
                       e.preventDefault();
                       
+                      if (!firstName.trim()) {
+                        setError('Please enter your first name');
+                        return;
+                      }
+
                       if (!email.trim() || !email.includes('@')) {
                         setError('Please enter a valid email address');
                         return;
@@ -214,6 +220,7 @@ export function LlumosScoreChecker() {
                       try {
                         const { error: invokeError } = await supabase.functions.invoke('request-visibility-report', {
                           body: { 
+                            firstName: firstName.trim(),
                             email: email.trim(),
                             domain: scoreData.domain,
                             score: scoreData.score
@@ -231,12 +238,22 @@ export function LlumosScoreChecker() {
                       }
                     }} className="space-y-3">
                       <Input
+                        type="text"
+                        placeholder="First Name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="text-base h-12"
+                        disabled={isSubmittingReport}
+                        maxLength={100}
+                      />
+                      <Input
                         type="email"
-                        placeholder="Enter your email address"
+                        placeholder="Email Address"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="text-base h-12"
                         disabled={isSubmittingReport}
+                        maxLength={255}
                       />
                       {error && (
                         <p className="text-sm text-destructive">{error}</p>
@@ -269,6 +286,7 @@ export function LlumosScoreChecker() {
                             setScoreData(null);
                             setDomain('');
                             setEmail('');
+                            setFirstName('');
                           }}
                           className="flex-1 text-base"
                         >
@@ -284,7 +302,7 @@ export function LlumosScoreChecker() {
                     </div>
                     <h3 className="text-xl font-semibold">Report Requested Successfully!</h3>
                     <p className="text-muted-foreground max-w-md mx-auto">
-                      We're generating your comprehensive visibility report. You'll receive it at <span className="font-medium text-foreground">{email}</span> within the next few minutes.
+                      Thank you, {firstName}! Our team will analyze your brand's AI visibility and send a comprehensive report to <span className="font-medium text-foreground">{email}</span> as soon as possible.
                     </p>
                     <Button
                       variant="outline"
@@ -293,6 +311,7 @@ export function LlumosScoreChecker() {
                         setScoreData(null);
                         setDomain('');
                         setEmail('');
+                        setFirstName('');
                         setReportRequested(false);
                       }}
                       className="mt-4"
