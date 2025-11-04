@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_sources: {
+        Row: {
+          created_at: string
+          date_tracked: string
+          domain: string
+          frequency: number
+          id: string
+          model: string
+          org_id: string
+          timestamp: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_tracked?: string
+          domain: string
+          frequency?: number
+          id?: string
+          model: string
+          org_id: string
+          timestamp?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_tracked?: string
+          domain?: string
+          frequency?: number
+          id?: string
+          model?: string
+          org_id?: string
+          timestamp?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -1550,6 +1586,17 @@ export type Database = {
       }
     }
     Views: {
+      ai_sources_top_domains: {
+        Row: {
+          domain: string | null
+          last_cited: string | null
+          model_count: number | null
+          models: string[] | null
+          org_id: string | null
+          total_citations: number | null
+        }
+        Relationships: []
+      }
       low_visibility_prompts: {
         Row: {
           org_id: string | null
@@ -1734,6 +1781,7 @@ export type Database = {
         Args: { email_address: string }
         Returns: boolean
       }
+      extract_domain: { Args: { url: string }; Returns: string }
       fix_all_org_brand_classifications: {
         Args: never
         Returns: {
