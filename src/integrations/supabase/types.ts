@@ -986,6 +986,7 @@ export type Database = {
       prompts: {
         Row: {
           active: boolean
+          cluster_tag: string | null
           created_at: string
           id: string
           org_id: string
@@ -993,6 +994,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          cluster_tag?: string | null
           created_at?: string
           id?: string
           org_id: string
@@ -1000,6 +1002,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          cluster_tag?: string | null
           created_at?: string
           id?: string
           org_id?: string
@@ -1808,6 +1811,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_cluster_tag_color: { Args: { tag: string }; Returns: string }
       get_competitor_share_7d: {
         Args: { p_org_id?: string }
         Returns: {

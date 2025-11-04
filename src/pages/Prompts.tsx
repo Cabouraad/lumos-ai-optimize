@@ -20,7 +20,8 @@ import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
 import { getPromptCategory } from '@/lib/prompt-utils';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
-import { AlertCircle } from 'lucide-react';
+import { useClusterPrompts } from '@/hooks/useClusterPrompts';
+import { AlertCircle, Sparkles } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
 const transformPromptData = (prompts: any[], promptDetails: any[]) => {
@@ -62,6 +63,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
       created_at: prompt.created_at,
       runs_7d: runs_7d,
       avg_score_7d: Math.round(avg_score_7d * 10) / 10,
+      cluster_tag: prompt.cluster_tag,
     };
   });
 };
@@ -72,6 +74,7 @@ export default function Prompts() {
   const { orgData, user, ready } = useAuth();
   const { toast } = useToast();
   const { canCreatePrompts, hasAccessToApp, limits } = useSubscriptionGate();
+  const clusterPrompts = useClusterPrompts();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
   const [providerData, setProviderData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -609,6 +612,15 @@ export default function Prompts() {
                   </p>
                 </div>
                 <div className="flex gap-3">
+                  <Button 
+                    onClick={() => clusterPrompts.mutate({ orgId: orgData?.organizations?.id || '' })}
+                    disabled={clusterPrompts.isPending || !rawPrompts.length}
+                    variant="outline"
+                    className="rounded-xl hover-lift border-border/50 hover:border-primary/50 transition-smooth"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {clusterPrompts.isPending ? 'Clustering...' : 'Auto-Tag Prompts'}
+                  </Button>
                   {isTestUser && (
                     <Button 
                       onClick={() => setShowGlobalBatchDialog(true)}

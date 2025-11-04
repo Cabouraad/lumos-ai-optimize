@@ -28,6 +28,7 @@ interface PromptWithStats {
   created_at: string;
   runs_7d?: number;
   avg_score_7d?: number;
+  cluster_tag?: string | null;
 }
 
 interface PromptListProps {

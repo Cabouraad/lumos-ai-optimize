@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProviderResponseCard } from './ProviderResponseCard';
 import { PromptTopCitations } from './PromptTopCitations';
+import { ClusterTagBadge } from './prompts/ClusterTagBadge';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { getAllowedProviders } from '@/lib/providers/tier-policy';
 import { getPromptCategory, getCategoryColor } from '@/lib/prompt-utils';
@@ -34,6 +35,7 @@ interface PromptWithStats {
   created_at: string;
   runs_7d?: number;
   avg_score_7d?: number;
+  cluster_tag?: string | null;
 }
 
 interface PromptRowProps {
@@ -185,6 +187,10 @@ const PromptRowComponent = ({
 
               {/* Category and Actions */}
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {prompt.cluster_tag && (
+                  <ClusterTagBadge tag={prompt.cluster_tag} />
+                )}
+                
                 <Badge 
                   variant="outline" 
                   className={`text-xs px-2 py-1 ${getCategoryColor(category)}`}
