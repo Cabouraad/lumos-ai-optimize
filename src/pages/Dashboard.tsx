@@ -21,6 +21,7 @@ import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
+import { WeeklyVisibilityTrend } from '@/components/dashboard/WeeklyVisibilityTrend';
 import { useCompetitors } from '@/features/competitors/hooks';
 
 export default function Dashboard() {
@@ -449,6 +450,9 @@ export default function Dashboard() {
             loadingCompetitors={loadingCompetitors}
             hasCompetitorAccess={competitorAccess.hasAccess}
           />
+
+          {/* Weekly Visibility Trend */}
+          <WeeklyVisibilityTrend orgId={orgData?.organizations?.id} />
 
           {/* Quick Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
