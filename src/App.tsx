@@ -33,6 +33,7 @@ const PaymentSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/Payme
 const DomainVerification = lazy(() => loadChunkWithRetry(() => import("./pages/DomainVerification")));
 const NotFound = lazy(() => loadChunkWithRetry(() => import("./pages/NotFound")));
 const Reports = lazy(() => loadChunkWithRetry(() => import("./pages/Reports")));
+const Sources = lazy(() => loadChunkWithRetry(() => import("./pages/Sources")));
 const BypassTestPage = lazy(() => loadChunkWithRetry(() => import("./pages/BypassTestPage")));
 const Labs = lazy(() => loadChunkWithRetry(() => import("./pages/Labs")));
 const AuditRuns = lazy(() => loadChunkWithRetry(() => import("./pages/admin/AuditRuns")));
@@ -173,6 +174,13 @@ const App = () => {
           <Route path="/reports" element={
             <ProtectedRoute>
               <Reports />
+            </ProtectedRoute>
+          } />
+          <Route path="/sources" element={
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="Sources">
+                <Sources />
+              </ChunkErrorBoundary>
             </ProtectedRoute>
           } />
           <Route path="/settings" element={

@@ -22,6 +22,7 @@ import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
 import { WeeklyVisibilityTrend } from '@/components/dashboard/WeeklyVisibilityTrend';
+import { AISourceIntelligence } from '@/components/dashboard/AISourceIntelligence';
 import { useCompetitors } from '@/features/competitors/hooks';
 
 export default function Dashboard() {
@@ -456,6 +457,9 @@ export default function Dashboard() {
 
           {/* Quick Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* AI Source Intelligence */}
+            <AISourceIntelligence orgId={orgData?.organizations?.id} />
+
             {/* Recommendations Card - Show to all users */}
             <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
               <CardHeader className="flex flex-row items-center justify-between">
