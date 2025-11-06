@@ -2024,6 +2024,16 @@ export type Database = {
       fix_recent_brand_misclassifications: { Args: never; Returns: string }
       generate_verification_token: { Args: { org_id: string }; Returns: string }
       generate_week_key: { Args: { input_date: string }; Returns: string }
+      get_all_cron_jobs: {
+        Args: never
+        Returns: {
+          active: boolean
+          database: string
+          jobid: number
+          jobname: string
+          schedule: string
+        }[]
+      }
       get_brand_candidates_for_org: {
         Args: never
         Returns: {

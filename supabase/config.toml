@@ -210,6 +210,15 @@ verify_jwt = true
 [functions.test-ca-calculation]
 verify_jwt = true
 
+[functions.scheduler-recovery]
+verify_jwt = false
+
+[functions.cron-health-monitor]
+verify_jwt = false
+
+[functions.manual-prompt-trigger]
+verify_jwt = false
+
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===
@@ -239,3 +248,6 @@ execution_monitor = { schedule = "*/15 * * * *", endpoint = "/execution-monitor"
 
 # === LLUMOS SCORE: Weekly computation (Mondays at 8:05 AM UTC) ===
 llumos_score_weekly = { schedule = "5 8 * * MON", endpoint = "/compute-llumos-score", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" }, body = "{\"scope\": \"org\", \"force\": true}" }
+
+# === SYSTEM HEALTH: Monitor cron job health (every 6 hours) ===
+cron_health_monitor = { schedule = "0 */6 * * *", endpoint = "/cron-health-monitor", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
