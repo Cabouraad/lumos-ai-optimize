@@ -53,8 +53,8 @@ export function AppSidebar() {
   const hasMultipleBrands = brands.length > 1;
 
   const navigation = [
+    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Building2 }] : []),
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ...(isProTier && hasMultipleBrands ? [{ name: 'Brands', href: '/brands', icon: Building2 }] : []),
     { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3 },
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
     { name: 'Competitors', href: '/competitors', icon: Users },
@@ -78,7 +78,7 @@ export function AppSidebar() {
       {/* Brand Display with Switcher for Pro users */}
       {selectedBrand ? (
         <div className="px-4 py-3 border-b border-border/30">
-          {isProTier && hasMultipleBrands ? (
+          {isProTier ? (
             <Button
               variant="ghost"
               className="w-full justify-between p-2 h-auto hover:bg-accent/50"

@@ -29,12 +29,13 @@ export function ProtectedRoute({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Auto-select brand if user has only one
+  // Don't auto-select brand for Pro users - let them go through brand selection
   useEffect(() => {
-    if (brands.length === 1 && !selectedBrand) {
+    const isProTier = subscriptionData?.subscription_tier === 'pro';
+    if (!isProTier && brands.length === 1 && !selectedBrand) {
       setSelectedBrand(brands[0]);
     }
-  }, [brands, selectedBrand, setSelectedBrand]);
+  }, [brands, selectedBrand, setSelectedBrand, subscriptionData]);
 
   // Show loading while auth is initializing
   if (authLoading || !ready) {
@@ -132,10 +133,10 @@ export function ProtectedRoute({
     );
   }
 
-  // Check if Pro user needs to select a brand (multi-brand feature)
+  // Check if Pro user needs to select a brand
   const isProTier = subscriptionData?.subscription_tier === 'pro';
   const needsBrandSelection = isProTier && 
-    brands.length > 1 && 
+    brands.length > 0 && 
     !selectedBrand && 
     location.pathname !== '/brands' &&
     !brandsLoading;
