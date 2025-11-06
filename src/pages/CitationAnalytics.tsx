@@ -311,7 +311,7 @@ export default function CitationAnalytics() {
                           rel="noopener noreferrer"
                           className="font-medium hover:underline truncate flex items-center gap-2 group text-sm"
                         >
-                          <span className="truncate">{page.title}</span>
+                          <span className="truncate">{page.url}</span>
                           <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                         </a>
                         <p className="text-xs text-muted-foreground truncate">{page.domain}</p>
