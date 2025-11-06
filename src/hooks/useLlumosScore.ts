@@ -108,10 +108,11 @@ export function useLlumosScore(promptId?: string) {
 
       return data as LlumosScoreResponse;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes (reduced from 5)
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchOnMount: 'always',
+    refetchOnMount: true, // Changed from 'always' to true
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
   });
 }
 

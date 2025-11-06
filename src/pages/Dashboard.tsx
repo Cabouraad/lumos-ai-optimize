@@ -146,7 +146,7 @@ export default function Dashboard() {
     // Filter successful responses in last 7 days
     const recentResponses = dashboardData.responses.filter((response: any) => {
       const responseDate = new Date(response.run_at || response.created_at);
-      return responseDate >= sevenDaysAgo && response.status === 'success';
+      return responseDate >= sevenDaysAgo && (response.status === 'success' || response.status === 'completed');
     });
 
     const totalCount = recentResponses.length;
@@ -198,7 +198,7 @@ export default function Dashboard() {
       // Filter responses for this day
       const dayResponses = dashboardData.responses.filter((response: any) => {
         const responseDate = new Date(response.run_at || response.created_at);
-        return responseDate >= dayDate && responseDate < nextDay && response.status === 'success';
+        return responseDate >= dayDate && responseDate < nextDay && (response.status === 'success' || response.status === 'completed');
       });
       
       const dayData: any = {
