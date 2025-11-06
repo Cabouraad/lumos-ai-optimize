@@ -720,7 +720,7 @@ function applySafeguard(
   // Extract org brand variants from catalog
   const orgBrandVariants = extractOrgBrandVariants(brandCatalog);
   if (orgBrandVariants.length === 0) {
-    return result;
+    return ensuredResult; // CRITICAL: Return ensuredResult, not result
   }
   
   // Check if raw response contains any org brand variant
