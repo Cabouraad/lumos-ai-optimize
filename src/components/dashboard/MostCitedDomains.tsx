@@ -1,100 +1,78 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, TrendingUp } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ExternalLink } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DomainStats {
   domain: string;
-  count: number;
+  total_citations: number;
   percentage: number;
 }
 
 interface MostCitedDomainsProps {
   orgId?: string;
+  brandId?: string | null;
 }
 
-export function MostCitedDomains({ orgId }: MostCitedDomainsProps) {
+export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
   const [domains, setDomains] = useState<DomainStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCitations, setTotalCitations] = useState(0);
 
   useEffect(() => {
-    if (!orgId) return;
-    loadMostCitedDomains();
-  }, [orgId]);
-
-  const extractDomain = (url: string): string | null => {
-    try {
-      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-      return urlObj.hostname.replace(/^www\./, '');
-    } catch {
-      return null;
+    if (!orgId) {
+      setDomains([]);
+      setLoading(false);
+      return;
     }
-  };
+    loadMostCitedDomains();
+  }, [orgId, brandId]);
 
   const loadMostCitedDomains = async () => {
     try {
       setLoading(true);
 
-      // Get last 30 days of responses with citations
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const { data, error } = await supabase
-        .from('prompt_provider_responses')
-        .select('citations_json')
+      // Use ai_sources_top_domains view for efficient domain aggregation
+      let query = supabase
+        .from('ai_sources_top_domains')
+        .select('domain, total_citations, brand_id')
         .eq('org_id', orgId)
-        .eq('status', 'success')
-        .not('citations_json', 'is', null)
-        .gte('run_at', thirtyDaysAgo.toISOString())
-        .order('run_at', { ascending: false })
-        .limit(1000);
+        .order('total_citations', { ascending: false })
+        .limit(8);
+
+      // Filter by brand if specified
+      if (brandId) {
+        query = query.or(`brand_id.eq.${brandId},brand_id.is.null`);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
-        console.error('Error loading citations:', error);
+        console.error('Error loading cited domains:', error);
         return;
       }
 
-      // Aggregate domains from citations
-      const domainMap = new Map<string, number>();
-      let totalCount = 0;
+      if (!data || data.length === 0) {
+        setDomains([]);
+        setTotalCitations(0);
+        return;
+      }
 
-      data?.forEach((response) => {
-        // Handle the nested structure: citations_json.citations is the array
-        const citationsData = response.citations_json;
-        if (!citationsData || typeof citationsData !== 'object') return;
+      // Calculate total and percentages
+      const total = data.reduce((sum, item) => sum + (item.total_citations || 0), 0);
+      const domainStats: DomainStats[] = data.map(item => ({
+        domain: item.domain,
+        total_citations: item.total_citations || 0,
+        percentage: total > 0 ? ((item.total_citations || 0) / total) * 100 : 0
+      }));
 
-        // Extract the citations array from the wrapper object
-        const citationsArray = (citationsData as any).citations;
-        if (!Array.isArray(citationsArray)) return;
-        
-        citationsArray.forEach((citation: any) => {
-          // Each citation has domain and url fields
-          const domain = citation.domain;
-          
-          if (domain && typeof domain === 'string' && domain.length > 3 && !domain.includes('localhost')) {
-            domainMap.set(domain, (domainMap.get(domain) || 0) + 1);
-            totalCount++;
-          }
-        });
-      });
-
-      // Sort by count and get top 8
-      const sortedDomains = Array.from(domainMap.entries())
-        .map(([domain, count]) => ({
-          domain,
-          count,
-          percentage: totalCount > 0 ? (count / totalCount) * 100 : 0
-        }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 8);
-
-      setDomains(sortedDomains);
-      setTotalCitations(totalCount);
+      setDomains(domainStats);
+      setTotalCitations(total);
     } catch (error) {
-      console.error('Error processing citations:', error);
+      console.error('Error in loadMostCitedDomains:', error);
     } finally {
       setLoading(false);
     }
@@ -102,20 +80,27 @@ export function MostCitedDomains({ orgId }: MostCitedDomainsProps) {
 
   if (loading) {
     return (
-      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
+      <Card>
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between">
             <CardTitle>Most Cited Domains</CardTitle>
+            <Badge variant="outline" className="text-xs">
+              Last 30 days
+            </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-6 w-12" />
-            </div>
-          ))}
+        <CardContent>
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     );
@@ -123,64 +108,62 @@ export function MostCitedDomains({ orgId }: MostCitedDomainsProps) {
 
   if (domains.length === 0) {
     return (
-      <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
+      <Card>
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between">
             <CardTitle>Most Cited Domains</CardTitle>
+            <Badge variant="outline" className="text-xs">
+              Last 30 days
+            </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-6 text-muted-foreground">
-            <ExternalLink className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No citation data available yet</p>
-            <p className="text-xs mt-1">Citations will appear as AI responses include sources</p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            No citation data available yet. Citations will appear here after responses are generated.
+          </p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div className="flex items-center space-x-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
           <CardTitle>Most Cited Domains</CardTitle>
+          <Badge variant="outline" className="text-xs">
+            Last 30 days
+          </Badge>
         </div>
-        <Badge variant="secondary" className="text-xs">
-          Last 30 days
-        </Badge>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="text-xs text-muted-foreground mb-4">
-          {totalCitations} total citations across all AI responses
+      <CardContent>
+        <div className="mb-4">
+          <p className="text-2xl font-bold">{totalCitations}</p>
+          <p className="text-sm text-muted-foreground">Total Citations</p>
         </div>
-        
-        <div className="space-y-3">
+        <div className="space-y-4">
           {domains.map((domain, index) => (
-            <div key={domain.domain} className="group">
-              <div className="flex items-center justify-between mb-1">
-                <a
-                  href={`https://${domain.domain}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
-                >
-                  <span className="text-muted-foreground text-xs w-4">#{index + 1}</span>
-                  <span className="truncate max-w-[200px]">{domain.domain}</span>
-                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
-                <Badge variant="outline" className="text-xs">
-                  {domain.count} {domain.count === 1 ? 'citation' : 'citations'}
-                </Badge>
+            <div key={domain.domain} className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="text-muted-foreground font-medium">
+                    #{index + 1}
+                  </span>
+                  <a
+                    href={`https://${domain.domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium hover:underline truncate flex items-center gap-1 group"
+                  >
+                    {domain.domain}
+                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                  </a>
+                </div>
+                <span className="text-muted-foreground font-mono flex-shrink-0 ml-2">
+                  {domain.total_citations} ({domain.percentage.toFixed(1)}%)
+                </span>
               </div>
-              <div className="w-full bg-muted/30 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-primary h-full transition-all duration-500"
-                  style={{ width: `${Math.min(domain.percentage, 100)}%` }}
-                />
-              </div>
+              <Progress value={domain.percentage} className="h-2" />
             </div>
           ))}
         </div>

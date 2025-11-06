@@ -1992,7 +1992,15 @@ export type Database = {
         Args: { p_citations_json: Json; p_org_domains: string[] }
         Returns: number
       }
-      clean_competitor_catalog: { Args: { p_dry_run?: boolean }; Returns: Json }
+      clean_competitor_catalog:
+        | {
+            Args: { p_days?: number; p_org_id: string }
+            Returns: {
+              kept_count: number
+              removed_count: number
+            }[]
+          }
+        | { Args: { p_dry_run?: boolean }; Returns: Json }
       compute_daily_llumos_scores: { Args: never; Returns: undefined }
       compute_llumos_score: {
         Args: { p_org_id: string; p_prompt_id?: string }
@@ -2061,11 +2069,11 @@ export type Database = {
           p_days?: number
           p_interval?: string
           p_limit?: number
-          p_org_id?: string
+          p_org_id: string
         }
         Returns: {
           competitor_name: string
-          mentions: number
+          mentions_count: number
           period_start: string
         }[]
       }

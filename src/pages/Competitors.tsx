@@ -155,6 +155,7 @@ export default function Competitors() {
   const { selectedBrand } = useBrand();
   const [competitorData, setCompetitorData] = useState<CompetitorData[]>([]);
   const [trackedCompetitors, setTrackedCompetitors] = useState<TrackedCompetitor[]>([]);
+  const [catalogCount, setCatalogCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newCompetitorName, setNewCompetitorName] = useState('');
@@ -183,7 +184,7 @@ export default function Competitors() {
       const orgId = await getOrgId();
 
       // Get org name and brand info
-      const [orgResult, competitorSummaryResult, trackedResult] = await Promise.all([
+      const [orgResult, competitorSummaryResult, catalogCountResult, trackedResult] = await Promise.all([
         supabase
           .from('organizations')
           .select('name')
@@ -199,8 +200,17 @@ export default function Competitors() {
         }),
         supabase
           .from('brand_catalog')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', orgId)
+          .eq('is_org_brand', false),
+        supabase
+          .from('brand_catalog')
           .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score')
           .eq('org_id', orgId)
+          .eq('is_org_brand', false)
+          .order('total_appearances', { ascending: false })
+          .order('last_seen_at', { ascending: false })
+          .limit(50)
       ]);
 
       let competitorRows = competitorSummaryResult.data as any[] | null;
@@ -223,11 +233,12 @@ export default function Competitors() {
       const competitors: CompetitorData[] = competitorRows || [];
       setCompetitorData(competitors);
 
-      // Separate org brands from manual competitors
-      const orgBrands = trackedResult.data?.filter(b => b.is_org_brand) || [];
-      const manualCompetitors = trackedResult.data?.filter(b => !b.is_org_brand && b.total_appearances === 0) || [];
+      // Set catalog count for limit enforcement
+      setCatalogCount(catalogCountResult.count || 0);
 
-      // Get real-time org brand visibility from recent competitor data
+      // Separate org brands from manual competitors (from limited fetch)
+      const manualCompetitors = trackedResult.data?.filter(b => b.total_appearances === 0) || [];
+
       const orgBrandInCompetitors = competitors.find(c => 
         c.competitor_name.toLowerCase() === currentOrgName.toLowerCase()
       );
@@ -241,19 +252,6 @@ export default function Competitors() {
           firstDetectedAt: orgBrandInCompetitors.first_seen,
           lastSeenAt: orgBrandInCompetitors.last_seen,
           sharePercentage: (Number(orgBrandInCompetitors.total_mentions) / Math.max(1, competitors.reduce((sum, c) => sum + Number(c.total_mentions), 0))) * 100,
-          isManuallyAdded: false
-        });
-      } else if (orgBrands.length > 0) {
-        // Fallback to catalog data if no recent mentions
-        const orgBrandData = orgBrands[0];
-        setOrgBrand({
-          id: orgBrandData.id,
-          name: orgBrandData.name,
-          totalAppearances: 0,
-          averageScore: 0,
-          firstDetectedAt: orgBrandData.first_detected_at,
-          lastSeenAt: orgBrandData.first_detected_at,
-          sharePercentage: 0,
           isManuallyAdded: false
         });
       }
@@ -317,29 +315,19 @@ export default function Competitors() {
 
   const handleAddCompetitor = async () => {
     if (!newCompetitorName.trim()) return;
+    
+    // Check limit before attempting insert
+    if (catalogCount >= 50) {
+      toast({
+        title: "Competitor limit reached",
+        description: "You can track a maximum of 50 competitors. Please remove some competitors first or use the cleanup feature.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       const orgId = await getOrgId();
-      
-      // Check 50-competitor limit - count only non-org-brand entries
-      const { count: competitorCount, error: countError } = await supabase
-        .from('brand_catalog')
-        .select('id', { count: 'exact', head: true })
-        .eq('org_id', orgId)
-        .eq('is_org_brand', false);
-
-      if (countError) {
-        console.error('Error checking competitor count:', countError);
-      }
-
-      if (competitorCount !== null && competitorCount >= 50) {
-        toast({
-          title: "Competitor limit reached",
-          description: "You can track a maximum of 50 competitors. Please remove some competitors first or use the cleanup feature.",
-          variant: "destructive"
-        });
-        return;
-      }
       
       const { data: existing } = await supabase
         .from('brand_catalog')
@@ -370,12 +358,21 @@ export default function Competitors() {
         });
 
       if (error) {
-        console.error('Error adding competitor:', error);
-        toast({
-          title: "Error adding competitor",
-          description: "Failed to add the competitor to your catalog.",
-          variant: "destructive"
-        });
+        // Check if error is from trigger
+        if (error.code === 'P0001' || error.message?.includes('limit reached')) {
+          toast({
+            title: "Competitor limit reached",
+            description: "Maximum 50 competitors allowed",
+            variant: "destructive"
+          });
+        } else {
+          console.error('Error adding competitor:', error);
+          toast({
+            title: "Error adding competitor",
+            description: "Failed to add the competitor to your catalog.",
+            variant: "destructive"
+          });
+        }
         return;
       }
 
@@ -600,20 +597,21 @@ export default function Competitors() {
             <div className="flex items-center justify-between mb-8">
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold text-foreground">Brand Competition</h1>
-                <p className="text-muted-foreground">Competition analysis for {orgName}</p>
+                <p className="text-muted-foreground">
+                  Competition analysis for {orgName} • {catalogCount} tracked {catalogCount >= 50 && '(at limit)'}
+                </p>
               </div>
               
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className="bg-card text-sm px-3 py-1">
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  {competitorData.length} tracked
-                </Badge>
-                
                 <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="shadow-sm">
+                    <Button 
+                      className="shadow-sm"
+                      disabled={catalogCount >= 50}
+                      title={catalogCount >= 50 ? 'Competitor limit reached (50 max)' : undefined}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
-                      Track Competitor
+                      Track Competitor {catalogCount >= 50 && `(${catalogCount}/50)`}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
@@ -746,7 +744,7 @@ export default function Competitors() {
                       <Eye className="w-5 h-5 text-purple-600" />
                       <h2 className="text-xl font-semibold text-foreground">Your Tracked Competitors</h2>
                       <Badge variant="secondary" className="text-xs px-2 py-1">
-                        {trackedCompetitors.length} tracked
+                        {catalogCount} tracked {catalogCount >= 50 && '(max)'}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mb-6">

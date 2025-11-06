@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 interface TrendDataPoint {
   period_start: string;
   competitor_name: string;
-  mentions: number;
+  mentions_count: number;
 }
 
 interface CompetitorTrendsChartProps {
@@ -41,9 +41,27 @@ export function CompetitorTrendsChart({ brandId }: CompetitorTrendsChartProps) {
     try {
       setLoading(true);
       
+      // Get current user's org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No user found');
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData?.org_id) {
+        console.error('Failed to get org_id:', userError);
+        return;
+      }
+
       const { data, error } = await supabase.rpc('get_competitor_trends', {
-        p_org_id: null,
-        p_interval: timeInterval,
+        p_org_id: userData.org_id,
+        p_interval: timeInterval === 'week' ? 'week' : 'month',
         p_days: timeInterval === 'week' ? 90 : 180,
         p_limit: 5,
         p_brand_id: brandId || null
@@ -78,7 +96,7 @@ export function CompetitorTrendsChart({ brandId }: CompetitorTrendsChartProps) {
             date: format(new Date(period), timeInterval === 'week' ? 'MMM d' : 'MMM yyyy')
           });
         }
-        periodMap.get(period)[item.competitor_name] = item.mentions;
+        periodMap.get(period)[item.competitor_name] = item.mentions_count;
       });
 
       const transformed = Array.from(periodMap.values()).sort((a, b) => 
