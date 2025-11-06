@@ -198,7 +198,7 @@ export default function Brands() {
                         {scoresLoading ? (
                           <Skeleton className="h-6 w-12" />
                         ) : (
-                          `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(0)}%`
+                          `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(1)}%`
                         )}
                       </div>
                     </div>

@@ -60,17 +60,29 @@ export function useBrandVisibilityScores(brandIds: string[]) {
             // Type assertion for the RPC response
             const result = data as any;
             const avgScore = result?.metrics?.avgScore || 0;
-            const totalPrompts = result?.metrics?.totalPrompts || 0;
-            const brandPresenceRate = result?.metrics?.brandPresenceRate || 0;
-            const totalMentions = result?.metrics?.totalMentions || 0;
-            const lastActivity = result?.metrics?.lastActivity || null;
+            const totalPrompts = result?.metrics?.promptCount || result?.metrics?.activePrompts || 0;
+            const totalRuns = result?.metrics?.totalRuns || 0;
+            
+            // Calculate brand presence rate from responses
+            const responses = Array.isArray(result?.responses) ? result.responses : [];
+            const brandPresentResponses = responses.filter((r: any) => r.org_brand_present);
+            const brandPresenceRate = responses.length > 0 
+              ? (brandPresentResponses.length / responses.length) 
+              : 0;
+            
+            // Get last activity from most recent response
+            const lastActivity = responses.length > 0 
+              ? responses.sort((a: any, b: any) => 
+                  new Date(b.run_at).getTime() - new Date(a.run_at).getTime()
+                )[0].run_at
+              : null;
             
             return { 
               brandId, 
               score: avgScore,
               totalPrompts,
               brandPresenceRate,
-              totalMentions,
+              totalMentions: totalRuns,
               lastActivity
             };
           } catch (error) {
