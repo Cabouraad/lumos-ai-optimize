@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, TrendingUp, Link2, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Link2, FileText, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis } from '@/components/ui/pagination';
 import { useNavigate } from 'react-router-dom';
 import { useCitationAnalytics } from '@/hooks/useCitationAnalytics';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
@@ -14,6 +15,8 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accen
 export default function CitationAnalytics() {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const { data, isLoading } = useCitationAnalytics(timeRange);
 
   if (isLoading) {
@@ -298,11 +301,13 @@ export default function CitationAnalytics() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {data.topPages.slice(0, 10).map((page, index) => (
+                {data.topPages
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((page, index) => (
                   <div key={page.url} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <Badge variant="outline" className="font-mono shrink-0">
-                        #{index + 1}
+                        #{(currentPage - 1) * itemsPerPage + index + 1}
                       </Badge>
                       <div className="flex-1 min-w-0">
                         <a
@@ -324,6 +329,40 @@ export default function CitationAnalytics() {
                   </div>
                 ))}
               </div>
+              
+              {data.topPages.length > itemsPerPage && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                      
+                      {Array.from({ length: Math.ceil(data.topPages.length / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(page)}
+                            isActive={currentPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(p => Math.min(Math.ceil(data.topPages.length / itemsPerPage), p + 1))}
+                          className={currentPage === Math.ceil(data.topPages.length / itemsPerPage) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </CardContent>
           </Card>
 
