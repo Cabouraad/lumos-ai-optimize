@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { useBrands, Brand } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandDisplay } from '@/components/BrandDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useBrandVisibilityScores } from '@/hooks/useBrandVisibilityScores';
 
 export default function Brands() {
   const navigate = useNavigate();
@@ -19,6 +20,19 @@ export default function Brands() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandDomain, setNewBrandDomain] = useState('');
+
+  // Get all brand IDs to fetch visibility scores
+  const brandIds = useMemo(() => brands.map(b => b.id), [brands]);
+  const { data: visibilityScores = [], isLoading: scoresLoading } = useBrandVisibilityScores(brandIds);
+
+  // Create a map of brand ID to visibility score
+  const scoreMap = useMemo(() => {
+    const map = new Map<string, number>();
+    visibilityScores.forEach(score => {
+      map.set(score.brandId, score.score);
+    });
+    return map;
+  }, [visibilityScores]);
 
   const filteredBrands = brands.filter(brand =>
     brand.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -162,12 +176,20 @@ export default function Brands() {
                   <div className="mt-4">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-muted-foreground">Visibility Score</span>
-                      <span className="text-sm font-medium">0.0%</span>
+                      <span className="text-sm font-medium">
+                        {scoresLoading ? (
+                          <Skeleton className="h-4 w-12 inline-block" />
+                        ) : (
+                          `${((scoreMap.get(brand.id) || 0) * 10).toFixed(1)}%`
+                        )}
+                      </span>
                     </div>
                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary transition-all"
-                        style={{ width: '0%' }}
+                        style={{ 
+                          width: scoresLoading ? '0%' : `${(scoreMap.get(brand.id) || 0) * 10}%` 
+                        }}
                       />
                     </div>
                   </div>
