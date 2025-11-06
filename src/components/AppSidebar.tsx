@@ -33,7 +33,8 @@ import {
   TestTube2,
   BookOpen,
   Building2,
-  ChevronDown
+  ChevronDown,
+  BarChart3
 } from 'lucide-react';
 
 export function AppSidebar() {
@@ -54,6 +55,7 @@ export function AppSidebar() {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     ...(isProTier && hasMultipleBrands ? [{ name: 'Brands', href: '/brands', icon: Building2 }] : []),
+    { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3 },
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
     { name: 'Competitors', href: '/competitors', icon: Users },
     { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
