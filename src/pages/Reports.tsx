@@ -12,10 +12,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, FileText, Crown, Calendar, Users, RefreshCw, Clock, Settings, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import type { DateRange } from 'react-day-picker';
 
 interface Report {
   id: string;
@@ -51,6 +53,7 @@ export default function Reports() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
   const [activeTab, setActiveTab] = useState('pdf-reports');
 
@@ -450,10 +453,20 @@ export default function Reports() {
         });
         return;
       }
+
+      // Prepare request body with optional brand_id and date range
+      const requestBody: any = {};
+      if (selectedBrand) {
+        requestBody.brand_id = selectedBrand.id;
+      }
+      if (dateRange?.from && dateRange?.to) {
+        requestBody.start_date = format(dateRange.from, 'yyyy-MM-dd');
+        requestBody.end_date = format(dateRange.to, 'yyyy-MM-dd');
+      }
       
-      // Call the edge function with proper authentication and optional brand_id
+      // Call the edge function with proper authentication
       const { data, error } = await supabase.functions.invoke('weekly-report', {
-        body: selectedBrand ? { brand_id: selectedBrand.id } : {}
+        body: requestBody
       });
 
       if (error) {
@@ -466,9 +479,13 @@ export default function Reports() {
         return;
       }
 
+      const dateRangeInfo = dateRange?.from && dateRange?.to 
+        ? ` (${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd')})`
+        : '';
+
       showToast({
         title: "Success",
-        description: `PDF report generated successfully${brandInfo}`,
+        description: `PDF report generated successfully${brandInfo}${dateRangeInfo}`,
       });
 
       // Silently refresh reports after generation
@@ -503,10 +520,20 @@ export default function Reports() {
         });
         return;
       }
+
+      // Prepare request body with optional brand_id and date range
+      const requestBody: any = {};
+      if (selectedBrand) {
+        requestBody.brand_id = selectedBrand.id;
+      }
+      if (dateRange?.from && dateRange?.to) {
+        requestBody.start_date = format(dateRange.from, 'yyyy-MM-dd');
+        requestBody.end_date = format(dateRange.to, 'yyyy-MM-dd');
+      }
       
-      // Call the edge function with proper authentication and optional brand_id
+      // Call the edge function with proper authentication
       const { data, error } = await supabase.functions.invoke('weekly-report', {
-        body: selectedBrand ? { brand_id: selectedBrand.id } : {}
+        body: requestBody
       });
 
       if (error) {
@@ -519,9 +546,13 @@ export default function Reports() {
         return;
       }
 
+      const dateRangeInfo = dateRange?.from && dateRange?.to 
+        ? ` (${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd')})`
+        : '';
+
       showToast({
         title: "Success",
-        description: `CSV report generated successfully${brandInfo}`,
+        description: `CSV report generated successfully${brandInfo}${dateRangeInfo}`,
       });
 
       // Silently refresh reports after generation
@@ -637,10 +668,48 @@ export default function Reports() {
             <TabsContent value="pdf-reports" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>PDF Reports</CardTitle>
-                  <CardDescription>
-                    Comprehensive weekly brand visibility reports (automatically generated every Monday)
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>PDF Reports</CardTitle>
+                      <CardDescription>
+                        Comprehensive weekly brand visibility reports (automatically generated every Monday)
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <DateRangePicker
+                        dateRange={dateRange}
+                        onDateRangeChange={setDateRange}
+                        disabled={loading || generating}
+                      />
+                      {dateRange?.from && dateRange?.to && (
+                        <Button
+                          onClick={() => setDateRange(undefined)}
+                          disabled={loading || generating}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          Clear Range
+                        </Button>
+                      )}
+                      <Button
+                        onClick={generatePdfReport}
+                        disabled={loading || generating}
+                        size="sm"
+                      >
+                        {generating ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Generate Report
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -657,21 +726,13 @@ export default function Reports() {
                       ))}
                     </div>
                   ) : reports.length === 0 ? (
-                    // Empty state with manual generation option
+                    // Empty state
                     <div className="text-center py-12">
                       <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No PDF reports yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        Reports are generated automatically every Monday at 8:00 AM UTC.
+                        Reports are generated automatically every Monday at 8:00 AM UTC, or you can generate a custom report using the date range picker above.
                       </p>
-                      <Button
-                        onClick={generatePdfReport}
-                        disabled={loading || generating}
-                        variant="outline"
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Generate Report Now
-                      </Button>
                     </div>
                   ) : (
                     // Reports table
@@ -734,10 +795,48 @@ export default function Reports() {
             <TabsContent value="csv-reports" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>CSV Reports</CardTitle>
-                  <CardDescription>
-                    Prompt-level data exports for detailed analysis (automatically generated weekly)
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>CSV Reports</CardTitle>
+                      <CardDescription>
+                        Prompt-level data exports for detailed analysis (automatically generated weekly)
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <DateRangePicker
+                        dateRange={dateRange}
+                        onDateRangeChange={setDateRange}
+                        disabled={csvLoading || generating}
+                      />
+                      {dateRange?.from && dateRange?.to && (
+                        <Button
+                          onClick={() => setDateRange(undefined)}
+                          disabled={csvLoading || generating}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          Clear Range
+                        </Button>
+                      )}
+                      <Button
+                        onClick={generateCsvReport}
+                        disabled={csvLoading || generating}
+                        size="sm"
+                      >
+                        {generating ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Generate CSV
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {csvLoading ? (
@@ -753,21 +852,13 @@ export default function Reports() {
                       ))}
                     </div>
                   ) : csvReports.length === 0 ? (
-                    // Empty state with manual generation option
+                    // Empty state
                     <div className="text-center py-12">
                       <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No CSV reports yet</h3>
                       <p className="text-muted-foreground mb-4">
-                        CSV reports are generated automatically every Monday at 8:10 AM UTC.
+                        CSV reports are generated automatically every Monday at 8:10 AM UTC, or you can generate a custom report using the date range picker above.
                       </p>
-                      <Button
-                        onClick={generateCsvReport}
-                        disabled={csvLoading || generating}
-                        variant="outline"
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Generate CSV Now
-                      </Button>
                     </div>
                   ) : (
                     // CSV reports list
@@ -856,6 +947,12 @@ export default function Reports() {
             </p>
             <p>
               • <strong>CSV Reports:</strong> Raw prompt-level data exports generated automatically every Monday
+            </p>
+            <p>
+              • <strong>Custom Date Ranges:</strong> Use the date range picker to generate reports for specific time periods
+            </p>
+            <p>
+              • <strong>Brand Filtering:</strong> Select a brand from the header to generate brand-specific reports
             </p>
             <p>
               • Each report contains brand visibility metrics, competitor analysis, and performance insights

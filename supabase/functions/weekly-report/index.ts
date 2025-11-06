@@ -159,19 +159,55 @@ Deno.serve(async (req) => {
       const results: any[] = [];
       const errors: any[] = [];
 
-      // Parse request body for optional brand_id
+      // Parse request body for optional brand_id and custom date range
       let requestedBrandId: string | null = null;
+      let customStartDate: string | null = null;
+      let customEndDate: string | null = null;
+      
       try {
         const body = await req.json();
         requestedBrandId = body?.brand_id || null;
+        customStartDate = body?.start_date || null;
+        customEndDate = body?.end_date || null;
       } catch {
-        // No body or invalid JSON - continue without brand filter
+        // No body or invalid JSON - continue without filters
       }
 
-      // Calculate last complete week boundaries using shared utility
-      const { weekKey, startISO, endISO } = getLastCompleteWeekUTC();
-      const periodStart = startISO.split('T')[0];
-      const periodEnd = endISO.split('T')[0];
+      // Use custom date range if provided, otherwise use last complete week
+      let weekKey: string;
+      let periodStart: string;
+      let periodEnd: string;
+
+      if (customStartDate && customEndDate) {
+        // Validate date format (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(customStartDate) || !dateRegex.test(customEndDate)) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid date format. Use YYYY-MM-DD' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Validate end date is after start date
+        if (new Date(customEndDate) < new Date(customStartDate)) {
+          return new Response(
+            JSON.stringify({ error: 'End date must be after start date' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        periodStart = customStartDate;
+        periodEnd = customEndDate;
+        weekKey = `custom-${customStartDate}-to-${customEndDate}`;
+        logStep('Using custom date range', { start: periodStart, end: periodEnd });
+      } else {
+        // Calculate last complete week boundaries using shared utility
+        const weekData = getLastCompleteWeekUTC();
+        weekKey = weekData.weekKey;
+        periodStart = weekData.startISO.split('T')[0];
+        periodEnd = weekData.endISO.split('T')[0];
+        logStep('Using last complete week', { weekKey, start: periodStart, end: periodEnd });
+      }
 
       logStep('Generating reports for week', { weekKey, periodStart, periodEnd, targetOrgs: targetOrgIds.length, brandId: requestedBrandId });
 
