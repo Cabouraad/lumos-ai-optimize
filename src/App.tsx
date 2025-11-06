@@ -49,6 +49,7 @@ const StarterPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/St
 const GrowthPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/GrowthPlan")));
 const ProPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/ProPlan")));
 const Brands = lazy(() => loadChunkWithRetry(() => import("./pages/Brands")));
+const CompetitorManagement = lazy(() => loadChunkWithRetry(() => import("./pages/CompetitorManagement")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -148,6 +149,13 @@ const App = () => {
             <ProtectedRoute>
               <ChunkErrorBoundary chunkName="Competitors">
                 <Competitors />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/competitors/manage" element={
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="CompetitorManagement">
+                <CompetitorManagement />
               </ChunkErrorBoundary>
             </ProtectedRoute>
           } />

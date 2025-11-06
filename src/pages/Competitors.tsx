@@ -37,6 +37,7 @@ import CompetitorCard from '@/features/competitors/CompetitorCard';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { CompetitorTrendsChart } from '@/features/competitors/CompetitorTrendsChart';
+import { useNavigate } from 'react-router-dom';
 
 interface CompetitorData {
   competitor_name: string;
@@ -153,6 +154,7 @@ export default function Competitors() {
   const { canAccessCompetitorAnalysis } = useSubscriptionGate();
   const competitorAccess = canAccessCompetitorAnalysis();
   const { selectedBrand } = useBrand();
+  const navigate = useNavigate();
   const [competitorData, setCompetitorData] = useState<CompetitorData[]>([]);
   const [trackedCompetitors, setTrackedCompetitors] = useState<TrackedCompetitor[]>([]);
   const [catalogCount, setCatalogCount] = useState(0);
@@ -603,9 +605,17 @@ export default function Competitors() {
               </div>
               
               <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => navigate("/competitors/manage")}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Manage Competitors
+                </Button>
                 <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button 
+                    <Button
                       className="shadow-sm"
                       disabled={catalogCount >= 50}
                       title={catalogCount >= 50 ? 'Competitor limit reached (50 max)' : undefined}
