@@ -67,8 +67,10 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'success': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'error': case 'failed': return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 'success':
+      case 'completed': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'error': 
+      case 'failed': return 'bg-rose-50 text-rose-700 border-rose-200';
       default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
@@ -144,7 +146,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
           </div>
           <div className="flex items-center gap-2">
             <Badge className={`text-xs ${getStatusColor(response.status)}`}>
-              {response.status}
+              {response.status === 'completed' ? 'success' : response.status}
             </Badge>
             <Badge className={`font-bold px-2 py-1 ${getScoreColor(response.score)}`}>
               {(response.score * 10).toFixed(1)}%
@@ -160,7 +162,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
           Last run: {getRelativeTime(response.run_at)}
         </div>
 
-        {response.status === 'error' && response.error ? (
+        {(response.status === 'error' || response.status === 'failed') && response.error ? (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
             <p className="text-sm font-medium text-rose-800">
               {provider === 'google_ai_overview' ? 'No Response Available' : 'Error'}

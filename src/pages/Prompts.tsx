@@ -225,6 +225,8 @@ export default function Prompts() {
 
   // Refresh prompts data when returning from other tabs or manual refresh
   const refreshPromptsData = async () => {
+    // Invalidate cache to get fresh data
+    invalidateCache(['prompts']);
     await loadPromptsData();
     toast({
       title: 'Prompts refreshed',
