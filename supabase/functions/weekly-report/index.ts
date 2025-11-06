@@ -159,12 +159,21 @@ Deno.serve(async (req) => {
       const results: any[] = [];
       const errors: any[] = [];
 
+      // Parse request body for optional brand_id
+      let requestedBrandId: string | null = null;
+      try {
+        const body = await req.json();
+        requestedBrandId = body?.brand_id || null;
+      } catch {
+        // No body or invalid JSON - continue without brand filter
+      }
+
       // Calculate last complete week boundaries using shared utility
       const { weekKey, startISO, endISO } = getLastCompleteWeekUTC();
       const periodStart = startISO.split('T')[0];
       const periodEnd = endISO.split('T')[0];
 
-      logStep('Generating reports for week', { weekKey, periodStart, periodEnd, targetOrgs: targetOrgIds.length });
+      logStep('Generating reports for week', { weekKey, periodStart, periodEnd, targetOrgs: targetOrgIds.length, brandId: requestedBrandId });
 
       // Process each organization
       for (const orgId of targetOrgIds) {
@@ -172,19 +181,33 @@ Deno.serve(async (req) => {
           logStep('Processing organization', { orgId });
 
           // Check if reports already exist and delete them
-          const { data: existingPdf } = await supabase
+          let pdfQuery = supabase
             .from('reports')
             .select('id, storage_path, week_key')
             .eq('org_id', orgId)
-            .eq('week_key', weekKey)
-            .maybeSingle();
+            .eq('week_key', weekKey);
+          
+          if (requestedBrandId) {
+            pdfQuery = pdfQuery.eq('brand_id', requestedBrandId);
+          } else {
+            pdfQuery = pdfQuery.is('brand_id', null);
+          }
+          
+          const { data: existingPdf } = await pdfQuery.maybeSingle();
 
-          const { data: existingCsv } = await supabase
+          let csvQuery = supabase
             .from('weekly_reports')
             .select('id, file_path, status')
             .eq('org_id', orgId)
-            .eq('week_start_date', periodStart)
-            .maybeSingle();
+            .eq('week_start_date', periodStart);
+          
+          if (requestedBrandId) {
+            csvQuery = csvQuery.eq('brand_id', requestedBrandId);
+          } else {
+            csvQuery = csvQuery.is('brand_id', null);
+          }
+          
+          const { data: existingCsv } = await csvQuery.maybeSingle();
 
           if (existingPdf || existingCsv) {
             logStep('Existing reports found - replacing', { orgId, weekKey });
@@ -226,8 +249,8 @@ Deno.serve(async (req) => {
           }
 
           // Collect weekly data
-          logStep('Collecting weekly data', { orgId });
-          const reportData = await generateReportData(supabase, orgId, periodStart, periodEnd);
+          logStep('Collecting weekly data', { orgId, brandId: requestedBrandId });
+          const reportData = await generateReportData(supabase, orgId, periodStart, periodEnd, requestedBrandId);
 
           // Generate both PDF and CSV reports
           logStep('Generating PDF report', { orgId });
@@ -280,6 +303,7 @@ Deno.serve(async (req) => {
               storage_path: `reports/${pdfPath}`,
               byte_size: pdfSize,
               sha256: sha256Hash,
+              brand_id: requestedBrandId,
             });
 
           // Insert CSV record into weekly_reports table
@@ -295,10 +319,12 @@ Deno.serve(async (req) => {
               file_path: csvPath,
               file_size_bytes: csvSize,
               generated_at: new Date().toISOString(),
+              brand_id: requestedBrandId,
               metadata: {
                 prompts_analyzed: reportData.prompts.length,
                 total_responses: reportData.totalResponses,
-                generated_by: isScheduledRun ? 'scheduler' : 'user'
+                generated_by: isScheduledRun ? 'scheduler' : 'user',
+                brand_id: requestedBrandId
               }
             });
 
@@ -385,8 +411,8 @@ Deno.serve(async (req) => {
 });
 
 // Enhanced data collection function
-async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string): Promise<WeeklyReportData> {
-  logStep('Collecting report data', { orgId, weekStart, weekEnd });
+async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string, brandId?: string | null): Promise<WeeklyReportData> {
+  logStep('Collecting report data', { orgId, weekStart, weekEnd, brandId });
 
   // Get organization details
   const { data: org } = await supabase
@@ -396,7 +422,7 @@ async function generateReportData(supabase: any, orgId: string, weekStart: strin
     .single();
 
   // Get all successful responses for the week
-  const { data: responses, error: responsesError } = await supabase
+  let responsesQuery = supabase
     .from('prompt_provider_responses')
     .select(`
       id,
@@ -418,6 +444,13 @@ async function generateReportData(supabase: any, orgId: string, weekStart: strin
     .lte('run_at', weekEnd + 'T23:59:59Z')
     .eq('status', 'success')
     .order('run_at', { ascending: false });
+
+  // Filter by brand_id if provided
+  if (brandId) {
+    responsesQuery = responsesQuery.eq('brand_id', brandId);
+  }
+
+  const { data: responses, error: responsesError } = await responsesQuery;
 
   if (responsesError) {
     throw new Error(`Failed to fetch responses: ${responsesError.message}`);

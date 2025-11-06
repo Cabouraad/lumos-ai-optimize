@@ -1171,6 +1171,7 @@ export type Database = {
       }
       reports: {
         Row: {
+          brand_id: string | null
           byte_size: number | null
           created_at: string | null
           id: string
@@ -1183,6 +1184,7 @@ export type Database = {
           week_key: string
         }
         Insert: {
+          brand_id?: string | null
           byte_size?: number | null
           created_at?: string | null
           id?: string
@@ -1195,6 +1197,7 @@ export type Database = {
           week_key: string
         }
         Update: {
+          brand_id?: string | null
           byte_size?: number | null
           created_at?: string | null
           id?: string
@@ -1207,6 +1210,13 @@ export type Database = {
           week_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reports_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reports_org_id_fkey"
             columns: ["org_id"]
@@ -1640,6 +1650,7 @@ export type Database = {
       }
       weekly_reports: {
         Row: {
+          brand_id: string | null
           created_at: string
           error_message: string | null
           file_path: string | null
@@ -1654,6 +1665,7 @@ export type Database = {
           week_start_date: string
         }
         Insert: {
+          brand_id?: string | null
           created_at?: string
           error_message?: string | null
           file_path?: string | null
@@ -1668,6 +1680,7 @@ export type Database = {
           week_start_date: string
         }
         Update: {
+          brand_id?: string | null
           created_at?: string
           error_message?: string | null
           file_path?: string | null
@@ -1681,7 +1694,15 @@ export type Database = {
           week_end_date?: string
           week_start_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "weekly_reports_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

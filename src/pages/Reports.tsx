@@ -14,6 +14,8 @@ import { Download, FileText, Crown, Calendar, Users, RefreshCw, Clock, Settings,
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { useBrand } from '@/contexts/BrandContext';
+import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 
 interface Report {
   id: string;
@@ -41,6 +43,7 @@ export default function Reports() {
   const { orgData } = useAuth();
   const { hasAccessToApp, canAccessRecommendations, daysRemainingInTrial, isOnTrial } = useSubscriptionGate();
   const { toast: showToast } = useToast();
+  const { selectedBrand } = useBrand();
   const [reports, setReports] = useState<Report[]>([]);
   const [csvReports, setCsvReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,15 +65,23 @@ export default function Reports() {
       setLoading(false);
       setCsvLoading(false);
     }
-  }, [orgData?.organizations?.id, reportsAccess.hasAccess]);
+  }, [orgData?.organizations?.id, reportsAccess.hasAccess, selectedBrand]);
 
   const loadReports = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('reports')
-        .select('id, week_key, period_start, period_end, storage_path, byte_size, created_at')
-        .order('created_at', { ascending: false });
+        .select('id, week_key, period_start, period_end, storage_path, byte_size, created_at');
+
+      // Filter by brand if selected
+      if (selectedBrand) {
+        query = query.eq('brand_id', selectedBrand.id);
+      } else {
+        query = query.is('brand_id', null);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error loading reports:', error);
@@ -98,9 +109,18 @@ export default function Reports() {
   const loadCsvReports = async () => {
     try {
       setCsvLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('weekly_reports')
-        .select('*')
+        .select('*');
+
+      // Filter by brand if selected
+      if (selectedBrand) {
+        query = query.eq('brand_id', selectedBrand.id);
+      } else {
+        query = query.is('brand_id', null);
+      }
+
+      const { data, error } = await query
         .order('week_start_date', { ascending: false })
         .limit(10);
 
@@ -418,6 +438,7 @@ export default function Reports() {
   const generatePdfReport = async () => {
     try {
       setGenerating(true);
+      const brandInfo = selectedBrand ? ` for ${selectedBrand.name}` : '';
       
       // Check if user is authenticated first
       const { data: session } = await supabase.auth.getSession();
@@ -430,10 +451,9 @@ export default function Reports() {
         return;
       }
       
-      // Call the edge function with proper authentication
-      // supabase.functions.invoke automatically handles authentication
+      // Call the edge function with proper authentication and optional brand_id
       const { data, error } = await supabase.functions.invoke('weekly-report', {
-        body: {} // Empty body for POST request
+        body: selectedBrand ? { brand_id: selectedBrand.id } : {}
       });
 
       if (error) {
@@ -445,6 +465,11 @@ export default function Reports() {
         });
         return;
       }
+
+      showToast({
+        title: "Success",
+        description: `PDF report generated successfully${brandInfo}`,
+      });
 
       // Silently refresh reports after generation
       setTimeout(() => {
@@ -466,13 +491,43 @@ export default function Reports() {
   const generateCsvReport = async () => {
     try {
       setGenerating(true);
+      const brandInfo = selectedBrand ? ` for ${selectedBrand.name}` : '';
       
-      // CSV reports are generated via the scheduler, but we can trigger it manually
-      // Note: This requires the weekly-report-scheduler to be accessible to users
-      showToast({
-        title: "CSV Generation",
-        description: "CSV reports are currently generated automatically. Please check back on Monday after 8:10 AM UTC.",
+      // Check if user is authenticated first
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        showToast({
+          title: "Authentication required",
+          description: "Please sign in to generate reports.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Call the edge function with proper authentication and optional brand_id
+      const { data, error } = await supabase.functions.invoke('weekly-report', {
+        body: selectedBrand ? { brand_id: selectedBrand.id } : {}
       });
+
+      if (error) {
+        console.error('Error generating CSV report:', error);
+        showToast({
+          title: "Generation failed",
+          description: error.message || "Failed to send a request to the Edge Function",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Success",
+        description: `CSV report generated successfully${brandInfo}`,
+      });
+
+      // Silently refresh reports after generation
+      setTimeout(() => {
+        loadCsvReports();
+      }, 2000);
       
     } catch (error) {
       console.error('Error generating CSV report:', error);
@@ -510,9 +565,12 @@ export default function Reports() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground mt-2">
-              Weekly visibility reports for your brand
-            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-muted-foreground">
+                Weekly visibility reports for your brand
+              </p>
+              <BrandFilterIndicator />
+            </div>
           </div>
           {reportsAccess.hasAccess && (
             <Button
