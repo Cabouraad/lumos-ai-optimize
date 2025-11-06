@@ -115,36 +115,40 @@ export async function analyzeResponseV2(
 
   const processingTime = performance.now() - startTime;
 
+  // CRITICAL: Ensure arrays are always arrays for database compatibility
+  const competitorsArray = Array.isArray(classified.competitors) ? classified.competitors : [];
+  const brandsArray = Array.isArray(classified.orgBrands) ? classified.orgBrands : [];
+  
   // Build result in same format as v1
   const result: AnalyzerV2Result = {
-    org_brand_present: classified.orgBrands.length > 0,
-    org_brand_prominence: classified.orgBrands.length > 0 
-      ? calculateProminence(responseText, classified.orgBrands)
+    org_brand_present: brandsArray.length > 0,
+    org_brand_prominence: brandsArray.length > 0 
+      ? calculateProminence(responseText, brandsArray)
       : null,
-    competitors_json: classified.competitors,
-    brands_json: classified.orgBrands,
+    competitors_json: competitorsArray,
+    brands_json: brandsArray,
     score: calculateVisibilityScore(
-      classified.orgBrands.length > 0,
-      classified.orgBrands.length > 0 ? calculateProminence(responseText, classified.orgBrands) : null,
-      classified.competitors.length,
+      brandsArray.length > 0,
+      brandsArray.length > 0 ? calculateProminence(responseText, brandsArray) : null,
+      competitorsArray.length,
       responseText.length
     ),
     metadata: {
-      org_brands_found: classified.orgBrands,
+      org_brands_found: brandsArray,
       catalog_competitors: classified.catalogMatches,
       global_competitors: classified.industryMatches,
       discovered_competitors: classified.discoveredMatches,
-      ner_organizations: classified.competitors, // For backward compatibility
+      ner_organizations: competitorsArray, // For backward compatibility
       analysis_method: 'v2_enhanced',
       confidence_score: classified.confidence,
-      analysis_hash: generateAnalysisHash(responseText, classified.orgBrands, classified.competitors),
+      analysis_hash: generateAnalysisHash(responseText, brandsArray, competitorsArray),
       ruleset_version: 'v2',
       processing_time_ms: Math.round(processingTime),
       pipeline_stages: {
         candidates_extracted: candidates.length,
         candidates_normalized: normalized.length,
         candidates_filtered: filtered.length,
-        final_classified: classified.competitors.length + classified.orgBrands.length
+        final_classified: competitorsArray.length + brandsArray.length
       },
       consensus_boost_applied: classified.consensusBoostApplied
     }
