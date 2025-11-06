@@ -321,14 +321,18 @@ export default function Competitors() {
     try {
       const orgId = await getOrgId();
       
-      // Check 50-competitor limit
-      const { data: competitorCount } = await supabase
+      // Check 50-competitor limit - count only non-org-brand entries
+      const { count: competitorCount, error: countError } = await supabase
         .from('brand_catalog')
-        .select('id', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .eq('org_id', orgId)
         .eq('is_org_brand', false);
 
-      if (competitorCount && competitorCount.length >= 50) {
+      if (countError) {
+        console.error('Error checking competitor count:', countError);
+      }
+
+      if (competitorCount !== null && competitorCount >= 50) {
         toast({
           title: "Competitor limit reached",
           description: "You can track a maximum of 50 competitors. Please remove some competitors first or use the cleanup feature.",

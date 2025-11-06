@@ -105,7 +105,8 @@ const PromptRowComponent = ({
     let totalCompetitors = 0;
     
     providers.forEach((provider: any) => {
-      if (provider?.status === 'success' && provider.run_at) {
+      // Check for both 'completed' (new) and 'success' (legacy) status
+      if ((provider?.status === 'completed' || provider?.status === 'success') && provider.run_at) {
         const runDate = new Date(provider.run_at);
         if (runDate >= sevenDaysAgo) {
           totalRuns++;
