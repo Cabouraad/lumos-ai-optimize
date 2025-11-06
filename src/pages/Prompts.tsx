@@ -40,7 +40,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       
       Object.values(details.providers).forEach((provider: any) => {
-        if (provider && provider.status === 'success') {
+        if (provider && (provider.status === 'success' || provider.status === 'completed')) {
           const runDate = new Date(provider.run_at);
           if (runDate >= sevenDaysAgo) {
             runs_7d++;

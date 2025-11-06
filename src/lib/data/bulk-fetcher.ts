@@ -25,8 +25,16 @@ export interface BulkPromptData {
     status: string;
     org_brand_present: boolean;
     competitors_count: number;
-    competitors_json: string[];
-    brands_json: string[];
+    competitors_json: any; // Can be Json from SQL
+    brands_json: any; // Can be Json from SQL
+    raw_ai_response?: string | null;
+    org_brand_prominence?: number | null;
+    error?: string | null;
+    model?: string | null;
+    token_in?: number;
+    token_out?: number;
+    metadata?: any;
+    citations_json?: any;
   }>;
   
   sevenDayStats: Array<{
@@ -75,7 +83,7 @@ export async function getBulkPromptData(): Promise<BulkPromptData> {
   
   return {
     prompts: promptsResult.data || [],
-    latestResponses: [], // latestResponsesResult.data || [], // Temporarily disabled
+    latestResponses: latestResponsesResult.data || [],
     sevenDayStats: statsResult.data || []
   };
 }
