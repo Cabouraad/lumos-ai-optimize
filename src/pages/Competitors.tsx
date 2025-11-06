@@ -34,6 +34,8 @@ import { ManualCompetitorAdd } from '@/components/ManualCompetitorAdd';
 import { useCompetitors } from '@/features/competitors/hooks';
 import FilterBar from '@/features/competitors/FilterBar';
 import CompetitorCard from '@/features/competitors/CompetitorCard';
+import { useBrand } from '@/contexts/BrandContext';
+import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 
 interface CompetitorData {
   competitor_name: string;
@@ -149,6 +151,7 @@ const CompetitorRow = ({ competitor, rank }: { competitor: CompetitorBrand; rank
 export default function Competitors() {
   const { canAccessCompetitorAnalysis } = useSubscriptionGate();
   const competitorAccess = canAccessCompetitorAnalysis();
+  const { selectedBrand } = useBrand();
   const [competitorData, setCompetitorData] = useState<CompetitorData[]>([]);
   const [trackedCompetitors, setTrackedCompetitors] = useState<TrackedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +164,7 @@ export default function Competitors() {
 
   useEffect(() => {
     fetchCompetitorData();
-  }, []);
+  }, [selectedBrand]);
 
   const calculateTrend = (lastSeenAt: string, firstSeenAt: string, totalMentions: number): number => {
     const daysSinceFirst = Math.max(1, Math.ceil((new Date().getTime() - new Date(firstSeenAt).getTime()) / (1000 * 60 * 60 * 24)));
@@ -186,7 +189,14 @@ export default function Competitors() {
           .eq('id', orgId)
           .single(),
         supabase
-          .rpc('get_org_competitor_summary_v2', { p_org_id: null, p_days: 30, p_limit: 50, p_offset: 0, p_providers: null }),
+          .rpc('get_org_competitor_summary_v2', { 
+            p_org_id: null, 
+            p_days: 30, 
+            p_limit: 50, 
+            p_offset: 0, 
+            p_providers: null, 
+            p_brand_id: selectedBrand?.id || null 
+          }),
         supabase
           .from('brand_catalog')
           .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score')
@@ -492,6 +502,7 @@ export default function Competitors() {
       providers: filters.providers.length ? filters.providers : undefined,
       limit: 50,
       offset: 0,
+      brandId: selectedBrand?.id || null,
     });
 
     if (isLoading) {
@@ -577,6 +588,9 @@ export default function Competitors() {
             {showTrialBanner && (
               <TrialBanner daysRemaining={competitorAccess.daysRemainingInTrial!} />
             )}
+            
+            {/* Brand Filter Indicator */}
+            <BrandFilterIndicator />
             
             {/* Header */}
             <div className="flex items-center justify-between mb-8">

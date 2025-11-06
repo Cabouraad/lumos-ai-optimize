@@ -2027,6 +2027,7 @@ export type Database = {
       }
       get_org_competitor_summary_v2: {
         Args: {
+          p_brand_id?: string
           p_days?: number
           p_limit?: number
           p_offset?: number

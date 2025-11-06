@@ -16,6 +16,7 @@ export type CompetitorFilters = {
   providers?: string[];
   limit?: number;
   offset?: number;
+  brandId?: string | null;
 };
 
 /**
@@ -36,6 +37,7 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
     p_limit: Math.min(filters.limit ?? 50, 50),
     p_offset: filters.offset ?? 0,
     p_providers: filters.providers ?? null,
+    p_brand_id: filters.brandId ?? null,
   });
 
   if (error) throw error;
