@@ -2032,6 +2032,18 @@ export type Database = {
       fix_recent_brand_misclassifications: { Args: never; Returns: string }
       generate_verification_token: { Args: { org_id: string }; Returns: string }
       generate_week_key: { Args: { input_date: string }; Returns: string }
+      get_ai_sources_top_domains: {
+        Args: { p_brand_id?: string; p_limit?: number; p_org_id: string }
+        Returns: {
+          brand_id: string
+          domain: string
+          last_cited: string
+          model_count: number
+          models: string[]
+          org_id: string
+          total_citations: number
+        }[]
+      }
       get_all_cron_jobs: {
         Args: never
         Returns: {
