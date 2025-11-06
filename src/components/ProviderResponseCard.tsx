@@ -236,53 +236,72 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
               />
             </div>
 
-            {/* AI Response Preview */}
-            {response.raw_ai_response && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium">AI Response:</p>
-                  <div className="flex items-center gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-6 text-xs px-2">
-                          <FileText className="h-3 w-3 mr-1" />
-                          View Full
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh]">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            {config.name} Response
-                          </DialogTitle>
-                          <DialogDescription>
-                            Response to: "{promptText.substring(0, 100)}..."
-                          </DialogDescription>
-                        </DialogHeader>
-                        <ScrollArea className="max-h-96 mt-4">
-                          <div className="p-4 bg-muted rounded-lg">
-                            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                              {response.raw_ai_response}
-                            </pre>
-                          </div>
-                        </ScrollArea>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {/* Citations Button - Always show */}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-6 text-xs px-2 gap-1">
-                          <Link2 className="h-3 w-3" />
-                          {response.citations_json?.citations?.length || 0} Citations
-                          {(!response.citations_json || !response.citations_json.citations?.length) && (
-                            <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
-                              {response.run_at && new Date(response.run_at) < new Date('2025-10-26') 
-                                ? 'Legacy' 
-                                : 'None'}
-                            </Badge>
-                          )}
-                        </Button>
-                      </DialogTrigger>
+            {/* Special handling for Google AIO with no response */}
+            {provider === 'google_ai_overview' && !response.raw_ai_response && (response.status === 'success' || response.status === 'completed') ? (
+              <div className="space-y-3">
+                <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">No AI Overview Triggered</p>
+                    <p className="text-amber-700 mt-0.5">
+                      Google didn't show an AI Overview for this query. This is normal for certain topics or regions.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Link2 className="h-3 w-3" />
+                  <span>0 Citations - No Overview shown</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* AI Response Preview */}
+                {response.raw_ai_response && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium">AI Response:</p>
+                      <div className="flex items-center gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-6 text-xs px-2">
+                              <FileText className="h-3 w-3 mr-1" />
+                              View Full
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[80vh]">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                {config.name} Response
+                              </DialogTitle>
+                              <DialogDescription>
+                                Response to: "{promptText.substring(0, 100)}..."
+                              </DialogDescription>
+                            </DialogHeader>
+                            <ScrollArea className="max-h-96 mt-4">
+                              <div className="p-4 bg-muted rounded-lg">
+                                <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                                  {response.raw_ai_response}
+                                </pre>
+                              </div>
+                            </ScrollArea>
+                          </DialogContent>
+                        </Dialog>
+                        
+                        {/* Citations Button - Always show */}
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 gap-1">
+                              <Link2 className="h-3 w-3" />
+                              {response.citations_json?.citations?.length || 0} Citations
+                              {(!response.citations_json || !response.citations_json.citations?.length) && (
+                                <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
+                                  {response.run_at && new Date(response.run_at) < new Date('2025-10-26') 
+                                    ? 'Legacy' 
+                                    : 'None'}
+                                </Badge>
+                              )}
+                            </Button>
+                          </DialogTrigger>
                         <DialogContent className="max-w-4xl max-h-[80vh]">
                           <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
@@ -358,19 +377,6 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
               </div>
             )}
 
-            {/* Show gentle message for no AI overview (Google AIO specific) */}
-            {provider === 'google_ai_overview' && !response.raw_ai_response && response.status === 'success' && (
-              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
-                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">No AI Overview Available</p>
-                  <p className="text-amber-700 mt-0.5">
-                    Google didn't show an AI Overview for this query right now. This can happen for certain topics or regions.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* Show rate limit message */}
             {response.metadata?.reason === 'rate_limited' && (
               <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded p-2 flex items-start gap-2">
@@ -384,6 +390,8 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
               </div>
             )}
           </>
+        )}
+        </>
         )}
       </CardContent>
     </Card>
