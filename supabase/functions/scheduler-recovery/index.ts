@@ -18,12 +18,22 @@ Deno.serve(async (req) => {
 
     console.log('🔄 Starting scheduler recovery process...');
 
+    // Get cron secret from database
+    const { data: cronSecretData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'cron_secret')
+      .single();
+
+    const cronSecret = cronSecretData?.value || Deno.env.get('CRON_SECRET') || '';
+    console.log('🔑 Cron secret obtained');
+
     // Phase 1: Reinstall missing cron jobs
     console.log('📋 Phase 1: Reinstalling cron jobs...');
     const cronSetupResponse = await supabase.functions.invoke('cron-manager', {
-      body: {},
+      body: { action: 'setup' },
       headers: { 
-        'x-cron-secret': Deno.env.get('CRON_SECRET') ?? '',
+        'x-cron-secret': cronSecret,
       }
     });
 
@@ -43,7 +53,7 @@ Deno.serve(async (req) => {
         recovery_date: new Date().toISOString().split('T')[0]
       },
       headers: { 
-        'x-cron-secret': Deno.env.get('CRON_SECRET') ?? '',
+        'x-cron-secret': cronSecret,
       }
     });
 
