@@ -2055,6 +2055,20 @@ export type Database = {
           total_mentions: number
         }[]
       }
+      get_competitor_trends: {
+        Args: {
+          p_brand_id?: string
+          p_days?: number
+          p_interval?: string
+          p_limit?: number
+          p_org_id?: string
+        }
+        Returns: {
+          competitor_name: string
+          mentions: number
+          period_start: string
+        }[]
+      }
       get_cron_jobs_status: {
         Args: never
         Returns: {

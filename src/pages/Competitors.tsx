@@ -36,6 +36,7 @@ import FilterBar from '@/features/competitors/FilterBar';
 import CompetitorCard from '@/features/competitors/CompetitorCard';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
+import { CompetitorTrendsChart } from '@/features/competitors/CompetitorTrendsChart';
 
 interface CompetitorData {
   competitor_name: string;
@@ -188,15 +189,14 @@ export default function Competitors() {
           .select('name')
           .eq('id', orgId)
           .single(),
-        supabase
-          .rpc('get_org_competitor_summary_v2', { 
-            p_org_id: null, 
-            p_days: 30, 
-            p_limit: 50, 
-            p_offset: 0, 
-            p_providers: null, 
-            p_brand_id: selectedBrand?.id || null 
-          }),
+        supabase.rpc('get_org_competitor_summary_v2', { 
+          p_org_id: orgId, 
+          p_days: 30, 
+          p_limit: 50, 
+          p_offset: 0, 
+          p_providers: null, 
+          p_brand_id: selectedBrand?.id || null 
+        }),
         supabase
           .from('brand_catalog')
           .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score')
@@ -804,6 +804,11 @@ export default function Competitors() {
                 {/* Competitor Catalog Section */}
                 <div>
                   <CompetitorCatalog />
+                </div>
+
+                {/* Competitor Trends Chart */}
+                <div>
+                  <CompetitorTrendsChart brandId={selectedBrand?.id || null} />
                 </div>
               </TabsContent>
 

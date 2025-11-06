@@ -61,12 +61,12 @@
     --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.15);
     --shadow-elevated: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
 
-    /* Chart Colors - Enhanced */
+    /* Chart Colors */
     --chart-1: 217 91% 60%;
-    --chart-2: 174 84% 50%;
-    --chart-3: 142 76% 36%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 262 83% 58%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 262 83% 58%;
+    --chart-5: 174 84% 50%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
