@@ -186,9 +186,9 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium hover:underline truncate flex items-center gap-1 group"
-                    title={page.title}
+                    title={page.url}
                   >
-                    <span className="truncate">{page.title}</span>
+                    <span className="truncate">{page.url}</span>
                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                   </a>
                 </div>
