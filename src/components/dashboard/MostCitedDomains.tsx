@@ -6,7 +6,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface DomainStats {
+interface PageStats {
+  url: string;
+  title: string;
   domain: string;
   total_citations: number;
   percentage: number;
@@ -18,30 +20,30 @@ interface MostCitedDomainsProps {
 }
 
 export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
-  const [domains, setDomains] = useState<DomainStats[]>([]);
+  const [pages, setPages] = useState<PageStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCitations, setTotalCitations] = useState(0);
 
   useEffect(() => {
     if (!orgId) {
-      setDomains([]);
+      setPages([]);
       setLoading(false);
       return;
     }
-    loadMostCitedDomains();
+    loadMostCitedPages();
   }, [orgId, brandId]);
 
-  const loadMostCitedDomains = async () => {
+  const loadMostCitedPages = async () => {
     try {
       setLoading(true);
 
-      // Use ai_sources_top_domains view for efficient domain aggregation
+      // Query citations from prompt_provider_responses
       let query = supabase
-        .from('ai_sources_top_domains')
-        .select('domain, total_citations, brand_id')
+        .from('prompt_provider_responses')
+        .select('citations_json, brand_id')
         .eq('org_id', orgId)
-        .order('total_citations', { ascending: false })
-        .limit(8);
+        .gte('run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .not('citations_json', 'is', null);
 
       // Filter by brand if specified
       if (brandId && brandId !== 'null') {
@@ -51,28 +53,58 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error loading cited domains:', error);
+        console.error('Error loading cited pages:', error);
         return;
       }
 
       if (!data || data.length === 0) {
-        setDomains([]);
+        setPages([]);
         setTotalCitations(0);
         return;
       }
 
-      // Calculate total and percentages
-      const total = data.reduce((sum, item) => sum + (item.total_citations || 0), 0);
-      const domainStats: DomainStats[] = data.map(item => ({
-        domain: item.domain,
-        total_citations: item.total_citations || 0,
-        percentage: total > 0 ? ((item.total_citations || 0) / total) * 100 : 0
+      // Extract and count citations
+      const citationCounts = new Map<string, { url: string; title: string; domain: string; count: number }>();
+      
+      data.forEach(response => {
+        const citationsData = response.citations_json as any;
+        const citations = citationsData?.citations || [];
+        citations.forEach((citation: any) => {
+          const url = citation.url;
+          if (!url) return;
+          
+          const existing = citationCounts.get(url);
+          if (existing) {
+            existing.count++;
+          } else {
+            citationCounts.set(url, {
+              url,
+              title: citation.title || url,
+              domain: citation.domain || new URL(url).hostname,
+              count: 1
+            });
+          }
+        });
+      });
+
+      // Convert to array and sort by count
+      const sortedPages = Array.from(citationCounts.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+
+      const total = sortedPages.reduce((sum, page) => sum + page.count, 0);
+      const pageStats: PageStats[] = sortedPages.map(page => ({
+        url: page.url,
+        title: page.title,
+        domain: page.domain,
+        total_citations: page.count,
+        percentage: total > 0 ? (page.count / total) * 100 : 0
       }));
 
-      setDomains(domainStats);
+      setPages(pageStats);
       setTotalCitations(total);
     } catch (error) {
-      console.error('Error in loadMostCitedDomains:', error);
+      console.error('Error in loadMostCitedPages:', error);
     } finally {
       setLoading(false);
     }
@@ -83,7 +115,7 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Most Cited Domains</CardTitle>
+            <CardTitle>Most Cited Pages</CardTitle>
             <Badge variant="outline" className="text-xs">
               Last 30 days
             </Badge>
@@ -106,12 +138,12 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
     );
   }
 
-  if (domains.length === 0) {
+  if (pages.length === 0) {
     return (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Most Cited Domains</CardTitle>
+            <CardTitle>Most Cited Pages</CardTitle>
             <Badge variant="outline" className="text-xs">
               Last 30 days
             </Badge>
@@ -130,7 +162,7 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Most Cited Domains</CardTitle>
+          <CardTitle>Most Cited Pages</CardTitle>
           <Badge variant="outline" className="text-xs">
             Last 30 days
           </Badge>
@@ -142,28 +174,32 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
           <p className="text-sm text-muted-foreground">Total Citations</p>
         </div>
         <div className="space-y-4">
-          {domains.map((domain, index) => (
-            <div key={domain.domain} className="space-y-2">
+          {pages.map((page, index) => (
+            <div key={page.url} className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="text-muted-foreground font-medium">
                     #{index + 1}
                   </span>
                   <a
-                    href={`https://${domain.domain}`}
+                    href={page.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium hover:underline truncate flex items-center gap-1 group"
+                    title={page.title}
                   >
-                    {domain.domain}
+                    <span className="truncate">{page.title}</span>
                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                   </a>
                 </div>
                 <span className="text-muted-foreground font-mono flex-shrink-0 ml-2">
-                  {domain.total_citations} ({domain.percentage.toFixed(1)}%)
+                  {page.total_citations} ({page.percentage.toFixed(1)}%)
                 </span>
               </div>
-              <Progress value={domain.percentage} className="h-2" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="truncate">{page.domain}</span>
+              </div>
+              <Progress value={page.percentage} className="h-2" />
             </div>
           ))}
         </div>
