@@ -295,48 +295,93 @@ async function processTask(
       };
     }
     
-    await supabase.from('prompt_provider_responses').insert({
-      org_id: orgId,
-      prompt_id: promptId,
-      provider: provider.name,
-      model: provider.model,
-      status: 'success',
-      raw_ai_response: rawResponse,
-      score: analysis.score,
-      org_brand_present: analysis.org_brand_present,
-      org_brand_prominence: analysis.org_brand_prominence || 0,
-      competitors_count: (analysis.competitors_json || []).length,
-      competitors_json: analysis.competitors_json || [],
-      brands_json: analysis.brands_json || [],
-      citations_json: citationsData || null,
-      token_in: 0,
-      token_out: 0,
-      metadata: analysis.metadata || {}
-    });
+    // Ensure arrays are valid before insert
+    const competitorsArray = Array.isArray(analysis.competitors_json) ? analysis.competitors_json : [];
+    const brandsArray = Array.isArray(analysis.brands_json) ? analysis.brands_json : [];
+    
+    // CRITICAL: Check for errors on database insert
+    const { data: insertedResponse, error: insertError } = await supabase
+      .from('prompt_provider_responses')
+      .insert({
+        org_id: orgId,
+        prompt_id: promptId,
+        provider: provider.name,
+        model: provider.model,
+        status: 'success',
+        raw_ai_response: rawResponse,
+        score: analysis.score,
+        org_brand_present: analysis.org_brand_present,
+        org_brand_prominence: analysis.org_brand_prominence || 0,
+        competitors_count: competitorsArray.length,
+        competitors_json: competitorsArray,
+        brands_json: brandsArray,
+        citations_json: citationsData || null,
+        token_in: 0,
+        token_out: 0,
+        metadata: analysis.metadata || {},
+        brand_id: null
+      })
+      .select();
 
+    if (insertError) {
+      console.error(`❌ [${provider.name}] DATABASE INSERT FAILED:`, {
+        error: insertError,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code
+      });
+      throw new Error(`Database insert failed: ${insertError.message}`);
+    }
+
+    if (!insertedResponse || insertedResponse.length === 0) {
+      console.error(`❌ [${provider.name}] DATABASE INSERT RETURNED NO DATA`);
+      throw new Error('Database insert succeeded but returned no data');
+    }
+
+    console.log(`✅ [${provider.name}] Response saved to database: ${insertedResponse[0].id}`);
     return true;
   } catch (error: any) {
-    console.error(`[${provider.name}] Task failed:`, error.message);
+    console.error(`❌ [${provider.name}] Task failed:`, error.message);
+    console.error(`❌ [${provider.name}] Full error:`, error);
     
-    await supabase.from('prompt_provider_responses').insert({
-      org_id: orgId,
-      prompt_id: promptId,
-      provider: provider.name,
-      model: provider.model,
-      status: 'error',
-      error: error.message,
-      score: 0,
-      org_brand_present: false,
-      competitors_count: 0,
-      competitors_json: [],
-      brands_json: [],
-      token_in: 0,
-      token_out: 0,
-      metadata: { 
-        error_type: 'processing_error',
-        error_details: error.message 
-      }
-    });
+    // CRITICAL: Check for errors on error record insert too
+    const { data: errorRecord, error: errorInsertError } = await supabase
+      .from('prompt_provider_responses')
+      .insert({
+        org_id: orgId,
+        prompt_id: promptId,
+        provider: provider.name,
+        model: provider.model,
+        status: 'error',
+        error: error.message,
+        score: 0,
+        org_brand_present: false,
+        competitors_count: 0,
+        competitors_json: [],
+        brands_json: [],
+        token_in: 0,
+        token_out: 0,
+        metadata: { 
+          error_type: 'processing_error',
+          error_details: error.message,
+          stack: error.stack
+        },
+        brand_id: null // Add missing brand_id field
+      })
+      .select();
+
+    if (errorInsertError) {
+      console.error(`❌ [${provider.name}] ERROR RECORD INSERT FAILED:`, {
+        error: errorInsertError,
+        message: errorInsertError.message,
+        details: errorInsertError.details,
+        hint: errorInsertError.hint,
+        code: errorInsertError.code
+      });
+    } else {
+      console.log(`✅ [${provider.name}] Error record saved: ${errorRecord?.[0]?.id}`);
+    }
 
     return false;
   }
