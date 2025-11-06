@@ -613,15 +613,44 @@ async function executeGoogleAio(promptText: string) {
     const text = data.summary ?? data.text ?? "";
     const reason = data.reason || (text ? "ok" : "no_ai_overview");
     
-    console.log(`[Google AIO] Success - Text length: ${text.length}, Citations: ${data.citations?.length || 0}, Reason: ${reason}`);
+    const rawCitations = data.citations || [];
+    console.log(`[Google AIO] Success - Text length: ${text.length}, Raw Citations: ${rawCitations.length}, Reason: ${reason}`);
+    
+    // Format citations into CitationsData structure matching other providers
+    const citationsData = {
+      provider: 'google_ai_overview',
+      citations: rawCitations.map((cite: any) => ({
+        url: cite.link || cite.url,
+        domain: cite.domain || (cite.link ? extractDomain(cite.link) : 'unknown'),
+        title: cite.title || `Source ${cite.index || ''}`,
+        source_type: 'page' as const,
+        from_provider: true,
+        brand_mention: 'unknown' as const,
+        brand_mention_confidence: 0.0
+      })),
+      collected_at: new Date().toISOString(),
+      ruleset_version: 'cite-v1'
+    };
+    
+    console.log(`[Google AIO] Formatted ${citationsData.citations.length} citations`);
 
     return {
       text,
       tokenIn: 0, // SerpAPI doesn't provide token counts
       tokenOut: 0,
-      citations: data.citations || [],
+      citations: citationsData,
       metadata: { reason, enabled: data.enabled }
     };
+    
+    // Helper function for domain extraction
+    function extractDomain(url: string): string {
+      try {
+        const parsed = new URL(url);
+        return parsed.hostname.replace(/^www\./, '');
+      } catch {
+        return 'unknown';
+      }
+    }
 
   } catch (error) {
     console.error('[Google AIO] Execution failed:', error.message);
