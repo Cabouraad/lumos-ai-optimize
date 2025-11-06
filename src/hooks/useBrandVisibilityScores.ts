@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 interface BrandVisibilityScore {
   brandId: string;
   score: number;
+  totalPrompts: number;
+  brandPresenceRate: number;
+  lastActivity: string | null;
+  totalMentions: number;
 }
 
 /**
@@ -43,16 +47,42 @@ export function useBrandVisibilityScores(brandIds: string[]) {
 
             if (error) {
               console.error(`Error fetching score for brand ${brandId}:`, error);
-              return { brandId, score: 0 };
+              return { 
+                brandId, 
+                score: 0,
+                totalPrompts: 0,
+                brandPresenceRate: 0,
+                totalMentions: 0,
+                lastActivity: null
+              };
             }
 
             // Type assertion for the RPC response
             const result = data as any;
             const avgScore = result?.metrics?.avgScore || 0;
-            return { brandId, score: avgScore };
+            const totalPrompts = result?.metrics?.totalPrompts || 0;
+            const brandPresenceRate = result?.metrics?.brandPresenceRate || 0;
+            const totalMentions = result?.metrics?.totalMentions || 0;
+            const lastActivity = result?.metrics?.lastActivity || null;
+            
+            return { 
+              brandId, 
+              score: avgScore,
+              totalPrompts,
+              brandPresenceRate,
+              totalMentions,
+              lastActivity
+            };
           } catch (error) {
             console.error(`Error fetching score for brand ${brandId}:`, error);
-            return { brandId, score: 0 };
+            return { 
+              brandId, 
+              score: 0,
+              totalPrompts: 0,
+              brandPresenceRate: 0,
+              totalMentions: 0,
+              lastActivity: null
+            };
           }
         })
       );

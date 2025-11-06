@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, ExternalLink } from 'lucide-react';
+import { Plus, Search, ExternalLink, TrendingUp, Activity } from 'lucide-react';
 import { useBrands, Brand } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandDisplay } from '@/components/BrandDisplay';
@@ -25,11 +25,11 @@ export default function Brands() {
   const brandIds = useMemo(() => brands.map(b => b.id), [brands]);
   const { data: visibilityScores = [], isLoading: scoresLoading } = useBrandVisibilityScores(brandIds);
 
-  // Create a map of brand ID to visibility score
+  // Create a map of brand ID to all metrics
   const scoreMap = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, typeof visibilityScores[0]>();
     visibilityScores.forEach(score => {
-      map.set(score.brandId, score.score);
+      map.set(score.brandId, score);
     });
     return map;
   }, [visibilityScores]);
@@ -168,19 +168,57 @@ export default function Brands() {
                     <BrandDisplay brandName={brand.name} />
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                     <ExternalLink className="h-3 w-3" />
                     <span className="truncate">{brand.domain}</span>
                   </div>
 
-                  <div className="mt-4">
+                  {/* Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-secondary/50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <Activity className="h-3 w-3" />
+                        <span>Total Prompts</span>
+                      </div>
+                      <div className="text-lg font-semibold">
+                        {scoresLoading ? (
+                          <Skeleton className="h-6 w-12" />
+                        ) : (
+                          scoreMap.get(brand.id)?.totalPrompts || 0
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-secondary/50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <TrendingUp className="h-3 w-3" />
+                        <span>Presence Rate</span>
+                      </div>
+                      <div className="text-lg font-semibold">
+                        {scoresLoading ? (
+                          <Skeleton className="h-6 w-12" />
+                        ) : (
+                          `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(0)}%`
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Last Activity */}
+                  {!scoresLoading && scoreMap.get(brand.id)?.lastActivity && (
+                    <div className="text-xs text-muted-foreground mb-4">
+                      Last activity: {new Date(scoreMap.get(brand.id)!.lastActivity!).toLocaleDateString()}
+                    </div>
+                  )}
+
+                  <div className="mt-2">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-muted-foreground">Visibility Score</span>
                       <span className="text-sm font-medium">
                         {scoresLoading ? (
                           <Skeleton className="h-4 w-12 inline-block" />
                         ) : (
-                          `${((scoreMap.get(brand.id) || 0) * 10).toFixed(1)}%`
+                          `${((scoreMap.get(brand.id)?.score || 0) * 10).toFixed(1)}%`
                         )}
                       </span>
                     </div>
@@ -188,7 +226,7 @@ export default function Brands() {
                       <div
                         className="h-full bg-primary transition-all"
                         style={{ 
-                          width: scoresLoading ? '0%' : `${(scoreMap.get(brand.id) || 0) * 10}%` 
+                          width: scoresLoading ? '0%' : `${(scoreMap.get(brand.id)?.score || 0) * 10}%` 
                         }}
                       />
                     </div>
