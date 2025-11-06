@@ -15,7 +15,7 @@ export function useBrandFilteredQuery() {
   const applyBrandFilter = <T extends { brand_id?: string | null }>(
     query: any
   ) => {
-    if (selectedBrand) {
+    if (selectedBrand && selectedBrand.id && selectedBrand.id !== 'null') {
       // When brand is selected, show data for that brand OR unassigned data
       return query.or(`brand_id.eq.${selectedBrand.id},brand_id.is.null`);
     }

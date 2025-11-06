@@ -44,7 +44,7 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
         .limit(8);
 
       // Filter by brand if specified
-      if (brandId) {
+      if (brandId && brandId !== 'null') {
         query = query.or(`brand_id.eq.${brandId},brand_id.is.null`);
       }
 
