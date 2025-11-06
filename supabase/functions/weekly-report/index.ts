@@ -159,16 +159,20 @@ Deno.serve(async (req) => {
       const results: any[] = [];
       const errors: any[] = [];
 
-      // Parse request body for optional brand_id and custom date range
+      // Parse request body for optional brand_id, custom date range, and template
       let requestedBrandId: string | null = null;
       let customStartDate: string | null = null;
       let customEndDate: string | null = null;
+      let templateId: string | null = null;
+      let templateConfig: any = null;
       
       try {
         const body = await req.json();
         requestedBrandId = body?.brand_id || null;
         customStartDate = body?.start_date || null;
         customEndDate = body?.end_date || null;
+        templateId = body?.template_id || null;
+        templateConfig = body?.template_config || null;
       } catch {
         // No body or invalid JSON - continue without filters
       }
@@ -285,8 +289,8 @@ Deno.serve(async (req) => {
           }
 
           // Collect weekly data
-          logStep('Collecting weekly data', { orgId, brandId: requestedBrandId });
-          const reportData = await generateReportData(supabase, orgId, periodStart, periodEnd, requestedBrandId);
+          logStep('Collecting weekly data', { orgId, brandId: requestedBrandId, templateId });
+          const reportData = await generateReportData(supabase, orgId, periodStart, periodEnd, requestedBrandId, templateConfig);
 
           // Generate both PDF and CSV reports
           logStep('Generating PDF report', { orgId });
@@ -340,6 +344,7 @@ Deno.serve(async (req) => {
               byte_size: pdfSize,
               sha256: sha256Hash,
               brand_id: requestedBrandId,
+              template_id: templateId,
             });
 
           // Insert CSV record into weekly_reports table
@@ -356,11 +361,13 @@ Deno.serve(async (req) => {
               file_size_bytes: csvSize,
               generated_at: new Date().toISOString(),
               brand_id: requestedBrandId,
+              template_id: templateId,
               metadata: {
                 prompts_analyzed: reportData.prompts.length,
                 total_responses: reportData.totalResponses,
                 generated_by: isScheduledRun ? 'scheduler' : 'user',
-                brand_id: requestedBrandId
+                brand_id: requestedBrandId,
+                template_id: templateId
               }
             });
 
@@ -447,8 +454,8 @@ Deno.serve(async (req) => {
 });
 
 // Enhanced data collection function
-async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string, brandId?: string | null): Promise<WeeklyReportData> {
-  logStep('Collecting report data', { orgId, weekStart, weekEnd, brandId });
+async function generateReportData(supabase: any, orgId: string, weekStart: string, weekEnd: string, brandId?: string | null, templateConfig?: any): Promise<WeeklyReportData> {
+  logStep('Collecting report data', { orgId, weekStart, weekEnd, brandId, hasTemplate: !!templateConfig });
 
   // Get organization details
   const { data: org } = await supabase

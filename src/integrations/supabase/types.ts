@@ -1169,6 +1169,84 @@ export type Database = {
           },
         ]
       }
+      report_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          include_brand_presence: boolean
+          include_citations_sources: boolean
+          include_competitor_analysis: boolean
+          include_executive_summary: boolean
+          include_historical_trends: boolean
+          include_prompt_performance: boolean
+          include_provider_performance: boolean
+          include_recommendations: boolean
+          include_visibility_overview: boolean
+          is_default: boolean
+          metrics: Json
+          name: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          include_brand_presence?: boolean
+          include_citations_sources?: boolean
+          include_competitor_analysis?: boolean
+          include_executive_summary?: boolean
+          include_historical_trends?: boolean
+          include_prompt_performance?: boolean
+          include_provider_performance?: boolean
+          include_recommendations?: boolean
+          include_visibility_overview?: boolean
+          is_default?: boolean
+          metrics?: Json
+          name: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          include_brand_presence?: boolean
+          include_citations_sources?: boolean
+          include_competitor_analysis?: boolean
+          include_executive_summary?: boolean
+          include_historical_trends?: boolean
+          include_prompt_performance?: boolean
+          include_provider_performance?: boolean
+          include_recommendations?: boolean
+          include_visibility_overview?: boolean
+          is_default?: boolean
+          metrics?: Json
+          name?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "report_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           brand_id: string | null
@@ -1180,6 +1258,7 @@ export type Database = {
           period_start: string
           sha256: string | null
           storage_path: string
+          template_id: string | null
           updated_at: string | null
           week_key: string
         }
@@ -1193,6 +1272,7 @@ export type Database = {
           period_start: string
           sha256?: string | null
           storage_path: string
+          template_id?: string | null
           updated_at?: string | null
           week_key: string
         }
@@ -1206,6 +1286,7 @@ export type Database = {
           period_start?: string
           sha256?: string | null
           storage_path?: string
+          template_id?: string | null
           updated_at?: string | null
           week_key?: string
         }
@@ -1229,6 +1310,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1660,6 +1748,7 @@ export type Database = {
           metadata: Json | null
           org_id: string
           status: string
+          template_id: string | null
           updated_at: string
           week_end_date: string
           week_start_date: string
@@ -1675,6 +1764,7 @@ export type Database = {
           metadata?: Json | null
           org_id: string
           status?: string
+          template_id?: string | null
           updated_at?: string
           week_end_date: string
           week_start_date: string
@@ -1690,6 +1780,7 @@ export type Database = {
           metadata?: Json | null
           org_id?: string
           status?: string
+          template_id?: string | null
           updated_at?: string
           week_end_date?: string
           week_start_date?: string
@@ -1700,6 +1791,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
             referencedColumns: ["id"]
           },
         ]

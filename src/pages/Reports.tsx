@@ -17,7 +17,11 @@ import { toast } from 'sonner';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { TemplateSelector } from '@/components/reports/TemplateSelector';
+import { TemplateEditor } from '@/components/reports/TemplateEditor';
+import { useReportTemplates } from '@/hooks/useReportTemplates';
 import type { DateRange } from 'react-day-picker';
+import type { ReportTemplate } from '@/hooks/useReportTemplates';
 
 interface Report {
   id: string;
@@ -54,11 +58,25 @@ export default function Reports() {
   const [generating, setGenerating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ReportTemplate | undefined>(undefined);
   
   const [activeTab, setActiveTab] = useState('pdf-reports');
 
   const accessGate = hasAccessToApp();
   const reportsAccess = canAccessRecommendations(); // Using recommendations as proxy for Growth/Pro access
+
+  // Load templates
+  const {
+    templates,
+    defaultTemplate,
+    loading: templatesLoading,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    setAsDefault,
+  } = useReportTemplates(orgData?.organizations?.id);
 
   useEffect(() => {
     if (orgData?.organizations?.id && reportsAccess.hasAccess) {
@@ -454,7 +472,7 @@ export default function Reports() {
         return;
       }
 
-      // Prepare request body with optional brand_id and date range
+      // Prepare request body with optional brand_id, date range, and template
       const requestBody: any = {};
       if (selectedBrand) {
         requestBody.brand_id = selectedBrand.id;
@@ -462,6 +480,21 @@ export default function Reports() {
       if (dateRange?.from && dateRange?.to) {
         requestBody.start_date = format(dateRange.from, 'yyyy-MM-dd');
         requestBody.end_date = format(dateRange.to, 'yyyy-MM-dd');
+      }
+      if (selectedTemplate) {
+        requestBody.template_id = selectedTemplate.id;
+        requestBody.template_config = {
+          include_executive_summary: selectedTemplate.include_executive_summary,
+          include_visibility_overview: selectedTemplate.include_visibility_overview,
+          include_brand_presence: selectedTemplate.include_brand_presence,
+          include_competitor_analysis: selectedTemplate.include_competitor_analysis,
+          include_provider_performance: selectedTemplate.include_provider_performance,
+          include_prompt_performance: selectedTemplate.include_prompt_performance,
+          include_citations_sources: selectedTemplate.include_citations_sources,
+          include_historical_trends: selectedTemplate.include_historical_trends,
+          include_recommendations: selectedTemplate.include_recommendations,
+          metrics: selectedTemplate.metrics,
+        };
       }
       
       // Call the edge function with proper authentication
@@ -521,7 +554,7 @@ export default function Reports() {
         return;
       }
 
-      // Prepare request body with optional brand_id and date range
+      // Prepare request body with optional brand_id, date range, and template
       const requestBody: any = {};
       if (selectedBrand) {
         requestBody.brand_id = selectedBrand.id;
@@ -529,6 +562,21 @@ export default function Reports() {
       if (dateRange?.from && dateRange?.to) {
         requestBody.start_date = format(dateRange.from, 'yyyy-MM-dd');
         requestBody.end_date = format(dateRange.to, 'yyyy-MM-dd');
+      }
+      if (selectedTemplate) {
+        requestBody.template_id = selectedTemplate.id;
+        requestBody.template_config = {
+          include_executive_summary: selectedTemplate.include_executive_summary,
+          include_visibility_overview: selectedTemplate.include_visibility_overview,
+          include_brand_presence: selectedTemplate.include_brand_presence,
+          include_competitor_analysis: selectedTemplate.include_competitor_analysis,
+          include_provider_performance: selectedTemplate.include_provider_performance,
+          include_prompt_performance: selectedTemplate.include_prompt_performance,
+          include_citations_sources: selectedTemplate.include_citations_sources,
+          include_historical_trends: selectedTemplate.include_historical_trends,
+          include_recommendations: selectedTemplate.include_recommendations,
+          metrics: selectedTemplate.metrics,
+        };
       }
       
       // Call the edge function with proper authentication
@@ -676,6 +724,26 @@ export default function Reports() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-3">
+                      <TemplateSelector
+                        templates={templates}
+                        selectedTemplate={selectedTemplate}
+                        onSelectTemplate={setSelectedTemplate}
+                        onCreateTemplate={() => {
+                          setEditingTemplate(undefined);
+                          setTemplateEditorOpen(true);
+                        }}
+                        onEditTemplate={(template) => {
+                          setEditingTemplate(template);
+                          setTemplateEditorOpen(true);
+                        }}
+                        onDeleteTemplate={(template) => {
+                          if (confirm(`Delete template "${template.name}"?`)) {
+                            deleteTemplate(template.id);
+                          }
+                        }}
+                        onSetDefault={(template) => setAsDefault(template.id)}
+                        disabled={loading || generating || templatesLoading}
+                      />
                       <DateRangePicker
                         dateRange={dateRange}
                         onDateRangeChange={setDateRange}
@@ -803,6 +871,26 @@ export default function Reports() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-3">
+                      <TemplateSelector
+                        templates={templates}
+                        selectedTemplate={selectedTemplate}
+                        onSelectTemplate={setSelectedTemplate}
+                        onCreateTemplate={() => {
+                          setEditingTemplate(undefined);
+                          setTemplateEditorOpen(true);
+                        }}
+                        onEditTemplate={(template) => {
+                          setEditingTemplate(template);
+                          setTemplateEditorOpen(true);
+                        }}
+                        onDeleteTemplate={(template) => {
+                          if (confirm(`Delete template "${template.name}"?`)) {
+                            deleteTemplate(template.id);
+                          }
+                        }}
+                        onSetDefault={(template) => setAsDefault(template.id)}
+                        disabled={csvLoading || generating || templatesLoading}
+                      />
                       <DateRangePicker
                         dateRange={dateRange}
                         onDateRangeChange={setDateRange}
@@ -965,6 +1053,20 @@ export default function Reports() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Template Editor Dialog */}
+        <TemplateEditor
+          open={templateEditorOpen}
+          onOpenChange={setTemplateEditorOpen}
+          template={editingTemplate}
+          onSave={async (template) => {
+            if (editingTemplate) {
+              await updateTemplate(editingTemplate.id, template);
+            } else {
+              await createTemplate(template);
+            }
+          }}
+        />
       </div>
     </Layout>
   );
