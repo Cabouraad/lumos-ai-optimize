@@ -732,6 +732,7 @@ export type Database = {
       }
       optimizations_v2: {
         Row: {
+          brand_id: string | null
           citations_used: Json | null
           completed_at: string | null
           content_hash: string
@@ -760,6 +761,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_id?: string | null
           citations_used?: Json | null
           completed_at?: string | null
           content_hash: string
@@ -788,6 +790,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_id?: string | null
           citations_used?: Json | null
           completed_at?: string | null
           content_hash?: string
@@ -816,6 +819,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "optimizations_v2_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "optimizations_v2_org_id_fkey"
             columns: ["org_id"]
@@ -939,6 +949,7 @@ export type Database = {
       }
       prompt_provider_responses: {
         Row: {
+          brand_id: string | null
           brands_json: Json
           citations_json: Json | null
           competitors_count: number
@@ -961,6 +972,7 @@ export type Database = {
           token_out: number
         }
         Insert: {
+          brand_id?: string | null
           brands_json?: Json
           citations_json?: Json | null
           competitors_count?: number
@@ -983,6 +995,7 @@ export type Database = {
           token_out?: number
         }
         Update: {
+          brand_id?: string | null
           brands_json?: Json
           citations_json?: Json | null
           competitors_count?: number
@@ -1005,6 +1018,13 @@ export type Database = {
           token_out?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "prompt_provider_responses_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prompt_provider_responses_prompt_id_fkey"
             columns: ["prompt_id"]
@@ -1031,6 +1051,7 @@ export type Database = {
       prompts: {
         Row: {
           active: boolean
+          brand_id: string | null
           cluster_tag: string | null
           created_at: string
           id: string
@@ -1039,6 +1060,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          brand_id?: string | null
           cluster_tag?: string | null
           created_at?: string
           id?: string
@@ -1047,6 +1069,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          brand_id?: string | null
           cluster_tag?: string | null
           created_at?: string
           id?: string
@@ -1054,6 +1077,13 @@ export type Database = {
           text?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "prompts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prompts_org_id_fkey"
             columns: ["org_id"]
@@ -1072,6 +1102,7 @@ export type Database = {
       }
       recommendations: {
         Row: {
+          brand_id: string | null
           created_at: string
           id: string
           metadata: Json | null
@@ -1082,6 +1113,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          brand_id?: string | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -1092,6 +1124,7 @@ export type Database = {
           type: string
         }
         Update: {
+          brand_id?: string | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -1102,6 +1135,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "recommendations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recommendations_org_id_fkey"
             columns: ["org_id"]
@@ -2045,7 +2085,9 @@ export type Database = {
         }[]
       }
       get_today_key_ny: { Args: { d?: string }; Returns: string }
-      get_unified_dashboard_data: { Args: { p_org_id: string }; Returns: Json }
+      get_unified_dashboard_data:
+        | { Args: { p_org_id: string }; Returns: Json }
+        | { Args: { p_brand_id?: string; p_org_id: string }; Returns: Json }
       get_user_org_and_role: {
         Args: { _user_id: string }
         Returns: {

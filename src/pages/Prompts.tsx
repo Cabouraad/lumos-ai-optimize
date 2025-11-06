@@ -3,6 +3,7 @@ import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { useBrand } from '@/contexts/BrandContext';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptSuggestions } from '@/components/PromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
+import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { getPromptCategory } from '@/lib/prompt-utils';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useClusterPrompts } from '@/hooks/useClusterPrompts';
@@ -74,6 +76,7 @@ export default function Prompts() {
   const { orgData, user, ready } = useAuth();
   const { toast } = useToast();
   const { canCreatePrompts, hasAccessToApp, limits } = useSubscriptionGate();
+  const { selectedBrand } = useBrand();
   const clusterPrompts = useClusterPrompts();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
   const [providerData, setProviderData] = useState<any[]>([]);
@@ -250,13 +253,20 @@ export default function Prompts() {
     if (!orgData?.organizations?.id) return;
 
     try {
+      const insertData: any = {
+        org_id: orgData.organizations.id,
+        text: newPromptText.trim(),
+        active: true
+      };
+
+      // Add brand_id if a brand is selected
+      if (selectedBrand) {
+        insertData.brand_id = selectedBrand.id;
+      }
+
       const { error } = await supabase
         .from('prompts')
-        .insert({
-          org_id: orgData.organizations.id,
-          text: newPromptText.trim(),
-          active: true
-        });
+        .insert(insertData);
 
       if (error) throw error;
 
@@ -606,7 +616,10 @@ export default function Prompts() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <h1 className="text-4xl font-display font-bold gradient-primary bg-clip-text text-transparent">Prompts</h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-display font-bold gradient-primary bg-clip-text text-transparent">Prompts</h1>
+                    <BrandFilterIndicator />
+                  </div>
                   <p className="text-lg text-muted-foreground">
                     Manage search prompts and discover smart improvements
                   </p>

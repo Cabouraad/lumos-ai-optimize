@@ -18,6 +18,7 @@ import { isFeatureEnabled } from '@/lib/config/feature-flags';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { DashboardChart } from '@/components/dashboard/DashboardChart';
 import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
+import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
@@ -416,6 +417,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
                 <DataFreshnessIndicator lastUpdated={lastUpdated} />
+                <BrandFilterIndicator />
               </div>
               <p className="text-muted-foreground">AI visibility insights for your organization</p>
             </div>

@@ -30,11 +30,14 @@ export interface UnifiedDashboardResponse {
 /**
  * Fetch all dashboard data in a single optimized RPC call
  */
-export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResponse> {
+export async function getUnifiedDashboardDataRPC(brandId?: string | null): Promise<UnifiedDashboardResponse> {
   const startTime = Date.now();
   
   try {
-    logger.info('Fetching unified dashboard data via RPC', { component: 'unified-rpc-fetcher' });
+    logger.info('Fetching unified dashboard data via RPC', { 
+      component: 'unified-rpc-fetcher',
+      metadata: { brandId }
+    });
     
     // Get current user's org_id using maybeSingle to avoid errors
     const { data: { user } } = await supabase.auth.getUser();
@@ -100,7 +103,8 @@ export async function getUnifiedDashboardDataRPC(): Promise<UnifiedDashboardResp
     }
     
     const { data, error } = await supabase.rpc('get_unified_dashboard_data', {
-      p_org_id: userData.org_id
+      p_org_id: userData.org_id,
+      p_brand_id: brandId || null
     });
     
     const fetchTime = Date.now() - startTime;
@@ -224,6 +228,17 @@ export class RealTimeDashboardFetcher {
   private lastFetch: number = 0;
   private readonly CACHE_DURATION = 15000; // 15 seconds (reduced for better responsiveness)
   private refreshCallbacks: ((data: UnifiedDashboardResponse) => void)[] = [];
+  private currentBrandId: string | null = null;
+
+  /**
+   * Set the current brand ID for filtering
+   */
+  setBrandId(brandId: string | null): void {
+    if (this.currentBrandId !== brandId) {
+      this.currentBrandId = brandId;
+      this.clearCache(); // Clear cache when brand changes
+    }
+  }
 
   /**
    * Get dashboard data with caching
@@ -243,8 +258,8 @@ export class RealTimeDashboardFetcher {
       return this.cache;
     }
 
-    // Fetch fresh data
-    const data = await getUnifiedDashboardDataRPC();
+    // Fetch fresh data with brand filtering
+    const data = await getUnifiedDashboardDataRPC(this.currentBrandId);
     
     // Only update cache if successful
     if (data.success) {

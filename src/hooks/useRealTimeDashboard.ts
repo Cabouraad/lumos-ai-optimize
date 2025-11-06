@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { dashboardFetcher, UnifiedDashboardResponse } from '@/lib/data/unified-rpc-fetcher';
 import { useToast } from '@/hooks/use-toast';
 import { AdaptivePoller } from '@/lib/polling/adaptive-poller';
+import { useBrand } from '@/contexts/BrandContext';
 
 export interface UseRealTimeDashboardOptions {
   autoRefreshInterval?: number; // milliseconds (used as max interval)
@@ -38,6 +39,12 @@ export function useRealTimeDashboard(
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { toast } = useToast();
+  const { selectedBrand } = useBrand();
+
+  // Update brand filter when selectedBrand changes
+  useEffect(() => {
+    dashboardFetcher.setBrandId(selectedBrand?.id || null);
+  }, [selectedBrand]);
   
   // Refs to prevent excessive fetching
   const fetchInProgressRef = useRef(false);
