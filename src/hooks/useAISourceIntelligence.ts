@@ -9,16 +9,23 @@ export interface AISource {
   models: string[];
 }
 
-export function useAISourceIntelligence(orgId: string | undefined, limit?: number) {
+export function useAISourceIntelligence(orgId: string | undefined, limit?: number, brandId?: string | null) {
   return useQuery({
-    queryKey: ['ai-source-intelligence', orgId, limit],
+    queryKey: ['ai-source-intelligence', orgId, limit, brandId],
     queryFn: async (): Promise<AISource[]> => {
       if (!orgId) throw new Error('Organization ID required');
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('ai_sources_top_domains')
         .select('*')
-        .eq('org_id', orgId)
+        .eq('org_id', orgId);
+
+      // Apply brand filter if specified, showing brand-specific data OR unassigned data
+      if (brandId) {
+        query = query.or(`brand_id.eq.${brandId},brand_id.is.null`);
+      }
+
+      const { data, error } = await query
         .order('total_citations', { ascending: false })
         .limit(limit || 50);
 

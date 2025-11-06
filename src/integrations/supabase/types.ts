@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       ai_sources: {
         Row: {
+          brand_id: string | null
           created_at: string
           date_tracked: string
           domain: string
@@ -27,6 +28,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_id?: string | null
           created_at?: string
           date_tracked?: string
           domain: string
@@ -38,6 +40,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_id?: string | null
           created_at?: string
           date_tracked?: string
           domain?: string
@@ -48,7 +51,15 @@ export type Database = {
           timestamp?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_sources_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       analytics_events: {
         Row: {
@@ -1676,6 +1687,7 @@ export type Database = {
     Views: {
       ai_sources_top_domains: {
         Row: {
+          brand_id: string | null
           domain: string | null
           last_cited: string | null
           model_count: number | null
@@ -1683,7 +1695,15 @@ export type Database = {
           org_id: string | null
           total_citations: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_sources_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       low_visibility_prompts: {
         Row: {
