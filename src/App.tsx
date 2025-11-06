@@ -48,6 +48,7 @@ const UserGuide = lazy(() => loadChunkWithRetry(() => import("./pages/UserGuide"
 const StarterPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/StarterPlan")));
 const GrowthPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/GrowthPlan")));
 const ProPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/ProPlan")));
+const Brands = lazy(() => loadChunkWithRetry(() => import("./pages/Brands")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -233,6 +234,11 @@ const App = () => {
           <Route path="/admin/domain-authority" element={
             <ProtectedRoute>
               <DomainAuthority />
+            </ProtectedRoute>
+          } />
+          <Route path="/brands" element={
+            <ProtectedRoute>
+              <Brands />
             </ProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />

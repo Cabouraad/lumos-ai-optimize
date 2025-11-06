@@ -1,8 +1,10 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useUser } from '@/contexts/UserProvider';
 import { useSubscription } from '@/contexts/SubscriptionProvider';
+import { useBrands } from '@/hooks/useBrands';
+import { useBrand } from '@/contexts/BrandContext';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,9 +23,18 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading: authLoading, ready, signOut } = useAuth();
   const { userData, loading: userLoading, error: userError } = useUser();
-  const { hasAccess, loading: subscriptionLoading } = useSubscription();
+  const { subscriptionData, hasAccess, loading: subscriptionLoading } = useSubscription();
+  const { brands, isLoading: brandsLoading } = useBrands();
+  const { selectedBrand, setSelectedBrand } = useBrand();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Auto-select brand if user has only one
+  useEffect(() => {
+    if (brands.length === 1 && !selectedBrand) {
+      setSelectedBrand(brands[0]);
+    }
+  }, [brands, selectedBrand, setSelectedBrand]);
 
   // Show loading while auth is initializing
   if (authLoading || !ready) {
@@ -121,10 +132,22 @@ export function ProtectedRoute({
     );
   }
 
+  // Check if Pro user needs to select a brand (multi-brand feature)
+  const isProTier = subscriptionData?.subscription_tier === 'pro';
+  const needsBrandSelection = isProTier && 
+    brands.length > 1 && 
+    !selectedBrand && 
+    location.pathname !== '/brands' &&
+    !brandsLoading;
+
+  if (user && userData && hasAccess && needsBrandSelection) {
+    return <Navigate to="/brands" replace />;
+  }
+
   // Check subscription access
   if (user && userData && requireSubscription && !hasAccess) {
-    // Allow access to pricing page
-    if (location.pathname === '/pricing') {
+    // Allow access to pricing page and brands page
+    if (location.pathname === '/pricing' || location.pathname === '/brands') {
       return <>{children}</>;
     }
 

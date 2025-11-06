@@ -1,6 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { useBrand } from '@/contexts/BrandContext';
+import { useBrands } from '@/hooks/useBrands';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { BrandDisplay } from '@/components/BrandDisplay';
@@ -29,22 +31,29 @@ import {
   Calendar,
   Beaker,
   TestTube2,
-  BookOpen
+  BookOpen,
+  Building2,
+  ChevronDown
 } from 'lucide-react';
 
 export function AppSidebar() {
-  const { signOut, orgData, user } = useAuth();
+  const { signOut, orgData, user, subscriptionData } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { canAccessCompetitorAnalysis, canAccessRecommendations } = useSubscriptionGate();
+  const { selectedBrand } = useBrand();
+  const { brands } = useBrands();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  // Check if user is admin (owner role)
+  // Check if user is admin (owner role) and Pro tier
   const isAdmin = user?.user_metadata?.role === 'owner' || orgData?.users?.role === 'owner';
+  const isProTier = subscriptionData?.subscription_tier === 'pro';
+  const hasMultipleBrands = brands.length > 1;
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ...(isProTier && hasMultipleBrands ? [{ name: 'Brands', href: '/brands', icon: Building2 }] : []),
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
     { name: 'Competitors', href: '/competitors', icon: Users },
     { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
@@ -64,8 +73,23 @@ export function AppSidebar() {
         <Logo collapsed={collapsed} />
       </SidebarHeader>
       
-      {/* Brand Display */}
-      {orgData?.organizations?.name && (
+      {/* Brand Display with Switcher for Pro users */}
+      {selectedBrand ? (
+        <div className="px-4 py-3 border-b border-border/30">
+          {isProTier && hasMultipleBrands ? (
+            <Button
+              variant="ghost"
+              className="w-full justify-between p-2 h-auto hover:bg-accent/50"
+              onClick={() => navigate('/brands')}
+            >
+              <BrandDisplay brandName={selectedBrand.name} collapsed={collapsed} />
+              {!collapsed && <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            </Button>
+          ) : (
+            <BrandDisplay brandName={selectedBrand.name} collapsed={collapsed} />
+          )}
+        </div>
+      ) : orgData?.organizations?.name && (
         <BrandDisplay 
           brandName={orgData.organizations.name} 
           collapsed={collapsed}
