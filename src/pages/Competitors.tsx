@@ -259,7 +259,23 @@ export default function Competitors() {
       setOrgName(currentOrgName);
 
       // Convert RPC data to competitor format
-      const competitors: CompetitorData[] = competitorRows || [];
+      let competitors: CompetitorData[] = competitorRows || [];
+      
+      // Fallback to brand_catalog if RPC returned no data
+      if (competitors.length === 0 && trackedResult.data && trackedResult.data.length > 0) {
+        console.info('RPC returned no competitors, using brand_catalog data as fallback');
+        competitors = trackedResult.data
+          .filter(b => b.total_appearances > 0) // Only show competitors with actual mentions
+          .map(cat => ({
+            competitor_name: cat.name,
+            total_mentions: cat.total_appearances,
+            distinct_prompts: cat.total_appearances, // Approximate
+            first_seen: cat.first_detected_at,
+            last_seen: cat.first_detected_at, // Use same as first if we don't have last_seen
+            avg_score: cat.average_score || 0
+          }));
+      }
+      
       setCompetitorData(competitors);
 
       // Set catalog count for limit enforcement
