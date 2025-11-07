@@ -9,12 +9,18 @@ import { AuthErrorBoundary } from './components/auth/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
 import { EnvGate } from '@/components/EnvGate';
+import { observeWebVitals } from '@/lib/performance/monitor';
 import './index.css';
 import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 
 
 // Query client is provided by QueryProvider with sane defaults
+
+// Initialize performance monitoring in development
+if (import.meta.env.DEV) {
+  observeWebVitals();
+}
 
 const Router = HashRouter;
 

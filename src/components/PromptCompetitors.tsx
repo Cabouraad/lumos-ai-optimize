@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,7 +17,7 @@ interface PromptCompetitorsProps {
   promptId: string;
 }
 
-export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
+const PromptCompetitorsComponent = ({ promptId }: PromptCompetitorsProps) => {
   const [competitors, setCompetitors] = useState<CompetitorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,4 +176,7 @@ export function PromptCompetitors({ promptId }: PromptCompetitorsProps) {
       </div>
     </div>
   );
-}
+};
+
+// Memoized export to prevent unnecessary re-renders
+export const PromptCompetitors = memo(PromptCompetitorsComponent);

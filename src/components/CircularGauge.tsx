@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface CircularGaugeProps {
@@ -10,7 +11,7 @@ interface CircularGaugeProps {
   label?: string;
 }
 
-export function CircularGauge({
+const CircularGaugeComponent = ({
   value,
   maxValue = 10,
   size = 120,
@@ -18,7 +19,7 @@ export function CircularGauge({
   className = "",
   showValue = true,
   label
-}: CircularGaugeProps) {
+}: CircularGaugeProps) => {
   const percentage = Math.min(Math.max((value / maxValue) * 100, 0), 100);
   
   const data = [
@@ -72,4 +73,7 @@ export function CircularGauge({
       )}
     </div>
   );
-}
+};
+
+// Memoized to prevent unnecessary re-renders when value hasn't changed
+export const CircularGauge = memo(CircularGaugeComponent);

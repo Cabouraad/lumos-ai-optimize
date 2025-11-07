@@ -16,7 +16,6 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 
 interface RecentPrompt {
@@ -254,16 +253,14 @@ export function RecentPromptsWidget({ prompts, loading }: RecentPromptsWidgetPro
               </div>
 
               {/* Expanded Details Panel */}
-              <AnimatePresence>
-                {isExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <div className="border-t border-border bg-muted/20 p-4 space-y-4">
+              {isExpanded && (
+                <div 
+                  className="overflow-hidden transition-all duration-200 ease-in-out animate-in fade-in slide-in-from-top-2"
+                  style={{ 
+                    animation: 'expandDown 0.2s ease-out'
+                  }}
+                >
+                  <div className="border-t border-border bg-muted/20 p-4 space-y-4">
                       {/* AI Response Snippet */}
                       <div>
                         <h4 className="text-sm font-semibold mb-2">AI Response</h4>
@@ -324,10 +321,9 @@ export function RecentPromptsWidget({ prompts, loading }: RecentPromptsWidgetPro
                         </div>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
+              </div>
           );
         })}
       </CardContent>

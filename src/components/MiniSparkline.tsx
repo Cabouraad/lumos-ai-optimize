@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 interface MiniSparklineProps {
@@ -6,11 +7,11 @@ interface MiniSparklineProps {
   className?: string;
 }
 
-export function MiniSparkline({ 
+const MiniSparklineComponent = ({
   data, 
   color = 'hsl(var(--primary))', 
   className = "h-8 w-16" 
-}: MiniSparklineProps) {
+}: MiniSparklineProps) => {
   if (data.length === 0) {
     return <div className={`${className} bg-muted/20 rounded`} />;
   }
@@ -30,4 +31,7 @@ export function MiniSparkline({
       </ResponsiveContainer>
     </div>
   );
-}
+};
+
+// Memoized to prevent unnecessary re-renders
+export const MiniSparkline = memo(MiniSparklineComponent);

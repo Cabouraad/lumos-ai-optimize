@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
@@ -13,7 +14,7 @@ interface DashboardChartProps {
   hasCompetitorAccess?: boolean;
 }
 
-export function DashboardChart({ 
+const DashboardChartComponent = ({
   chartData, 
   competitorChartData, 
   competitors, 
@@ -21,7 +22,7 @@ export function DashboardChart({
   onChartViewChange,
   loadingCompetitors,
   hasCompetitorAccess = false
-}: DashboardChartProps) {
+}: DashboardChartProps) => {
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];
   
@@ -159,4 +160,7 @@ export function DashboardChart({
       </CardContent>
     </Card>
   );
-}
+};
+
+// Memoized to prevent re-renders when data hasn't changed
+export const DashboardChart = memo(DashboardChartComponent);
