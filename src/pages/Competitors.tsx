@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
@@ -32,6 +31,7 @@ import { CompetitorCatalog } from '@/components/CompetitorCatalog';
 import { BrandCandidatesManager } from '@/components/BrandCandidatesManager';
 import { ManualCompetitorAdd } from '@/components/ManualCompetitorAdd';
 import { useCompetitors } from '@/features/competitors/hooks';
+import { fetchCompetitorsV2, CompetitorSummaryRow } from '@/features/competitors/api';
 import FilterBar from '@/features/competitors/FilterBar';
 import CompetitorCard from '@/features/competitors/CompetitorCard';
 import { useBrand } from '@/contexts/BrandContext';
@@ -500,7 +500,11 @@ export default function Competitors() {
   // Optimized view component with filters
   const OptimizedCompetitorsView = () => {
     const [filters, setFilters] = useState({ days: 30, providers: [] as string[] });
-    const { data, isLoading, isError, error } = useCompetitors({
+    const [fallbackData, setFallbackData] = useState<CompetitorSummaryRow[] | null>(null);
+    const [isLoadingFallback, setIsLoadingFallback] = useState(false);
+    
+    // Primary query with brand filter
+    const { data, isLoading, isError, error, refetch } = useCompetitors({
       days: filters.days,
       providers: filters.providers.length ? filters.providers : undefined,
       limit: 50,
@@ -508,7 +512,43 @@ export default function Competitors() {
       brandId: selectedBrand?.id || null,
     });
 
-    if (isLoading) {
+    // Auto-fetch fallback data when brand filter yields no results
+    useEffect(() => {
+      const shouldFetchFallback = selectedBrand?.id && !isLoading && !isError && (!data || data.length === 0);
+      
+      if (shouldFetchFallback && !fallbackData) {
+        setIsLoadingFallback(true);
+        fetchCompetitorsV2({
+          days: filters.days,
+          providers: filters.providers.length ? filters.providers : undefined,
+          limit: 50,
+          offset: 0,
+          brandId: null,
+        })
+          .then((fallback) => {
+            if (fallback && fallback.length > 0) {
+              setFallbackData(fallback);
+            }
+          })
+          .catch((err) => {
+            console.error('Fallback fetch failed:', err);
+          })
+          .finally(() => {
+            setIsLoadingFallback(false);
+          });
+      }
+      
+      // Reset fallback when filters change or brand is cleared
+      if (!selectedBrand?.id || (data && data.length > 0)) {
+        setFallbackData(null);
+      }
+    }, [selectedBrand?.id, data, isLoading, isError, filters.days, filters.providers, fallbackData]);
+
+    // Use fallback data if available
+    const displayData = fallbackData && fallbackData.length > 0 ? fallbackData : data;
+    const isShowingFallback = fallbackData && fallbackData.length > 0;
+
+    if (isLoading || isLoadingFallback) {
       return (
         <div className="space-y-4">
           <Skeleton className="h-20 w-full" />
@@ -537,7 +577,7 @@ export default function Competitors() {
       );
     }
 
-    if (!data || data.length === 0) {
+    if (!displayData || displayData.length === 0) {
       return (
         <Card>
           <CardContent className="p-12 text-center">
@@ -555,22 +595,40 @@ export default function Competitors() {
       <div className="space-y-6">
         <FilterBar value={filters} onChange={setFilters} />
         
+        {/* Brand Filter Notice */}
+        {isShowingFallback && (
+          <Card className="border-amber-500/50 bg-amber-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-foreground mb-1">Showing All Competitors</h4>
+                  <p className="text-sm text-muted-foreground">
+                    No competitors found for the selected brand "{selectedBrand?.name}". 
+                    Displaying all organization competitors instead. This may occur because prompt responses are not yet mapped to specific brands.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xl font-semibold">All Competitors</h2>
               <p className="text-sm text-muted-foreground">
-                {data.length} competitors found in the last {filters.days} days
+                {displayData.length} competitors found in the last {filters.days} days
                 {filters.providers.length > 0 && ` (filtered by ${filters.providers.length} provider${filters.providers.length > 1 ? 's' : ''})`}
               </p>
             </div>
             <Badge variant="outline" className="text-sm">
-              Total Share: {data.reduce((sum, c) => sum + (c.share_pct ?? 0), 0).toFixed(1)}%
+              Total Share: {displayData.reduce((sum, c) => sum + (c.share_pct ?? 0), 0).toFixed(1)}%
             </Badge>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.map((competitor, index) => (
+            {displayData.map((competitor, index) => (
               <CompetitorCard 
                 key={competitor.competitor_name} 
                 competitor={competitor} 

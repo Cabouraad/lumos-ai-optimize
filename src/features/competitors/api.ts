@@ -31,8 +31,12 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
     throw new Error('Unauthenticated');
   }
 
+  // Get org_id from session user metadata
+  const { data: { user } } = await sb.auth.getUser();
+  const orgId = user?.user_metadata?.org_id || null;
+
   const { data, error } = await sb.rpc('get_org_competitor_summary_v2', {
-    p_org_id: null,
+    p_org_id: orgId,
     p_days: filters.days ?? 30,
     p_limit: Math.min(filters.limit ?? 50, 50),
     p_offset: filters.offset ?? 0,
