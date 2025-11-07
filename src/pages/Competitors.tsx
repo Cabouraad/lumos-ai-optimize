@@ -216,6 +216,28 @@ export default function Competitors() {
       ]);
 
       let competitorRows = competitorSummaryResult.data as any[] | null;
+      
+      // Fallback: If brand filter returns empty, try without brand filter
+      if (selectedBrand?.id && (!competitorRows || competitorRows.length === 0) && !competitorSummaryResult.error) {
+        console.log('Brand filter returned no results, fetching without brand filter');
+        const fallbackResult = await supabase.rpc('get_org_competitor_summary_v2', { 
+          p_org_id: orgId, 
+          p_days: 30, 
+          p_limit: 50, 
+          p_offset: 0, 
+          p_providers: null, 
+          p_brand_id: null 
+        });
+        
+        if (!fallbackResult.error && fallbackResult.data && fallbackResult.data.length > 0) {
+          competitorRows = fallbackResult.data as any[] | null;
+          toast({
+            title: "Showing all competitors",
+            description: `No competitors found for ${selectedBrand.name}. Showing all organization competitors instead.`,
+            duration: 5000,
+          });
+        }
+      }
 
       if (competitorSummaryResult.error) {
         console.warn('get_org_competitor_summary_v2 failed, attempting legacy fallback', competitorSummaryResult.error);
