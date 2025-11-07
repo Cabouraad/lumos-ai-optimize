@@ -3,19 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, ExternalLink, TrendingUp, Activity, LogOut } from 'lucide-react';
+import { Plus, Search, ExternalLink, TrendingUp, Activity, LogOut, HelpCircle } from 'lucide-react';
 import { useBrands, Brand } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandDisplay } from '@/components/BrandDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBrandVisibilityScores } from '@/hooks/useBrandVisibilityScores';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
+import { SupportDialog } from '@/components/SupportDialog';
 
 export default function Brands() {
   const navigate = useNavigate();
   const { brands, isLoading } = useBrands();
   const { setSelectedBrand } = useBrand();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
 
   // Get all brand IDs to fetch visibility scores
   const brandIds = useMemo(() => brands.map(b => b.id), [brands]);
@@ -50,15 +52,26 @@ export default function Brands() {
               <h1 className="text-4xl font-bold mb-2">Brands</h1>
               <p className="text-muted-foreground">Select a brand to view its dashboard</p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => signOutWithCleanup()}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSupportDialogOpen(true)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Help
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => signOutWithCleanup()}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -205,6 +218,11 @@ export default function Brands() {
           </div>
         )}
       </div>
+
+      <SupportDialog 
+        open={isSupportDialogOpen} 
+        onOpenChange={setIsSupportDialogOpen} 
+      />
     </div>
   );
 }
