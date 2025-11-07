@@ -98,9 +98,6 @@ export default function Sources() {
                               <Badge variant="default" className="text-sm font-semibold">
                                 {source.total_citations} citations
                               </Badge>
-                              <Badge variant="secondary" className="text-sm">
-                                {source.model_count} {source.model_count === 1 ? 'model' : 'models'}
-                              </Badge>
                             </div>
                           </div>
 
@@ -110,20 +107,6 @@ export default function Sources() {
                               className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-500"
                               style={{ width: `${barWidth}%` }}
                             />
-                          </div>
-
-                          {/* Models */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-muted-foreground">Models:</span>
-                            {source.models.map((model) => (
-                              <Badge 
-                                key={model} 
-                                variant="outline" 
-                                className="text-xs font-mono"
-                              >
-                                {model}
-                              </Badge>
-                            ))}
                           </div>
                         </div>
                       </div>

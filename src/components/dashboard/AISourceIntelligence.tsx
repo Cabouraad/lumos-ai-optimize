@@ -87,9 +87,6 @@ export function AISourceIntelligence({ orgId }: AISourceIntelligenceProps) {
                     {source.total_citations} citations
                   </Badge>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {source.model_count} {source.model_count === 1 ? 'model' : 'models'}
-                </div>
               </div>
               <div className="relative h-2 bg-muted rounded-full overflow-hidden">
                 <div 
