@@ -163,6 +163,7 @@ export default function Competitors() {
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [orgName, setOrgName] = useState<string>('Your Brand');
   const [orgBrand, setOrgBrand] = useState<CompetitorBrand | null>(null);
+  const [isBrandFallback, setIsBrandFallback] = useState(false);
   
   const { toast } = useToast();
 
@@ -216,10 +217,13 @@ export default function Competitors() {
       ]);
 
       let competitorRows = competitorSummaryResult.data as any[] | null;
+      // default: no fallback unless we switch later
+      setIsBrandFallback(false);
       
       // Fallback: If brand filter returns empty, try without brand filter
       if (selectedBrand?.id && (!competitorRows || competitorRows.length === 0) && !competitorSummaryResult.error) {
-        console.log('Brand filter returned no results, fetching without brand filter');
+        console.info('Brand filter returned no results, fetching without brand filter');
+        setIsBrandFallback(true);
         const fallbackResult = await supabase.rpc('get_org_competitor_summary_v2', { 
           p_org_id: orgId, 
           p_days: 30, 
@@ -231,6 +235,7 @@ export default function Competitors() {
         
         if (!fallbackResult.error && fallbackResult.data && fallbackResult.data.length > 0) {
           competitorRows = fallbackResult.data as any[] | null;
+          setIsBrandFallback(true);
           toast({
             title: "Showing all competitors",
             description: `No competitors found for ${selectedBrand.name}. Showing all organization competitors instead.`,
@@ -755,6 +760,23 @@ export default function Competitors() {
 
               {/* Main Competitors Tab */}
               <TabsContent value="competitors" className="space-y-6">
+                {/* Inline notice when showing fallback data */}
+                {isBrandFallback && (
+                  <Card className="border-amber-500/50 bg-amber-500/5">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-foreground mb-1">Showing All Competitors</h4>
+                          <p className="text-sm text-muted-foreground">
+                            No competitors found for the selected brand "{selectedBrand?.name}". Displaying all organization competitors instead.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
                 {/* Three Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Top Brands */}
