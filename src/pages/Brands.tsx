@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Plus, Search, ExternalLink, TrendingUp, Activity } from 'lucide-react';
 import { useBrands, Brand } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
@@ -14,12 +12,9 @@ import { useBrandVisibilityScores } from '@/hooks/useBrandVisibilityScores';
 
 export default function Brands() {
   const navigate = useNavigate();
-  const { brands, isLoading, createBrand, isCreating } = useBrands();
+  const { brands, isLoading } = useBrands();
   const { setSelectedBrand } = useBrand();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [newBrandName, setNewBrandName] = useState('');
-  const [newBrandDomain, setNewBrandDomain] = useState('');
 
   // Get all brand IDs to fetch visibility scores
   const brandIds = useMemo(() => brands.map(b => b.id), [brands]);
@@ -44,21 +39,6 @@ export default function Brands() {
     navigate('/dashboard');
   };
 
-  const handleCreateBrand = () => {
-    if (!newBrandName.trim() || !newBrandDomain.trim()) return;
-    
-    createBrand(
-      { name: newBrandName, domain: newBrandDomain },
-      {
-        onSuccess: () => {
-          setIsCreateDialogOpen(false);
-          setNewBrandName('');
-          setNewBrandDomain('');
-        },
-      }
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -79,46 +59,13 @@ export default function Brands() {
               className="pl-10"
             />
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Brand
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Brand</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="brand-name">Brand Name</Label>
-                  <Input
-                    id="brand-name"
-                    placeholder="e.g., Apple"
-                    value={newBrandName}
-                    onChange={(e) => setNewBrandName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="brand-domain">Domain</Label>
-                  <Input
-                    id="brand-domain"
-                    placeholder="e.g., apple.com"
-                    value={newBrandDomain}
-                    onChange={(e) => setNewBrandDomain(e.target.value)}
-                  />
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={handleCreateBrand}
-                  disabled={!newBrandName.trim() || !newBrandDomain.trim() || isCreating}
-                >
-                  {isCreating ? 'Creating...' : 'Create Brand'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="gap-2"
+            onClick={() => navigate('/onboarding/brand')}
+          >
+            <Plus className="h-4 w-4" />
+            Create Brand
+          </Button>
         </div>
 
         {/* Brand Grid */}
@@ -150,7 +97,7 @@ export default function Brands() {
               {searchQuery ? 'No brands found matching your search' : 'No brands yet'}
             </p>
             {!searchQuery && (
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Button onClick={() => navigate('/onboarding/brand')}>
                 Create Your First Brand
               </Button>
             )}
