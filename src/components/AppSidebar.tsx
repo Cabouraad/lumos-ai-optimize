@@ -34,7 +34,8 @@ import {
   BookOpen,
   Building2,
   ChevronDown,
-  BarChart3
+  BarChart3,
+  HelpCircle
 } from 'lucide-react';
 
 export function AppSidebar() {
@@ -55,14 +56,13 @@ export function AppSidebar() {
   const navigation = [
     ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Building2 }] : []),
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3 },
     { name: 'Prompts', href: '/prompts', icon: MessageSquare },
     { name: 'Competitors', href: '/competitors', icon: Users },
-    { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
+    { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3 },
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
     { name: 'Reports', href: '/reports', icon: Calendar },
+    { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
     { name: 'Settings', href: '/settings', icon: Settings },
-    { name: 'User Guide', href: '/user-guide', icon: BookOpen },
     ...(isAdmin ? [
       { name: 'Labs', href: '/labs', icon: Beaker },
       { name: 'Tests', href: '/tests', icon: TestTube2 }
@@ -153,15 +153,39 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-border/30 mt-auto">
-        <Button 
-          variant="outline" 
-          onClick={signOut}
-          className="w-full justify-start hover-lift border-border/50 hover:border-primary/50"
-          size={collapsed ? "icon" : "default"}
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span className="ml-3">Sign Out</span>}
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            variant="ghost" 
+            asChild
+            className="w-full justify-start"
+            size={collapsed ? "icon" : "default"}
+          >
+            <Link to="/user-guide">
+              <BookOpen className="h-4 w-4" />
+              {!collapsed && <span className="ml-3">User Guide</span>}
+            </Link>
+          </Button>
+          <Button 
+            variant="ghost" 
+            asChild
+            className="w-full justify-start"
+            size={collapsed ? "icon" : "default"}
+          >
+            <a href="https://docs.lovable.dev" target="_blank" rel="noopener noreferrer">
+              <HelpCircle className="h-4 w-4" />
+              {!collapsed && <span className="ml-3">Help</span>}
+            </a>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={signOut}
+            className="w-full justify-start hover-lift border-border/50 hover:border-primary/50"
+            size={collapsed ? "icon" : "default"}
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span className="ml-3">Sign Out</span>}
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
