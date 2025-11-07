@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { getOrgIdSafe } from '@/lib/org-id';
 
 export type CompetitorSummaryRow = {
   competitor_name: string;
@@ -31,9 +32,8 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
     throw new Error('Unauthenticated');
   }
 
-  // Get org_id from session user metadata
-  const { data: { user } } = await sb.auth.getUser();
-  const orgId = user?.user_metadata?.org_id || null;
+  // Resolve org_id reliably
+  const orgId = await getOrgIdSafe();
 
   const { data, error } = await sb.rpc('get_org_competitor_summary_v2', {
     p_org_id: orgId,

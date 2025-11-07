@@ -777,77 +777,89 @@ export default function Competitors() {
                   </Card>
                 )}
                 
-                {/* Three Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Top Brands */}
-                  <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-2">
-                        <Trophy className="w-5 h-5 text-amber-600" />
-                        <CardTitle className="text-lg font-semibold">Top Brands</CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="w-4 h-4 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Brands with highest visibility scores in AI responses</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {topBrands.map((competitor, index) => (
-                        <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
-                      ))}
+                {/* Three Column Layout or Empty State */}
+                {competitorData.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">No competitors found</h3>
+                      <p className="text-sm text-muted-foreground">
+                        No competitors detected for the current selection. Try clearing the brand filter or expand your time window in Optimized View.
+                      </p>
                     </CardContent>
                   </Card>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Top Brands */}
+                    <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="w-5 h-5 text-amber-600" />
+                          <CardTitle className="text-lg font-semibold">Top Brands</CardTitle>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-4 h-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Brands with highest visibility scores in AI responses</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {topBrands.map((competitor, index) => (
+                          <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
+                        ))}
+                      </CardContent>
+                    </Card>
 
-                  {/* Nearest Competitors */}
-                  <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-blue-600" />
-                        <CardTitle className="text-lg font-semibold">Nearest Competitors</CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="w-4 h-4 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Direct competitors in your market space</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {nearestCompetitors.map((competitor, index) => (
-                        <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
-                      ))}
-                    </CardContent>
-                  </Card>
+                    {/* Nearest Competitors */}
+                    <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-5 h-5 text-blue-600" />
+                          <CardTitle className="text-lg font-semibold">Nearest Competitors</CardTitle>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-4 h-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Direct competitors in your market space</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {nearestCompetitors.map((competitor, index) => (
+                          <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
+                        ))}
+                      </CardContent>
+                    </Card>
 
-                  {/* Up and Coming Brands */}
-                  <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-green-600" />
-                        <CardTitle className="text-lg font-semibold">Up and Coming Brands</CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="w-4 h-4 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Emerging competitors with growing visibility</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {upcomingBrands.map((competitor, index) => (
-                        <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
+                    {/* Up and Coming Brands */}
+                    <Card className="bg-card/80 backdrop-blur-sm border shadow-sm">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-5 h-5 text-green-600" />
+                          <CardTitle className="text-lg font-semibold">Up and Coming Brands</CardTitle>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-4 h-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Emerging competitors with growing visibility</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {upcomingBrands.map((competitor, index) => (
+                          <CompetitorRow key={competitor.id} competitor={competitor} rank={index + 1} />
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
                 {/* User-Tracked Competitors Section */}
                 {trackedCompetitors.length > 0 && (
