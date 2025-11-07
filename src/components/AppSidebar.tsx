@@ -6,6 +6,7 @@ import { useBrands } from '@/hooks/useBrands';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { BrandDisplay } from '@/components/BrandDisplay';
+import { BrandSwitcher } from '@/components/BrandSwitcher';
 import {
   Sidebar,
   SidebarContent,
@@ -77,20 +78,11 @@ export function AppSidebar() {
       
       {/* Brand Display with Switcher for Pro users */}
       {selectedBrand ? (
-        <div className="px-4 py-3 border-b border-border/30">
-          {isProTier ? (
-            <Button
-              variant="ghost"
-              className="w-full justify-between p-2 h-auto hover:bg-accent/50"
-              onClick={() => navigate('/brands')}
-            >
-              <BrandDisplay brandName={selectedBrand.name} collapsed={collapsed} />
-              {!collapsed && <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-            </Button>
-          ) : (
-            <BrandDisplay brandName={selectedBrand.name} collapsed={collapsed} />
-          )}
-        </div>
+        isProTier && hasMultipleBrands ? (
+          <BrandSwitcher brands={brands} collapsed={collapsed} />
+        ) : (
+          <BrandDisplay brandName={selectedBrand.name} collapsed={collapsed} />
+        )
       ) : orgData?.organizations?.name && (
         <BrandDisplay 
           brandName={orgData.organizations.name} 
