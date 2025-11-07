@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useBrandVisibilityScores } from '@/hooks/useBrandVisibilityScores';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
 import { SupportDialog } from '@/components/SupportDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function Brands() {
   const navigate = useNavigate();
@@ -43,8 +44,9 @@ export default function Brands() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <TooltipProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-start mb-2">
@@ -53,46 +55,66 @@ export default function Brands() {
               <p className="text-muted-foreground">Select a brand to view its dashboard</p>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSupportDialogOpen(true)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Help
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => signOutWithCleanup()}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsSupportDialogOpen(true)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Help
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Get support and learn how to use the platform</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => signOutWithCleanup()}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Sign out of your account</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>
 
         {/* Search and Create */}
         <div className="flex gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search brands..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Button 
-            className="gap-2"
-            onClick={() => navigate('/onboarding/brand')}
-          >
-            <Plus className="h-4 w-4" />
-            Create Brand
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search brands..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>Search by brand name or domain</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                className="gap-2"
+                onClick={() => navigate('/onboarding/brand')}
+              >
+                <Plus className="h-4 w-4" />
+                Create Brand
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Add a new brand to track its visibility</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Brand Grid */}
@@ -149,33 +171,43 @@ export default function Brands() {
 
                   {/* Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="bg-secondary/50 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                        <Activity className="h-3 w-3" />
-                        <span>Total Prompts</span>
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {scoresLoading ? (
-                          <Skeleton className="h-6 w-12" />
-                        ) : (
-                          scoreMap.get(brand.id)?.totalPrompts || 0
-                        )}
-                      </div>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="bg-secondary/50 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <Activity className="h-3 w-3" />
+                            <span>Total Prompts</span>
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {scoresLoading ? (
+                              <Skeleton className="h-6 w-12" />
+                            ) : (
+                              scoreMap.get(brand.id)?.totalPrompts || 0
+                            )}
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Total number of AI prompts tracked for this brand</TooltipContent>
+                    </Tooltip>
                     
-                    <div className="bg-secondary/50 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                        <TrendingUp className="h-3 w-3" />
-                        <span>Presence Rate</span>
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {scoresLoading ? (
-                          <Skeleton className="h-6 w-12" />
-                        ) : (
-                          `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(1)}%`
-                        )}
-                      </div>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="bg-secondary/50 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <TrendingUp className="h-3 w-3" />
+                            <span>Presence Rate</span>
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {scoresLoading ? (
+                              <Skeleton className="h-6 w-12" />
+                            ) : (
+                              `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(1)}%`
+                            )}
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Percentage of prompts where your brand appeared</TooltipContent>
+                    </Tooltip>
                   </div>
 
                   {/* Last Activity */}
@@ -185,33 +217,43 @@ export default function Brands() {
                     </div>
                   )}
 
-                  <div className="mt-2">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm text-muted-foreground">Visibility Score</span>
-                      <span className="text-sm font-medium">
-                        {scoresLoading ? (
-                          <Skeleton className="h-4 w-12 inline-block" />
-                        ) : (
-                          `${((scoreMap.get(brand.id)?.score || 0) * 10).toFixed(1)}%`
-                        )}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all"
-                        style={{ 
-                          width: scoresLoading ? '0%' : `${(scoreMap.get(brand.id)?.score || 0) * 10}%` 
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="mt-2">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-muted-foreground">Visibility Score</span>
+                          <span className="text-sm font-medium">
+                            {scoresLoading ? (
+                              <Skeleton className="h-4 w-12 inline-block" />
+                            ) : (
+                              `${((scoreMap.get(brand.id)?.score || 0) * 10).toFixed(1)}%`
+                            )}
+                          </span>
+                        </div>
+                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all"
+                            style={{ 
+                              width: scoresLoading ? '0%' : `${(scoreMap.get(brand.id)?.score || 0) * 10}%` 
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Overall AI visibility performance for this brand</TooltipContent>
+                  </Tooltip>
 
-                  <Button
-                    className="w-full mt-6 group-hover:bg-primary/90"
-                    onClick={() => handleBrandSelect(brand)}
-                  >
-                    View Analytics
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        className="w-full mt-6 group-hover:bg-primary/90"
+                        onClick={() => handleBrandSelect(brand)}
+                      >
+                        View Analytics
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View detailed analytics and insights for this brand</TooltipContent>
+                  </Tooltip>
                 </CardContent>
               </Card>
             ))}
@@ -219,10 +261,11 @@ export default function Brands() {
         )}
       </div>
 
-      <SupportDialog 
-        open={isSupportDialogOpen} 
-        onOpenChange={setIsSupportDialogOpen} 
-      />
-    </div>
+        <SupportDialog 
+          open={isSupportDialogOpen} 
+          onOpenChange={setIsSupportDialogOpen} 
+        />
+      </div>
+    </TooltipProvider>
   );
 }
