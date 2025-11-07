@@ -12,6 +12,7 @@ import { useBrandVisibilityScores } from '@/hooks/useBrandVisibilityScores';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
 import { SupportDialog } from '@/components/SupportDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useBrandsTour } from '@/hooks/useBrandsTour';
 
 export default function Brands() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function Brands() {
   const { setSelectedBrand } = useBrand();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
+  const { TourComponent } = useBrandsTour();
 
   // Get all brand IDs to fetch visibility scores
   const brandIds = useMemo(() => brands.map(b => b.id), [brands]);
@@ -58,6 +60,7 @@ export default function Brands() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
+                    data-tour="help-button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setIsSupportDialogOpen(true)}
@@ -91,7 +94,7 @@ export default function Brands() {
         <div className="flex gap-4 mb-8">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="relative flex-1">
+              <div data-tour="search" className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search brands..."
@@ -106,6 +109,7 @@ export default function Brands() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
+                data-tour="create-brand"
                 className="gap-2"
                 onClick={() => navigate('/onboarding/brand')}
               >
@@ -153,9 +157,10 @@ export default function Brands() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBrands.map((brand) => (
+            {filteredBrands.map((brand, index) => (
               <Card
                 key={brand.id}
+                data-tour={index === 0 ? "brand-card" : undefined}
                 className="hover:shadow-lg transition-all hover:scale-[1.02] cursor-pointer group"
                 onClick={() => handleBrandSelect(brand)}
               >
@@ -265,6 +270,7 @@ export default function Brands() {
           open={isSupportDialogOpen} 
           onOpenChange={setIsSupportDialogOpen} 
         />
+        <TourComponent />
       </div>
     </TooltipProvider>
   );
