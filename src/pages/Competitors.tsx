@@ -236,11 +236,6 @@ export default function Competitors() {
         if (!fallbackResult.error && fallbackResult.data && fallbackResult.data.length > 0) {
           competitorRows = fallbackResult.data as any[] | null;
           setIsBrandFallback(true);
-          toast({
-            title: "Showing all competitors",
-            description: `No competitors found for ${selectedBrand.name}. Showing all organization competitors instead.`,
-            duration: 5000,
-          });
         }
       }
 
@@ -639,22 +634,7 @@ export default function Competitors() {
         <FilterBar value={filters} onChange={setFilters} />
         
         {/* Brand Filter Notice */}
-        {isShowingFallback && (
-          <Card className="border-amber-500/50 bg-amber-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-foreground mb-1">Showing All Competitors</h4>
-                  <p className="text-sm text-muted-foreground">
-                    No competitors found for the selected brand "{selectedBrand?.name}". 
-                    Displaying all organization competitors instead. This may occur because prompt responses are not yet mapped to specific brands.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Removed fallback notice per user request */}
         
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -777,21 +757,7 @@ export default function Competitors() {
               {/* Main Competitors Tab */}
               <TabsContent value="competitors" className="space-y-6">
                 {/* Inline notice when showing fallback data */}
-                {isBrandFallback && (
-                  <Card className="border-amber-500/50 bg-amber-500/5">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-foreground mb-1">Showing All Competitors</h4>
-                          <p className="text-sm text-muted-foreground">
-                            No competitors found for the selected brand "{selectedBrand?.name}". Displaying all organization competitors instead.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Removed inline fallback notice per user request */}
                 
                 {/* Three Column Layout or Empty State */}
                 {competitorData.length === 0 ? (
