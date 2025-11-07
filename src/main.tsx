@@ -7,7 +7,7 @@ import { AppProviders } from './contexts/AppProviders';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthErrorBoundary } from './components/auth/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
 import { EnvGate } from '@/components/EnvGate';
 import './index.css';
 import App from './App';
@@ -25,7 +25,7 @@ if (!rootEl) {
 
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <ErrorBoundary>
+    <GlobalErrorBoundary>
       <HelmetProvider>
         <Router>
           <QueryProvider>
@@ -42,6 +42,6 @@ ReactDOM.createRoot(rootEl).render(
           </QueryProvider>
         </Router>
       </HelmetProvider>
-    </ErrorBoundary>
+    </GlobalErrorBoundary>
   </React.StrictMode>
 );
