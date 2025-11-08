@@ -43,6 +43,34 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
     p_brand_id: filters.brandId ?? null,
   });
 
-  if (error) throw error;
-  return (data ?? []) as CompetitorSummaryRow[];
+  if (error) {
+    console.warn('[competitors_v2] RPC failed, falling back to brand_catalog:', error.message);
+  }
+
+  let rows = (data ?? []) as CompetitorSummaryRow[];
+
+  // Fallback: if RPC returns empty, derive top competitors from brand_catalog
+  if (!rows || rows.length === 0) {
+    const { data: bc, error: bcError } = await sb
+      .from('brand_catalog')
+      .select('name,total_appearances,first_detected_at,last_seen_at,average_score')
+      .eq('is_org_brand', false)
+      .order('total_appearances', { ascending: false })
+      .limit(Math.min(filters.limit ?? 5, 50));
+
+    if (bcError) throw bcError;
+
+    rows = (bc ?? []).map((b: any) => ({
+      competitor_name: b.name,
+      total_mentions: Number(b.total_appearances ?? 0),
+      distinct_prompts: 0,
+      first_seen: b.first_detected_at ?? null,
+      last_seen: b.last_seen_at ?? null,
+      avg_score: b.average_score ?? null,
+      share_pct: null,
+      trend_score: null,
+    }));
+  }
+
+  return rows;
 }
