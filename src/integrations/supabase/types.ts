@@ -963,6 +963,8 @@ export type Database = {
           brand_id: string | null
           brands_json: Json
           citations_json: Json | null
+          citations_validated_at: string | null
+          citations_validation_status: string | null
           competitors_count: number
           competitors_json: Json
           error: string | null
@@ -986,6 +988,8 @@ export type Database = {
           brand_id?: string | null
           brands_json?: Json
           citations_json?: Json | null
+          citations_validated_at?: string | null
+          citations_validation_status?: string | null
           competitors_count?: number
           competitors_json?: Json
           error?: string | null
@@ -1009,6 +1013,8 @@ export type Database = {
           brand_id?: string | null
           brands_json?: Json
           citations_json?: Json | null
+          citations_validated_at?: string | null
+          citations_validation_status?: string | null
           competitors_count?: number
           competitors_json?: Json
           error?: string | null
@@ -1824,6 +1830,21 @@ export type Database = {
           },
         ]
       }
+      citation_quality_metrics: {
+        Row: {
+          avg_citations_per_response: number | null
+          citation_success_rate: number | null
+          grounded_responses: number | null
+          grounding_success_rate: number | null
+          metric_date: string | null
+          org_id: string | null
+          provider: string | null
+          responses_with_citations: number | null
+          total_citations: number | null
+          total_responses: number | null
+        }
+        Relationships: []
+      }
       low_visibility_prompts: {
         Row: {
           org_id: string | null
@@ -2063,6 +2084,19 @@ export type Database = {
           id: string
           last_detected_at: string
           status: string
+        }[]
+      }
+      get_citation_comparison: {
+        Args: { p_org_id?: string; p_prompt_id: string }
+        Returns: {
+          citation_domain: string
+          citation_title: string
+          citation_url: string
+          from_provider: boolean
+          provider: string
+          response_id: string
+          run_at: string
+          source_type: string
         }[]
       }
       get_cluster_tag_color: { Args: { tag: string }; Returns: string }
