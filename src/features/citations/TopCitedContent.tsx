@@ -146,18 +146,23 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getContentIcon(citation.content_type)}
-                      <span className="font-medium text-sm">
-                        #{idx + 1} - {citation.citation_title || 'Untitled'}
-                      </span>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {getContentIcon(citation.content_type)}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base truncate">
+                            {citation.citation_title || citation.citation_domain}
+                          </h3>
+                          <Badge variant="outline" className="mt-1">{citation.citation_domain}</Badge>
+                        </div>
+                      </div>
                       {getInsightBadge(citation)}
                     </div>
                     <a
                       href={citation.citation_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-muted-foreground hover:text-primary truncate block"
+                      className="text-xs text-muted-foreground hover:text-primary truncate block mb-2"
                     >
                       {citation.citation_url}
                     </a>
@@ -202,18 +207,22 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
             >
               <div className="flex items-start gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    {getContentIcon(citation.content_type)}
-                    <span className="font-medium text-sm truncate">
-                      {citation.citation_title || 'Untitled'}
-                    </span>
-                    <Badge variant="outline">{citation.citation_domain}</Badge>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {getContentIcon(citation.content_type)}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base truncate">
+                          {citation.citation_title || citation.citation_domain}
+                        </h3>
+                        <Badge variant="outline" className="mt-1">{citation.citation_domain}</Badge>
+                      </div>
+                    </div>
                   </div>
                   <a
                     href={citation.citation_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-primary truncate block"
+                    className="text-xs text-muted-foreground hover:text-primary truncate block mb-2"
                   >
                     {citation.citation_url}
                   </a>
