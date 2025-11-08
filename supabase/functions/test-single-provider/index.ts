@@ -132,7 +132,19 @@ async function executeGemini(promptText: string): Promise<{ responseText: string
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
       
-      console.log(`[Gemini] Success - Content length: ${content.length}, Tokens in: ${usage.promptTokenCount || 0}, Tokens out: ${usage.candidatesTokenCount || 0}`);
+      // CRITICAL: Check for grounding metadata (citations)
+      const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+      const groundingChunks = groundingMetadata?.groundingChunks || [];
+      const groundingAttributions = groundingMetadata?.groundingAttributions || [];
+      
+      console.log(`[Gemini] Success - Content: ${content.length} chars, Tokens: ${usage.promptTokenCount || 0}/${usage.candidatesTokenCount || 0}`);
+      console.log(`[Gemini] Grounding Metadata Present: ${!!groundingMetadata}`);
+      console.log(`[Gemini] Grounding Chunks: ${groundingChunks.length}`);
+      console.log(`[Gemini] Grounding Attributions: ${groundingAttributions.length}`);
+      
+      if (groundingChunks.length > 0) {
+        console.log(`[Gemini] Citation URLs:`, groundingChunks.map((c: any) => c.web?.uri || 'no-uri').slice(0, 5));
+      }
       
       return {
         responseText: content,
@@ -369,7 +381,10 @@ Deno.serve(async (req) => {
           citationsData = extractPerplexityCitations(response.fullResponse || {}, response.responseText);
           break;
         case 'gemini':
+          console.log('[Citation Extraction] Calling extractGeminiCitations with fullResponse');
+          console.log('[Citation Extraction] fullResponse structure:', JSON.stringify(response.fullResponse).substring(0, 300));
           citationsData = extractGeminiCitations(response.fullResponse || {}, response.responseText);
+          console.log(`[Citation Extraction] Gemini returned ${citationsData?.citations?.length || 0} citations`);
           break;
         case 'openai':
           citationsData = extractOpenAICitations(response.responseText);
@@ -378,6 +393,8 @@ Deno.serve(async (req) => {
       
       if (citationsData?.citations?.length > 0) {
         console.log(`[${provider}] Extracted ${citationsData.citations.length} citations`);
+      } else {
+        console.warn(`[${provider}] No citations extracted - this may indicate an issue`);
       }
     } catch (citationError: any) {
       console.error(`[${provider}] Citation extraction failed:`, citationError.message);

@@ -81,7 +81,11 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
 
-      console.log(`[Gemini] Success - received ${content.length} characters`);
+      // CRITICAL: Verify grounding metadata for citations
+      const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+      const groundingChunks = groundingMetadata?.groundingChunks || [];
+      
+      console.log(`[Gemini] Success - ${content.length} chars, ${groundingChunks.length} citations`);
 
       try {
         // Try to extract JSON from the end of the response
