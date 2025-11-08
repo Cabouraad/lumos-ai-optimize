@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { ExternalLink, TrendingUp, FileText, Video, Award, Target } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
+import { format } from 'date-fns';
 
 interface TopCitedContentProps {
   days: number;
@@ -124,7 +125,31 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
     return trend.trend_data.citation_counts.map((count, idx) => ({
       value: count,
       visibility: trend.trend_data.visibility_scores[idx],
+      date: trend.trend_data.dates[idx],
     }));
+  };
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload.length) return null;
+
+    const data = payload[0].payload;
+    return (
+      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+        <p className="text-xs font-medium mb-2">
+          {format(new Date(data.date), 'MMM d, yyyy')}
+        </p>
+        <div className="space-y-1">
+          <p className="text-xs">
+            <span className="text-muted-foreground">Citations: </span>
+            <span className="font-semibold">{data.value}</span>
+          </p>
+          <p className="text-xs">
+            <span className="text-muted-foreground">Visibility: </span>
+            <span className="font-semibold">{data.visibility}/10</span>
+          </p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -231,6 +256,7 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
                         <div className="w-24 h-12">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={getTrendData(citation.citation_url)!}>
+                              <Tooltip content={<CustomTooltip />} />
                               <Line
                                 type="monotone"
                                 dataKey="value"
@@ -308,6 +334,7 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
                       <div className="w-24 h-12">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={getTrendData(citation.citation_url)!}>
+                            <Tooltip content={<CustomTooltip />} />
                             <Line
                               type="monotone"
                               dataKey="value"
