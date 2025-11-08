@@ -2111,6 +2111,19 @@ export type Database = {
           total_citations: number
         }[]
       }
+      get_citation_health_dashboard: {
+        Args: { p_days?: number; p_org_id: string }
+        Returns: {
+          avg_visibility_score: number
+          health_score: number
+          market_share_pct: number
+          total_citations: number
+          total_competitor_citations: number
+          total_own_citations: number
+          trending_up: boolean
+          week_over_week_change: number
+        }[]
+      }
       get_citation_performance_insights: {
         Args: { p_days?: number; p_limit?: number; p_org_id?: string }
         Returns: {
@@ -2127,6 +2140,18 @@ export type Database = {
           providers: Json
           total_mentions: number
           unique_prompts: number
+        }[]
+      }
+      get_citation_recommendations: {
+        Args: { p_days?: number; p_org_id: string }
+        Returns: {
+          data_support: Json
+          description: string
+          difficulty: string
+          expected_impact: string
+          priority: number
+          recommendation_type: string
+          title: string
         }[]
       }
       get_citation_trends: {

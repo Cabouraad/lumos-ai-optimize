@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TopCitedContent } from '@/features/citations/TopCitedContent';
 import { ContentTypeAnalysis } from '@/features/citations/ContentTypeAnalysis';
 import { CompetitiveCitationInsights } from '@/features/citations/CompetitiveCitationInsights';
+import { CitationHealthDashboard } from '@/features/citations/CitationHealthDashboard';
+import { PriorityRecommendations } from '@/features/citations/PriorityRecommendations';
 import { Target, TrendingUp, FileText } from 'lucide-react';
 
 export default function CitationAnalytics() {
@@ -36,6 +38,13 @@ export default function CitationAnalytics() {
           </Select>
         </div>
 
+        {/* Health Dashboard - Always Visible */}
+        <CitationHealthDashboard days={Number(timeRange)} />
+
+        {/* Priority Recommendations */}
+        <PriorityRecommendations days={Number(timeRange)} />
+
+        {/* Detailed Analysis Tabs */}
         <Tabs defaultValue="top-content" className="space-y-6">
           <TabsList>
             <TabsTrigger value="top-content" className="flex items-center gap-2">

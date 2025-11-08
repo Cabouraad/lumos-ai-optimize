@@ -2,11 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, TrendingUp, FileText, Video, Award, Target } from 'lucide-react';
+import { ExternalLink, TrendingUp, FileText, Video, Award, Target, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 import { format } from 'date-fns';
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TopCitedContentProps {
   days: number;
@@ -158,7 +164,19 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Your Content Citations</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Your Content Citations
+              <TooltipProvider>
+                <UITooltip>
+                  <TooltipTrigger>
+                    <Info className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Number of unique URLs from your domain that AI models cite</p>
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{ownContent.length}</div>
@@ -170,7 +188,19 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Brand Visibility</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Avg Brand Visibility
+              <TooltipProvider>
+                <UITooltip>
+                  <TooltipTrigger>
+                    <Info className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <p>How prominently your brand appears when cited. Higher scores (7-10) mean your brand is mentioned early and clearly. Target: 7+</p>
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -186,7 +216,19 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Citation Opportunity</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Citation Opportunity
+              <TooltipProvider>
+                <UITooltip>
+                  <TooltipTrigger>
+                    <Info className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <p>Competitor pages getting citations that you could outrank with better content on similar topics</p>
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{competitorContent.length}</div>
