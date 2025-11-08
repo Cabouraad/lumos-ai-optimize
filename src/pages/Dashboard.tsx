@@ -24,6 +24,7 @@ import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
 import { WeeklyVisibilityTrend } from '@/components/dashboard/WeeklyVisibilityTrend';
 import { AISourceIntelligence } from '@/components/dashboard/AISourceIntelligence';
+import { CitationTrends } from '@/components/dashboard/CitationTrends';
 import { useCompetitors } from '@/features/competitors/hooks';
 
 export default function Dashboard() {
@@ -526,6 +527,9 @@ export default function Dashboard() {
 
             {/* Most Cited Domains Card */}
             <MostCitedDomains orgId={orgData?.organizations?.id} />
+
+            {/* Citation Trends Card */}
+            <CitationTrends orgId={orgData?.organizations?.id} days={30} />
           </div>
 
           {/* Admin Panel for Test Users */}
