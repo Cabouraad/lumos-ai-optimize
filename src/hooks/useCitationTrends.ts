@@ -44,9 +44,17 @@ export function useCitationTrends(orgId: string | undefined, days: number = 30) 
       
       responses?.forEach((response) => {
         const date = format(new Date(response.run_at), 'yyyy-MM-dd');
-        const citations = Array.isArray(response.citations_json) 
-          ? response.citations_json.length 
-          : 0;
+        
+        // Handle the nested citations_json structure
+        let citations = 0;
+        if (response.citations_json && typeof response.citations_json === 'object') {
+          const citationsData = response.citations_json as any;
+          if (Array.isArray(citationsData.citations)) {
+            citations = citationsData.citations.length;
+          } else if (Array.isArray(citationsData)) {
+            citations = citationsData.length;
+          }
+        }
         
         citationsByDate.set(
           date,
