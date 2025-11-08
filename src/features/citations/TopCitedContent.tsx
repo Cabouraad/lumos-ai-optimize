@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, TrendingUp, FileText, Video, Award, Target, Info, ChevronDown, ChevronRight } from 'lucide-react';
+import { ExternalLink, TrendingUp, FileText, Video, Award, Target, Info, ChevronDown, ChevronRight, Filter } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
@@ -19,6 +19,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface TopCitedContentProps {
   days: number;
@@ -156,6 +165,9 @@ function DomainGroup({ group, getContentIcon, getTrendData, CustomTooltip }: Dom
 }
 
 export function TopCitedContent({ days }: TopCitedContentProps) {
+  const [topDomainsLimit, setTopDomainsLimit] = useState<string>('all');
+  const [minCitations, setMinCitations] = useState<number>(0);
+
   const { data: citations, isLoading } = useQuery({
     queryKey: ['citation-performance', days],
     queryFn: async () => {
@@ -248,6 +260,11 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
     avgVisibility: group.citations.reduce((sum, c) => sum + Number(c.avg_brand_visibility_score), 0) / group.citations.length,
     uniquePromptsCount: Array.from(group.uniquePrompts).reduce((sum, count) => sum + count, 0),
   })).sort((a, b) => b.totalMentions - a.totalMentions);
+
+  // Apply filters
+  const filteredCompetitorArray = groupedCompetitorArray
+    .filter(group => group.totalMentions >= minCitations)
+    .slice(0, topDomainsLimit === 'all' ? undefined : parseInt(topDomainsLimit));
 
   const getContentIcon = (type: string) => {
     switch (type) {
@@ -468,24 +485,83 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
       {/* Competitor Content to Target - Grouped by Domain */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Competitor Content to Outrank
-          </CardTitle>
-          <CardDescription>
-            Competitor domains getting cited - grouped by domain with all cited URLs
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Competitor Content to Outrank
+              </CardTitle>
+              <CardDescription>
+                Competitor domains getting cited - grouped by domain with all cited URLs
+              </CardDescription>
+            </div>
+          </div>
+          
+          {/* Filters */}
+          <div className="flex items-end gap-4 mt-4 pt-4 border-t border-border">
+            <div className="flex items-center gap-2 flex-1">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Filters:</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="top-domains" className="text-xs text-muted-foreground">
+                  Show Domains
+                </Label>
+                <Select value={topDomainsLimit} onValueChange={setTopDomainsLimit}>
+                  <SelectTrigger id="top-domains" className="w-[140px] h-9">
+                    <SelectValue placeholder="All domains" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Domains</SelectItem>
+                    <SelectItem value="5">Top 5</SelectItem>
+                    <SelectItem value="10">Top 10</SelectItem>
+                    <SelectItem value="20">Top 20</SelectItem>
+                    <SelectItem value="50">Top 50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-1.5">
+                <Label htmlFor="min-citations" className="text-xs text-muted-foreground">
+                  Min Citations
+                </Label>
+                <Input
+                  id="min-citations"
+                  type="number"
+                  min="0"
+                  value={minCitations}
+                  onChange={(e) => setMinCitations(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-[120px] h-9"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Results count */}
+          <div className="mt-3 text-sm text-muted-foreground">
+            Showing {filteredCompetitorArray.length} of {groupedCompetitorArray.length} domains
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {groupedCompetitorArray.map((group) => (
-            <DomainGroup
-              key={group.domain}
-              group={group}
-              getContentIcon={getContentIcon}
-              getTrendData={getTrendData}
-              CustomTooltip={CustomTooltip}
-            />
-          ))}
+          {filteredCompetitorArray.length > 0 ? (
+            filteredCompetitorArray.map((group) => (
+              <DomainGroup
+                key={group.domain}
+                group={group}
+                getContentIcon={getContentIcon}
+                getTrendData={getTrendData}
+                CustomTooltip={CustomTooltip}
+              />
+            ))
+          ) : (
+            <Alert>
+              <AlertDescription>
+                No domains match the current filters. Try adjusting your filter criteria.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
     </div>
