@@ -2099,6 +2099,36 @@ export type Database = {
           source_type: string
         }[]
       }
+      get_citation_competitive_insights: {
+        Args: { p_days?: number; p_org_id?: string }
+        Returns: {
+          avg_impact_score: number
+          citation_trend: string
+          content_types: Json
+          domain: string
+          domain_type: string
+          top_cited_pages: Json
+          total_citations: number
+        }[]
+      }
+      get_citation_performance_insights: {
+        Args: { p_days?: number; p_limit?: number; p_org_id?: string }
+        Returns: {
+          avg_brand_visibility_score: number
+          brand_present_rate: number
+          citation_domain: string
+          citation_title: string
+          citation_url: string
+          content_type: string
+          first_cited: string
+          is_own_domain: boolean
+          last_cited: string
+          prompt_contexts: Json
+          providers: Json
+          total_mentions: number
+          unique_prompts: number
+        }[]
+      }
       get_cluster_tag_color: { Args: { tag: string }; Returns: string }
       get_competitor_share_7d: {
         Args: { p_org_id?: string }
@@ -2121,6 +2151,17 @@ export type Database = {
           competitor_name: string
           mentions_count: number
           period_start: string
+        }[]
+      }
+      get_content_type_performance: {
+        Args: { p_days?: number; p_org_id?: string }
+        Returns: {
+          avg_brand_visibility: number
+          competitor_content_count: number
+          content_category: string
+          own_content_count: number
+          total_citations: number
+          unique_domains: number
         }[]
       }
       get_cron_jobs_status: {

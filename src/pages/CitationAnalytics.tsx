@@ -1,87 +1,67 @@
 import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CitationQualityDashboard } from '@/features/citations/CitationQualityDashboard';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { CitationComparisonView } from '@/features/citations/CitationComparisonView';
-import { BarChart3, GitCompare, TrendingUp } from 'lucide-react';
+import { TopCitedContent } from '@/features/citations/TopCitedContent';
+import { ContentTypeAnalysis } from '@/features/citations/ContentTypeAnalysis';
+import { CompetitiveCitationInsights } from '@/features/citations/CompetitiveCitationInsights';
+import { Target, TrendingUp, FileText } from 'lucide-react';
 
 export default function CitationAnalytics() {
-  const [selectedPromptId, setSelectedPromptId] = useState<string>('');
-
-  const { data: prompts } = useQuery({
-    queryKey: ['prompts-for-comparison'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('prompts')
-        .select('id, text')
-        .eq('active', true)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      return data;
-    },
-  });
+  const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30');
 
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-8 w-8" />
-            Citation Analytics
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Analyze citation quality, compare providers, and track trends
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Target className="h-8 w-8" />
+              Citation Intelligence
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Understand which content AI models trust and cite most - optimize your content strategy for maximum visibility
+            </p>
+          </div>
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as any)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <Tabs defaultValue="quality" className="space-y-6">
+        <Tabs defaultValue="top-content" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="quality" className="flex items-center gap-2">
+            <TabsTrigger value="top-content" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Quality Metrics
+              Top Cited Content
             </TabsTrigger>
-            <TabsTrigger value="comparison" className="flex items-center gap-2">
-              <GitCompare className="h-4 w-4" />
-              Provider Comparison
+            <TabsTrigger value="content-types" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Content Types
+            </TabsTrigger>
+            <TabsTrigger value="competitive" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Competitive Analysis
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="quality" className="space-y-6">
-            <CitationQualityDashboard />
+          <TabsContent value="top-content" className="space-y-6">
+            <TopCitedContent days={Number(timeRange)} />
           </TabsContent>
 
-          <TabsContent value="comparison" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Select a Prompt</CardTitle>
-                <CardDescription>
-                  Compare how different providers cite sources for the same prompt
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select value={selectedPromptId} onValueChange={setSelectedPromptId}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a prompt to compare citations" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prompts?.map((prompt) => (
-                      <SelectItem key={prompt.id} value={prompt.id}>
-                        {prompt.text.substring(0, 100)}
-                        {prompt.text.length > 100 ? '...' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
+          <TabsContent value="content-types" className="space-y-6">
+            <ContentTypeAnalysis days={Number(timeRange)} />
+          </TabsContent>
 
-            {selectedPromptId && <CitationComparisonView promptId={selectedPromptId} />}
+          <TabsContent value="competitive" className="space-y-6">
+            <CompetitiveCitationInsights days={Number(timeRange)} />
           </TabsContent>
         </Tabs>
       </div>
