@@ -45,7 +45,15 @@ export async function extractBrands(promptText: string, apiKey: string): Promise
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 2000,
-          }
+          },
+          tools: [{
+            googleSearchRetrieval: {
+              dynamicRetrievalConfig: {
+                mode: "MODE_DYNAMIC",
+                dynamicThreshold: 0.3
+              }
+            }
+          }]
         }),
       });
 

@@ -88,6 +88,14 @@ async function executeGemini(promptText: string): Promise<{ responseText: string
             topK: 40,
             topP: 0.95
           },
+          tools: [{
+            googleSearchRetrieval: {
+              dynamicRetrievalConfig: {
+                mode: "MODE_DYNAMIC",
+                dynamicThreshold: 0.3
+              }
+            }
+          }]
         }),
       });
 
