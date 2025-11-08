@@ -232,7 +232,6 @@ export function CompetitiveCitationInsights({ days }: CompetitiveCitationInsight
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-sm">#{idx + 1}</span>
                     <h3 className="font-semibold">{domain.domain}</h3>
                     {getDomainTypeBadge(domain.domain_type)}
                   </div>
