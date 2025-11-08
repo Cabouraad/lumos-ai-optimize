@@ -109,16 +109,50 @@ export function extractPerplexityCitations(response: any, responseText: string):
  */
 export function extractGeminiCitations(response: any, responseText: string): CitationsData {
   const citations: Citation[] = [];
+  const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
   
-  // Get citations from grounding metadata (Google Search retrieval)
-  if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-    response.candidates[0].groundingMetadata.groundingChunks.forEach((chunk: any) => {
+  // Priority 1: Get citations from grounding chunks (Google Search retrieval)
+  if (groundingMetadata?.groundingChunks) {
+    const chunks = groundingMetadata.groundingChunks;
+    console.log(`[Gemini Citations] Processing ${chunks.length} grounding chunks`);
+    
+    chunks.forEach((chunk: any, idx: number) => {
       if (chunk.web?.uri) {
-        citations.push({
+        const citation = {
           url: chunk.web.uri,
           domain: extractDomain(chunk.web.uri),
-          title: chunk.web.title || undefined,
+          title: chunk.web.title || `Source ${idx + 1}`,
           source_type: guessSourceType(chunk.web.uri),
+          from_provider: true,
+          brand_mention: 'unknown' as const,
+          brand_mention_confidence: 0.0
+        };
+        citations.push(citation);
+        console.log(`[Gemini Citations] Chunk ${idx + 1}: ${citation.domain} - "${citation.title?.substring(0, 50)}"`);
+      }
+    });
+  }
+  
+  // Log grounding support level for monitoring
+  if (groundingMetadata?.groundingSupport) {
+    console.log(`[Gemini Citations] Grounding support level: ${JSON.stringify(groundingMetadata.groundingSupport)}`);
+  }
+  
+  // Log search queries used for transparency
+  if (groundingMetadata?.webSearchQueries) {
+    console.log(`[Gemini Citations] Web search queries: ${groundingMetadata.webSearchQueries.join(', ')}`);
+  }
+  
+  // Priority 2: Extract grounding attributions (inline citations)
+  if (groundingMetadata?.groundingAttributions && citations.length < 10) {
+    console.log(`[Gemini Citations] Processing ${groundingMetadata.groundingAttributions.length} attribution chunks`);
+    groundingMetadata.groundingAttributions.forEach((attr: any) => {
+      if (attr.web?.uri && !citations.some(c => c.url === attr.web.uri)) {
+        citations.push({
+          url: attr.web.uri,
+          domain: extractDomain(attr.web.uri),
+          title: attr.web.title || attr.sourceId?.groundingChunkId || undefined,
+          source_type: guessSourceType(attr.web.uri),
           from_provider: true,
           brand_mention: 'unknown',
           brand_mention_confidence: 0.0
@@ -127,13 +161,9 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     });
   }
   
-  // Log web search queries for debugging
-  if (response.candidates?.[0]?.groundingMetadata?.webSearchQueries) {
-    console.log('[Gemini] Web search queries:', response.candidates[0].groundingMetadata.webSearchQueries);
-  }
-  
-  // Fallback: extract URLs from text if no grounding citations found
+  // Priority 3: Fallback to text extraction if no grounding citations found
   if (citations.length === 0) {
+    console.log('[Gemini Citations] No grounding citations found, falling back to text extraction');
     const extractedCitations = extractCitations(responseText);
     extractedCitations.forEach((citation: any) => {
       citations.push({
@@ -148,11 +178,14 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     });
   }
   
+  const finalCitations = deduplicateCitations(citations).slice(0, 20);
+  console.log(`[Gemini Citations] Final result: ${finalCitations.length} unique citations from ${citations.length} total`);
+  
   return {
     provider: 'gemini',
-    citations: deduplicateCitations(citations).slice(0, 10),
+    citations: finalCitations,
     collected_at: new Date().toISOString(),
-    ruleset_version: 'cite-v1'
+    ruleset_version: 'cite-v2'
   };
 }
 

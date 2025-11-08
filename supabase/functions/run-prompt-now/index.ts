@@ -509,7 +509,15 @@ async function executeGemini(promptText: string) {
             maxOutputTokens: 1000,
             topK: 40,
             topP: 0.95
-          }
+          },
+          tools: [{
+            googleSearchRetrieval: {
+              dynamicRetrievalConfig: {
+                mode: "MODE_DYNAMIC",
+                dynamicThreshold: 0.3
+              }
+            }
+          }]
         }),
       });
 
@@ -544,16 +552,29 @@ async function executeGemini(promptText: string) {
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
       
-      console.log(`[Gemini] Success - Content length: ${content.length}, Tokens in: ${usage.promptTokenCount || 0}, Tokens out: ${usage.candidatesTokenCount || 0}`);
+      // Extract grounding metadata for enhanced citations
+      const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+      const groundingChunks = groundingMetadata?.groundingChunks || [];
+      const searchEntryPoint = groundingMetadata?.searchEntryPoint;
       
-      // Extract citations from Gemini response
+      console.log(`[Gemini] Success - Content: ${content.length} chars, Tokens: ${usage.promptTokenCount || 0}/${usage.candidatesTokenCount || 0}, Grounding chunks: ${groundingChunks.length}`);
+      
+      if (groundingChunks.length > 0) {
+        console.log(`[Gemini] Grounding sources found:`, groundingChunks.map((c: any) => c.web?.uri || 'unknown').join(', '));
+      }
+      
+      // Extract citations from Gemini response with grounding metadata
       const citationsData = extractGeminiCitations(data, content);
       
       return {
         text: content,
         tokenIn: usage.promptTokenCount || 0,
         tokenOut: usage.candidatesTokenCount || 0,
-        citations: citationsData
+        citations: citationsData,
+        metadata: {
+          groundingSupport: groundingMetadata?.groundingSupport,
+          searchEntryPoint: searchEntryPoint?.renderedContent
+        }
       };
       
     } catch (error) {
