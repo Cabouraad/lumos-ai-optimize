@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ExternalLink, TrendingUp, FileText, Video, Award, Target } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 interface TopCitedContentProps {
   days: number;
@@ -23,6 +24,15 @@ interface CitationInsight {
   providers: string[];
 }
 
+interface CitationTrend {
+  citation_url: string;
+  trend_data: {
+    dates: string[];
+    citation_counts: number[];
+    visibility_scores: number[];
+  };
+}
+
 export function TopCitedContent({ days }: TopCitedContentProps) {
   const { data: citations, isLoading } = useQuery({
     queryKey: ['citation-performance', days],
@@ -35,6 +45,32 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
       if (error) throw error;
       return data as CitationInsight[];
     },
+  });
+
+  const { data: trends } = useQuery({
+    queryKey: ['citation-trends', days],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.org_id) throw new Error('No organization found');
+
+      const { data, error } = await supabase.rpc('get_citation_trends', {
+        p_org_id: userData.org_id,
+        p_days: days,
+        p_limit: 20,
+      });
+
+      if (error) throw error;
+      return data as CitationTrend[];
+    },
+    enabled: !!citations,
   });
 
   if (isLoading) {
@@ -79,6 +115,16 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
       return <Badge variant="secondary" className="gap-1"><TrendingUp className="h-3 w-3" /> Frequently Cited</Badge>;
     }
     return null;
+  };
+
+  const getTrendData = (url: string) => {
+    const trend = trends?.find(t => t.citation_url === url);
+    if (!trend?.trend_data) return null;
+
+    return trend.trend_data.citation_counts.map((count, idx) => ({
+      value: count,
+      visibility: trend.trend_data.visibility_scores[idx],
+    }));
   };
 
   return (
@@ -166,19 +212,36 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
                     >
                       {citation.citation_url}
                     </a>
-                    <div className="grid grid-cols-3 gap-4 mt-3 text-sm">
-                      <div>
-                        <div className="text-muted-foreground text-xs">Citations</div>
-                        <div className="font-semibold">{citation.total_mentions}</div>
+                    <div className="flex items-start gap-4 mt-3">
+                      <div className="grid grid-cols-3 gap-4 flex-1 text-sm">
+                        <div>
+                          <div className="text-muted-foreground text-xs">Citations</div>
+                          <div className="font-semibold">{citation.total_mentions}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Visibility Score</div>
+                          <div className="font-semibold">{Number(citation.avg_brand_visibility_score).toFixed(1)}/10</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Brand Mention Rate</div>
+                          <div className="font-semibold">{Number(citation.brand_present_rate).toFixed(0)}%</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Visibility Score</div>
-                        <div className="font-semibold">{Number(citation.avg_brand_visibility_score).toFixed(1)}/10</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Brand Mention Rate</div>
-                        <div className="font-semibold">{Number(citation.brand_present_rate).toFixed(0)}%</div>
-                      </div>
+                      {getTrendData(citation.citation_url) && (
+                        <div className="w-24 h-12">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={getTrendData(citation.citation_url)!}>
+                              <Line
+                                type="monotone"
+                                dataKey="value"
+                                stroke="hsl(var(--primary))"
+                                strokeWidth={2}
+                                dot={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -226,19 +289,36 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
                   >
                     {citation.citation_url}
                   </a>
-                  <div className="flex items-center gap-6 mt-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Cited </span>
-                      <span className="font-semibold">{citation.total_mentions}x</span>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-6 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Cited </span>
+                        <span className="font-semibold">{citation.total_mentions}x</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Visibility Score: </span>
+                        <span className="font-semibold">{Number(citation.avg_brand_visibility_score).toFixed(1)}/10</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Across </span>
+                        <span className="font-semibold">{citation.unique_prompts} prompts</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Visibility Score: </span>
-                      <span className="font-semibold">{Number(citation.avg_brand_visibility_score).toFixed(1)}/10</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Across </span>
-                      <span className="font-semibold">{citation.unique_prompts} prompts</span>
-                    </div>
+                    {getTrendData(citation.citation_url) && (
+                      <div className="w-24 h-12">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={getTrendData(citation.citation_url)!}>
+                            <Line
+                              type="monotone"
+                              dataKey="value"
+                              stroke="hsl(var(--muted-foreground))"
+                              strokeWidth={2}
+                              dot={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

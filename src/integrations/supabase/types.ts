@@ -2129,6 +2129,13 @@ export type Database = {
           unique_prompts: number
         }[]
       }
+      get_citation_trends: {
+        Args: { p_days?: number; p_limit?: number; p_org_id: string }
+        Returns: {
+          citation_url: string
+          trend_data: Json
+        }[]
+      }
       get_cluster_tag_color: { Args: { tag: string }; Returns: string }
       get_competitor_share_7d: {
         Args: { p_org_id?: string }
