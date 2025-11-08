@@ -2,17 +2,23 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, TrendingUp, FileText, Video, Award, Target, Info } from 'lucide-react';
+import { ExternalLink, TrendingUp, FileText, Video, Award, Target, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 import { format } from 'date-fns';
+import { useState } from 'react';
 import {
   Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface TopCitedContentProps {
   days: number;
@@ -38,6 +44,115 @@ interface CitationTrend {
     citation_counts: number[];
     visibility_scores: number[];
   };
+}
+
+interface DomainGroupProps {
+  group: {
+    domain: string;
+    citations: CitationInsight[];
+    totalMentions: number;
+    avgVisibility: number;
+    uniquePromptsCount: number;
+  };
+  getContentIcon: (type: string) => JSX.Element;
+  getTrendData: (url: string) => any;
+  CustomTooltip: React.ComponentType<any>;
+}
+
+function DomainGroup({ group, getContentIcon, getTrendData, CustomTooltip }: DomainGroupProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="border border-border rounded-lg"
+    >
+      <CollapsibleTrigger className="w-full p-4 hover:bg-accent/5 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="text-muted-foreground">
+              {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <h3 className="font-semibold text-lg mb-1">{group.domain}</h3>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div>
+                  <span className="font-semibold text-foreground">{group.citations.length}</span> URLs cited
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">{group.totalMentions}</span> total citations
+                </div>
+                <div>
+                  Avg visibility: <span className="font-semibold text-foreground">{group.avgVisibility.toFixed(1)}/10</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">{group.uniquePromptsCount}</span> prompts
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent>
+        <div className="border-t border-border">
+          <div className="p-4 space-y-3">
+            {group.citations.map((citation) => (
+              <div
+                key={citation.citation_url}
+                className="pl-4 border-l-2 border-muted"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {getContentIcon(citation.content_type)}
+                  <a
+                    href={citation.citation_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm hover:text-primary truncate flex-1"
+                  >
+                    {citation.citation_url}
+                  </a>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                    <div>
+                      <span>Cited </span>
+                      <span className="font-semibold text-foreground">{citation.total_mentions}x</span>
+                    </div>
+                    <div>
+                      <span>Visibility: </span>
+                      <span className="font-semibold text-foreground">{Number(citation.avg_brand_visibility_score).toFixed(1)}/10</span>
+                    </div>
+                    <div>
+                      <span>Prompts: </span>
+                      <span className="font-semibold text-foreground">{citation.unique_prompts}</span>
+                    </div>
+                  </div>
+                  {getTrendData(citation.citation_url) && (
+                    <div className="w-24 h-12">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={getTrendData(citation.citation_url)!}>
+                          <Tooltip content={<CustomTooltip />} />
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="hsl(var(--muted-foreground))"
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
 export function TopCitedContent({ days }: TopCitedContentProps) {
@@ -102,6 +217,37 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
 
   const ownContent = citations.filter(c => c.is_own_domain);
   const competitorContent = citations.filter(c => !c.is_own_domain);
+
+  // Group competitor content by domain
+  const groupedCompetitors = competitorContent.reduce((acc, citation) => {
+    const domain = citation.citation_domain;
+    if (!acc[domain]) {
+      acc[domain] = {
+        domain,
+        citations: [],
+        totalMentions: 0,
+        avgVisibility: 0,
+        uniquePrompts: new Set<number>(),
+      };
+    }
+    acc[domain].citations.push(citation);
+    acc[domain].totalMentions += citation.total_mentions;
+    acc[domain].uniquePrompts.add(citation.unique_prompts);
+    return acc;
+  }, {} as Record<string, {
+    domain: string;
+    citations: CitationInsight[];
+    totalMentions: number;
+    avgVisibility: number;
+    uniquePrompts: Set<number>;
+  }>);
+
+  // Calculate average visibility and sort by total mentions
+  const groupedCompetitorArray = Object.values(groupedCompetitors).map(group => ({
+    ...group,
+    avgVisibility: group.citations.reduce((sum, c) => sum + Number(c.avg_brand_visibility_score), 0) / group.citations.length,
+    uniquePromptsCount: Array.from(group.uniquePrompts).reduce((sum, count) => sum + count, 0),
+  })).sort((a, b) => b.totalMentions - a.totalMentions);
 
   const getContentIcon = (type: string) => {
     switch (type) {
@@ -319,7 +465,7 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
         </Card>
       )}
 
-      {/* Competitor Content to Target */}
+      {/* Competitor Content to Target - Grouped by Domain */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -327,64 +473,18 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
             Competitor Content to Outrank
           </CardTitle>
           <CardDescription>
-            These competitor pages are getting cited - create better content on these topics
+            Competitor domains getting cited - grouped by domain with all cited URLs
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {competitorContent.slice(0, 10).map((citation, idx) => (
-            <div
-              key={citation.citation_url}
-              className="border border-border rounded-lg p-4 hover:bg-accent/5 transition-colors"
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    {getContentIcon(citation.content_type)}
-                    <h3 className="font-semibold text-lg">{citation.citation_domain}</h3>
-                  </div>
-                  <a
-                    href={citation.citation_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-primary truncate block mb-3"
-                  >
-                    {citation.citation_url}
-                  </a>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-6 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Cited </span>
-                        <span className="font-semibold">{citation.total_mentions}x</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Visibility Score: </span>
-                        <span className="font-semibold">{Number(citation.avg_brand_visibility_score).toFixed(1)}/10</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Across </span>
-                        <span className="font-semibold">{citation.unique_prompts} prompts</span>
-                      </div>
-                    </div>
-                    {getTrendData(citation.citation_url) && (
-                      <div className="w-24 h-12">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={getTrendData(citation.citation_url)!}>
-                            <Tooltip content={<CustomTooltip />} />
-                            <Line
-                              type="monotone"
-                              dataKey="value"
-                              stroke="hsl(var(--muted-foreground))"
-                              strokeWidth={2}
-                              dot={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+          {groupedCompetitorArray.map((group) => (
+            <DomainGroup
+              key={group.domain}
+              group={group}
+              getContentIcon={getContentIcon}
+              getTrendData={getTrendData}
+              CustomTooltip={CustomTooltip}
+            />
           ))}
         </CardContent>
       </Card>
