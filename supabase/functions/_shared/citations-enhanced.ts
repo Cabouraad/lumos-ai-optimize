@@ -24,7 +24,11 @@ export type CitationsData = {
 /**
  * Extract citations from Perplexity response with provider-supplied citations
  */
-export function extractPerplexityCitations(response: any, responseText: string): CitationsData {
+export function extractPerplexityCitations(
+  response: any, 
+  responseText: string,
+  brandCatalog?: Array<{ name: string; variants_json: any; is_org_brand: boolean }>
+): CitationsData {
   const citations: Citation[] = [];
   
   console.log('[Perplexity Citations] Response structure:', JSON.stringify(response).substring(0, 200));
@@ -36,26 +40,38 @@ export function extractPerplexityCitations(response: any, responseText: string):
       // Handle both string URLs and object citations
       if (typeof citation === 'string') {
         // Citation is a URL string
+        const domain = extractDomain(citation);
+        const title = `Source ${index + 1}`;
+        const analysis = brandCatalog 
+          ? analyzeCitationBrandMentions({ url: citation, domain, title }, brandCatalog)
+          : { brandMention: 'unknown' as const, confidence: 0.0 };
+        
         citations.push({
           url: citation,
-          domain: extractDomain(citation),
-          title: `Source ${index + 1}`,
+          domain,
+          title,
           source_type: guessSourceType(citation),
           from_provider: true,
-          brand_mention: 'unknown',
-          brand_mention_confidence: 0.0
+          brand_mention: analysis.brandMention,
+          brand_mention_confidence: analysis.confidence
         });
       } else if (typeof citation === 'object' && (citation.url || citation.link)) {
         // Citation is an object with url/link field
         const url = citation.url || citation.link;
+        const domain = extractDomain(url);
+        const title = citation.title || citation.text || `Source ${index + 1}`;
+        const analysis = brandCatalog 
+          ? analyzeCitationBrandMentions({ url, domain, title }, brandCatalog)
+          : { brandMention: 'unknown' as const, confidence: 0.0 };
+        
         citations.push({
           url,
-          domain: extractDomain(url),
-          title: citation.title || citation.text || `Source ${index + 1}`,
+          domain,
+          title,
           source_type: guessSourceType(url),
           from_provider: true,
-          brand_mention: 'unknown',
-          brand_mention_confidence: 0.0
+          brand_mention: analysis.brandMention,
+          brand_mention_confidence: analysis.confidence
         });
       }
     });
@@ -67,14 +83,20 @@ export function extractPerplexityCitations(response: any, responseText: string):
   if (response.related_sources && Array.isArray(response.related_sources)) {
     response.related_sources.forEach((source: any) => {
       if (source.url && !citations.some((c: any) => c.url === source.url)) {
+        const domain = extractDomain(source.url);
+        const title = source.title || undefined;
+        const analysis = brandCatalog 
+          ? analyzeCitationBrandMentions({ url: source.url, domain, title: title || '' }, brandCatalog)
+          : { brandMention: 'unknown' as const, confidence: 0.0 };
+        
         citations.push({
           url: source.url,
-          domain: extractDomain(source.url),
-          title: source.title || undefined,
+          domain,
+          title,
           source_type: guessSourceType(source.url),
           from_provider: true,
-          brand_mention: 'unknown',
-          brand_mention_confidence: 0.0
+          brand_mention: analysis.brandMention,
+          brand_mention_confidence: analysis.confidence
         });
       }
     });
@@ -107,7 +129,11 @@ export function extractPerplexityCitations(response: any, responseText: string):
 /**
  * Extract citations from Gemini response with grounding attributions
  */
-export function extractGeminiCitations(response: any, responseText: string): CitationsData {
+export function extractGeminiCitations(
+  response: any, 
+  responseText: string,
+  brandCatalog?: Array<{ name: string; variants_json: any; is_org_brand: boolean }>
+): CitationsData {
   const citations: Citation[] = [];
   const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
   const citationMetadata = response.candidates?.[0]?.citationMetadata;
@@ -120,17 +146,23 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     
     citationMetadata.citations.forEach((citation: any, idx: number) => {
       if (citation.uri) {
+        const domain = extractDomain(citation.uri);
+        const title = citation.title || `Source ${idx + 1}`;
+        const analysis = brandCatalog 
+          ? analyzeCitationBrandMentions({ url: citation.uri, domain, title }, brandCatalog)
+          : { brandMention: 'unknown' as const, confidence: 0.0 };
+        
         const citationObj = {
           url: citation.uri,
-          domain: extractDomain(citation.uri),
-          title: citation.title || `Source ${idx + 1}`,
+          domain,
+          title,
           source_type: guessSourceType(citation.uri),
           from_provider: true,
-          brand_mention: 'unknown' as const,
-          brand_mention_confidence: 0.0
+          brand_mention: analysis.brandMention,
+          brand_mention_confidence: analysis.confidence
         };
         citations.push(citationObj);
-        console.log(`[Gemini Citations] citationMetadata ${idx + 1}: ${citationObj.domain} - "${citationObj.title?.substring(0, 50)}"`);
+        console.log(`[Gemini Citations] citationMetadata ${idx + 1}: ${citationObj.domain} - "${citationObj.title?.substring(0, 50)}" [Brand: ${analysis.brandMention}]`);
       }
     });
   }
@@ -147,17 +179,23 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
           return;
         }
         
+        const domain = extractDomain(chunk.web.uri);
+        const title = chunk.web.title || `Source ${idx + 1}`;
+        const analysis = brandCatalog 
+          ? analyzeCitationBrandMentions({ url: chunk.web.uri, domain, title }, brandCatalog)
+          : { brandMention: 'unknown' as const, confidence: 0.0 };
+        
         const citation = {
           url: chunk.web.uri,
-          domain: extractDomain(chunk.web.uri),
-          title: chunk.web.title || `Source ${idx + 1}`,
+          domain,
+          title,
           source_type: guessSourceType(chunk.web.uri),
           from_provider: true,
-          brand_mention: 'unknown' as const,
-          brand_mention_confidence: 0.0
+          brand_mention: analysis.brandMention,
+          brand_mention_confidence: analysis.confidence
         };
         citations.push(citation);
-        console.log(`[Gemini Citations] Chunk ${idx + 1}: ${citation.domain} - "${citation.title?.substring(0, 50)}"`);
+        console.log(`[Gemini Citations] Chunk ${idx + 1}: ${citation.domain} - "${citation.title?.substring(0, 50)}" [Brand: ${analysis.brandMention}]`);
       }
     });
   }
@@ -177,14 +215,20 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     console.log(`[Gemini Citations] Processing ${groundingMetadata.groundingAttributions.length} attribution chunks`);
     groundingMetadata.groundingAttributions.forEach((attr: any) => {
       if (attr.web?.uri && !citations.some(c => c.url === attr.web.uri)) {
+        const domain = extractDomain(attr.web.uri);
+        const title = attr.web.title || attr.sourceId?.groundingChunkId || undefined;
+        const analysis = brandCatalog 
+          ? analyzeCitationBrandMentions({ url: attr.web.uri, domain, title: title || '' }, brandCatalog)
+          : { brandMention: 'unknown' as const, confidence: 0.0 };
+        
         citations.push({
           url: attr.web.uri,
-          domain: extractDomain(attr.web.uri),
-          title: attr.web.title || attr.sourceId?.groundingChunkId || undefined,
+          domain,
+          title,
           source_type: guessSourceType(attr.web.uri),
           from_provider: true,
-          brand_mention: 'unknown',
-          brand_mention_confidence: 0.0
+          brand_mention: analysis.brandMention,
+          brand_mention_confidence: analysis.confidence
         });
       }
     });
@@ -221,20 +265,29 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
 /**
  * Extract citations from OpenAI response (text-only)
  */
-export function extractOpenAICitations(responseText: string): CitationsData {
+export function extractOpenAICitations(
+  responseText: string,
+  brandCatalog?: Array<{ name: string; variants_json: any; is_org_brand: boolean }>
+): CitationsData {
   const citations: Citation[] = [];
   
   // OpenAI doesn't provide citations, so extract from text
   const extractedCitations = extractCitations(responseText);
   extractedCitations.forEach((citation: any) => {
+    const domain = citation.domain || extractDomain(citation.url);
+    const title = citation.title;
+    const analysis = brandCatalog 
+      ? analyzeCitationBrandMentions({ url: citation.url, domain, title: title || '' }, brandCatalog)
+      : { brandMention: 'unknown' as const, confidence: 0.0 };
+    
     citations.push({
       url: citation.url,
-      domain: citation.domain || extractDomain(citation.url),
-      title: citation.title,
+      domain,
+      title,
       source_type: guessSourceType(citation.url),
       from_provider: false,
-      brand_mention: 'unknown',
-      brand_mention_confidence: 0.0
+      brand_mention: analysis.brandMention,
+      brand_mention_confidence: analysis.confidence
     });
   });
   
@@ -277,6 +330,92 @@ function deduplicateCitations(citations: Citation[]): Citation[] {
     seen.add(citation.url);
     return true;
   });
+}
+
+/**
+ * Analyze citation for brand mentions (org brands and competitors)
+ */
+export interface BrandMentionAnalysis {
+  mentionsOrgBrand: boolean;
+  mentionsCompetitor: boolean;
+  mentionedBrands: string[];
+  confidence: number;
+  brandMention: 'yes' | 'no' | 'unknown';
+}
+
+export function analyzeCitationBrandMentions(
+  citation: { url: string; domain: string; title?: string },
+  brandCatalog: Array<{ name: string; variants_json: any; is_org_brand: boolean }>
+): BrandMentionAnalysis {
+  if (!brandCatalog || brandCatalog.length === 0) {
+    return {
+      mentionsOrgBrand: false,
+      mentionsCompetitor: false,
+      mentionedBrands: [],
+      confidence: 0.0,
+      brandMention: 'unknown'
+    };
+  }
+
+  // Combine all citation text for analysis
+  const citationText = [
+    citation.url,
+    citation.domain,
+    citation.title || ''
+  ].join(' ').toLowerCase();
+
+  const mentionedBrands: string[] = [];
+  let orgBrandMatches = 0;
+  let competitorMatches = 0;
+
+  for (const brand of brandCatalog) {
+    const variants = Array.isArray(brand.variants_json) ? brand.variants_json : [];
+    const allNames = [brand.name, ...variants].filter(Boolean);
+
+    for (const name of allNames) {
+      const nameLower = name.toLowerCase();
+      // Use word boundary matching for accuracy
+      const regex = new RegExp(`\\b${nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      
+      if (regex.test(citationText)) {
+        if (!mentionedBrands.includes(brand.name)) {
+          mentionedBrands.push(brand.name);
+        }
+        
+        if (brand.is_org_brand) {
+          orgBrandMatches++;
+        } else {
+          competitorMatches++;
+        }
+        break; // Found this brand, move to next
+      }
+    }
+  }
+
+  const totalMatches = orgBrandMatches + competitorMatches;
+  const mentionsOrgBrand = orgBrandMatches > 0;
+  const mentionsCompetitor = competitorMatches > 0;
+
+  // Calculate confidence based on match count and text length
+  const confidence = totalMatches > 0 
+    ? Math.min(0.95, 0.6 + (totalMatches * 0.15)) 
+    : 0.85; // High confidence when no brands found
+
+  // Determine brand_mention field
+  let brandMention: 'yes' | 'no' | 'unknown' = 'unknown';
+  if (mentionsOrgBrand) {
+    brandMention = 'yes'; // Citation mentions org brand
+  } else if (totalMatches > 0) {
+    brandMention = 'no'; // Citation mentions competitors only
+  }
+
+  return {
+    mentionsOrgBrand,
+    mentionsCompetitor,
+    mentionedBrands,
+    confidence,
+    brandMention
+  };
 }
 
 /**

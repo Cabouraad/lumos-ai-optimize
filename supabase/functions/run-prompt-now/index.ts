@@ -130,6 +130,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const orgName = org?.name || '';
 
+    // Fetch brand catalog for citation analysis
+    const { data: brandCatalog } = await supabase
+      .from('brand_catalog')
+      .select('name, variants_json, is_org_brand')
+      .eq('org_id', orgId);
+
+    console.log(`[run-prompt-now] Loaded ${brandCatalog?.length || 0} brands from catalog for citation analysis`);
+
 
     // Initialize usage tracker
     const usageTracker = new PromptUsageTracker(supabase, orgId, promptId);
@@ -142,17 +150,18 @@ Deno.serve(async (req) => {
       try {
         console.log(`Running ${provider.name} on prompt (tier: ${subscriptionTier})`);
         
-        // Execute prompt based on provider
+        // Execute prompt based on provider (pass brand catalog for citation analysis)
         let response;
+        const executionContext = { brandCatalog };
         switch (provider.name) {
           case 'openai':
-            response = await executeOpenAI(prompt.text);
+            response = await executeOpenAI.call(executionContext, prompt.text);
             break;
           case 'perplexity':
-            response = await executePerplexity(prompt.text);
+            response = await executePerplexity.call(executionContext, prompt.text);
             break;
           case 'gemini':
-            response = await executeGemini(prompt.text);
+            response = await executeGemini.call(executionContext, prompt.text);
             break;
           case 'google_ai_overview':
             response = await executeGoogleAio(prompt.text);
@@ -398,8 +407,8 @@ async function executeOpenAI(promptText: string) {
   const data = await response.json();
   const responseText = data.choices[0].message.content;
   
-  // Extract citations from OpenAI response (text-only)
-  const citations = extractOpenAICitations(responseText);
+  // Extract citations from OpenAI response (text-only) - brand catalog passed from caller
+  const citations = extractOpenAICitations(responseText, (this as any).brandCatalog);
   
   return {
     text: responseText,
@@ -445,8 +454,8 @@ async function executePerplexity(promptText: string) {
   const data = await response.json();
   const responseText = data.choices[0].message.content;
   
-  // Extract citations from Perplexity response
-  const citationsData = extractPerplexityCitations(data, responseText);
+  // Extract citations from Perplexity response - brand catalog passed from caller
+  const citationsData = extractPerplexityCitations(data, responseText, (this as any).brandCatalog);
   
   return {
     text: responseText,
@@ -568,8 +577,8 @@ async function executeGemini(promptText: string) {
         console.log(`[Gemini] Citation URLs:`, groundingChunks.map((c: any) => c.web?.uri || 'no-uri').slice(0, 5));
       }
       
-      // Extract citations from Gemini response with grounding metadata
-      const citationsData = extractGeminiCitations(data, content);
+      // Extract citations from Gemini response with grounding metadata - brand catalog passed from caller
+      const citationsData = extractGeminiCitations(data, content, (this as any).brandCatalog);
       
       return {
         text: content,
