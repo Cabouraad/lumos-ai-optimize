@@ -110,14 +110,43 @@ export function extractPerplexityCitations(response: any, responseText: string):
 export function extractGeminiCitations(response: any, responseText: string): CitationsData {
   const citations: Citation[] = [];
   const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+  const citationMetadata = response.candidates?.[0]?.citationMetadata;
   
-  // Priority 1: Get citations from grounding chunks (Google Search retrieval)
+  console.log(`[Gemini Citations] Metadata Check - groundingMetadata: ${!!groundingMetadata}, citationMetadata: ${!!citationMetadata}`);
+  
+  // Priority 1: Get citations from citationMetadata (direct API citations)
+  if (citationMetadata?.citations && Array.isArray(citationMetadata.citations)) {
+    console.log(`[Gemini Citations] Processing ${citationMetadata.citations.length} citationMetadata citations`);
+    
+    citationMetadata.citations.forEach((citation: any, idx: number) => {
+      if (citation.uri) {
+        const citationObj = {
+          url: citation.uri,
+          domain: extractDomain(citation.uri),
+          title: citation.title || `Source ${idx + 1}`,
+          source_type: guessSourceType(citation.uri),
+          from_provider: true,
+          brand_mention: 'unknown' as const,
+          brand_mention_confidence: 0.0
+        };
+        citations.push(citationObj);
+        console.log(`[Gemini Citations] citationMetadata ${idx + 1}: ${citationObj.domain} - "${citationObj.title?.substring(0, 50)}"`);
+      }
+    });
+  }
+  
+  // Priority 2: Get citations from grounding chunks (Google Search retrieval)
   if (groundingMetadata?.groundingChunks) {
     const chunks = groundingMetadata.groundingChunks;
     console.log(`[Gemini Citations] Processing ${chunks.length} grounding chunks`);
     
     chunks.forEach((chunk: any, idx: number) => {
       if (chunk.web?.uri) {
+        // Skip if already added from citationMetadata
+        if (citations.some(c => c.url === chunk.web.uri)) {
+          return;
+        }
+        
         const citation = {
           url: chunk.web.uri,
           domain: extractDomain(chunk.web.uri),
@@ -143,7 +172,7 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     console.log(`[Gemini Citations] Web search queries: ${groundingMetadata.webSearchQueries.join(', ')}`);
   }
   
-  // Priority 2: Extract grounding attributions (inline citations)
+  // Priority 3: Extract grounding attributions (inline citations)
   if (groundingMetadata?.groundingAttributions && citations.length < 10) {
     console.log(`[Gemini Citations] Processing ${groundingMetadata.groundingAttributions.length} attribution chunks`);
     groundingMetadata.groundingAttributions.forEach((attr: any) => {
@@ -161,9 +190,9 @@ export function extractGeminiCitations(response: any, responseText: string): Cit
     });
   }
   
-  // Priority 3: Fallback to text extraction if no grounding citations found
+  // Priority 4: Fallback to text extraction if no citations found
   if (citations.length === 0) {
-    console.log('[Gemini Citations] No grounding citations found, falling back to text extraction');
+    console.log('[Gemini Citations] No citationMetadata or grounding citations found, falling back to text extraction');
     const extractedCitations = extractCitations(responseText);
     extractedCitations.forEach((citation: any) => {
       citations.push({

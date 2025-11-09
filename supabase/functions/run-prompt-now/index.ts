@@ -496,13 +496,17 @@ async function executeGemini(promptText: string) {
       attempt++;
       console.log(`[Gemini] Attempt ${attempt}/${maxAttempts}`);
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'X-goog-api-key': apiKey
         },
         body: JSON.stringify({
+          systemInstruction: {
+            role: "system",
+            parts: [{ text: "Ground every factual statement via Google Search. Use the googleSearchRetrieval tool. Include at least 2-3 citations with URLs for claims, preferring official and reputable sources." }]
+          },
           contents: [{ parts: [{ text: promptText }] }],
           generationConfig: {
             temperature: 0.3,
@@ -552,15 +556,16 @@ async function executeGemini(promptText: string) {
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
       
-      // Extract grounding metadata for enhanced citations
+      // CRITICAL: Check for citations metadata
       const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
       const groundingChunks = groundingMetadata?.groundingChunks || [];
-      const searchEntryPoint = groundingMetadata?.searchEntryPoint;
+      const citationMetadata = data.candidates?.[0]?.citationMetadata;
       
-      console.log(`[Gemini] Success - Content: ${content.length} chars, Tokens: ${usage.promptTokenCount || 0}/${usage.candidatesTokenCount || 0}, Grounding chunks: ${groundingChunks.length}`);
+      console.log(`[Gemini] Success - ${content.length} chars, Tokens: ${usage.promptTokenCount || 0}/${usage.candidatesTokenCount || 0}`);
+      console.log(`[Gemini] Citations - groundingChunks: ${groundingChunks.length}, citationMetadata: ${!!citationMetadata}`);
       
       if (groundingChunks.length > 0) {
-        console.log(`[Gemini] Grounding sources found:`, groundingChunks.map((c: any) => c.web?.uri || 'unknown').join(', '));
+        console.log(`[Gemini] Citation URLs:`, groundingChunks.map((c: any) => c.web?.uri || 'no-uri').slice(0, 5));
       }
       
       // Extract citations from Gemini response with grounding metadata
