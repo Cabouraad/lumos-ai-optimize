@@ -12,6 +12,12 @@ export type Citation = {
   from_provider: boolean;
   brand_mention: 'unknown' | 'yes' | 'no';
   brand_mention_confidence: number;
+  quality_score: number; // 0-100, higher is better
+  quality_factors: {
+    domain_authority: number; // 0-40 points
+    recency: number; // 0-30 points (if available)
+    relevance: number; // 0-30 points
+  };
 };
 
 export type CitationsData = {
@@ -46,7 +52,7 @@ export function extractPerplexityCitations(
           ? analyzeCitationBrandMentions({ url: citation, domain, title }, brandCatalog)
           : { brandMention: 'unknown' as const, confidence: 0.0 };
         
-        citations.push({
+        const baseCitation = {
           url: citation,
           domain,
           title,
@@ -54,6 +60,13 @@ export function extractPerplexityCitations(
           from_provider: true,
           brand_mention: analysis.brandMention,
           brand_mention_confidence: analysis.confidence
+        };
+        
+        const quality = calculateCitationQuality(baseCitation);
+        
+        citations.push({
+          ...baseCitation,
+          ...quality
         });
       } else if (typeof citation === 'object' && (citation.url || citation.link)) {
         // Citation is an object with url/link field
@@ -64,7 +77,7 @@ export function extractPerplexityCitations(
           ? analyzeCitationBrandMentions({ url, domain, title }, brandCatalog)
           : { brandMention: 'unknown' as const, confidence: 0.0 };
         
-        citations.push({
+        const baseCitation = {
           url,
           domain,
           title,
@@ -72,6 +85,13 @@ export function extractPerplexityCitations(
           from_provider: true,
           brand_mention: analysis.brandMention,
           brand_mention_confidence: analysis.confidence
+        };
+        
+        const quality = calculateCitationQuality(baseCitation);
+        
+        citations.push({
+          ...baseCitation,
+          ...quality
         });
       }
     });
@@ -89,7 +109,7 @@ export function extractPerplexityCitations(
           ? analyzeCitationBrandMentions({ url: source.url, domain, title: title || '' }, brandCatalog)
           : { brandMention: 'unknown' as const, confidence: 0.0 };
         
-        citations.push({
+        const baseCitation = {
           url: source.url,
           domain,
           title,
@@ -97,6 +117,13 @@ export function extractPerplexityCitations(
           from_provider: true,
           brand_mention: analysis.brandMention,
           brand_mention_confidence: analysis.confidence
+        };
+        
+        const quality = calculateCitationQuality(baseCitation);
+        
+        citations.push({
+          ...baseCitation,
+          ...quality
         });
       }
     });
@@ -106,14 +133,21 @@ export function extractPerplexityCitations(
   if (citations.length === 0) {
     const extractedCitations = extractCitations(responseText);
     extractedCitations.forEach((citation: any) => {
-      citations.push({
+      const baseCitation = {
         url: citation.url,
         domain: citation.domain || extractDomain(citation.url),
         title: citation.title,
         source_type: guessSourceType(citation.url),
         from_provider: false,
-        brand_mention: 'unknown',
+        brand_mention: 'unknown' as const,
         brand_mention_confidence: 0.0
+      };
+      
+      const quality = calculateCitationQuality(baseCitation);
+      
+      citations.push({
+        ...baseCitation,
+        ...quality
       });
     });
   }
@@ -152,7 +186,7 @@ export function extractGeminiCitations(
           ? analyzeCitationBrandMentions({ url: citation.uri, domain, title }, brandCatalog)
           : { brandMention: 'unknown' as const, confidence: 0.0 };
         
-        const citationObj = {
+        const baseCitation = {
           url: citation.uri,
           domain,
           title,
@@ -160,6 +194,13 @@ export function extractGeminiCitations(
           from_provider: true,
           brand_mention: analysis.brandMention,
           brand_mention_confidence: analysis.confidence
+        };
+        
+        const quality = calculateCitationQuality(baseCitation);
+        
+        const citationObj = {
+          ...baseCitation,
+          ...quality
         };
         citations.push(citationObj);
         console.log(`[Gemini Citations] citationMetadata ${idx + 1}: ${citationObj.domain} - "${citationObj.title?.substring(0, 50)}" [Brand: ${analysis.brandMention}]`);
@@ -185,7 +226,7 @@ export function extractGeminiCitations(
           ? analyzeCitationBrandMentions({ url: chunk.web.uri, domain, title }, brandCatalog)
           : { brandMention: 'unknown' as const, confidence: 0.0 };
         
-        const citation = {
+        const baseCitation = {
           url: chunk.web.uri,
           domain,
           title,
@@ -193,6 +234,13 @@ export function extractGeminiCitations(
           from_provider: true,
           brand_mention: analysis.brandMention,
           brand_mention_confidence: analysis.confidence
+        };
+        
+        const quality = calculateCitationQuality(baseCitation);
+        
+        const citation = {
+          ...baseCitation,
+          ...quality
         };
         citations.push(citation);
         console.log(`[Gemini Citations] Chunk ${idx + 1}: ${citation.domain} - "${citation.title?.substring(0, 50)}" [Brand: ${analysis.brandMention}]`);
@@ -221,7 +269,7 @@ export function extractGeminiCitations(
           ? analyzeCitationBrandMentions({ url: attr.web.uri, domain, title: title || '' }, brandCatalog)
           : { brandMention: 'unknown' as const, confidence: 0.0 };
         
-        citations.push({
+        const baseCitation = {
           url: attr.web.uri,
           domain,
           title,
@@ -229,6 +277,13 @@ export function extractGeminiCitations(
           from_provider: true,
           brand_mention: analysis.brandMention,
           brand_mention_confidence: analysis.confidence
+        };
+        
+        const quality = calculateCitationQuality(baseCitation);
+        
+        citations.push({
+          ...baseCitation,
+          ...quality
         });
       }
     });
@@ -239,14 +294,21 @@ export function extractGeminiCitations(
     console.log('[Gemini Citations] No citationMetadata or grounding citations found, falling back to text extraction');
     const extractedCitations = extractCitations(responseText);
     extractedCitations.forEach((citation: any) => {
-      citations.push({
+      const baseCitation = {
         url: citation.url,
         domain: citation.domain || extractDomain(citation.url),
         title: citation.title,
         source_type: guessSourceType(citation.url),
         from_provider: false,
-        brand_mention: 'unknown',
+        brand_mention: 'unknown' as const,
         brand_mention_confidence: 0.0
+      };
+      
+      const quality = calculateCitationQuality(baseCitation);
+      
+      citations.push({
+        ...baseCitation,
+        ...quality
       });
     });
   }
@@ -280,7 +342,7 @@ export function extractOpenAICitations(
       ? analyzeCitationBrandMentions({ url: citation.url, domain, title: title || '' }, brandCatalog)
       : { brandMention: 'unknown' as const, confidence: 0.0 };
     
-    citations.push({
+    const baseCitation = {
       url: citation.url,
       domain,
       title,
@@ -288,6 +350,13 @@ export function extractOpenAICitations(
       from_provider: false,
       brand_mention: analysis.brandMention,
       brand_mention_confidence: analysis.confidence
+    };
+    
+    const quality = calculateCitationQuality(baseCitation);
+    
+    citations.push({
+      ...baseCitation,
+      ...quality
     });
   });
   
@@ -330,6 +399,134 @@ function deduplicateCitations(citations: Citation[]): Citation[] {
     seen.add(citation.url);
     return true;
   });
+}
+
+/**
+ * Calculate citation quality score (0-100)
+ */
+export function calculateCitationQuality(citation: {
+  url: string;
+  domain: string;
+  title?: string;
+  source_type: 'page' | 'pdf' | 'video' | 'unknown';
+  from_provider: boolean;
+  brand_mention: 'unknown' | 'yes' | 'no';
+  brand_mention_confidence: number;
+}): { quality_score: number; quality_factors: { domain_authority: number; recency: number; relevance: number } } {
+  
+  // 1. Domain Authority (0-40 points)
+  const domainAuthority = calculateDomainAuthority(citation.domain);
+  
+  // 2. Recency Score (0-30 points) - currently not available from metadata, default to medium
+  const recencyScore = 15; // Default medium score since we don't have timestamp data
+  
+  // 3. Relevance Score (0-30 points)
+  const relevanceScore = calculateRelevanceScore(citation);
+  
+  const totalScore = Math.round(domainAuthority + recencyScore + relevanceScore);
+  
+  return {
+    quality_score: Math.min(100, Math.max(0, totalScore)),
+    quality_factors: {
+      domain_authority: Math.round(domainAuthority),
+      recency: Math.round(recencyScore),
+      relevance: Math.round(relevanceScore)
+    }
+  };
+}
+
+/**
+ * Calculate domain authority score (0-40 points)
+ */
+function calculateDomainAuthority(domain: string): number {
+  const domainLower = domain.toLowerCase();
+  
+  // Tier 1: Authoritative sources (35-40 points)
+  const tier1Domains = [
+    'wikipedia.org', 'gov', 'edu', 'github.com', 'arxiv.org',
+    'nature.com', 'science.org', 'ieee.org', 'acm.org',
+    'who.int', 'cdc.gov', 'nih.gov', 'fda.gov'
+  ];
+  
+  // Tier 2: Major news & tech sites (25-34 points)
+  const tier2Domains = [
+    'nytimes.com', 'bbc.com', 'reuters.com', 'bloomberg.com', 'wsj.com',
+    'techcrunch.com', 'theverge.com', 'wired.com', 'arstechnica.com',
+    'stackoverflow.com', 'medium.com', 'forbes.com', 'economist.com'
+  ];
+  
+  // Tier 3: Industry-specific & business sites (15-24 points)
+  const tier3Domains = [
+    'venturebeat.com', 'zdnet.com', 'cnet.com', 'businessinsider.com',
+    'cnbc.com', 'marketwatch.com', 'investopedia.com'
+  ];
+  
+  // Check tier 1
+  for (const trusted of tier1Domains) {
+    if (domainLower.includes(trusted) || domainLower.endsWith(`.${trusted}`)) {
+      return 40;
+    }
+  }
+  
+  // Check tier 2
+  for (const major of tier2Domains) {
+    if (domainLower.includes(major)) {
+      return 30;
+    }
+  }
+  
+  // Check tier 3
+  for (const industry of tier3Domains) {
+    if (domainLower.includes(industry)) {
+      return 20;
+    }
+  }
+  
+  // Bonus for .gov, .edu, .org TLDs
+  if (domainLower.endsWith('.gov')) return 35;
+  if (domainLower.endsWith('.edu')) return 32;
+  if (domainLower.endsWith('.org')) return 18;
+  
+  // Default score for unknown domains
+  return 10;
+}
+
+/**
+ * Calculate relevance score (0-30 points)
+ */
+function calculateRelevanceScore(citation: {
+  source_type: 'page' | 'pdf' | 'video' | 'unknown';
+  from_provider: boolean;
+  brand_mention: 'unknown' | 'yes' | 'no';
+  brand_mention_confidence: number;
+  title?: string;
+}): number {
+  let score = 0;
+  
+  // Provider-supplied citations are more relevant (10 points)
+  if (citation.from_provider) {
+    score += 10;
+  }
+  
+  // Source type relevance
+  if (citation.source_type === 'page') {
+    score += 8; // Web pages are most common and relevant
+  } else if (citation.source_type === 'pdf') {
+    score += 6; // PDFs are valuable but less accessible
+  } else if (citation.source_type === 'video') {
+    score += 4; // Videos are harder to verify
+  } else {
+    score += 2; // Unknown types get minimal points
+  }
+  
+  // Brand mention relevance (up to 12 points)
+  if (citation.brand_mention === 'yes') {
+    score += Math.round(12 * citation.brand_mention_confidence);
+  } else if (citation.brand_mention === 'no') {
+    score += Math.round(6 * citation.brand_mention_confidence);
+  }
+  
+  return Math.min(30, score);
 }
 
 /**
