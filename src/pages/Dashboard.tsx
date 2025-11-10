@@ -26,8 +26,10 @@ import { WeeklyVisibilityTrend } from '@/components/dashboard/WeeklyVisibilityTr
 import { AISourceIntelligence } from '@/components/dashboard/AISourceIntelligence';
 import { CitationTrends } from '@/components/dashboard/CitationTrends';
 import { useCompetitors } from '@/features/competitors/hooks';
+import { useDashboardTour } from '@/hooks/useDashboardTour';
 
 export default function Dashboard() {
+  const { TourComponent } = useDashboardTour();
   const { user, orgData, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const { hasAccessToApp, limits, canAccessRecommendations, canAccessCompetitorAnalysis, currentTier } = useSubscriptionGate();
@@ -410,6 +412,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
+      <TourComponent />
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
         <div className="container mx-auto p-6 space-y-8">
           {/* Header */}
@@ -418,7 +421,9 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
                 <DataFreshnessIndicator lastUpdated={lastUpdated} />
-                <BrandFilterIndicator />
+                <div data-tour="brand-filter">
+                  <BrandFilterIndicator />
+                </div>
               </div>
               <p className="text-muted-foreground">AI visibility insights for your organization</p>
             </div>
@@ -434,26 +439,32 @@ export default function Dashboard() {
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {/* Llumos Score Widget */}
-            <LlumosScoreWidget />
+            <div data-tour="llumos-score">
+              <LlumosScoreWidget />
+            </div>
             
             {/* Other Metrics */}
-            <DashboardMetrics 
-              metrics={dashboardData?.metrics || {}}
-              presenceStats={presenceStats}
-              promptLimit={limits.promptsPerDay}
-            />
+            <div data-tour="prompts-section">
+              <DashboardMetrics 
+                metrics={dashboardData?.metrics || {}}
+                presenceStats={presenceStats}
+                promptLimit={limits.promptsPerDay}
+              />
+            </div>
           </div>
 
           {/* Visibility Trend Chart */}
-          <DashboardChart 
-            chartData={memoizedChartData}
-            competitorChartData={competitorChartData}
-            competitors={competitorData.map(c => ({ name: c.competitor_name }))}
-            chartView={chartView}
-            onChartViewChange={setChartView}
-            loadingCompetitors={loadingCompetitors}
-            hasCompetitorAccess={competitorAccess.hasAccess}
-          />
+          <div data-tour="visibility-chart">
+              <DashboardChart 
+              chartData={memoizedChartData}
+              competitorChartData={competitorChartData}
+              competitors={competitorData.map(c => ({ name: c.competitor_name }))}
+              chartView={chartView}
+              onChartViewChange={setChartView}
+              loadingCompetitors={loadingCompetitors}
+              hasCompetitorAccess={competitorAccess.hasAccess}
+            />
+          </div>
 
           {/* Weekly Visibility Trend */}
           <WeeklyVisibilityTrend orgId={orgData?.organizations?.id} />
@@ -464,7 +475,7 @@ export default function Dashboard() {
             <AISourceIntelligence orgId={orgData?.organizations?.id} />
 
             {/* Recommendations Card - Show to all users */}
-            <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
+            <Card data-tour="recommendations" className="bg-card/80 backdrop-blur-sm border shadow-soft">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Lightbulb className="h-5 w-5 text-primary" />
