@@ -7,7 +7,6 @@ import { useAISourceIntelligence } from '@/hooks/useAISourceIntelligence';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useBrand } from '@/contexts/BrandContext';
-import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 
 export default function Sources() {
   const { orgData } = useAuth();
@@ -24,9 +23,6 @@ export default function Sources() {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
         <div className="container mx-auto p-6 space-y-8">
-          {/* Brand Filter Indicator */}
-          <BrandFilterIndicator />
-          
           {/* Header */}
           <div className="space-y-2">
             <div className="flex items-center gap-3">

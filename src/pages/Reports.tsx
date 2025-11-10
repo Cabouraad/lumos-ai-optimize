@@ -15,7 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useBrand } from '@/contexts/BrandContext';
-import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { TemplateSelector } from '@/components/reports/TemplateSelector';
 import { TemplateEditor } from '@/components/reports/TemplateEditor';
@@ -644,12 +643,9 @@ export default function Reports() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <div className="flex items-center gap-2 mt-2">
-              <p className="text-muted-foreground">
-                Weekly visibility reports for your brand
-              </p>
-              <BrandFilterIndicator />
-            </div>
+            <p className="text-muted-foreground mt-2">
+              Weekly visibility reports for your brand
+            </p>
           </div>
           {reportsAccess.hasAccess && (
             <Button

@@ -19,7 +19,6 @@ import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptSuggestions } from '@/components/PromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
-import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { getPromptCategory } from '@/lib/prompt-utils';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useClusterPrompts } from '@/hooks/useClusterPrompts';
@@ -620,7 +619,6 @@ export default function Prompts() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <h1 className="text-4xl font-display font-bold gradient-primary bg-clip-text text-transparent">Prompts</h1>
-                    <BrandFilterIndicator />
                   </div>
                   <p className="text-lg text-muted-foreground">
                     Manage search prompts and discover smart improvements

@@ -35,7 +35,6 @@ import { fetchCompetitorsV2, CompetitorSummaryRow } from '@/features/competitors
 import FilterBar from '@/features/competitors/FilterBar';
 import CompetitorCard from '@/features/competitors/CompetitorCard';
 import { useBrand } from '@/contexts/BrandContext';
-import { BrandFilterIndicator } from '@/components/dashboard/BrandFilterIndicator';
 import { CompetitorTrendsChart } from '@/features/competitors/CompetitorTrendsChart';
 import { useNavigate } from 'react-router-dom';
 
@@ -672,9 +671,6 @@ export default function Competitors() {
             {showTrialBanner && (
               <TrialBanner daysRemaining={competitorAccess.daysRemainingInTrial!} />
             )}
-            
-            {/* Brand Filter Indicator */}
-            <BrandFilterIndicator />
             
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
