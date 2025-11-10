@@ -133,7 +133,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild isActive={isActive}>
                       <Link to={item.href} className="flex items-center justify-between transition-smooth hover-glow w-full">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
                           <Icon className="h-4 w-4" />
                           {!collapsed && <span>{item.name}</span>}
                         </div>
