@@ -17,11 +17,8 @@ import { Trash2 } from 'lucide-react';
 import { getAllowedProviders, type ProviderName, type SubscriptionTier } from '@/lib/providers/tier-policy';
 import { Bot, Search, Sparkles, Globe } from 'lucide-react';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
-import { useSettingsTour } from '@/hooks/useSettingsTour';
-import { TourManagement } from '@/components/TourManagement';
 
 export default function Settings() {
-  const { TourComponent } = useSettingsTour();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -173,7 +170,6 @@ export default function Settings() {
 
   return (
     <Layout>
-      <TourComponent />
       <div className="p-6 space-y-8">
         <h1 className="text-3xl font-semibold">Settings</h1>
         
@@ -182,9 +178,7 @@ export default function Settings() {
           <TrialBanner daysRemaining={appAccess.daysRemainingInTrial} />
         )}
         
-        <div data-tour="subscription">
-          <SubscriptionManager />
-        </div>
+        <SubscriptionManager />
 
         {/* Team Management */}
         <section className="rounded-xl border p-4">
@@ -199,7 +193,7 @@ export default function Settings() {
         </section>
 
         {/* LLM Providers */}
-        <section data-tour="api-keys" className="rounded-xl border p-4">
+        <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">LLM Providers</h2>
           <div className="space-y-3">
             {/* Show all providers with tier information */}
@@ -257,7 +251,7 @@ export default function Settings() {
         </section>
 
 
-        <section data-tour="org-info" className="rounded-xl border p-4">
+        <section className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Organization</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -306,17 +300,12 @@ export default function Settings() {
 
 
         {/* Google AI Overviews Integration */}
-        <div data-tour="advanced-settings">
-          <GoogleAioSettings />
+        <GoogleAioSettings />
 
-          <section className="rounded-xl border p-4 mt-6">
-            <h2 className="font-medium mb-3">Data Retention</h2>
-            <div className="text-sm">Current: {retention} days</div>
-          </section>
-        </div>
-
-        {/* Tour Management */}
-        <TourManagement />
+        <section className="rounded-xl border p-4">
+          <h2 className="font-medium mb-3">Data Retention</h2>
+          <div className="text-sm">Current: {retention} days</div>
+        </section>
 
         <section className="rounded-xl border border-destructive/20 p-4">
           <h2 className="font-medium mb-3 text-destructive">Danger Zone</h2>
