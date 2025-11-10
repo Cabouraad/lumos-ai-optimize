@@ -1571,6 +1571,7 @@ export type Database = {
           id: string
           org_id: string | null
           role: string
+          tour_completions: Json | null
         }
         Insert: {
           created_at?: string
@@ -1578,6 +1579,7 @@ export type Database = {
           id: string
           org_id?: string | null
           role: string
+          tour_completions?: Json | null
         }
         Update: {
           created_at?: string
@@ -1585,6 +1587,7 @@ export type Database = {
           id?: string
           org_id?: string | null
           role?: string
+          tour_completions?: Json | null
         }
         Relationships: [
           {
