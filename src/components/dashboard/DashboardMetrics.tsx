@@ -1,5 +1,6 @@
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { MiniSparkline } from '@/components/MiniSparkline';
+import { HelpTooltip } from '@/components/HelpTooltip';
 import { Eye, Users, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
 interface DashboardMetricsProps {
@@ -44,7 +45,10 @@ export function DashboardMetrics({ metrics, presenceStats, promptLimit }: Dashbo
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <CardTitle className="text-base font-medium">Avg Visibility Score</CardTitle>
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              Avg Visibility Score
+              <HelpTooltip content="Average visibility score across all prompts. Higher scores indicate better AI presence and citation quality." />
+            </CardTitle>
             <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
               <Eye className="h-5 w-5 text-primary" />
             </div>
@@ -73,7 +77,10 @@ export function DashboardMetrics({ metrics, presenceStats, promptLimit }: Dashbo
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <CardTitle className="text-base font-medium">Brand Presence Rate</CardTitle>
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              Brand Presence Rate
+              <HelpTooltip content="Percentage of AI responses that mention your brand. Tracks your visibility across all monitored prompts." />
+            </CardTitle>
             <div className="p-2 bg-secondary/10 rounded-lg group-hover:bg-secondary/20 transition-colors">
               <Users className="h-5 w-5 text-secondary" />
             </div>
@@ -93,7 +100,10 @@ export function DashboardMetrics({ metrics, presenceStats, promptLimit }: Dashbo
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <CardTitle className="text-base font-medium">Active Prompts</CardTitle>
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              Active Prompts
+              <HelpTooltip content="Number of prompts currently being monitored. Each prompt represents a query being tracked across multiple AI providers." />
+            </CardTitle>
             <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
               <AlertTriangle className="h-5 w-5 text-accent" />
             </div>
@@ -113,7 +123,10 @@ export function DashboardMetrics({ metrics, presenceStats, promptLimit }: Dashbo
       <Card className="bg-card/80 backdrop-blur-sm border shadow-soft hover-lift group h-full">
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <CardTitle className="text-base font-medium">Responses</CardTitle>
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              Responses
+              <HelpTooltip content="Total number of AI responses analyzed. Each response is evaluated for brand mentions, citations, and visibility metrics." />
+            </CardTitle>
             <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
               <TrendingUp className="h-5 w-5 text-warning" />
             </div>

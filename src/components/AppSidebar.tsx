@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { BrandDisplay } from '@/components/BrandDisplay';
 import { BrandSwitcher } from '@/components/BrandSwitcher';
+import { HelpTooltip } from '@/components/HelpTooltip';
 import {
   Sidebar,
   SidebarContent,
@@ -55,18 +56,18 @@ export function AppSidebar() {
   const hasMultipleBrands = brands.length > 1;
 
   const navigation = [
-    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Building2 }] : []),
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Prompts', href: '/prompts', icon: MessageSquare },
-    { name: 'Competitors', href: '/competitors', icon: Users },
-    { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3 },
-    { name: 'Optimizations', href: '/optimizations', icon: Lightbulb },
-    { name: 'Reports', href: '/reports', icon: Calendar },
-    { name: 'LLMs.txt', href: '/llms-txt', icon: FileText },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Building2, tooltip: 'Manage multiple brands and switch between them' }] : []),
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, tooltip: 'Overview of your AI visibility metrics' },
+    { name: 'Prompts', href: '/prompts', icon: MessageSquare, tooltip: 'Manage and monitor tracked prompts' },
+    { name: 'Competitors', href: '/competitors', icon: Users, tooltip: 'Analyze competitor visibility and performance' },
+    { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3, tooltip: 'Detailed citation and source analysis' },
+    { name: 'Optimizations', href: '/optimizations', icon: Lightbulb, tooltip: 'AI-powered recommendations to improve visibility' },
+    { name: 'Reports', href: '/reports', icon: Calendar, tooltip: 'Weekly performance reports and insights' },
+    { name: 'LLMs.txt', href: '/llms-txt', icon: FileText, tooltip: 'Configure LLM-specific instructions' },
+    { name: 'Settings', href: '/settings', icon: Settings, tooltip: 'Organization and account settings' },
     ...(isAdmin ? [
-      { name: 'Labs', href: '/labs', icon: Beaker },
-      { name: 'Tests', href: '/tests', icon: TestTube2 }
+      { name: 'Labs', href: '/labs', icon: Beaker, tooltip: 'Experimental features and beta testing' },
+      { name: 'Tests', href: '/tests', icon: TestTube2, tooltip: 'System diagnostics and testing tools' }
     ] : []),
   ];
 
@@ -131,9 +132,18 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild isActive={isActive}>
-                      <Link to={item.href} className="flex items-center transition-smooth hover-glow">
-                        <Icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.name}</span>}
+                      <Link to={item.href} className="flex items-center justify-between transition-smooth hover-glow w-full">
+                        <div className="flex items-center">
+                          <Icon className="h-4 w-4" />
+                          {!collapsed && <span>{item.name}</span>}
+                        </div>
+                        {!collapsed && item.tooltip && (
+                          <HelpTooltip 
+                            content={item.tooltip} 
+                            side="right"
+                            className="ml-auto"
+                          />
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

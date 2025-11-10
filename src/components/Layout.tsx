@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { FAQ } from '@/components/FAQ';
 import { AppSidebar } from '@/components/AppSidebar';
+import { HelpTooltip } from '@/components/HelpTooltip';
 import { 
   SidebarProvider,
   SidebarTrigger,

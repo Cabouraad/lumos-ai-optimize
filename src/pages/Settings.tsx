@@ -10,6 +10,7 @@ import { TeamManagement } from '@/components/TeamManagement';
 import { TrialBanner } from '@/components/TrialBanner';
 import { GoogleAioSettings } from '@/components/GoogleAioSettings';
 import { DomainEnforcementDemo } from '@/components/DomainEnforcementDemo';
+import { HelpTooltip } from '@/components/HelpTooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -182,7 +183,10 @@ export default function Settings() {
 
         {/* Team Management */}
         <section className="rounded-xl border p-4">
-          <h2 className="font-medium mb-3">Team Members</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-medium">Team Members</h2>
+            <HelpTooltip content="Manage team access to your organization. Add or remove members and control their permissions." />
+          </div>
           <TeamManagement />
         </section>
 
@@ -194,7 +198,10 @@ export default function Settings() {
 
         {/* LLM Providers */}
         <section className="rounded-xl border p-4">
-          <h2 className="font-medium mb-3">LLM Providers</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-medium">LLM Providers</h2>
+            <HelpTooltip content="AI providers your organization is tracking. Different tiers unlock access to additional providers for comprehensive coverage." />
+          </div>
           <div className="space-y-3">
             {/* Show all providers with tier information */}
             {['openai', 'perplexity', 'gemini', 'google_ai_overview'].map((providerName) => {
@@ -252,7 +259,10 @@ export default function Settings() {
 
 
         <section className="rounded-xl border p-4">
-          <h2 className="font-medium mb-3">Organization</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-medium">Organization</h2>
+            <HelpTooltip content="Basic information about your organization including name and current subscription tier." />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-muted-foreground mb-1">Organization Name</div>
@@ -266,14 +276,17 @@ export default function Settings() {
         </section>
 
         <section className="rounded-xl border p-4">
-          <h2 className="font-medium mb-3">
-            Domain Verification 
-            {orgData.verified_at ? (
-              <span className="text-green-600 ml-2">✓ Verified</span>
-            ) : (
-              <span className="text-muted-foreground ml-2">Unverified</span>
-            )}
-          </h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-medium">
+              Domain Verification 
+              {orgData.verified_at ? (
+                <span className="text-green-600 ml-2">✓ Verified</span>
+              ) : (
+                <span className="text-muted-foreground ml-2">Unverified</span>
+              )}
+            </h2>
+            <HelpTooltip content="Verify domain ownership to enable advanced features and ensure accurate brand tracking across AI platforms." />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-muted-foreground mb-1">Domain</div>
@@ -303,7 +316,10 @@ export default function Settings() {
         <GoogleAioSettings />
 
         <section className="rounded-xl border p-4">
-          <h2 className="font-medium mb-3">Data Retention</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-medium">Data Retention</h2>
+            <HelpTooltip content="How long historical data is retained. Longer retention periods provide better trend analysis but use more storage." />
+          </div>
           <div className="text-sm">Current: {retention} days</div>
         </section>
 

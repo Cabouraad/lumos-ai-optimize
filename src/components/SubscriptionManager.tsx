@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { HelpTooltip } from '@/components/HelpTooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -171,6 +172,7 @@ export function SubscriptionManager() {
             <div>
               <CardTitle className="flex items-center space-x-2">
                 <span>Current Plan</span>
+                <HelpTooltip content="View your current plan, usage limits, and manage your subscription." />
                 <Badge className={getTierColor(currentTier)}>
                   {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
                   {isBypassUser && ' (test access)'}
