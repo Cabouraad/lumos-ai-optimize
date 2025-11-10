@@ -185,7 +185,7 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
         
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <span>Visibility: {optimization.score_before?.toFixed(1)}%</span>
+            <span>Visibility: {optimization.score_before?.toFixed(1)}</span>
             {sources.length > 0 && (
               <span>• {sources.length} sources</span>
             )}

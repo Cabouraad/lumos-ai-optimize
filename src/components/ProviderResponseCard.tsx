@@ -149,7 +149,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
               {response.status === 'completed' ? 'success' : response.status}
             </Badge>
             <Badge className={`font-bold px-2 py-1 ${getScoreColor(response.score)}`}>
-              {(response.score * 10).toFixed(1)}%
+              {(response.score * 10).toFixed(1)}
             </Badge>
           </div>
         </CardTitle>

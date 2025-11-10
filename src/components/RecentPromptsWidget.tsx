@@ -210,7 +210,7 @@ export function RecentPromptsWidget({ prompts, loading }: RecentPromptsWidgetPro
                     variant="outline" 
                     className={`px-2 py-1 text-xs font-semibold border ${getScorePillStyles(prompt.score)}`}
                   >
-                    {(prompt.score * 10).toFixed(1)}%
+                    {(prompt.score * 10).toFixed(1)}
                   </Badge>
 
                   {/* Position */}

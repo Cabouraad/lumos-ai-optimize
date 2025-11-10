@@ -310,7 +310,7 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                 </div>
                 
                 <Badge className={`font-bold text-lg px-3 py-1 ${getScoreColor(result.score)}`}>
-                  {(result.score * 10).toFixed(1)}%
+                  {(result.score * 10).toFixed(1)}
                 </Badge>
               </div>
             </CardHeader>
