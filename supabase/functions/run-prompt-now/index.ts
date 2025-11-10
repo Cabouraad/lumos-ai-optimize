@@ -514,7 +514,7 @@ async function executeGemini(promptText: string) {
         body: JSON.stringify({
           systemInstruction: {
             role: "system",
-            parts: [{ text: "Ground every factual statement via Google Search. Use the googleSearchRetrieval tool. Include at least 2-3 citations with URLs for claims, preferring official and reputable sources." }]
+            parts: [{ text: "Ground every factual statement via Google Search. Use the google_search tool to find current information. Include at least 2-3 citations with URLs for claims, preferring official and reputable sources." }]
           },
           contents: [{ parts: [{ text: promptText }] }],
           generationConfig: {
@@ -524,12 +524,7 @@ async function executeGemini(promptText: string) {
             topP: 0.95
           },
           tools: [{
-            googleSearchRetrieval: {
-              dynamicRetrievalConfig: {
-                mode: "MODE_DYNAMIC",
-                dynamicThreshold: 0.3
-              }
-            }
+            google_search: {}
           }]
         }),
       });
