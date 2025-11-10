@@ -205,14 +205,6 @@ export function RecentPromptsWidget({ prompts, loading }: RecentPromptsWidgetPro
                     <div className="text-xs text-muted-foreground">Brand</div>
                   </div>
 
-                  {/* Score Pill */}
-                  <Badge 
-                    variant="outline" 
-                    className={`px-2 py-1 text-xs font-semibold border ${getScorePillStyles(prompt.score)}`}
-                  >
-                    {(prompt.score * 10).toFixed(1)}
-                  </Badge>
-
                   {/* Position */}
                   <div className="text-center min-w-[40px]">
                     <div className="text-sm font-semibold text-foreground">

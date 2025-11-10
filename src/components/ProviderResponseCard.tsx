@@ -144,14 +144,9 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
             <config.icon className="h-4 w-4" />
             {config.name}
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className={`text-xs ${getStatusColor(response.status)}`}>
-              {response.status === 'completed' ? 'success' : response.status}
-            </Badge>
-            <Badge className={`font-bold px-2 py-1 ${getScoreColor(response.score)}`}>
-              {(response.score * 10).toFixed(1)}
-            </Badge>
-          </div>
+          <Badge className={`text-xs ${getStatusColor(response.status)}`}>
+            {response.status === 'completed' ? 'success' : response.status}
+          </Badge>
         </CardTitle>
       </CardHeader>
       

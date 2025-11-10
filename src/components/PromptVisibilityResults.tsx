@@ -308,10 +308,6 @@ export function PromptVisibilityResults({ promptId, refreshTrigger }: PromptVisi
                     {new Date(result.run_at).toLocaleString()}
                   </span>
                 </div>
-                
-                <Badge className={`font-bold text-lg px-3 py-1 ${getScoreColor(result.score)}`}>
-                  {(result.score * 10).toFixed(1)}
-                </Badge>
               </div>
             </CardHeader>
             
