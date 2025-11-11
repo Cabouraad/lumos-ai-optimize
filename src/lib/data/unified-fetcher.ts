@@ -150,14 +150,9 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
     const cacheKey = `dashboard-data-${orgId}`;
     
     if (useCache) {
-      // Check Phase 2 advanced cache first
       const cached = await advancedCache.get<UnifiedDashboardData>(cacheKey);
       if (cached && isValidDashboardData(cached)) {
         return cached;
-      }
-      // If cached data is invalid, clear it
-      if (cached) {
-        advancedCache.invalidate(cacheKey);
       }
     }
 
@@ -241,16 +236,7 @@ async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDa
       .select("id, name, enabled")
   ]);
 
-  console.log('🔍 Debug: Prompts query result:', {
-    error: promptsResult.error,
-    dataLength: promptsResult.data?.length || 0,
-    orgId: orgId
-  });
-
-  if (promptsResult.error) {
-    console.error('🔍 Debug: Prompts query error:', promptsResult.error);
-    throw promptsResult.error;
-  }
+  if (promptsResult.error) throw promptsResult.error;
   if (providersResult.error) throw providersResult.error;
 
   const prompts = promptsResult.data || [];
@@ -258,7 +244,7 @@ async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDa
   const promptIds = prompts.map(p => p.id);
 
   if (promptIds.length === 0) {
-    const emptyData: UnifiedDashboardData = {
+    return {
       avgScore: 0,
       overallScore: 0,
       trend: 0,
@@ -269,8 +255,6 @@ async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDa
       providers,
       prompts: []
     };
-    return emptyData;
-    return emptyData;
   }
 
   // Get all responses for the last 30 days in one query
@@ -422,23 +406,10 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     const orgId = await getOrgId();
     const cacheKey = `prompt-data-${orgId}`;
     
-    // 🐛 DEBUG: Force clear cache to get fresh data
-    console.log('🔍 [unified-fetcher] Clearing prompt data cache for fresh fetch', { orgId, cacheKey });
-    advancedCache.invalidate(cacheKey);
-    
     if (useCache) {
-      // Check Phase 2 advanced cache first
       const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
       if (cached && isValidPromptData(cached)) {
-        console.log('🔍 [unified-fetcher] Using cached prompt data', { 
-          promptCount: cached.prompts.length,
-          detailsCount: cached.promptDetails.length 
-        });
         return cached;
-      }
-      // If cached data is invalid, clear it
-      if (cached) {
-        advancedCache.invalidate(cacheKey);
       }
     }
 
@@ -476,22 +447,11 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
     ]);
 
-    // 🐛 DEBUG: Log RPC response details
-    console.log('🔍 [unified-fetcher] RPC get_latest_prompt_provider_responses result:', {
-      error: latestResponsesResult.error,
-      totalResponses: latestResponsesResult.data?.length || 0,
-      providers: [...new Set((latestResponsesResult.data || []).map((r: any) => r.provider))],
-      sampleResponse: latestResponsesResult.data?.[0]
-    });
-
     let rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
     const sevenDayData = sevenDayResult.data || [];
 
-    // If RPC errored or returned no rows, fallback to direct table select (temporary resilience)
+    // If RPC errored or returned no rows, fallback to direct table select
     if ((latestResponsesResult.error || rawLatestResponses.length === 0)) {
-      console.warn('🔍 [unified-fetcher] RPC failed or empty, using fallback select for latest provider responses', {
-        error: latestResponsesResult.error?.message,
-      });
       const { data: fallbackRows, error: fallbackError } = await supabase
         .from('prompt_provider_responses')
         .select('id, prompt_id, provider, model, status, run_at, raw_ai_response, error, metadata, score, org_brand_present, org_brand_prominence, competitors_count, competitors_json, brands_json, citations_json, token_in, token_out')
@@ -515,10 +475,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     
     // Normalize provider names to canonical forms
     const normalizeProvider = (provider: string | undefined): string | null => {
-      if (!provider) {
-        console.warn('🔍 [unified-fetcher] Missing provider field in response');
-        return null;
-      }
+      if (!provider) return null;
       const normalized = provider.toLowerCase().trim();
       
       // Provider name mappings
@@ -540,22 +497,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         ...r,
         provider: normalizeProvider(r.provider) || r.provider
       }))
-      .filter((r: any) => r.provider); // Remove any without provider
-    
-    // 🐛 DEBUG: Log filtered and normalized responses
-    console.log('🔍 [unified-fetcher] Filtered and normalized latest responses:', {
-      originalCount: rawLatestResponses.length,
-      normalizedCount: latestResponses.length,
-      originalProviders: [...new Set(rawLatestResponses.map((r: any) => r.provider))],
-      normalizedProviders: [...new Set(latestResponses.map((r: any) => r.provider))],
-      byProvider: latestResponses.reduce((acc: any, r: any) => {
-        acc[r.provider] = (acc[r.provider] || 0) + 1;
-        return acc;
-      }, {}),
-      promptIdsChecked: promptIds.length,
-      sampleOriginal: rawLatestResponses[0],
-      sampleNormalized: latestResponses[0]
-    });
+      .filter((r: any) => r.provider);
 
     // Process detailed prompt data
     // Create Map for O(1) lookup instead of O(n) filtering
@@ -576,17 +518,6 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
         perplexity: promptResponses.find(r => r.provider === 'perplexity') as ProviderResponseData || null,
         google_ai_overview: promptResponses.find(r => r.provider === 'google_ai_overview') as ProviderResponseData || null,
       };
-      
-      // 🐛 DEBUG: Log provider data for first prompt
-      if (prompt.id === safePrompts[0]?.id) {
-        console.log('🔍 [unified-fetcher] Provider data for first prompt:', {
-          promptId: prompt.id,
-          totalResponsesForPrompt: promptResponses.length,
-          providersFound: Object.entries(providerData)
-            .filter(([_, data]) => data !== null)
-            .map(([provider, data]) => ({ provider, status: data?.status, runAt: data?.run_at }))
-        });
-      }
 
       // Calculate overall score
       const scores = Object.values(providerData)
@@ -679,14 +610,7 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
 export function invalidateCache(keys?: string[]): void {
   if (keys) {
     keys.forEach(key => {
-      // Auto-wildcard keys that don't end with '*' to match org-scoped cache keys
       const pattern = key.includes('*') ? key : `${key}*`;
-      
-      // Debug log in development to see what patterns are being used
-      if (import.meta.env.DEV) {
-        console.log(`[CACHE_INVALIDATE] Pattern: ${pattern}`);
-      }
-      
       advancedCache.invalidate(pattern);
     });
     
