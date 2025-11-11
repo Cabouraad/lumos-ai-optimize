@@ -218,7 +218,7 @@ async function extractBrandsGemini(promptText: string, apiKey: string) {
   
   while (attempt < maxAttempts) {
     try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,6 +234,12 @@ async function extractBrandsGemini(promptText: string, apiKey: string) {
               ]
             }
           ],
+          systemInstruction: {
+            parts: [{
+              text: 'You are a helpful AI assistant. Use Google Search to find current information and cite your sources.'
+            }]
+          },
+          tools: [{ googleSearch: {} }],
           generationConfig: {
             temperature: 0.7,
             topK: 40,
@@ -257,6 +263,11 @@ async function extractBrandsGemini(promptText: string, apiKey: string) {
 
       const data = await response.json();
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Log grounding metadata presence for debugging
+      const hasGroundingMetadata = !!data.candidates?.[0]?.groundingMetadata;
+      const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks?.length || 0;
+      console.log(`[Gemini:dailyScan] Grounding metadata present: ${hasGroundingMetadata}, chunks: ${groundingChunks}`);
       
       // Try to extract JSON from the end of the response
       const jsonMatch = content.match(/\{[^}]*"brands"[^}]*\}/);

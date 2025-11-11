@@ -73,14 +73,20 @@ function getProviderConfigs(): ProviderConfig[] {
     configs.push({
       name: 'gemini',
       apiKey: geminiKey,
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
-      model: 'gemini-2.0-flash-lite',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      model: 'gemini-2.5-flash',
       authType: 'google-api-key',
       buildRequest: (prompt) => ({
         contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: {
+          parts: [{
+            text: 'You are a helpful AI assistant. Use Google Search to find current information and cite your sources. Include URLs and source titles in your response.'
+          }]
+        },
+        tools: [{ googleSearch: {} }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 500,
+          maxOutputTokens: 1000,
           topK: 40,
           topP: 0.95
         }
@@ -166,6 +172,13 @@ async function callProviderAPI(config: ProviderConfig, prompt: string): Promise<
 
       const data = await response.json();
       console.log(`[${config.name}] Success on attempt ${attempt}`);
+      
+      // Log grounding metadata presence for Gemini
+      if (config.name === 'gemini') {
+        const hasGroundingMetadata = !!data.candidates?.[0]?.groundingMetadata;
+        const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks?.length || 0;
+        console.log(`[${config.name}] Grounding metadata present: ${hasGroundingMetadata}, chunks: ${groundingChunks}`);
+      }
       
       // Return both full response and extracted text
       return {

@@ -179,6 +179,12 @@ Deno.serve(async (req) => {
                 ]
               }
             ],
+            systemInstruction: {
+              parts: [{
+                text: 'You are a helpful AI assistant. Use Google Search to find current information and cite your sources. Include URLs and source titles in your response.'
+              }]
+            },
+            tools: [{ googleSearch: {} }],
             generationConfig: {
               temperature: 0.3,
               topK: 40,
@@ -187,7 +193,7 @@ Deno.serve(async (req) => {
             }
           };
 
-          const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
+          const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -224,10 +230,15 @@ Deno.serve(async (req) => {
           console.log(`[Gemini:test] Success - received response data`);
           const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
           
+          // Log grounding metadata for debugging
+          const hasGroundingMetadata = !!data.candidates?.[0]?.groundingMetadata;
+          const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks?.length || 0;
+          console.log(`[Gemini:test] Grounding metadata present: ${hasGroundingMetadata}, chunks: ${groundingChunks}`);
+          
           return new Response(JSON.stringify({ 
             response: aiResponse,
             provider: 'gemini',
-            model: 'gemini-2.0-flash-lite'
+            model: 'gemini-2.5-flash'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
