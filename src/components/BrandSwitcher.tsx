@@ -86,27 +86,27 @@ export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps)
               {selectedBrand ? renderLogo(selectedBrand, 'sm') : <Building2 className="w-4 h-4" />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-72 bg-popover z-50">
+          <DropdownMenuContent align="start" className="w-72 bg-popover border-border/50 z-50 p-2">
             {brands.slice(0, 9).map((brand, index) => (
               <DropdownMenuItem
                 key={brand.id}
                 onClick={() => setSelectedBrand(brand)}
-                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
+                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-md hover:bg-accent/50 focus:bg-accent/50"
               >
                 {renderLogo(brand, 'sm')}
-                <span className="flex-1 truncate">{brand.name}</span>
+                <span className="flex-1 truncate text-sm">{brand.name}</span>
                 <span className="text-xs text-muted-foreground font-mono">⌘{index + 1}</span>
               </DropdownMenuItem>
             ))}
             {brands.length > 0 && (
               <>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="my-2" />
                 <DropdownMenuItem
                   onClick={() => navigate('/brands')}
-                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
+                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-md hover:bg-accent/50 focus:bg-accent/50"
                 >
                   <Eye className="w-4 h-4 text-muted-foreground" />
-                  <span className="flex-1">View All</span>
+                  <span className="flex-1 text-sm">View All</span>
                 </DropdownMenuItem>
               </>
             )}
@@ -117,15 +117,18 @@ export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps)
   }
 
   return (
-    <div className="px-4 py-3 border-b border-border/30">
+    <div className="px-3 py-4 border-b border-border/30">
+      <div className="text-xs font-medium text-muted-foreground mb-2 px-1">
+        Brand
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full justify-between p-2 h-auto hover:bg-accent/50"
+            className="w-full justify-between px-2 py-1.5 h-auto hover:bg-accent/50 rounded-md"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              {selectedBrand && renderLogo(selectedBrand)}
+            <div className="flex items-center gap-2 min-w-0">
+              {selectedBrand && renderLogo(selectedBrand, 'sm')}
               <span className="text-sm font-medium truncate">
                 {selectedBrand?.name || 'Select Brand'}
               </span>
@@ -133,27 +136,27 @@ export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps)
             <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72 bg-popover z-50">
+        <DropdownMenuContent align="start" className="w-72 bg-popover border-border/50 z-50 p-2">
           {brands.slice(0, 9).map((brand, index) => (
             <DropdownMenuItem
               key={brand.id}
               onClick={() => setSelectedBrand(brand)}
-              className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
+              className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-md hover:bg-accent/50 focus:bg-accent/50"
             >
               {renderLogo(brand, 'sm')}
-              <span className="flex-1 truncate">{brand.name}</span>
+              <span className="flex-1 truncate text-sm">{brand.name}</span>
               <span className="text-xs text-muted-foreground font-mono">⌘{index + 1}</span>
             </DropdownMenuItem>
           ))}
           {brands.length > 0 && (
             <>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
                 onClick={() => navigate('/brands')}
-                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
+                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-md hover:bg-accent/50 focus:bg-accent/50"
               >
                 <Eye className="w-4 h-4 text-muted-foreground" />
-                <span className="flex-1">View All</span>
+                <span className="flex-1 text-sm">View All</span>
               </DropdownMenuItem>
             </>
           )}
