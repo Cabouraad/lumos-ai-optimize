@@ -1,20 +1,20 @@
 /**
- * @deprecated Legacy AuthContext - redirects to new modular auth system
- * Use specific hooks instead: useAuthNew, useUser, useSubscription, usePermissions
+ * @deprecated Legacy AuthContext - now uses UnifiedAuthProvider
+ * Use specific hooks instead: useAuth, useUser, useSubscription, usePermissions
  */
 
-// Re-export new auth hooks with backward compatibility
-export { useAuth as useAuthNew } from './AuthProvider';
-export { useUser } from './UserProvider';
-export { useSubscription } from './SubscriptionProvider';
-export { usePermissions } from '../hooks/usePermissions';
-
-// Legacy combined hook for maximum backward compatibility
-import { useAuth as useAuthNew } from './AuthProvider';
-import { useUser } from './UserProvider';
-import { useSubscription } from './SubscriptionProvider';
+// Import hooks with aliases to avoid conflicts
+import { 
+  useAuth as useAuthBase,
+  useUser as useUserBase, 
+  useSubscription as useSubscriptionBase 
+} from './UnifiedAuthProvider';
 import { useMemo } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+
+// Re-export individual hooks
+export { useUser, useSubscription, useOrgId } from './UnifiedAuthProvider';
+export { usePermissions } from '../hooks/usePermissions';
 
 // Legacy interface for backward compatibility
 interface LegacyAuthContextType {
@@ -33,9 +33,9 @@ interface LegacyAuthContextType {
 }
 
 export function useAuthLegacy(): LegacyAuthContextType {
-  const { user, session, loading: authLoading, ready, signOut } = useAuthNew();
-  const { userData, loading: userLoading, error: userError, ready: userReady, refreshUserData } = useUser();
-  const { subscriptionData, loading: subscriptionLoading, error: subscriptionError, hasAccess, refreshSubscription } = useSubscription();
+  const { user, session, loading: authLoading, ready, signOut } = useAuthBase();
+  const { userData, loading: userLoading, error: userError, ready: userReady, refreshUserData } = useUserBase();
+  const { subscriptionData, loading: subscriptionLoading, error: subscriptionError, hasAccess, refreshSubscription } = useSubscriptionBase();
 
   // Map to legacy format with defensive orgStatus calculation
   const legacyData = useMemo((): LegacyAuthContextType => {
@@ -84,9 +84,10 @@ export function useAuthLegacy(): LegacyAuthContextType {
   return legacyData;
 }
 
-// For maximum compatibility, export useAuth as the legacy version by default
-// Individual files can import { useAuth as useAuthNew } from './AuthProvider' if needed
-export { useAuthLegacy as useAuth };
+// For maximum compatibility, export useAuth as the legacy version with proper typing
+export function useAuth(): LegacyAuthContextType {
+  return useAuthLegacy();
+}
 
 // Export legacy context and provider (empty implementations for compatibility)
 export const AuthContext = null;

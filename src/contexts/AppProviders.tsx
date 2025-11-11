@@ -1,7 +1,5 @@
 import React from 'react';
-import { AuthProvider } from './AuthProvider';
-import { UserProvider } from './UserProvider';
-import { SubscriptionProvider } from './SubscriptionProvider';
+import { UnifiedAuthProvider } from './UnifiedAuthProvider';
 import { BrandProvider } from './BrandContext';
 
 interface AppProvidersProps {
@@ -10,14 +8,10 @@ interface AppProvidersProps {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <AuthProvider>
-      <UserProvider>
-        <SubscriptionProvider>
-          <BrandProvider>
-            {children}
-          </BrandProvider>
-        </SubscriptionProvider>
-      </UserProvider>
-    </AuthProvider>
+    <UnifiedAuthProvider>
+      <BrandProvider>
+        {children}
+      </BrandProvider>
+    </UnifiedAuthProvider>
   );
 }

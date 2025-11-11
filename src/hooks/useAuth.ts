@@ -1,5 +1,5 @@
 /**
- * Legacy auth hook that redirects to the new auth system
- * @deprecated Use specific hooks instead: useAuth, useUser, useSubscription, usePermissions
+ * Legacy auth hook that redirects to the new unified auth system
+ * @deprecated Use specific hooks instead: useAuth, useUser, useSubscription, useOrgId
  */
-export { useAuth } from '@/contexts/AuthProvider';
+export { useAuth } from '@/contexts/UnifiedAuthProvider';

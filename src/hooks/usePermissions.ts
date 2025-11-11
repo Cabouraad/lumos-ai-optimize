@@ -1,4 +1,4 @@
-import { useUser } from '@/contexts/UserProvider';
+import { useUser } from '@/contexts/UnifiedAuthProvider';
 
 export function usePermissions() {
   const { userData } = useUser();
