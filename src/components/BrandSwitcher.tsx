@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Building2, Check, ChevronDown } from 'lucide-react';
+import { Building2, Check, ChevronDown, Eye } from 'lucide-react';
 import { useBrand } from '@/contexts/BrandContext';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,7 @@ interface BrandSwitcherProps {
 
 export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps) {
   const { selectedBrand, setSelectedBrand } = useBrand();
+  const navigate = useNavigate();
   const [logoUrls, setLogoUrls] = useState<Record<string, string>>({});
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
 
@@ -83,20 +86,30 @@ export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps)
               {selectedBrand ? renderLogo(selectedBrand, 'sm') : <Building2 className="w-4 h-4" />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 bg-popover z-50">
-            {brands.map((brand) => (
+          <DropdownMenuContent align="start" className="w-72 bg-popover z-50">
+            {brands.slice(0, 9).map((brand, index) => (
               <DropdownMenuItem
                 key={brand.id}
                 onClick={() => setSelectedBrand(brand)}
-                className="flex items-center gap-3 p-3 cursor-pointer"
+                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
               >
                 {renderLogo(brand, 'sm')}
                 <span className="flex-1 truncate">{brand.name}</span>
-                {selectedBrand?.id === brand.id && (
-                  <Check className="w-4 h-4 text-primary" />
-                )}
+                <span className="text-xs text-muted-foreground font-mono">⌘{index + 1}</span>
               </DropdownMenuItem>
             ))}
+            {brands.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => navigate('/brands')}
+                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
+                >
+                  <Eye className="w-4 h-4 text-muted-foreground" />
+                  <span className="flex-1">View All</span>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -120,20 +133,30 @@ export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps)
             <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64 bg-popover z-50">
-          {brands.map((brand) => (
+        <DropdownMenuContent align="start" className="w-72 bg-popover z-50">
+          {brands.slice(0, 9).map((brand, index) => (
             <DropdownMenuItem
               key={brand.id}
               onClick={() => setSelectedBrand(brand)}
-              className="flex items-center gap-3 p-3 cursor-pointer"
+              className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
             >
               {renderLogo(brand, 'sm')}
               <span className="flex-1 truncate">{brand.name}</span>
-              {selectedBrand?.id === brand.id && (
-                <Check className="w-4 h-4 text-primary" />
-              )}
+              <span className="text-xs text-muted-foreground font-mono">⌘{index + 1}</span>
             </DropdownMenuItem>
           ))}
+          {brands.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => navigate('/brands')}
+                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50"
+              >
+                <Eye className="w-4 h-4 text-muted-foreground" />
+                <span className="flex-1">View All</span>
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
