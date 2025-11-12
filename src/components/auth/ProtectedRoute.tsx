@@ -1,8 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthProvider';
-import { useUser } from '@/contexts/UserProvider';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
+import { useAuth, useUser, useSubscription } from '@/contexts/UnifiedAuthProvider';
 import { useBrands } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
 import { Loader2 } from 'lucide-react';
