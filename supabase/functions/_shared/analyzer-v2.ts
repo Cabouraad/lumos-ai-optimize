@@ -593,9 +593,8 @@ function calculateVisibilityScore(
     // Response length adjustment
     if (responseLength < 500) score += 0.5; // Shorter responses are better
     else if (responseLength > 2000) score -= 0.3; // Very long responses dilute brand
-  } else {
-    // No brand present: very low score
-    score = Math.max(0.5, 2.0 - (competitorCount * 0.2));
+    // No brand present: score is 0 per visibility policy
+    score = 0;
   }
   
   return Math.max(0, Math.min(10, Math.round(score * 10) / 10));

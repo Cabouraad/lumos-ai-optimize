@@ -83,7 +83,7 @@ function getProviderConfigs(): ProviderConfig[] {
             text: 'You are a helpful AI assistant. Use Google Search to find current information and cite your sources. Include URLs and source titles in your response.'
           }]
         },
-        tools: [{ googleSearch: {} }],
+        tools: [{ google_search: {} }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 1000,

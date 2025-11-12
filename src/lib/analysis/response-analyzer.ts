@@ -104,14 +104,14 @@ export function analyzeResponse(responseText: string, orgName: string): Analysis
     if (competitorSet.size > 8) score -= 2;
     else if (competitorSet.size > 4) score -= 1;
   } else {
-    score = responseText.length > 500 ? 2 : 1;
+    score = 0;
   }
 
   const competitors = Array.from(competitorSet);
   const foundBrands = brandPresent ? [orgName] : [];
 
   return {
-    score: Math.max(1, Math.min(10, Math.round(score))),
+    score: Math.max(0, Math.min(10, Math.round(score))),
     brandPresent,
     brands: foundBrands,
     competitors,
