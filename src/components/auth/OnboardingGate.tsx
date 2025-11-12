@@ -1,7 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useUser } from '@/contexts/UserProvider';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useUser, useAuth } from '@/contexts/UnifiedAuthProvider';
 import { Loader2 } from 'lucide-react';
 
 interface OnboardingGateProps {

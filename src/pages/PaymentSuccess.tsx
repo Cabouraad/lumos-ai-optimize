@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useUser } from '@/contexts/UserProvider';
+import { useUser } from '@/contexts/UnifiedAuthProvider';
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();

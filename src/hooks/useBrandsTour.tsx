@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Joyride, { Step, CallBackProps, STATUS } from 'react-joyride';
-import { useUser } from '@/contexts/UserProvider';
+import { useUser } from '@/contexts/UnifiedAuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 
 const TOUR_KEY = 'llumos_brands_tour_completed';

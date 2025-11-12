@@ -1,7 +1,5 @@
 import { ReactNode, useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthProvider';
-import { useUser } from '@/contexts/UserProvider';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
+import { useAuth, useUser, useSubscription } from '@/contexts/UnifiedAuthProvider';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
