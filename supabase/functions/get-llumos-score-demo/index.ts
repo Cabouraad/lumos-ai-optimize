@@ -84,9 +84,9 @@ Return ONLY a JSON object with this exact structure (no markdown, no extra text)
   "score": <number 400-850>,
   "composite": <number 0-100>,
   "tier": "<Excellent|Very Good|Good|Fair|Needs Improvement>",
-  "analysis": "<2-3 sentence summary of key findings>",
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "improvements": ["<improvement 1>", "<improvement 2>"]
+  "analysis": "<A comprehensive 3-4 sentence analysis explaining the score. Start with the current visibility state, explain what's working well or what's limiting visibility, mention specific content/SEO factors observed, and provide context for the score tier.>",
+  "strengths": ["<specific strength with metrics or examples>", "<another specific strength>"],
+  "improvements": ["<specific actionable improvement>", "<another specific actionable improvement>", "<optional third improvement>"]
 }`
       : `Analyze the domain ${cleanDomain} and estimate its AI search visibility potential (0-100).
 Note: Website content could not be fetched (${fetchError}), so provide a conservative estimate based on domain characteristics.
@@ -96,9 +96,9 @@ Return ONLY a JSON object with this exact structure (no markdown, no extra text)
   "score": <number 400-650>,
   "composite": <number 0-60>,
   "tier": "<Good|Fair|Needs Improvement>",
-  "analysis": "Unable to fetch website content for full analysis. Score is a conservative estimate.",
+  "analysis": "Unable to fetch website content for full analysis. Score is a conservative estimate based on domain accessibility and basic technical factors. For accurate scoring, the website needs to be accessible for content analysis, which would evaluate content quality, brand messaging, SEO structure, authority signals, and topic expertise.",
   "strengths": ["Domain is accessible"],
-  "improvements": ["Enable content analysis for accurate scoring"]
+  "improvements": ["Enable content analysis for accurate scoring", "Ensure website is publicly accessible"]
 }`;
 
     console.log('Calling Lovable AI for analysis...');

@@ -116,46 +116,51 @@ export function LlumosScoreChecker() {
               <div className="space-y-6">
                 {/* Score Display */}
                 <div className="flex flex-col items-center">
-                  <div className="relative inline-flex items-center justify-center mb-4">
-                    <svg className="w-40 h-40 transform -rotate-90">
+                  <div className="relative inline-flex items-center justify-center mb-6">
+                    <svg className="w-48 h-48 md:w-52 md:h-52 transform -rotate-90 drop-shadow-lg">
                       {/* Background circle */}
                       <circle
-                        cx="80"
-                        cy="80"
-                        r="68"
+                        cx="96"
+                        cy="96"
+                        r="84"
                         stroke="currentColor"
-                        strokeWidth="8"
+                        strokeWidth="12"
                         fill="none"
-                        className="text-muted opacity-20"
+                        className="text-muted/30"
                       />
                       {/* Progress circle */}
                       <circle
-                        cx="80"
-                        cy="80"
-                        r="68"
+                        cx="96"
+                        cy="96"
+                        r="84"
                         stroke="currentColor"
-                        strokeWidth="8"
+                        strokeWidth="12"
                         fill="none"
-                        strokeDasharray={`${(scoreData.composite / 100) * 427.3} 427.3`}
+                        strokeDasharray={`${(scoreData.composite / 100) * 527.8} 527.8`}
                         className={getScoreColor(scoreData.score)}
                         strokeLinecap="round"
+                        style={{
+                          filter: 'drop-shadow(0 0 8px currentColor)',
+                        }}
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
-                        <div className={`text-5xl font-bold ${getScoreColor(scoreData.score)}`}>
+                        <div className={`text-6xl md:text-7xl font-bold ${getScoreColor(scoreData.score)} drop-shadow-md`}>
                           {scoreData.score}
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">
+                        <div className="text-sm md:text-base font-semibold text-muted-foreground mt-2">
                           {scoreData.tier}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-center mb-6">
-                    <p className="text-lg font-medium mb-1">{scoreData.domain}</p>
-                    <p className="text-sm text-muted-foreground">{scoreData.message}</p>
+                  <div className="text-center mb-6 w-full">
+                    <p className="text-xl font-semibold mb-3">{scoreData.domain}</p>
+                    <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                      <p className="text-sm leading-relaxed text-foreground/90">{scoreData.message}</p>
+                    </div>
                     
                     {/* Display insights if available */}
                     {scoreData.insights && (
