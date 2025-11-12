@@ -17,6 +17,7 @@ const BrandOnboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Bran
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
 const LlumosScore = lazy(() => loadChunkWithRetry(() => import("./pages/LlumosScore")));
 const CitationAnalytics = lazy(() => loadChunkWithRetry(() => import("./pages/CitationAnalytics")));
+const BrandMentionAnalyzer = lazy(() => loadChunkWithRetry(() => import("./pages/BrandMentionAnalyzer")));
 const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
 const OptimizationsV2 = lazy(() => loadChunkWithRetry(() => import("./pages/OptimizationsV2")));
 const NewOptimizations = lazy(() => loadChunkWithRetry(() => import("./pages/NewOptimizations")));
@@ -150,6 +151,15 @@ const App = () => {
               <OnboardingGate>
                 <ChunkErrorBoundary chunkName="CitationAnalytics">
                   <CitationAnalytics />
+                </ChunkErrorBoundary>
+              </OnboardingGate>
+            </ProtectedRoute>
+          } />
+          <Route path="/brand-mention-analyzer" element={
+            <ProtectedRoute>
+              <OnboardingGate>
+                <ChunkErrorBoundary chunkName="BrandMentionAnalyzer">
+                  <BrandMentionAnalyzer />
                 </ChunkErrorBoundary>
               </OnboardingGate>
             </ProtectedRoute>
