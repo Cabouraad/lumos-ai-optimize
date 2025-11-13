@@ -85,8 +85,8 @@ Return ONLY a JSON object with this exact structure (no markdown, no extra text)
   "composite": <number 0-100>,
   "tier": "<Excellent|Very Good|Good|Fair|Needs Improvement>",
   "analysis": "<A comprehensive 3-4 sentence analysis explaining the score. Start with the current visibility state, explain what's working well or what's limiting visibility, mention specific content/SEO factors observed, and provide context for the score tier.>",
-  "strengths": ["<specific strength with metrics or examples>", "<another specific strength>"],
-  "improvements": ["<specific actionable improvement>", "<another specific actionable improvement>", "<optional third improvement>"]
+  "strengths": ["<15-25 word detailed strength covering a UNIQUE aspect like domain authority, content structure, brand clarity, or technical elements>", "<15-25 word detailed strength covering a COMPLETELY DIFFERENT aspect>", "<15-25 word detailed strength covering yet another distinct aspect>"],
+  "improvements": ["<15-25 word actionable recommendation that is COMPLETELY DIFFERENT from all strengths, explaining WHY it matters>", "<15-25 word actionable recommendation covering a different improvement area with clear direction>", "<15-25 word actionable recommendation for another distinct opportunity>"]
 }`
       : `Analyze the domain ${cleanDomain} and estimate its AI search visibility potential (0-100).
 Note: Website content could not be fetched (${fetchError}), so provide a conservative estimate based on domain characteristics.

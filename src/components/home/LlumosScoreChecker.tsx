@@ -116,27 +116,27 @@ export function LlumosScoreChecker() {
               <div className="space-y-6">
                 {/* Score Display */}
                 <div className="flex flex-col items-center">
-                  <div className="relative inline-flex items-center justify-center mb-6">
-                    <svg className="w-48 h-48 md:w-52 md:h-52 transform -rotate-90 drop-shadow-lg">
+                  <div className="relative inline-flex items-center justify-center mb-8">
+                    <svg className="w-56 h-56 md:w-64 md:h-64 transform -rotate-90 drop-shadow-lg">
                       {/* Background circle */}
                       <circle
-                        cx="96"
-                        cy="96"
-                        r="84"
+                        cx="112"
+                        cy="112"
+                        r="90"
                         stroke="currentColor"
-                        strokeWidth="12"
+                        strokeWidth="14"
                         fill="none"
                         className="text-muted/30"
                       />
                       {/* Progress circle */}
                       <circle
-                        cx="96"
-                        cy="96"
-                        r="84"
+                        cx="112"
+                        cy="112"
+                        r="90"
                         stroke="currentColor"
-                        strokeWidth="12"
+                        strokeWidth="14"
                         fill="none"
-                        strokeDasharray={`${(scoreData.composite / 100) * 527.8} 527.8`}
+                        strokeDasharray={`${(scoreData.composite / 100) * 565.5} 565.5`}
                         className={getScoreColor(scoreData.score)}
                         strokeLinecap="round"
                         style={{
@@ -145,7 +145,7 @@ export function LlumosScoreChecker() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
+                      <div className="text-center px-4">
                         <div className={`text-6xl md:text-7xl font-bold ${getScoreColor(scoreData.score)} drop-shadow-md`}>
                           {scoreData.score}
                         </div>
@@ -164,23 +164,35 @@ export function LlumosScoreChecker() {
                     
                     {/* Display insights if available */}
                     {scoreData.insights && (
-                      <div className="mt-4 text-left space-y-3">
+                      <div className="mt-6 text-left space-y-4">
                         {scoreData.insights.strengths.length > 0 && (
-                          <div>
-                            <p className="text-sm font-semibold text-primary mb-1">✓ Strengths:</p>
-                            <ul className="text-xs text-muted-foreground space-y-1 pl-4">
+                          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                            <p className="text-base font-semibold text-primary mb-2 flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4" />
+                              What's Working Well
+                            </p>
+                            <ul className="text-sm text-foreground/80 space-y-2">
                               {scoreData.insights.strengths.map((strength, idx) => (
-                                <li key={idx}>• {strength}</li>
+                                <li key={idx} className="flex gap-2">
+                                  <span className="text-primary mt-0.5">•</span>
+                                  <span>{strength}</span>
+                                </li>
                               ))}
                             </ul>
                           </div>
                         )}
                         {scoreData.insights.improvements.length > 0 && (
-                          <div>
-                            <p className="text-sm font-semibold text-orange-500 mb-1">→ Improvements:</p>
-                            <ul className="text-xs text-muted-foreground space-y-1 pl-4">
+                          <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-4">
+                            <p className="text-base font-semibold text-orange-500 mb-2 flex items-center gap-2">
+                              <ArrowRight className="h-4 w-4" />
+                              Areas for Improvement
+                            </p>
+                            <ul className="text-sm text-foreground/80 space-y-2">
                               {scoreData.insights.improvements.map((improvement, idx) => (
-                                <li key={idx}>• {improvement}</li>
+                                <li key={idx} className="flex gap-2">
+                                  <span className="text-orange-500 mt-0.5">•</span>
+                                  <span>{improvement}</span>
+                                </li>
                               ))}
                             </ul>
                           </div>
