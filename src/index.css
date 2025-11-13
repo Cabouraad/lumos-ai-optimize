@@ -227,4 +227,11 @@
   .hover-glow {
     @apply transition-all duration-300 hover:shadow-glow;
   }
+
+  /* Score Circle Animation */
+  @keyframes dash {
+    from {
+      stroke-dasharray: 0 565.5;
+    }
+  }
 }

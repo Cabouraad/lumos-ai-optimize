@@ -117,7 +117,26 @@ export function LlumosScoreChecker() {
                 {/* Score Display */}
                 <div className="flex flex-col items-center">
                   <div className="relative inline-flex items-center justify-center mb-8">
-                    <svg className="w-56 h-56 md:w-64 md:h-64 transform -rotate-90 drop-shadow-lg">
+                    {/* Radial gradient background for depth */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className={`w-48 h-48 md:w-56 md:h-56 rounded-full opacity-20 blur-3xl ${
+                        scoreData.score >= 700 ? 'bg-green-500' : 
+                        scoreData.score >= 600 ? 'bg-blue-500' : 
+                        scoreData.score >= 500 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                    </div>
+                    
+                    <svg className="w-56 h-56 md:w-64 md:h-64 transform -rotate-90 relative z-10 animate-fade-in">
+                      {/* Outer glow circle */}
+                      <circle
+                        cx="112"
+                        cy="112"
+                        r="90"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        fill="none"
+                        className={`${getScoreColor(scoreData.score)} opacity-30 blur-sm`}
+                      />
                       {/* Background circle */}
                       <circle
                         cx="112"
@@ -126,9 +145,9 @@ export function LlumosScoreChecker() {
                         stroke="currentColor"
                         strokeWidth="14"
                         fill="none"
-                        className="text-muted/30"
+                        className="text-muted/20"
                       />
-                      {/* Progress circle */}
+                      {/* Progress circle with animation */}
                       <circle
                         cx="112"
                         cy="112"
@@ -137,19 +156,34 @@ export function LlumosScoreChecker() {
                         strokeWidth="14"
                         fill="none"
                         strokeDasharray={`${(scoreData.composite / 100) * 565.5} 565.5`}
-                        className={getScoreColor(scoreData.score)}
+                        className={`${getScoreColor(scoreData.score)} transition-all duration-1000 ease-out`}
                         strokeLinecap="round"
                         style={{
-                          filter: 'drop-shadow(0 0 8px currentColor)',
+                          filter: 'drop-shadow(0 0 12px currentColor)',
+                          animation: 'dash 1.5s ease-out forwards'
                         }}
                       />
+                      {/* Inner shadow circle for depth */}
+                      <circle
+                        cx="112"
+                        cy="112"
+                        r="75"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        fill="none"
+                        className="text-background/50"
+                      />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center px-4">
-                        <div className={`text-6xl md:text-7xl font-bold ${getScoreColor(scoreData.score)} drop-shadow-md`}>
+                    
+                    <div className="absolute inset-0 flex items-center justify-center z-20">
+                      <div className="text-center px-4 animate-scale-in">
+                        <div className={`text-7xl md:text-8xl font-bold ${getScoreColor(scoreData.score)} drop-shadow-2xl`}
+                          style={{
+                            textShadow: '0 0 30px currentColor, 0 4px 6px rgba(0,0,0,0.3)'
+                          }}>
                           {scoreData.score}
                         </div>
-                        <div className="text-sm md:text-base font-semibold text-muted-foreground mt-2">
+                        <div className="text-base md:text-lg font-semibold text-muted-foreground mt-3">
                           {scoreData.tier}
                         </div>
                       </div>
