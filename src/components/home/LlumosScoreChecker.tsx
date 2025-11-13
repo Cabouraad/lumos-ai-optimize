@@ -126,7 +126,7 @@ export function LlumosScoreChecker() {
                       }`} />
                     </div>
                     
-                    <svg className="w-56 h-56 md:w-64 md:h-64 transform -rotate-90 relative z-10 animate-fade-in">
+                    <svg className="w-56 h-56 md:w-64 md:h-64 transform -rotate-90 relative z-10 animate-fade-in" viewBox="0 0 224 224" aria-label={`Llumos score ${scoreData.score}, ${scoreData.tier}`}>
                       {/* Outer glow circle */}
                       <circle
                         cx="112"
@@ -173,21 +173,30 @@ export function LlumosScoreChecker() {
                         fill="none"
                         className="text-background/50"
                       />
-                    </svg>
-                    
-                    <div className="absolute inset-0 flex items-center justify-center z-20">
-                      <div className="text-center px-4 animate-scale-in">
-                        <div className={`text-7xl md:text-8xl font-bold ${getScoreColor(scoreData.score)} drop-shadow-2xl`}
-                          style={{
-                            textShadow: '0 0 30px currentColor, 0 4px 6px rgba(0,0,0,0.3)'
-                          }}>
+
+                      {/* Centered content INSIDE the circle (re-rotated to upright) */}
+                      <g transform="rotate(90 112 112)">
+                        <text
+                          x="112"
+                          y="112"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          className={`${getScoreColor(scoreData.score)} fill-current font-bold`}
+                          style={{ fontSize: '68px', textShadow: '0 0 30px currentColor, 0 4px 6px rgba(0,0,0,0.3)' }}
+                        >
                           {scoreData.score}
-                        </div>
-                        <div className="text-base md:text-lg font-semibold text-muted-foreground mt-3">
+                        </text>
+                        <text
+                          x="112"
+                          y="148"
+                          textAnchor="middle"
+                          className="text-muted-foreground fill-current font-semibold"
+                          style={{ fontSize: '14px' }}
+                        >
                           {scoreData.tier}
-                        </div>
-                      </div>
-                    </div>
+                        </text>
+                      </g>
+                    </svg>
                   </div>
 
                   <div className="text-center mb-6 w-full">
