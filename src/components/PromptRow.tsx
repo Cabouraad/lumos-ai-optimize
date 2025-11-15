@@ -8,6 +8,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ProviderResponseCard } from './ProviderResponseCard';
 import { PromptTopCitations } from './PromptTopCitations';
 import { ClusterTagBadge } from './prompts/ClusterTagBadge';
+import { PerformanceBadge } from './prompts/PerformanceBadge';
+import { ProviderStatusBar } from './prompts/ProviderStatusBar';
+import { InlineCitationPreview } from './prompts/InlineCitationPreview';
+import { ScoreBreakdownTooltip } from './prompts/ScoreBreakdownTooltip';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { getAllowedProviders } from '@/lib/providers/tier-policy';
 import { getPromptCategory, getCategoryColor } from '@/lib/prompt-utils';
@@ -145,6 +149,31 @@ const PromptRowComponent = ({
 
   const category = useMemo(() => getPromptCategory(prompt.text), [prompt.text]);
 
+  // Calculate competitor overlap
+  const competitorOverlap = useMemo(() => {
+    if (!promptDetails?.providers) return 0;
+    const providers = Object.values(promptDetails.providers);
+    const competitorSets = providers
+      .map((p: any) => {
+        const responses = Array.isArray(p) ? p : (p ? [p] : []);
+        const latest = responses.find((r: any) => r?.status === 'completed' || r?.status === 'success');
+        return latest?.competitors_json || [];
+      })
+      .filter((comps: any[]) => comps.length > 0);
+    
+    if (competitorSets.length < 2) return 0;
+    
+    // Find competitors that appear in multiple providers
+    const allCompetitors = competitorSets.flat();
+    const competitorCounts = new Map<string, number>();
+    allCompetitors.forEach((comp: any) => {
+      const name = comp?.name || comp;
+      competitorCounts.set(name, (competitorCounts.get(name) || 0) + 1);
+    });
+    
+    return Array.from(competitorCounts.values()).filter(count => count > 1).length;
+  }, [promptDetails]);
+
   return (
     <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
       <CardContent className="p-4">
@@ -196,6 +225,11 @@ const PromptRowComponent = ({
 
               {/* Category and Actions */}
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <PerformanceBadge 
+                  avgScore={performance.avgScore} 
+                  trend={performance.trend}
+                />
+                
                 {prompt.cluster_tag && (
                   <ClusterTagBadge tag={prompt.cluster_tag} />
                 )}
@@ -230,15 +264,20 @@ const PromptRowComponent = ({
 
             {/* 7-Day Performance Summary - Compact Grid */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3 p-2.5 bg-muted/30 rounded-lg mb-2">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <TrendingUp className="h-3 w-3" />
-                  <span>Avg Score</span>
+              <ScoreBreakdownTooltip 
+                providers={promptDetails?.providers || {}}
+                avgScore={performance.avgScore}
+              >
+                <div className="text-center cursor-help">
+                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>Avg Score</span>
+                  </div>
+                  <div className="text-base font-semibold">
+                    {(performance.avgScore * 10).toFixed(1)}
+                  </div>
                 </div>
-                <div className="text-base font-semibold">
-                  {(performance.avgScore * 10).toFixed(1)}
-                </div>
-              </div>
+              </ScoreBreakdownTooltip>
               
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
@@ -255,10 +294,28 @@ const PromptRowComponent = ({
                   <Users className="h-3 w-3" />
                   <span>Competitors</span>
                 </div>
-                <div className="text-base font-semibold text-warning">
-                  {performance.competitorCount}
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="text-base font-semibold text-warning">
+                    {performance.competitorCount}
+                  </span>
+                  {competitorOverlap > 0 && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0 bg-warning/10 text-warning border-warning/20">
+                      {competitorOverlap} shared
+                    </Badge>
+                  )}
                 </div>
               </div>
+            </div>
+
+            {/* Provider Status Bar and Citation Preview */}
+            <div className="flex items-center justify-between gap-3 mb-2 px-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Providers:</span>
+                <ProviderStatusBar providers={promptDetails?.providers || {}} />
+              </div>
+              {promptDetails && (
+                <InlineCitationPreview promptId={prompt.id} limit={2} />
+              )}
             </div>
 
             {/* Expand/Collapse Toggle */}
