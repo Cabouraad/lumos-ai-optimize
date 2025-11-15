@@ -19,6 +19,7 @@ const LlumosScore = lazy(() => loadChunkWithRetry(() => import("./pages/LlumosSc
 const CitationAnalytics = lazy(() => loadChunkWithRetry(() => import("./pages/CitationAnalytics")));
 const BrandMentionAnalyzer = lazy(() => loadChunkWithRetry(() => import("./pages/BrandMentionAnalyzer")));
 const Prompts = lazy(() => loadChunkWithRetry(() => import("./pages/Prompts")));
+const PromptDetail = lazy(() => loadChunkWithRetry(() => import("./pages/PromptDetail")));
 const OptimizationsV2 = lazy(() => loadChunkWithRetry(() => import("./pages/OptimizationsV2")));
 const NewOptimizations = lazy(() => loadChunkWithRetry(() => import("./pages/NewOptimizations")));
 const Competitors = lazy(() => loadChunkWithRetry(() => import("./pages/Competitors")));
@@ -168,6 +169,13 @@ const App = () => {
             <ProtectedRoute>
               <ChunkErrorBoundary chunkName="Prompts">
                 <Prompts />
+              </ChunkErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/prompts/:promptId" element={
+            <ProtectedRoute>
+              <ChunkErrorBoundary chunkName="PromptDetail">
+                <PromptDetail />
               </ChunkErrorBoundary>
             </ProtectedRoute>
           } />
