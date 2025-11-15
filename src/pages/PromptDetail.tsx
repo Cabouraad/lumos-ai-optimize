@@ -51,9 +51,14 @@ export default function PromptDetail() {
           .select('*')
           .eq('id', promptId)
           .eq('org_id', orgData.id)
-          .single();
+          .maybeSingle();
 
         if (promptError) throw promptError;
+        if (!promptData) {
+          setPrompt(null);
+          setLoading(false);
+          return;
+        }
         setPrompt(promptData);
 
         // Fetch detailed provider data
