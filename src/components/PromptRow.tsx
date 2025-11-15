@@ -190,10 +190,10 @@ const PromptRowComponent = ({
 
   return (
     <Card 
-      className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20 cursor-pointer"
+      className="hover:bg-muted/30 transition-all duration-150 cursor-pointer border-l-2 border-l-transparent hover:border-l-primary"
       onClick={handleRowClick}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         <div className="flex items-start gap-3">
           {/* Selection checkbox */}
           <Checkbox
@@ -204,65 +204,86 @@ const PromptRowComponent = ({
 
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            {/* Prompt text and basic info */}
-            <div className="flex flex-col sm:flex-row items-start justify-between mb-3 gap-3">
-              <div className="flex-1 w-full">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <p className="text-sm font-medium leading-relaxed line-clamp-2 flex-1">
-                    {prompt.text}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/prompts/${prompt.id}`);
-                    }}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>{format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    <BarChart3 className="h-3 w-3" />
-                    <span>{performance.totalRuns} runs</span>
-                  </div>
-
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs px-2 py-0.5 ${prompt.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}
-                  >
-                    {prompt.active ? 'Active' : 'Paused'}
-                  </Badge>
-
+            {/* Condensed Prompt Row */}
+            <div className="flex items-center justify-between gap-4">
+              {/* Prompt Text */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium leading-relaxed line-clamp-1 mb-1">
+                  {prompt.text}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
                   {prompt.cluster_tag && (
-                    <ClusterTagBadge tag={prompt.cluster_tag} />
+                    <>
+                      <span>•</span>
+                      <ClusterTagBadge tag={prompt.cluster_tag} />
+                    </>
                   )}
                 </div>
               </div>
 
-              {/* Metrics and Actions */}
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <PerformanceBadge 
-                  avgScore={performance.avgScore} 
-                  trend={performance.trend}
-                />
+              {/* Visibility Score */}
+              <div className="text-center w-20 shrink-0">
+                <ScoreBreakdownTooltip 
+                  providers={promptDetails?.providers || {}}
+                  avgScore={performance.avgScore}
+                >
+                  <div className="cursor-help">
+                    <div className="text-xs text-muted-foreground mb-0.5">Score</div>
+                    <div className="text-lg font-bold">
+                      {(performance.avgScore * 10).toFixed(1)}%
+                    </div>
+                  </div>
+                </ScoreBreakdownTooltip>
+              </div>
+
+              {/* Runs */}
+              <div className="text-center w-16 shrink-0">
+                <div className="text-xs text-muted-foreground mb-0.5">Runs</div>
+                <div className="text-base font-semibold">{performance.totalRuns}</div>
+              </div>
+
+              {/* Brand Found */}
+              <div className="text-center w-24 shrink-0">
+                <div className="text-xs text-muted-foreground mb-0.5">Brand</div>
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${performance.brandVisible > 0 ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}
+                >
+                  {performance.brandVisible > 0 ? 'Yes' : 'No'}
+                </Badge>
+              </div>
+
+              {/* Competitors */}
+              <div className="text-center w-24 shrink-0">
+                <div className="text-xs text-muted-foreground mb-0.5">Competitors</div>
+                <div className="text-base font-semibold text-warning">
+                  {performance.competitorCount}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/prompts/${prompt.id}`);
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
                 
                 <Button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleToggleActive();
                   }}
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-7 px-2"
+                  className="h-8 px-2"
                 >
                   {prompt.active ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                 </Button>
@@ -272,138 +293,15 @@ const PromptRowComponent = ({
                     e.stopPropagation();
                     handleDelete();
                   }}
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="h-8 px-2 text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
 
-            {/* Performance Summary - Compact Grid */}
-            <div className="grid grid-cols-4 gap-3 p-3 bg-muted/20 rounded-lg mb-2">
-              <ScoreBreakdownTooltip 
-                providers={promptDetails?.providers || {}}
-                avgScore={performance.avgScore}
-              >
-                <div className="text-center cursor-help">
-                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Score</span>
-                  </div>
-                  <div className="text-lg font-bold">
-                    {(performance.avgScore * 10).toFixed(1)}
-                  </div>
-                </div>
-              </ScoreBreakdownTooltip>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <BarChart3 className="h-3 w-3" />
-                  <span>Runs</span>
-                </div>
-                <div className="text-lg font-bold">
-                  {performance.totalRuns}
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <Target className="h-3 w-3" />
-                  <span>Brand</span>
-                </div>
-                <div className="text-lg font-bold text-success">
-                  {performance.brandVisible}
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <Users className="h-3 w-3" />
-                  <span>Competitors</span>
-                </div>
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-lg font-bold text-warning">
-                    {performance.competitorCount}
-                  </span>
-                  {competitorOverlap > 0 && (
-                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-warning/10 text-warning border-warning/20">
-                      {competitorOverlap} overlap
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Provider Status Bar and Citation Preview */}
-            <div className="flex items-center justify-between gap-3 mb-3 px-1">
-              <div className="flex items-center gap-2 flex-1">
-                <ProviderStatusBar providers={promptDetails?.providers || {}} />
-              </div>
-              {promptDetails && (
-                <div className="shrink-0">
-                  <InlineCitationPreview promptId={prompt.id} limit={3} />
-                </div>
-              )}
-            </div>
-
-            {/* Expand/Collapse Toggle */}
-            {promptDetails && (
-              <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-7 mt-1"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronDown className="h-3 w-3 mr-1" />
-                        Hide Quick Preview
-                      </>
-                    ) : (
-                      <>
-                        <ChevronRight className="h-3 w-3 mr-1" />
-                        Quick Preview
-                      </>
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-
-                <CollapsibleContent className="space-y-4 mt-3">
-                  {/* Provider Response Cards */}
-                  {promptDetails?.providers && (() => {
-                    // Get allowed providers directly from tier policy
-                    const displayProviders = getAllowedProviders(currentTier as any);
-                    
-                    return (
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-medium text-muted-foreground border-b border-border/50 pb-1">
-                          Provider Results
-                        </h4>
-                        <div className="grid gap-2">
-                          {displayProviders.map((provider) => (
-                            <ProviderResponseCard
-                              key={provider}
-                              provider={provider}
-                              response={promptDetails.providers[provider] || null}
-                              promptText={prompt.text}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Citations Section */}
-                  <div className="border-t border-border/50 pt-3">
-                    <PromptTopCitations promptId={prompt.id} />
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
           </div>
         </div>
       </CardContent>
