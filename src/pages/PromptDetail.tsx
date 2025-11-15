@@ -45,25 +45,29 @@ export default function PromptDetail() {
       try {
         setLoading(true);
 
-        // Fetch prompt basic info
-        const { data: promptData, error: promptError } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('id', promptId)
-          .eq('org_id', orgData.id)
-          .maybeSingle();
+        // Fetch prompt basics and unified data in parallel
+        const [promptResult, unifiedData] = await Promise.all([
+          supabase
+            .from('prompts')
+            .select('*')
+            .eq('id', promptId)
+            .eq('org_id', orgData.id)
+            .maybeSingle(),
+          getUnifiedPromptData(true, dateRange.from, dateRange.to)
+        ]);
 
+        const { data: promptData, error: promptError } = promptResult as any;
         if (promptError) throw promptError;
-        if (!promptData) {
-          setPrompt(null);
-          setLoading(false);
-          return;
-        }
-        setPrompt(promptData);
 
-        // Fetch detailed provider data
-        const unifiedData = await getUnifiedPromptData(true, dateRange.from, dateRange.to);
-        const promptDetail = unifiedData.promptDetails?.find((p: any) => p.promptId === promptId);
+        // Prefer direct row; fallback to unified list if RLS/cache returns 0 rows
+        let finalPrompt = promptData as any;
+        if (!finalPrompt) {
+          const fallback = (unifiedData as any)?.prompts?.find((p: any) => p.id === promptId);
+          if (fallback) finalPrompt = fallback;
+        }
+        setPrompt(finalPrompt || null);
+
+        const promptDetail = (unifiedData as any)?.promptDetails?.find((p: any) => p.promptId === promptId);
         setPromptDetails(promptDetail || null);
       } catch (error) {
         console.error('Error fetching prompt details:', error);
