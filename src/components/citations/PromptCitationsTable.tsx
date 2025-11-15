@@ -35,11 +35,9 @@ interface CitationData {
   url: string;
   title: string | null;
   domain: string;
-  citationType: 'Owned' | 'Earned' | 'Competitor Earned' | 'Competitor Owned';
+  citationType: 'Content' | 'Social' | 'Owned';
   totalCitations: number;
-  brandCitations: number;
   citationPercentage: number;
-  brandCitationPercentage: number;
 }
 
 interface PromptCitationsTableProps {
@@ -52,7 +50,7 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState<'citations' | 'brandCitations'>('citations');
+  const [sortBy, setSortBy] = useState<'citations'>('citations');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const itemsPerPage = 10;
 
@@ -88,13 +86,17 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
           title: string | null;
           domain: string;
           totalCount: number;
-          brandMentionCount: number;
           isOrgDomain: boolean;
-          isCompetitorDomain: boolean;
+          isSocial: boolean;
         }>();
 
         let totalCitationCount = 0;
-        let totalBrandCitationCount = 0;
+
+        // Common social media domains
+        const socialDomains = new Set([
+          'twitter.com', 'x.com', 'facebook.com', 'linkedin.com', 'instagram.com',
+          'youtube.com', 'tiktok.com', 'reddit.com', 'pinterest.com', 'snapchat.com'
+        ]);
 
         responses?.forEach(response => {
           let citations: any[] = [];
@@ -111,26 +113,23 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
           citations.forEach(citation => {
             const url = citation.url || '';
             const domain = citation.domain || new URL(url).hostname;
-            const hasBrandMention = citation.brand_mention === 'yes' || 
-                                   citation.resolved_brand?.type === 'known';
 
             totalCitationCount++;
-            if (hasBrandMention) totalBrandCitationCount++;
 
             const existing = citationMap.get(url);
             if (existing) {
               existing.totalCount++;
-              if (hasBrandMention) existing.brandMentionCount++;
             } else {
               const isOrgDomain = orgDomains.has(domain.toLowerCase());
+              const isSocial = socialDomains.has(domain.toLowerCase());
+              
               citationMap.set(url, {
                 url,
                 title: citation.title || null,
                 domain,
                 totalCount: 1,
-                brandMentionCount: hasBrandMention ? 1 : 0,
                 isOrgDomain,
-                isCompetitorDomain: false // Will be determined by checking if it's not org domain but has brand mentions
+                isSocial
               });
             }
           });
@@ -141,18 +140,15 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
           const citationPercentage = totalCitationCount > 0 
             ? (item.totalCount / totalCitationCount) * 100 
             : 0;
-          const brandCitationPercentage = totalBrandCitationCount > 0
-            ? (item.brandMentionCount / totalBrandCitationCount) * 100
-            : 0;
 
-          // Determine citation type
+          // Determine citation type: Owned > Social > Content
           let citationType: CitationData['citationType'];
           if (item.isOrgDomain) {
-            citationType = item.brandMentionCount > 0 ? 'Owned' : 'Owned';
-          } else if (item.brandMentionCount > 0) {
-            citationType = 'Earned';
+            citationType = 'Owned';
+          } else if (item.isSocial) {
+            citationType = 'Social';
           } else {
-            citationType = 'Competitor Earned';
+            citationType = 'Content';
           }
 
           return {
@@ -161,9 +157,7 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
             domain: item.domain,
             citationType,
             totalCitations: item.totalCount,
-            brandCitations: item.brandMentionCount,
-            citationPercentage,
-            brandCitationPercentage
+            citationPercentage
           };
         });
 
@@ -187,36 +181,28 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
     );
 
     filtered.sort((a, b) => {
-      const aVal = sortBy === 'citations' ? a.totalCitations : a.brandCitations;
-      const bVal = sortBy === 'citations' ? b.totalCitations : b.brandCitations;
-      return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
+      return sortOrder === 'desc' ? b.totalCitations - a.totalCitations : a.totalCitations - b.totalCitations;
     });
 
     return filtered;
-  }, [citations, searchTerm, sortBy, sortOrder]);
+  }, [citations, searchTerm, sortOrder]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedCitations.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedCitations = filteredAndSortedCitations.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleSort = (column: 'citations' | 'brandCitations') => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      setSortBy(column);
-      setSortOrder('desc');
-    }
+  const handleSort = () => {
+    setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
   };
 
   const handleExport = () => {
     const csv = [
-      ['Page', 'Citation Type', 'Citations', 'Brand Citations'],
+      ['Page', 'Citation Type', 'Citations'],
       ...filteredAndSortedCitations.map(c => [
         c.url,
         c.citationType,
-        c.totalCitations.toString(),
-        c.brandCitations.toString()
+        c.totalCitations.toString()
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -238,7 +224,6 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
   }
 
   const maxCitations = Math.max(...citations.map(c => c.totalCitations), 1);
-  const maxBrandCitations = Math.max(...citations.map(c => c.brandCitations), 1);
 
   return (
     <div className="space-y-4">
@@ -267,7 +252,7 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[35%]">
+              <TableHead className="w-[50%]">
                 <div className="flex items-center gap-2">
                   Page
                   <TooltipProvider>
@@ -291,27 +276,18 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
                         <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Owned = your domain | Earned = external mention</p>
+                        <p>Owned = your domain | Social = social media | Content = other content</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
               </TableHead>
-              <TableHead className="w-[22.5%]">
+              <TableHead className="w-[30%]">
                 <button
-                  onClick={() => handleSort('citations')}
+                  onClick={handleSort}
                   className="flex items-center gap-1 hover:text-foreground"
                 >
                   Citations
-                  <ArrowUpDown className="h-3.5 w-3.5" />
-                </button>
-              </TableHead>
-              <TableHead className="w-[22.5%]">
-                <button
-                  onClick={() => handleSort('brandCitations')}
-                  className="flex items-center gap-1 hover:text-foreground"
-                >
-                  Brand Citations
                   <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
@@ -320,7 +296,7 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
           <TableBody>
             {paginatedCitations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                   No citations found
                 </TableCell>
               </TableRow>
@@ -334,8 +310,8 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
                       rel="noopener noreferrer"
                       className="text-primary hover:underline text-sm flex items-center gap-1 group"
                     >
-                      <span className="truncate max-w-[400px]">
-                        {citation.title || citation.url}
+                      <span className="truncate max-w-[500px]">
+                        {citation.url}
                       </span>
                       <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </a>
@@ -347,19 +323,14 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
                           Owned
                         </Badge>
                       )}
-                      {citation.citationType === 'Earned' && (
+                      {citation.citationType === 'Social' && (
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-xs">
+                          Social
+                        </Badge>
+                      )}
+                      {citation.citationType === 'Content' && (
                         <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
-                          Earned
-                        </Badge>
-                      )}
-                      {citation.citationType === 'Competitor Earned' && (
-                        <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 text-xs">
-                          Competitor Earned
-                        </Badge>
-                      )}
-                      {citation.citationType === 'Competitor Owned' && (
-                        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
-                          Competitor Owned
+                          Content
                         </Badge>
                       )}
                     </div>
@@ -372,29 +343,11 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
                       <span className="text-xs text-muted-foreground min-w-[3rem]">
                         {citation.citationPercentage.toFixed(1)}%
                       </span>
-                      <div className="flex-1 max-w-[120px]">
+                      <div className="flex-1 max-w-[180px]">
                         <div className="h-2 bg-muted rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-primary transition-all duration-300"
                             style={{ width: `${(citation.totalCitations / maxCitations) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium min-w-[2rem]">
-                        {citation.brandCitations}
-                      </span>
-                      <span className="text-xs text-muted-foreground min-w-[3rem]">
-                        {citation.brandCitationPercentage.toFixed(1)}%
-                      </span>
-                      <div className="flex-1 max-w-[120px]">
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-warning transition-all duration-300"
-                            style={{ width: `${(citation.brandCitations / maxBrandCitations) * 100}%` }}
                           />
                         </div>
                       </div>
