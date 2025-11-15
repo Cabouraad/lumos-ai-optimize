@@ -142,14 +142,19 @@ export interface ProviderResponseData {
 }
 
 /**
- * Phase 2 Enhanced: Unified data fetcher with background preloading
+ * Phase 2 Enhanced: Unified data fetcher with background preloading and date filtering
  */
-export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedDashboardData> {
+export async function getUnifiedDashboardData(
+  useCache = true, 
+  dateFrom?: Date, 
+  dateTo?: Date
+): Promise<UnifiedDashboardData> {
   try {
     const orgId = await getOrgId();
-    const cacheKey = `dashboard-data-${orgId}`;
+    const dateKey = dateFrom && dateTo ? `-${dateFrom.toISOString()}-${dateTo.toISOString()}` : '';
+    const cacheKey = `dashboard-data-${orgId}${dateKey}`;
     
-    if (useCache) {
+    if (useCache && !dateFrom && !dateTo) {
       const cached = await advancedCache.get<UnifiedDashboardData>(cacheKey);
       if (cached && isValidDashboardData(cached)) {
         return cached;
@@ -162,13 +167,15 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
     // Use bulk queries when feature flag enabled
     const result = await withFeatureFlag(
       'FEATURE_BULK_QUERIES',
-      () => getUnifiedDashboardDataBulk(orgId),
-      () => getUnifiedDashboardDataStandard(orgId),
+      () => getUnifiedDashboardDataBulk(orgId, dateFrom, dateTo),
+      () => getUnifiedDashboardDataStandard(orgId, dateFrom, dateTo),
       'getUnifiedDashboardData'
     );
 
     // Phase 2: Use advanced cache with event-driven invalidation
-    advancedCache.set(cacheKey, result, CACHE_TTL.dashboard);
+    if (!dateFrom && !dateTo) {
+      advancedCache.set(cacheKey, result, CACHE_TTL.dashboard);
+    }
     return result;
 
   } catch (error) {
@@ -180,7 +187,11 @@ export async function getUnifiedDashboardData(useCache = true): Promise<UnifiedD
 /**
  * Optimized bulk data fetching (FEATURE_BULK_QUERIES enabled)
  */
-async function getUnifiedDashboardDataBulk(orgId: string): Promise<UnifiedDashboardData> {
+async function getUnifiedDashboardDataBulk(
+  orgId: string, 
+  dateFrom?: Date, 
+  dateTo?: Date
+): Promise<UnifiedDashboardData> {
   // Single bulk fetch instead of multiple queries
   const bulkData = await getBulkPromptData();
   const { prompts, latestResponses, sevenDayStats } = bulkData;
@@ -203,17 +214,28 @@ async function getUnifiedDashboardDataBulk(orgId: string): Promise<UnifiedDashbo
   const responsesByPrompt = groupResponsesByPrompt(latestResponses);
   const statsByPrompt = groupStatsByPrompt(sevenDayStats);
 
-  // Get all responses for the last 30 days in one query (already optimized)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // Get responses with optional date filtering
+  const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const startDate = dateFrom || defaultStart;
+  const endDate = dateTo || new Date();
   const promptIds = prompts.map(p => p.id);
   
-  const { data: responses, error: responsesError } = await supabase
+  let query = supabase
     .from('prompt_provider_responses')
     .select('prompt_id, run_at, score, status')
     .in('prompt_id', promptIds)
     .eq('status', 'success')
-    .gte('run_at', thirtyDaysAgo.toISOString())
-    .order('run_at', { ascending: true });
+    .gte('run_at', startDate.toISOString());
+    
+  if (dateTo) {
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    query = query.lte('run_at', endOfDay.toISOString());
+  }
+  
+  query = query.order('run_at', { ascending: true });
+
+  const { data: responses, error: responsesError } = await query;
 
   if (responsesError) throw responsesError;
 
@@ -223,7 +245,11 @@ async function getUnifiedDashboardDataBulk(orgId: string): Promise<UnifiedDashbo
 /**
  * Standard data fetching (fallback when bulk queries disabled)
  */
-async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDashboardData> {
+async function getUnifiedDashboardDataStandard(
+  orgId: string, 
+  dateFrom?: Date, 
+  dateTo?: Date
+): Promise<UnifiedDashboardData> {
   // Original implementation logic
   const [promptsResult, providersResult] = await Promise.all([
     supabase
@@ -257,16 +283,27 @@ async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDa
     };
   }
 
-  // Get all responses for the last 30 days in one query
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // Get responses with optional date filtering
+  const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const startDate = dateFrom || defaultStart;
+  const endDate = dateTo || new Date();
   
-  const { data: responses, error: responsesError } = await supabase
+  let query = supabase
     .from('prompt_provider_responses')
     .select('prompt_id, run_at, score, status')
     .in('prompt_id', promptIds)
     .eq('status', 'success')
-    .gte('run_at', thirtyDaysAgo.toISOString())
-    .order('run_at', { ascending: true });
+    .gte('run_at', startDate.toISOString());
+    
+  if (dateTo) {
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    query = query.lte('run_at', endOfDay.toISOString());
+  }
+  
+  query = query.order('run_at', { ascending: true });
+
+  const { data: responses, error: responsesError } = await query;
 
   if (responsesError) throw responsesError;
 
@@ -399,22 +436,27 @@ async function getUnifiedDashboardDataStandard(orgId: string): Promise<UnifiedDa
 }
 
 /**
- * Phase 2 Enhanced: Unified prompt data fetcher with ML integration
+ * Phase 2 Enhanced: Unified prompt data fetcher with ML integration and date filtering
  */
-export async function getUnifiedPromptData(useCache = true): Promise<UnifiedPromptData> {
+export async function getUnifiedPromptData(
+  useCache = true, 
+  dateFrom?: Date, 
+  dateTo?: Date
+): Promise<UnifiedPromptData> {
   try {
     const orgId = await getOrgId();
-    const cacheKey = `prompt-data-${orgId}`;
+    const dateKey = dateFrom && dateTo ? `-${dateFrom.toISOString()}-${dateTo.toISOString()}` : '';
+    const cacheKey = `prompt-data-${orgId}${dateKey}`;
     
-    if (useCache) {
+    if (useCache && !dateFrom && !dateTo) {
       const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
       if (cached && isValidPromptData(cached)) {
         return cached;
       }
     }
 
-    // Get base dashboard data
-    const dashboardData = await getUnifiedDashboardData(useCache);
+    // Get base dashboard data with date filtering
+    const dashboardData = await getUnifiedDashboardData(useCache, dateFrom, dateTo);
     const safePrompts = Array.isArray((dashboardData as any)?.prompts) ? (dashboardData as any).prompts : [];
     
     if (safePrompts.length === 0) {
@@ -450,14 +492,25 @@ export async function getUnifiedPromptData(useCache = true): Promise<UnifiedProm
     let rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
     const sevenDayData = sevenDayResult.data || [];
 
-    // If RPC errored or returned no rows, fallback to direct table select
+    // If RPC errored or returned no rows, fallback to direct table select with optional date filtering
     if ((latestResponsesResult.error || rawLatestResponses.length === 0)) {
-      const { data: fallbackRows, error: fallbackError } = await supabase
+      let fallbackQuery = supabase
         .from('prompt_provider_responses')
         .select('id, prompt_id, provider, model, status, run_at, raw_ai_response, error, metadata, score, org_brand_present, org_brand_prominence, competitors_count, competitors_json, brands_json, citations_json, token_in, token_out')
-        .in('prompt_id', promptIds)
-        .order('run_at', { ascending: false })
-        .limit(400);
+        .in('prompt_id', promptIds);
+      
+      if (dateFrom) {
+        fallbackQuery = fallbackQuery.gte('run_at', dateFrom.toISOString());
+      }
+      if (dateTo) {
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        fallbackQuery = fallbackQuery.lte('run_at', endOfDay.toISOString());
+      }
+      
+      fallbackQuery = fallbackQuery.order('run_at', { ascending: false }).limit(400);
+      
+      const { data: fallbackRows, error: fallbackError } = await fallbackQuery;
       if (!fallbackError && fallbackRows) {
         // Pick latest per (prompt_id, normalized_provider)
         const seen = new Set<string>();

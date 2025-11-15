@@ -19,6 +19,7 @@ import { KeywordManagement } from '@/components/KeywordManagement';
 import { PromptSuggestions } from '@/components/PromptSuggestions';
 import { BatchPromptRunner } from '@/components/BatchPromptRunner';
 import { ProviderDebugPanel } from '@/components/ProviderDebugPanel';
+import { DateRangePicker } from '@/components/DateRangePicker';
 import { getPromptCategory } from '@/lib/prompt-utils';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useClusterPrompts } from '@/hooks/useClusterPrompts';
@@ -91,6 +92,10 @@ export default function Prompts() {
 
   // Global batch processing state
   const [isRunningGlobalBatch, setIsRunningGlobalBatch] = useState(false);
+  
+  // Date range filtering state
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [showGlobalBatchDialog, setShowGlobalBatchDialog] = useState(false);
   const [globalBatchOptions, setGlobalBatchOptions] = useState({
     replace: false,
@@ -146,7 +151,7 @@ export default function Prompts() {
       const isFirstLoad = !rawPrompts.length;
 
       const attemptFetch = async () => {
-        const unifiedData = await getUnifiedPromptData(!isFirstLoad);
+        const unifiedData = await getUnifiedPromptData(!isFirstLoad, dateFrom, dateTo);
         
         // 🐛 DEBUG: Log detailed provider data received
         console.log('🔍 [Prompts] Unified data received:', {
@@ -652,6 +657,23 @@ export default function Prompts() {
                     Refresh Data
                   </Button>
                 </div>
+              </div>
+              
+              {/* Date Range Filter */}
+              <div className="flex items-center gap-3">
+                <DateRangePicker 
+                  from={dateFrom}
+                  to={dateTo}
+                  onRangeChange={(from, to) => {
+                    setDateFrom(from);
+                    setDateTo(to);
+                  }}
+                />
+                {(dateFrom || dateTo) && (
+                  <div className="text-sm text-muted-foreground">
+                    Showing historical data
+                  </div>
+                )}
               </div>
               
               {/* Scheduler Status */}
