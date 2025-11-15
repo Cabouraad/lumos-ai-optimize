@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { ProviderResponseCard } from '@/components/ProviderResponseCard';
-import { PromptTopCitations } from '@/components/PromptTopCitations';
+
 import { PromptCitationsTable } from '@/components/citations/PromptCitationsTable';
 import { ScoreBreakdownTooltip } from '@/components/prompts/ScoreBreakdownTooltip';
 import { getUnifiedPromptData } from '@/lib/data/unified-fetcher';
@@ -316,15 +316,6 @@ export default function PromptDetail() {
               </CardContent>
             </Card>
 
-            {/* Quick Citations Preview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Citations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PromptTopCitations promptId={promptId!} limit={5} />
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="responses" className="space-y-4 mt-6">
