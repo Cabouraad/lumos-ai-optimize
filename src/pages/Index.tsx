@@ -229,12 +229,12 @@ const Index = () => {
               Comprehensive monitoring across every major AI search and answer platform
             </p>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center justify-items-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center max-w-4xl mx-auto">
               <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
-                  <Zap className="w-8 h-8 text-primary group-hover:animate-pulse" />
+                  <Search className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold group-hover:text-primary transition-colors">ChatGPT</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Google AI Overviews</span>
               </div>
               <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
@@ -250,15 +250,9 @@ const Index = () => {
               </div>
               <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
-                  <BarChart3 className="w-8 h-8 text-primary group-hover:animate-pulse" />
+                  <Zap className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Claude</span>
-              </div>
-              <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer col-span-2 md:col-span-1">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
-                  <Users className="w-8 h-8 text-primary group-hover:animate-pulse" />
-                </div>
-                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Meta AI</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">ChatGPT</span>
               </div>
             </div>
           </div>
