@@ -160,44 +160,56 @@ const Index = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="p-8 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 hover:scale-105">
-                <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
-                  <Clock className="w-6 h-6 text-primary" />
+              <Card className="group relative p-8 hover:shadow-2xl transition-all duration-500 border-2 hover:border-primary hover:scale-110 bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative z-10">
+                  <div className="mb-4 p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg w-fit transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg group-hover:shadow-primary/50">
+                    <Clock className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 group-hover:text-primary transition-colors">Real-time monitoring</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Stay informed with up-to-date AI visibility analytics
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Real-time monitoring</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Stay informed with up-to-date AI visibility analytics
-                </p>
               </Card>
               
-              <Card className="p-8 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 hover:scale-105">
-                <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
-                  <TrendingUp className="w-6 h-6 text-primary" />
+              <Card className="group relative p-8 hover:shadow-2xl transition-all duration-500 border-2 hover:border-primary hover:scale-110 bg-gradient-to-br from-background via-background to-secondary/5 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-secondary/0 via-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative z-10">
+                  <div className="mb-4 p-3 bg-gradient-to-br from-primary/20 to-secondary/5 rounded-lg w-fit transform group-hover:scale-110 group-hover:-rotate-6 transition-all duration-500 shadow-lg group-hover:shadow-primary/50">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 group-hover:text-primary transition-colors">Boost AI presence</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Increase your brand's prominence across AI platforms
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Boost AI presence</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Increase your brand's prominence across AI platforms
-                </p>
               </Card>
               
-              <Card className="p-8 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 hover:scale-105">
-                <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
-                  <Target className="w-6 h-6 text-primary" />
+              <Card className="group relative p-8 hover:shadow-2xl transition-all duration-500 border-2 hover:border-primary hover:scale-110 bg-gradient-to-br from-background via-background to-accent/5 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/0 via-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative z-10">
+                  <div className="mb-4 p-3 bg-gradient-to-br from-primary/20 to-accent/5 rounded-lg w-fit transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg group-hover:shadow-primary/50">
+                    <Target className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 group-hover:text-primary transition-colors">Competitive edge</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Gain actionable insights to stay ahead of competitors
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Competitive edge</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Gain actionable insights to stay ahead of competitors
-                </p>
               </Card>
               
-              <Card className="p-8 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 hover:scale-105">
-                <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
-                  <Shield className="w-6 h-6 text-primary" />
+              <Card className="group relative p-8 hover:shadow-2xl transition-all duration-500 border-2 hover:border-primary hover:scale-110 bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative z-10">
+                  <div className="mb-4 p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg w-fit transform group-hover:scale-110 group-hover:-rotate-6 transition-all duration-500 shadow-lg group-hover:shadow-primary/50">
+                    <Shield className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 group-hover:text-primary transition-colors">Precise targeting</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Engage your ideal customers more effectively
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Precise targeting</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Engage your ideal customers more effectively
-                </p>
               </Card>
             </div>
           </div>
@@ -218,35 +230,35 @@ const Index = () => {
             </p>
             
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center justify-items-center">
-              <div className="flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Zap className="w-8 h-8 text-primary" />
+              <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
+                  <Zap className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold">ChatGPT</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">ChatGPT</span>
               </div>
-              <div className="flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-primary" />
+              <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
+                  <Sparkles className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold">Gemini</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Gemini</span>
               </div>
-              <div className="flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Eye className="w-8 h-8 text-primary" />
+              <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
+                  <Eye className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold">Perplexity</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Perplexity</span>
               </div>
-              <div className="flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <BarChart3 className="w-8 h-8 text-primary" />
+              <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
+                  <BarChart3 className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold">Claude</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Claude</span>
               </div>
-              <div className="flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-opacity col-span-2 md:col-span-1">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Users className="w-8 h-8 text-primary" />
+              <div className="group flex flex-col items-center gap-3 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer col-span-2 md:col-span-1">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/5 flex items-center justify-center group-hover:shadow-glow group-hover:scale-110 transition-all duration-300">
+                  <Users className="w-8 h-8 text-primary group-hover:animate-pulse" />
                 </div>
-                <span className="text-lg font-semibold">Meta AI</span>
+                <span className="text-lg font-semibold group-hover:text-primary transition-colors">Meta AI</span>
               </div>
             </div>
           </div>
@@ -290,35 +302,42 @@ const Index = () => {
               </div>
               
               <div className="relative">
-                <Card className="p-8 shadow-2xl border-2">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary via-secondary to-primary rounded-xl blur-lg opacity-30 animate-pulse"></div>
+                <Card className="relative p-8 shadow-2xl border-2 border-primary/20 bg-gradient-to-br from-background to-primary/5 backdrop-blur">
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Visibility Score</span>
-                      <span className="text-3xl font-bold text-primary">82%</span>
+                      <span className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent animate-fade-in">82%</span>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span>ChatGPT</span>
-                        <span className="font-semibold">89%</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: '89%' }}></div>
-                      </div>
-                      
-                      <div className="flex justify-between text-sm">
-                        <span>Gemini</span>
-                        <span className="font-semibold">76%</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: '76%' }}></div>
+                    <div className="space-y-4">
+                      <div className="group">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="group-hover:text-primary transition-colors">ChatGPT</span>
+                          <span className="font-semibold group-hover:text-primary transition-colors">89%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-1000 group-hover:shadow-glow" style={{ width: '89%' }}></div>
+                        </div>
                       </div>
                       
-                      <div className="flex justify-between text-sm">
-                        <span>Perplexity</span>
-                        <span className="font-semibold">81%</span>
+                      <div className="group">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="group-hover:text-primary transition-colors">Gemini</span>
+                          <span className="font-semibold group-hover:text-primary transition-colors">76%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-secondary to-secondary/60 rounded-full transition-all duration-1000 group-hover:shadow-glow" style={{ width: '76%' }}></div>
+                        </div>
                       </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: '81%' }}></div>
+                      
+                      <div className="group">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="group-hover:text-primary transition-colors">Perplexity</span>
+                          <span className="font-semibold group-hover:text-primary transition-colors">81%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-accent to-accent/60 rounded-full transition-all duration-1000 group-hover:shadow-glow" style={{ width: '81%' }}></div>
+                        </div>
                       </div>
                     </div>
                   </div>
