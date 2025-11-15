@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { ProviderResponseCard } from '@/components/ProviderResponseCard';
 import { PromptTopCitations } from '@/components/PromptTopCitations';
+import { PromptCitationsTable } from '@/components/citations/PromptCitationsTable';
 import { ScoreBreakdownTooltip } from '@/components/prompts/ScoreBreakdownTooltip';
 import { getUnifiedPromptData } from '@/lib/data/unified-fetcher';
 import { getAllowedProviders } from '@/lib/providers/tier-policy';
@@ -338,14 +339,7 @@ export default function PromptDetail() {
           </TabsContent>
 
           <TabsContent value="citations" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Citations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PromptTopCitations promptId={promptId!} limit={50} />
-              </CardContent>
-            </Card>
+            <PromptCitationsTable promptId={promptId!} />
           </TabsContent>
         </Tabs>
       </div>
