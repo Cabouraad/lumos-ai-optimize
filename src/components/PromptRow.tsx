@@ -1,5 +1,6 @@
 import { useState, memo, useMemo } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,9 +19,7 @@ import { getPromptCategory, getCategoryColor } from '@/lib/prompt-utils';
 import { 
   Calendar, 
   BarChart3, 
-  Edit,
   Trash2,
-  Copy,
   ChevronDown,
   ChevronRight,
   Pause,
@@ -28,7 +27,8 @@ import {
   TrendingUp,
   Target,
   Users,
-  Tag
+  Tag,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -77,6 +77,7 @@ const PromptRowComponent = ({
 }: PromptRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { limits, currentTier } = useSubscriptionGate();
+  const navigate = useNavigate();
 
 
   const handleToggleActive = () => {
@@ -174,8 +175,24 @@ const PromptRowComponent = ({
     return Array.from(competitorCounts.values()).filter(count => count > 1).length;
   }, [promptDetails]);
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') || 
+      target.closest('input[type="checkbox"]') ||
+      target.closest('[role="button"]')
+    ) {
+      return;
+    }
+    navigate(`/prompts/${prompt.id}`);
+  };
+
   return (
-    <Card className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
+    <Card 
+      className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20 cursor-pointer"
+      onClick={handleRowClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           {/* Selection checkbox */}
@@ -188,30 +205,34 @@ const PromptRowComponent = ({
           {/* Main content */}
           <div className="flex-1 min-w-0">
             {/* Prompt text and basic info */}
-            <div className="flex flex-col sm:flex-row items-start justify-between mb-2 gap-2">
-              <div className="flex-1 w-full sm:pr-4">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="text-sm font-medium leading-relaxed line-clamp-2 mb-2 cursor-help">
-                        {prompt.text}
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-md">
-                      <p className="text-sm">{prompt.text}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+            <div className="flex flex-col sm:flex-row items-start justify-between mb-3 gap-3">
+              <div className="flex-1 w-full">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <p className="text-sm font-medium leading-relaxed line-clamp-2 flex-1">
+                    {prompt.text}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/prompts/${prompt.id}`);
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    <span>Created {format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
+                    <span>{format(new Date(prompt.created_at), 'MMM d, yyyy')}</span>
                   </div>
                   
                   <div className="flex items-center gap-1">
                     <BarChart3 className="h-3 w-3" />
-                    <span>{performance.totalRuns} runs (7d)</span>
+                    <span>{performance.totalRuns} runs</span>
                   </div>
 
                   <Badge 
@@ -220,30 +241,25 @@ const PromptRowComponent = ({
                   >
                     {prompt.active ? 'Active' : 'Paused'}
                   </Badge>
+
+                  {prompt.cluster_tag && (
+                    <ClusterTagBadge tag={prompt.cluster_tag} />
+                  )}
                 </div>
               </div>
 
-              {/* Category and Actions */}
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {/* Metrics and Actions */}
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <PerformanceBadge 
                   avgScore={performance.avgScore} 
                   trend={performance.trend}
                 />
                 
-                {prompt.cluster_tag && (
-                  <ClusterTagBadge tag={prompt.cluster_tag} />
-                )}
-                
-                <Badge 
-                  variant="outline" 
-                  className={`text-xs px-2 py-1 ${getCategoryColor(category)}`}
-                >
-                  <Tag className="h-3 w-3 mr-1" />
-                  {category}
-                </Badge>
-                
                 <Button
-                  onClick={handleToggleActive}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleActive();
+                  }}
                   variant="outline"
                   size="sm"
                   className="h-7 px-2"
@@ -252,7 +268,10 @@ const PromptRowComponent = ({
                 </Button>
 
                 <Button
-                  onClick={handleDelete}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete();
+                  }}
                   variant="outline"
                   size="sm"
                   className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -262,8 +281,8 @@ const PromptRowComponent = ({
               </div>
             </div>
 
-            {/* 7-Day Performance Summary - Compact Grid */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 p-2.5 bg-muted/30 rounded-lg mb-2">
+            {/* Performance Summary - Compact Grid */}
+            <div className="grid grid-cols-4 gap-3 p-3 bg-muted/20 rounded-lg mb-2">
               <ScoreBreakdownTooltip 
                 providers={promptDetails?.providers || {}}
                 avgScore={performance.avgScore}
@@ -271,9 +290,9 @@ const PromptRowComponent = ({
                 <div className="text-center cursor-help">
                   <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
                     <TrendingUp className="h-3 w-3" />
-                    <span>Avg Score</span>
+                    <span>Score</span>
                   </div>
-                  <div className="text-base font-semibold">
+                  <div className="text-lg font-bold">
                     {(performance.avgScore * 10).toFixed(1)}
                   </div>
                 </div>
@@ -281,10 +300,20 @@ const PromptRowComponent = ({
               
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <Target className="h-3 w-3" />
-                  <span>Brand Visible</span>
+                  <BarChart3 className="h-3 w-3" />
+                  <span>Runs</span>
                 </div>
-                <div className="text-base font-semibold text-success">
+                <div className="text-lg font-bold">
+                  {performance.totalRuns}
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
+                  <Target className="h-3 w-3" />
+                  <span>Brand</span>
+                </div>
+                <div className="text-lg font-bold text-success">
                   {performance.brandVisible}
                 </div>
               </div>
@@ -294,13 +323,13 @@ const PromptRowComponent = ({
                   <Users className="h-3 w-3" />
                   <span>Competitors</span>
                 </div>
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className="text-base font-semibold text-warning">
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-lg font-bold text-warning">
                     {performance.competitorCount}
                   </span>
                   {competitorOverlap > 0 && (
-                    <Badge variant="outline" className="text-xs px-1.5 py-0 bg-warning/10 text-warning border-warning/20">
-                      {competitorOverlap} shared
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-warning/10 text-warning border-warning/20">
+                      {competitorOverlap} overlap
                     </Badge>
                   )}
                 </div>
@@ -308,13 +337,14 @@ const PromptRowComponent = ({
             </div>
 
             {/* Provider Status Bar and Citation Preview */}
-            <div className="flex items-center justify-between gap-3 mb-2 px-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Providers:</span>
+            <div className="flex items-center justify-between gap-3 mb-3 px-1">
+              <div className="flex items-center gap-2 flex-1">
                 <ProviderStatusBar providers={promptDetails?.providers || {}} />
               </div>
               {promptDetails && (
-                <InlineCitationPreview promptId={prompt.id} limit={2} />
+                <div className="shrink-0">
+                  <InlineCitationPreview promptId={prompt.id} limit={3} />
+                </div>
               )}
             </div>
 
@@ -325,17 +355,18 @@ const PromptRowComponent = ({
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-6"
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full justify-center text-xs text-muted-foreground hover:text-foreground h-7 mt-1"
                   >
                     {isExpanded ? (
                       <>
                         <ChevronDown className="h-3 w-3 mr-1" />
-                        Hide Details
+                        Hide Quick Preview
                       </>
                     ) : (
                       <>
                         <ChevronRight className="h-3 w-3 mr-1" />
-                        Show Provider Results & Citations
+                        Quick Preview
                       </>
                     )}
                   </Button>
