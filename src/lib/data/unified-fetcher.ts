@@ -481,34 +481,57 @@ export async function getUnifiedPromptData(
       return emptyData;
     }
 
-    // Get latest provider responses and simplified data in parallel
-    const [latestResponsesResult, sevenDayResult] = await Promise.all([
-      supabase
-        .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId }),
-      supabase
-        .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
-    ]);
-
-    let rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
-    const sevenDayData = sevenDayResult.data || [];
-
-    // If RPC errored or returned no rows, fallback to direct table select with optional date filtering
-    if ((latestResponsesResult.error || rawLatestResponses.length === 0)) {
-      let fallbackQuery = supabase
+    // Get latest provider responses - when date filtering is active, get ALL responses in range
+    let allResponses: any[] = [];
+    let sevenDayData: any[] = [];
+    let rawLatestResponses: any[] = [];
+    let latestResponsesResult: any;
+    let sevenDayResult: any;
+    
+    if (dateFrom || dateTo) {
+      // Date filtering mode: get all responses in the range
+      let responsesQuery = supabase
         .from('prompt_provider_responses')
         .select('id, prompt_id, provider, model, status, run_at, raw_ai_response, error, metadata, score, org_brand_present, org_brand_prominence, competitors_count, competitors_json, brands_json, citations_json, token_in, token_out')
-        .in('prompt_id', promptIds);
+        .in('prompt_id', promptIds)
+        .in('status', ['success', 'completed']);
       
       if (dateFrom) {
-        fallbackQuery = fallbackQuery.gte('run_at', dateFrom.toISOString());
+        responsesQuery = responsesQuery.gte('run_at', dateFrom.toISOString());
       }
       if (dateTo) {
         const endOfDay = new Date(dateTo);
         endOfDay.setHours(23, 59, 59, 999);
-        fallbackQuery = fallbackQuery.lte('run_at', endOfDay.toISOString());
+        responsesQuery = responsesQuery.lte('run_at', endOfDay.toISOString());
       }
       
-      fallbackQuery = fallbackQuery.order('run_at', { ascending: false }).limit(400);
+      responsesQuery = responsesQuery.order('run_at', { ascending: false }).limit(1000);
+      
+      const { data: dateFilteredResponses, error: dateFilterError } = await responsesQuery;
+      if (dateFilterError) throw dateFilterError;
+      allResponses = dateFilteredResponses || [];
+    } else {
+      // Default mode: get latest responses per provider using RPC
+      [latestResponsesResult, sevenDayResult] = await Promise.all([
+        supabase
+          .rpc('get_latest_prompt_provider_responses', { p_org_id: orgId }),
+        supabase
+          .rpc('get_prompt_visibility_7d', { requesting_org_id: orgId })
+      ]);
+
+      rawLatestResponses = (latestResponsesResult.data || []).filter((r: any) => promptIds.includes(r.prompt_id));
+      sevenDayData = sevenDayResult.data || [];
+      allResponses = rawLatestResponses;
+    }
+
+    // If RPC errored or returned no rows in default mode, fallback to direct table select
+    if (!dateFrom && !dateTo && allResponses.length === 0) {
+      let fallbackQuery = supabase
+        .from('prompt_provider_responses')
+        .select('id, prompt_id, provider, model, status, run_at, raw_ai_response, error, metadata, score, org_brand_present, org_brand_prominence, competitors_count, competitors_json, brands_json, citations_json, token_in, token_out')
+        .in('prompt_id', promptIds)
+        .order('run_at', { ascending: false })
+        .limit(400);
       
       const { data: fallbackRows, error: fallbackError } = await fallbackQuery;
       if (!fallbackError && fallbackRows) {
@@ -522,7 +545,7 @@ export async function getUnifiedPromptData(
           seen.add(key);
           normalized.push({ ...row, provider: providerNorm });
         }
-        rawLatestResponses = normalized.filter((r: any) => promptIds.includes(r.prompt_id));
+        allResponses = normalized.filter((r: any) => promptIds.includes(r.prompt_id));
       }
     }
     
@@ -545,7 +568,7 @@ export async function getUnifiedPromptData(
     };
 
     // Apply normalization to all responses and filter out any without valid provider
-    const latestResponses = rawLatestResponses
+    const latestResponses = allResponses
       .map((r: any) => ({
         ...r,
         provider: normalizeProvider(r.provider) || r.provider
@@ -563,39 +586,120 @@ export async function getUnifiedPromptData(
     });
 
     const promptDetails = safePrompts.map(prompt => {
-      // Group latest responses by provider using Map lookup (O(1) instead of O(n))
+      // Group responses by provider - in date filter mode, get all; otherwise get latest
       const promptResponses = responsesByPrompt.get(prompt.id) || [];
-      const providerData = {
-        openai: promptResponses.find(r => r.provider === 'openai') as ProviderResponseData || null,
-        gemini: promptResponses.find(r => r.provider === 'gemini') as ProviderResponseData || null,
-        perplexity: promptResponses.find(r => r.provider === 'perplexity') as ProviderResponseData || null,
-        google_ai_overview: promptResponses.find(r => r.provider === 'google_ai_overview') as ProviderResponseData || null,
-      };
+      
+      let providerData: any = {};
+      
+      if (dateFrom || dateTo) {
+        // Date filter mode: group ALL responses by provider for aggregate stats
+        providerData = {
+          openai: promptResponses.filter(r => r.provider === 'openai'),
+          gemini: promptResponses.filter(r => r.provider === 'gemini'),
+          perplexity: promptResponses.filter(r => r.provider === 'perplexity'),
+          google_ai_overview: promptResponses.filter(r => r.provider === 'google_ai_overview'),
+        };
+      } else {
+        // Default mode: get latest per provider
+        providerData = {
+          openai: promptResponses.find(r => r.provider === 'openai') as ProviderResponseData || null,
+          gemini: promptResponses.find(r => r.provider === 'gemini') as ProviderResponseData || null,
+          perplexity: promptResponses.find(r => r.provider === 'perplexity') as ProviderResponseData || null,
+          google_ai_overview: promptResponses.find(r => r.provider === 'google_ai_overview') as ProviderResponseData || null,
+        };
+      }
 
-      // Calculate overall score
-      const scores = Object.values(providerData)
-        .filter(p => p && p.status === 'success')
-        .map(p => p!.score);
+      // Calculate overall score from all provider responses
+      let scores: number[] = [];
+      
+      if (dateFrom || dateTo) {
+        // Date filter mode: calculate from ALL responses
+        Object.values(providerData).forEach((responses: any) => {
+          if (Array.isArray(responses)) {
+            responses.forEach(r => {
+              if (r.status === 'success' || r.status === 'completed') {
+                scores.push(r.score);
+              }
+            });
+          }
+        });
+      } else {
+        // Default mode: calculate from latest per provider
+        scores = Object.values(providerData)
+          .filter((p: any) => p && (p.status === 'success' || p.status === 'completed'))
+          .map((p: any) => p.score);
+      }
+      
       const overallScore = scores.length > 0 
         ? scores.reduce((sum, score) => sum + score, 0) / scores.length 
         : 0;
 
       // Get latest run time
-      const lastRunAt = Object.values(providerData)
-        .filter(p => p?.run_at)
-        .map(p => p!.run_at)
-        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
+      let lastRunAt: string | null = null;
+      if (dateFrom || dateTo) {
+        // Get most recent from all responses
+        const allRunDates: string[] = [];
+        Object.values(providerData).forEach((responses: any) => {
+          if (Array.isArray(responses)) {
+            responses.forEach(r => allRunDates.push(r.run_at));
+          }
+        });
+        lastRunAt = allRunDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
+      } else {
+        lastRunAt = Object.values(providerData)
+          .filter((p: any) => p?.run_at)
+          .map((p: any) => p.run_at)
+          .sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
+      }
 
-      // Simplified competitor data (removed individual mention tracking)
+      // Simplified competitor data
       const promptCompetitors: Array<{ name: string; count: number }> = [];
 
-      // Get 7-day stats
-      const promptSevenDay = sevenDayData.find((s: any) => s.prompt_id === prompt.id);
-      const sevenDayStats = {
-        totalRuns: Number(promptSevenDay?.runs_7d || 0),
-        avgScore: Number(promptSevenDay?.avg_score_7d || 0),
-        brandPresenceRate: 0, // TODO: Calculate if needed
-      };
+      // Calculate stats for the period (7-day default or custom date range)
+      const periodStart = dateFrom || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const periodEnd = dateTo || new Date();
+      
+      let periodStats = { totalRuns: 0, avgScore: 0, brandPresenceRate: 0 };
+      
+      if (dateFrom || dateTo) {
+        // Calculate from all responses in the date range
+        let totalScore = 0;
+        let scoreCount = 0;
+        let brandPresentCount = 0;
+        let totalResponses = 0;
+        
+        Object.values(providerData).forEach((responses: any) => {
+          if (Array.isArray(responses)) {
+            responses.forEach((r: any) => {
+              const runDate = new Date(r.run_at);
+              if (runDate >= periodStart && runDate <= periodEnd) {
+                totalResponses++;
+                if (r.status === 'success' || r.status === 'completed') {
+                  totalScore += r.score;
+                  scoreCount++;
+                  if (r.org_brand_present) {
+                    brandPresentCount++;
+                  }
+                }
+              }
+            });
+          }
+        });
+        
+        periodStats = {
+          totalRuns: totalResponses,
+          avgScore: scoreCount > 0 ? totalScore / scoreCount : 0,
+          brandPresenceRate: totalResponses > 0 ? (brandPresentCount / totalResponses) * 100 : 0
+        };
+      } else {
+        // Use RPC 7-day stats
+        const promptSevenDay = sevenDayData.find((s: any) => s.prompt_id === prompt.id);
+        periodStats = {
+          totalRuns: Number(promptSevenDay?.runs_7d || 0),
+          avgScore: Number(promptSevenDay?.avg_score_7d || 0),
+          brandPresenceRate: 0,
+        };
+      }
 
       return {
         promptId: prompt.id,
@@ -604,8 +708,9 @@ export async function getUnifiedPromptData(
         providers: providerData,
         overallScore: Math.round(overallScore * 10) / 10,
         lastRunAt,
-        sevenDayStats,
-        competitors: promptCompetitors
+        sevenDayStats: periodStats,
+        competitors: promptCompetitors,
+        dateRange: dateFrom || dateTo ? { from: dateFrom, to: dateTo } : null
       };
     });
 
@@ -613,9 +718,22 @@ export async function getUnifiedPromptData(
     const enhancedPrompts = dashboardData.prompts.map(prompt => {
       const detail = promptDetails.find(d => d.promptId === prompt.id);
       if (detail) {
-        const latestResponseValues = Object.values(detail.providers).filter(p => p !== null) as ProviderResponseData[];
-        const brandVisibleCount = latestResponseValues.filter(r => r.org_brand_present).length;
-        const competitorCount = latestResponseValues.reduce((sum, r) => sum + (r.competitors_count || 0), 0);
+        // Handle both single responses and arrays
+        const getResponseValues = (providers: any) => {
+          const values: any[] = [];
+          Object.values(providers).forEach((val: any) => {
+            if (Array.isArray(val)) {
+              values.push(...val.filter((r: any) => r !== null));
+            } else if (val !== null) {
+              values.push(val);
+            }
+          });
+          return values;
+        };
+        
+        const latestResponseValues = getResponseValues(detail.providers);
+        const brandVisibleCount = latestResponseValues.filter((r: any) => r.org_brand_present).length;
+        const competitorCount = latestResponseValues.reduce((sum: number, r: any) => sum + (r.competitors_count || 0), 0);
         const brandPresenceRate = latestResponseValues.length > 0 
           ? (brandVisibleCount / latestResponseValues.length) * 100 
           : 0;

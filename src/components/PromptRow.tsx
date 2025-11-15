@@ -91,12 +91,16 @@ const PromptRowComponent = ({
     onDuplicatePrompt(prompt.id);
   };
 
-  // Calculate 7-day performance and current stats from provider data - Memoized
+  // Calculate performance based on date range or default 7 days
   const performance = useMemo(() => {
     if (!promptDetails?.providers) return { avgScore: 0, totalRuns: 0, trend: 0, brandVisible: 0, competitorCount: 0 };
     
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const providers = Object.values(promptDetails.providers).filter(p => p !== null) as any[];
+    // Use date range from promptDetails if available, otherwise default to 7 days
+    const dateRange = (promptDetails as any).dateRange;
+    const periodStart = dateRange?.from || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const periodEnd = dateRange?.to || new Date();
+    
+    const providers = Object.values(promptDetails.providers);
     
     let totalScore = 0;
     let totalRuns = 0;
@@ -104,26 +108,30 @@ const PromptRowComponent = ({
     let brandVisibleCount = 0;
     let totalCompetitors = 0;
     
-    providers.forEach((provider: any) => {
-      // Check for both 'completed' (new) and 'success' (legacy) status
-      if ((provider?.status === 'completed' || provider?.status === 'success') && provider.run_at) {
-        const runDate = new Date(provider.run_at);
-        if (runDate >= sevenDaysAgo) {
-          totalRuns++;
-          if (typeof provider.score === 'number') {
-            totalScore += provider.score;
-            validScores++;
+    providers.forEach((providerVal: any) => {
+      // Handle both single responses and arrays
+      const responses = Array.isArray(providerVal) ? providerVal : (providerVal ? [providerVal] : []);
+      
+      responses.forEach((provider: any) => {
+        if ((provider?.status === 'completed' || provider?.status === 'success') && provider.run_at) {
+          const runDate = new Date(provider.run_at);
+          if (runDate >= periodStart && runDate <= periodEnd) {
+            totalRuns++;
+            if (typeof provider.score === 'number') {
+              totalScore += provider.score;
+              validScores++;
+            }
+          }
+          
+          // Count current brand visibility and competitors
+          if (provider.org_brand_present) {
+            brandVisibleCount++;
+          }
+          if (provider.competitors_count) {
+            totalCompetitors += provider.competitors_count;
           }
         }
-        
-        // Count current brand visibility and competitors from latest responses
-        if (provider.org_brand_present) {
-          brandVisibleCount++;
-        }
-        if (provider.competitors_count) {
-          totalCompetitors += provider.competitors_count;
-        }
-      }
+      });
     });
     
     return {
