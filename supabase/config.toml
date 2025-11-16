@@ -195,6 +195,9 @@ verify_jwt = false
 [functions.compute-llumos-score]
 verify_jwt = false
 
+[functions.create-bf-checkout]
+verify_jwt = true
+
 [functions.get-llumos-score-demo]
 verify_jwt = false
 
