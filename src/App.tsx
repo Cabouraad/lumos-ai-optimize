@@ -54,6 +54,8 @@ const GrowthPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/Gro
 const ProPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/ProPlan")));
 const Brands = lazy(() => loadChunkWithRetry(() => import("./pages/Brands")));
 const CompetitorManagement = lazy(() => loadChunkWithRetry(() => import("./pages/CompetitorManagement")));
+const BlackFriday = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFriday")));
+const BlackFridaySuccess = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFridaySuccess")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -103,6 +105,8 @@ const App = () => {
           <Route path="/free-checker" element={<FreeChecker />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/black-friday" element={<BlackFriday />} />
+          <Route path="/black-friday-success" element={<BlackFridaySuccess />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={

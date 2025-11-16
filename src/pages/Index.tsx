@@ -88,6 +88,36 @@ const Index = () => {
           </div>
         </header>
 
+        {/* Black Friday Promo Banner */}
+        <div className="bg-gradient-to-r from-primary via-primary/90 to-primary border-b border-primary/20">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-6 h-6 text-primary-foreground animate-pulse" />
+                <div>
+                  <p className="text-primary-foreground font-bold text-lg">
+                    Black Friday Special: Get 1 Year for Only $99!
+                  </p>
+                  <p className="text-primary-foreground/90 text-sm">
+                    Limited time offer - Save over 60% on Starter Tier
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="secondary" 
+                size="lg"
+                className="shrink-0 bg-background hover:bg-background/90 text-primary font-semibold shadow-lg"
+                asChild
+              >
+                <Link to="/black-friday">
+                  Claim Deal
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Hero Section */}
         <section className="relative py-20 md:py-32 px-4 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5"></div>
