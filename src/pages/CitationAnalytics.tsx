@@ -23,7 +23,7 @@ export default function CitationAnalytics() {
               Citation Intelligence
             </h1>
             <p className="text-muted-foreground mt-2">
-              Understand which content AI models trust and cite most - optimize your content strategy for maximum visibility
+              Analyze which content AI models trust and cite most based on {timeRange === '7' ? '7' : timeRange === '30' ? '30' : '90'}-day rolling history
             </p>
           </div>
           <Select value={timeRange} onValueChange={(v) => setTimeRange(v as any)}>

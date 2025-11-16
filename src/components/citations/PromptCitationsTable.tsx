@@ -61,14 +61,18 @@ export function PromptCitationsTable({ promptId }: PromptCitationsTableProps) {
       try {
         setLoading(true);
 
-        // Fetch all responses for this prompt with citations
+        // Fetch 30 days of rolling history for citations
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // Fetch all responses for this prompt with citations in last 30 days
         const { data: responses, error } = await supabase
           .from('prompt_provider_responses')
-          .select('citations_json, org_brand_present, provider, org_id')
+          .select('citations_json, org_brand_present, provider, org_id, run_at')
           .eq('prompt_id', promptId)
+          .gte('run_at', thirtyDaysAgo.toISOString())
           .not('citations_json', 'is', null)
-          .order('run_at', { ascending: false })
-          .limit(100);
+          .order('run_at', { ascending: false });
 
         if (error) throw error;
 
