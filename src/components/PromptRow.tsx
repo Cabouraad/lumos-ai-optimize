@@ -96,13 +96,13 @@ const PromptRowComponent = ({
     onDuplicatePrompt(prompt.id);
   };
 
-  // Calculate performance based on date range or default 7 days
+  // Calculate performance based on 30-day rolling history
   const performance = useMemo(() => {
     if (!promptDetails?.providers) return { avgScore: 0, totalRuns: 0, trend: 0, brandVisible: 0, competitorCount: 0 };
     
-    // Use date range from promptDetails if available, otherwise default to 7 days
+    // Use 30-day rolling history for consistency across the app
     const dateRange = (promptDetails as any).dateRange;
-    const periodStart = dateRange?.from || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const periodStart = dateRange?.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const periodEnd = dateRange?.to || new Date();
     
     const providers = Object.values(promptDetails.providers);
