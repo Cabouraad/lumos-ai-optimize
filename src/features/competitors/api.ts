@@ -35,6 +35,7 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
   // Resolve org_id reliably
   const orgId = await getOrgIdSafe();
 
+  // Always default to 30 days for rolling history
   const { data, error } = await sb.rpc('get_org_competitor_summary_v2_secure', {
     p_days: filters.days ?? 30,
     p_limit: Math.min(filters.limit ?? 50, 50),

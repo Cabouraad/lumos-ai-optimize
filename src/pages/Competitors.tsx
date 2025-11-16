@@ -677,7 +677,7 @@ export default function Competitors() {
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold text-foreground">Brand Competition</h1>
                 <p className="text-muted-foreground">
-                  Competition analysis for {orgName} • {catalogCount} tracked {catalogCount >= 50 && '(at limit)'}
+                  Competition analysis for {orgName} • {catalogCount} tracked {catalogCount >= 50 && '(at limit)'} • Last 30 days
                 </p>
               </div>
               

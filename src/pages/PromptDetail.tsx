@@ -36,7 +36,15 @@ export default function PromptDetail() {
   const [prompt, setPrompt] = useState<any>(null);
   const [promptDetails, setPromptDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  
+  // Default to 30-day rolling history
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ 
+    from: thirtyDaysAgo, 
+    to: new Date() 
+  });
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -176,6 +184,8 @@ export default function PromptDetail() {
                 <Calendar className="h-4 w-4" />
                 Created {format(new Date(prompt.created_at), 'MMM d, yyyy')}
               </div>
+              <span>•</span>
+              <span>Showing 30-day rolling history</span>
               <Badge variant={prompt.active ? 'default' : 'secondary'}>
                 {prompt.active ? 'Active' : 'Paused'}
               </Badge>
@@ -330,7 +340,19 @@ export default function PromptDetail() {
           </TabsContent>
 
           <TabsContent value="citations" className="mt-6">
-            <PromptCitationsTable promptId={promptId!} />
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Cited Sources (Last 30 Days)</CardTitle>
+                  <Badge variant="secondary">
+                    {format(dateRange.from || thirtyDaysAgo, 'MMM d')} - {format(dateRange.to || new Date(), 'MMM d, yyyy')}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <PromptCitationsTable promptId={promptId!} />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
