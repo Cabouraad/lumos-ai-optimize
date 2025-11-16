@@ -173,7 +173,7 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_citation_performance_insights', {
         p_days: days,
-        p_limit: 20,
+        p_limit: 200, // Increased limit to capture all citations in 30-day rolling history
       });
 
       if (error) throw error;
@@ -198,7 +198,7 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
       const { data, error } = await supabase.rpc('get_citation_trends', {
         p_org_id: userData.org_id,
         p_days: days,
-        p_limit: 20,
+        p_limit: 200, // Increased limit to capture all citation trends in 30-day rolling history
       });
 
       if (error) throw error;
