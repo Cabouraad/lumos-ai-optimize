@@ -59,10 +59,11 @@ export function CompetitorTrendsChart({ brandId }: CompetitorTrendsChartProps) {
         return;
       }
 
+      // Use 30-day rolling history for consistency
       const { data, error } = await supabase.rpc('get_competitor_trends', {
         p_org_id: userData.org_id,
         p_interval: timeInterval === 'week' ? 'week' : 'month',
-        p_days: timeInterval === 'week' ? 90 : 180,
+        p_days: timeInterval === 'week' ? 30 : 60,
         p_limit: 5,
         p_brand_id: brandId || null
       });

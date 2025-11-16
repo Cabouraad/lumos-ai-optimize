@@ -31,18 +31,18 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
     // Find the corresponding detailed data for this prompt
     const details = promptDetails.find(d => d.promptId === prompt.id);
     
-    // Calculate 7-day runs - count responses from last 7 days
+    // Calculate 30-day runs - count responses from last 30 days for rolling history
     let runs_7d = 0;
     let avg_score_7d = 0;
     let scoreCount = 0;
     
     if (details) {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       
       Object.values(details.providers).forEach((provider: any) => {
         if (provider && (provider.status === 'success' || provider.status === 'completed')) {
           const runDate = new Date(provider.run_at);
-          if (runDate >= sevenDaysAgo) {
+          if (runDate >= thirtyDaysAgo) {
             runs_7d++;
             avg_score_7d += provider.score;
             scoreCount++;
@@ -50,7 +50,7 @@ const transformPromptData = (prompts: any[], promptDetails: any[]) => {
         }
       });
       
-      // Calculate average score for 7 days
+      // Calculate average score for 30-day period
       if (scoreCount > 0) {
         avg_score_7d = avg_score_7d / scoreCount;
       } else {

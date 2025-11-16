@@ -59,11 +59,11 @@ export function CondensedPromptRow({
     onToggleActive(prompt.id, !prompt.active);
   };
 
-  // Calculate performance metrics
+  // Calculate performance metrics based on 30-day rolling history
   const calculatePerformance = () => {
     if (!promptDetails?.providers) return { avgScore: 0, totalRuns: 0, brandVisible: 0, competitorCount: 0 };
     
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const providers = Object.values(promptDetails.providers).filter(p => p !== null) as any[];
     
     let totalScore = 0;
@@ -75,7 +75,7 @@ export function CondensedPromptRow({
     providers.forEach((provider: any) => {
       if (provider?.status === 'success' && provider.run_at) {
         const runDate = new Date(provider.run_at);
-        if (runDate >= sevenDaysAgo) {
+        if (runDate >= thirtyDaysAgo) {
           totalRuns++;
           if (typeof provider.score === 'number') {
             totalScore += provider.score;
