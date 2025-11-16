@@ -592,13 +592,24 @@ export async function getUnifiedPromptData(
       let providerData: any = {};
       
       if (dateFrom || dateTo) {
-        // Date filter mode: group ALL responses by provider for aggregate stats
-        providerData = {
+        // Date filter mode: get ALL responses for stats, but return LATEST per provider for display
+        const allResponsesByProvider = {
           openai: promptResponses.filter(r => r.provider === 'openai'),
           gemini: promptResponses.filter(r => r.provider === 'gemini'),
           perplexity: promptResponses.filter(r => r.provider === 'perplexity'),
           google_ai_overview: promptResponses.filter(r => r.provider === 'google_ai_overview'),
         };
+        
+        // Get the latest response per provider for display
+        providerData = {
+          openai: allResponsesByProvider.openai.sort((a, b) => new Date(b.run_at).getTime() - new Date(a.run_at).getTime())[0] || null,
+          gemini: allResponsesByProvider.gemini.sort((a, b) => new Date(b.run_at).getTime() - new Date(a.run_at).getTime())[0] || null,
+          perplexity: allResponsesByProvider.perplexity.sort((a, b) => new Date(b.run_at).getTime() - new Date(a.run_at).getTime())[0] || null,
+          google_ai_overview: allResponsesByProvider.google_ai_overview.sort((a, b) => new Date(b.run_at).getTime() - new Date(a.run_at).getTime())[0] || null,
+        };
+        
+        // Store all responses for aggregate calculations
+        (providerData as any)._allResponses = allResponsesByProvider;
       } else {
         // Default mode: get latest per provider
         providerData = {
@@ -613,16 +624,19 @@ export async function getUnifiedPromptData(
       let scores: number[] = [];
       
       if (dateFrom || dateTo) {
-        // Date filter mode: calculate from ALL responses
-        Object.values(providerData).forEach((responses: any) => {
-          if (Array.isArray(responses)) {
-            responses.forEach(r => {
-              if (r.status === 'success' || r.status === 'completed') {
-                scores.push(r.score);
-              }
-            });
-          }
-        });
+        // Date filter mode: calculate from ALL responses stored in _allResponses
+        const allResponsesByProvider = (providerData as any)._allResponses;
+        if (allResponsesByProvider) {
+          Object.values(allResponsesByProvider).forEach((responses: any) => {
+            if (Array.isArray(responses)) {
+              responses.forEach(r => {
+                if (r.status === 'success' || r.status === 'completed') {
+                  scores.push(r.score);
+                }
+              });
+            }
+          });
+        }
       } else {
         // Default mode: calculate from latest per provider
         scores = Object.values(providerData)
@@ -637,13 +651,16 @@ export async function getUnifiedPromptData(
       // Get latest run time
       let lastRunAt: string | null = null;
       if (dateFrom || dateTo) {
-        // Get most recent from all responses
+        // Get most recent from all responses stored in _allResponses
+        const allResponsesByProvider = (providerData as any)._allResponses;
         const allRunDates: string[] = [];
-        Object.values(providerData).forEach((responses: any) => {
-          if (Array.isArray(responses)) {
-            responses.forEach(r => allRunDates.push(r.run_at));
-          }
-        });
+        if (allResponsesByProvider) {
+          Object.values(allResponsesByProvider).forEach((responses: any) => {
+            if (Array.isArray(responses)) {
+              responses.forEach(r => allRunDates.push(r.run_at));
+            }
+          });
+        }
         lastRunAt = allRunDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
       } else {
         lastRunAt = Object.values(providerData)
@@ -662,29 +679,32 @@ export async function getUnifiedPromptData(
       let periodStats = { totalRuns: 0, avgScore: 0, brandPresenceRate: 0 };
       
       if (dateFrom || dateTo) {
-        // Calculate from all responses in the date range
+        // Calculate from all responses in the date range stored in _allResponses
         let totalScore = 0;
         let scoreCount = 0;
         let brandPresentCount = 0;
         let totalResponses = 0;
         
-        Object.values(providerData).forEach((responses: any) => {
-          if (Array.isArray(responses)) {
-            responses.forEach((r: any) => {
-              const runDate = new Date(r.run_at);
-              if (runDate >= periodStart && runDate <= periodEnd) {
-                totalResponses++;
-                if (r.status === 'success' || r.status === 'completed') {
-                  totalScore += r.score;
-                  scoreCount++;
-                  if (r.org_brand_present) {
-                    brandPresentCount++;
+        const allResponsesByProvider = (providerData as any)._allResponses;
+        if (allResponsesByProvider) {
+          Object.values(allResponsesByProvider).forEach((responses: any) => {
+            if (Array.isArray(responses)) {
+              responses.forEach((r: any) => {
+                const runDate = new Date(r.run_at);
+                if (runDate >= periodStart && runDate <= periodEnd) {
+                  totalResponses++;
+                  if (r.status === 'success' || r.status === 'completed') {
+                    totalScore += r.score;
+                    scoreCount++;
+                    if (r.org_brand_present) {
+                      brandPresentCount++;
+                    }
                   }
                 }
-              }
-            });
-          }
-        });
+              });
+            }
+          });
+        }
         
         periodStats = {
           totalRuns: totalResponses,
