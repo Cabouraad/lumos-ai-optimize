@@ -1,10 +1,11 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
 import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle, Bot, Search, Sparkles, Globe, Link2, ExternalLink, Eye } from 'lucide-react';
 import { ResponseClassificationFixer } from './ResponseClassificationFixer';
@@ -31,9 +32,12 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
   const config = PROVIDER_CONFIG[provider];
   const { orgBrandVariants } = useOrgBrands();
   const { filterCompetitorsByCatalog } = useCatalogCompetitors();
-
+  
   // Handle array of responses
   const responses = Array.isArray(response) ? response : response ? [response] : [];
+  
+  // State for selected historical response
+  const [selectedResponseId, setSelectedResponseId] = useState<string>(responses[0]?.id || '');
   
   if (responses.length === 0) {
     return (
@@ -402,47 +406,72 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
 
             {/* Show all responses in date range if multiple */}
             {responses.length > 1 && (
-              <div className="border-t pt-4 mt-4">
-                <p className="text-xs font-medium mb-3">All Responses in Date Range ({responses.length})</p>
+              <div className="border-t pt-4 mt-4 space-y-4">
                 <div className="space-y-2">
-                  {responses.map((resp, idx) => (
-                    <div key={resp.id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={`text-[10px] ${getStatusColor(resp.status)}`}>
-                          {resp.status === 'completed' ? 'success' : resp.status}
+                  <p className="text-xs font-medium">View Historical Response ({responses.length} available)</p>
+                  <Select value={selectedResponseId} onValueChange={setSelectedResponseId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a date" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {responses.map((resp) => (
+                        <SelectItem key={resp.id} value={resp.id}>
+                          <div className="flex items-center gap-2">
+                            {resp.org_brand_present ? (
+                              <CheckCircle className="h-3 w-3 text-success" />
+                            ) : (
+                              <XCircle className="h-3 w-3 text-destructive" />
+                            )}
+                            <span>{format(new Date(resp.run_at), 'MMM d, yyyy h:mm a')}</span>
+                            <Badge variant="outline" className={`text-[10px] ml-auto ${getStatusColor(resp.status)}`}>
+                              {resp.status === 'completed' ? 'success' : resp.status}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Display selected response */}
+                {selectedResponseId && (() => {
+                  const selectedResp = responses.find(r => r.id === selectedResponseId);
+                  if (!selectedResp) return null;
+                  
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs">
+                        <Badge variant="outline" className={getStatusColor(selectedResp.status)}>
+                          {selectedResp.status === 'completed' ? 'success' : selectedResp.status}
                         </Badge>
-                        {resp.org_brand_present ? (
-                          <CheckCircle className="h-3 w-3 text-success" />
+                        {selectedResp.org_brand_present ? (
+                          <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                            Brand Found
+                          </Badge>
                         ) : (
-                          <XCircle className="h-3 w-3 text-destructive" />
+                          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                            Brand Not Found
+                          </Badge>
                         )}
-                        <span className="text-muted-foreground">
-                          {format(new Date(resp.run_at), 'MMM d, h:mm a')}
-                        </span>
                       </div>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 px-2">
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-3xl max-h-[80vh]">
-                          <DialogHeader>
-                            <DialogTitle>Response from {format(new Date(resp.run_at), 'MMM d, yyyy h:mm a')}</DialogTitle>
-                            <DialogDescription>
-                              Full AI response from {config.name}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <ScrollArea className="max-h-[60vh] pr-4">
-                            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                              {resp.raw_ai_response || 'No response available'}
+                      
+                      {selectedResp.raw_ai_response ? (
+                        <div className="bg-muted/30 p-4 rounded-lg border">
+                          <p className="text-xs font-medium mb-2">AI Response:</p>
+                          <ScrollArea className="max-h-[400px]">
+                            <pre className="whitespace-pre-wrap text-xs leading-relaxed">
+                              {selectedResp.raw_ai_response}
                             </pre>
                           </ScrollArea>
-                        </DialogContent>
-                      </Dialog>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground bg-muted/30 p-4 rounded-lg border">
+                          No response content available for this date
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
             )}
           </>
