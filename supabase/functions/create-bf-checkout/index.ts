@@ -71,9 +71,11 @@ serve(async (req) => {
       success_url: `${req.headers.get("origin")}/black-friday-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/black-friday`,
       allow_promotion_codes: true,
+      client_reference_id: user.id,
       metadata: {
         promo_type: "black_friday",
-        tier: "starter"
+        tier: "starter",
+        user_id: user.id
       }
     });
 
