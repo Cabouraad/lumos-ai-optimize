@@ -878,6 +878,19 @@ export default function Onboarding() {
           </div>
         </div>
 
+        {/* Black Friday Promo */}
+        <Card className="mb-6 border-2 border-primary/20 bg-card/50">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Black Friday — One Year Starter for $99</CardTitle>
+            <CardDescription>Limited-time offer. You can also choose this instead of standard pricing.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button size="lg" onClick={() => navigate('/black-friday')}>
+              Claim Black Friday Deal
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           {pricingTiers.map((tier) => (

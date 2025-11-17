@@ -207,6 +207,22 @@ export default function Pricing() {
           </div>
         )}
 
+        {/* Black Friday Promo */}
+        <Card className="mb-8 border-2 border-primary/20 bg-card/50">
+          <CardHeader className="text-center">
+            <Badge variant="secondary" className="mb-2 bg-primary/10 text-primary border-primary/20">Black Friday</Badge>
+            <CardTitle className="text-3xl">One Year Starter — $99</CardTitle>
+            <CardDescription>Limited-time deal. Save over 60% for a full year.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Link to="/black-friday">
+              <Button size="lg">
+                Claim Black Friday Deal
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
           {pricingTiers.map((tier) => (
