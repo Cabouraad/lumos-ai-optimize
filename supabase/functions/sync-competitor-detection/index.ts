@@ -179,6 +179,20 @@ Deno.serve(async (req) => {
       
       totalOrgsProcessed++;
 
+      // Get excluded competitors for this org
+      const { data: exclusions } = await supabase
+        .from('org_competitor_exclusions')
+        .select('competitor_name')
+        .eq('org_id', orgId);
+      
+      const excludedCompetitors = new Set(
+        exclusions?.map(e => e.competitor_name.toLowerCase().trim()) || []
+      );
+      
+      if (excludedCompetitors.size > 0) {
+        console.log(`Found ${excludedCompetitors.size} excluded competitors for org ${orgId}`);
+      }
+
       // Get existing competitors for this org
       const { data: existingCompetitors, error: existingError } = await supabase
         .from('brand_catalog')
@@ -195,6 +209,12 @@ Deno.serve(async (req) => {
 
       // Process competitors with frequency threshold
       for (const [competitorName, data] of competitorMap) {
+        // Skip if competitor is excluded
+        if (excludedCompetitors.has(competitorName.toLowerCase().trim())) {
+          console.log(`Skipping excluded competitor: ${competitorName}`);
+          continue;
+        }
+
         const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
         
         // Frequency threshold: must be mentioned at least 3 times OR have high confidence

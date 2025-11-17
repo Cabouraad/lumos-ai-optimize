@@ -20,7 +20,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Fetch org overlay with caching
- * For now, stores overlay data in a separate table or falls back to empty overlay
+ * Fetches exclusions from the org_competitor_exclusions table
  */
 export async function getOrgOverlay(orgId: string): Promise<OrgOverlay> {
   // Check cache first
@@ -30,12 +30,20 @@ export async function getOrgOverlay(orgId: string): Promise<OrgOverlay> {
   }
 
   try {
-    // For now, return empty overlay since we don't have a metadata field
-    // In production, this would fetch from a dedicated org_overlays table
+    // Fetch exclusions from database
+    const { data: exclusions, error } = await supabase
+      .from('org_competitor_exclusions')
+      .select('competitor_name')
+      .eq('org_id', orgId);
+
+    if (error) {
+      console.error('Error fetching org exclusions:', error);
+    }
+
     const overlay: OrgOverlay = {
       org_id: orgId,
       competitor_overrides: [],
-      competitor_exclusions: [],
+      competitor_exclusions: exclusions?.map(e => e.competitor_name) || [],
       brand_variants: [],
       last_updated: new Date()
     };
@@ -105,11 +113,32 @@ export async function addCompetitorOverride(orgId: string, competitor: string): 
  * Add competitor exclusion (manual removal)
  */
 export async function addCompetitorExclusion(orgId: string, competitor: string): Promise<void> {
-  const overlay = await getOrgOverlay(orgId);
-  
-  if (!overlay.competitor_exclusions.includes(competitor)) {
-    overlay.competitor_exclusions.push(competitor);
-    await updateOrgOverlay(orgId, { competitor_exclusions: overlay.competitor_exclusions });
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Insert into database (using upsert to handle duplicates)
+    const { error } = await supabase
+      .from('org_competitor_exclusions')
+      .upsert(
+        { 
+          org_id: orgId, 
+          competitor_name: competitor,
+          excluded_by: user?.id 
+        },
+        { onConflict: 'org_id,competitor_name' }
+      );
+
+    if (error) {
+      console.error('Error adding competitor exclusion:', error);
+      throw error;
+    }
+
+    // Clear cache for this org to force refresh
+    overlayCache.delete(orgId);
+  } catch (error) {
+    console.error('Failed to add competitor exclusion:', error);
+    throw error;
   }
 }
 
