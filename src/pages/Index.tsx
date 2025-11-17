@@ -131,9 +131,11 @@ const Index = () => {
               </Badge>
               
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight">
-                Understand how <ScrollingAIText /> is
+                Understand how
                 <br />
-                talking about your brand
+                <ScrollingAIText />
+                <br />
+                is talking about your brand
               </h1>
               
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
