@@ -12,7 +12,14 @@ const BlackFridaySuccess = () => {
   useEffect(() => {
     // Optional: You could verify the session with Stripe here
     console.log('Payment session:', sessionId);
-  }, [sessionId]);
+    
+    // Auto-redirect to dashboard after 5 seconds
+    const timer = setTimeout(() => {
+      navigate('/dashboard');
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [sessionId, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
@@ -69,7 +76,7 @@ const BlackFridaySuccess = () => {
 
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               size="lg"
               className="flex-1"
             >
@@ -85,6 +92,10 @@ const BlackFridaySuccess = () => {
               Create First Prompt
             </Button>
           </div>
+          
+          <p className="text-center text-sm text-muted-foreground">
+            Redirecting to dashboard in a few seconds...
+          </p>
 
           {sessionId && (
             <p className="text-center text-xs text-muted-foreground pt-4">
