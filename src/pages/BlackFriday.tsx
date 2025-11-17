@@ -21,7 +21,8 @@ const BlackFriday = () => {
 
     if (!user) {
       toast.info('Please sign in to claim this deal');
-      navigate('/signin?redirect=/black-friday');
+      // Encode the redirect path to preserve it through auth flow
+      navigate('/signin?redirect=' + encodeURIComponent('/black-friday'));
       return;
     }
 

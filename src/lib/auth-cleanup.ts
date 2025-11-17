@@ -28,7 +28,7 @@ export function cleanupAuthState() {
   sessionStorage.removeItem('billing-cycle');
 }
 
-export async function signInWithCleanup(email: string, password: string) {
+export async function signInWithCleanup(email: string, password: string, redirectPath?: string) {
   try {
     // Clean up existing state
     cleanupAuthState();
@@ -49,8 +49,11 @@ export async function signInWithCleanup(email: string, password: string) {
     if (error) throw error;
     
     if (data.user) {
-      // Force page reload
-      window.location.href = '/';
+      // Force page reload with redirect parameter preserved
+      const destination = redirectPath 
+        ? `/auth-processing?redirect=${encodeURIComponent(redirectPath)}`
+        : '/auth-processing';
+      window.location.href = destination;
     }
     
     return { data, error: null };

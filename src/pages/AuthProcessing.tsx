@@ -9,6 +9,9 @@ export default function AuthProcessing() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [error, setError] = useState<string | null>(null);
+  
+  // Get redirect path from URL (e.g., from /signin?redirect=/black-friday)
+  const redirectPath = searchParams.get('redirect') || null;
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -61,8 +64,13 @@ export default function AuthProcessing() {
                 // Has org and subscription - go to dashboard
                 setTimeout(() => navigate('/dashboard'), 1000);
               } else {
-                // Has org but no subscription - send to pricing
-                setTimeout(() => navigate('/pricing'), 1000);
+                // Has org but no subscription - check for redirect path (e.g., black-friday)
+                if (redirectPath) {
+                  setTimeout(() => navigate(redirectPath), 1000);
+                } else {
+                  // Default to pricing if no redirect specified
+                  setTimeout(() => navigate('/pricing'), 1000);
+                }
               }
             } else {
               // No organization - send to onboarding

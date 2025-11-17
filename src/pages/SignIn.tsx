@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { signInWithCleanup } from '@/lib/auth-cleanup';
 import { Button } from '@/components/ui/button';
@@ -12,19 +12,23 @@ import { Search } from 'lucide-react';
 export default function SignIn() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Get redirect path to preserve it through auth flow
+  const redirectPath = searchParams.get('redirect') || '/dashboard';
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={redirectPath} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await signInWithCleanup(email, password);
+    const { error } = await signInWithCleanup(email, password, searchParams.get('redirect') || undefined);
 
     if (error) {
       const message = (error as any)?.message || 'Invalid email or password';
@@ -79,7 +83,10 @@ export default function SignIn() {
           
           <div className="mt-4 text-center text-sm">
             <span className="text-muted-foreground">Don't have an account? </span>
-            <Link to="/signup" className="text-primary hover:underline font-medium">
+            <Link 
+              to={redirectPath && redirectPath !== '/dashboard' ? `/signup?redirect=${encodeURIComponent(redirectPath)}` : '/signup'}
+              className="text-primary hover:underline font-medium"
+            >
               Sign up
             </Link>
           </div>
