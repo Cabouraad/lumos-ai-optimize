@@ -14,23 +14,18 @@ export function ScrollingAIText() {
   }, []);
 
   return (
-    <span className="inline-block relative text-primary overflow-hidden align-middle">
-      <span className="inline-block min-w-[280px] md:min-w-[380px] lg:min-w-[480px] text-left">
+    <span className="inline-block relative text-primary overflow-hidden text-center w-full">
+      <span className="inline-block h-[1.2em] relative w-full">
         {AI_PLATFORMS.map((platform, index) => (
           <span
             key={platform}
-            className={`inline-block transition-all duration-700 ease-in-out ${
+            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap transition-all duration-700 ease-in-out ${
               index === currentIndex 
                 ? 'opacity-100 translate-y-0' 
                 : index < currentIndex
-                ? 'opacity-0 -translate-y-full absolute'
-                : 'opacity-0 translate-y-full absolute'
+                ? 'opacity-0 -translate-y-full'
+                : 'opacity-0 translate-y-full'
             }`}
-            style={{
-              position: index === currentIndex ? 'relative' : 'absolute',
-              left: 0,
-              top: 0,
-            }}
           >
             {platform}
           </span>
