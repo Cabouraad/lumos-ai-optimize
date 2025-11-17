@@ -874,6 +874,45 @@ export type Database = {
           },
         ]
       }
+      org_competitor_exclusions: {
+        Row: {
+          competitor_name: string
+          excluded_at: string
+          excluded_by: string | null
+          id: string
+          org_id: string
+        }
+        Insert: {
+          competitor_name: string
+          excluded_at?: string
+          excluded_by?: string | null
+          id?: string
+          org_id: string
+        }
+        Update: {
+          competitor_name?: string
+          excluded_at?: string
+          excluded_by?: string | null
+          id?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_competitor_exclusions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "org_competitor_exclusions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           business_city: string | null

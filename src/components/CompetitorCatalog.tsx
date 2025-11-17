@@ -111,6 +111,35 @@ export function CompetitorCatalog() {
 
   const handleRemoveCompetitor = async (competitorId: string, name: string) => {
     try {
+      // Get user's org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.org_id) throw new Error('Organization not found');
+
+      // Add to exclusions table first to prevent re-adding
+      const { error: exclusionError } = await supabase
+        .from('org_competitor_exclusions')
+        .upsert({
+          org_id: userData.org_id,
+          competitor_name: name,
+          excluded_by: user.id
+        }, {
+          onConflict: 'org_id,competitor_name'
+        });
+
+      if (exclusionError) {
+        console.error('Error adding exclusion:', exclusionError);
+        throw exclusionError;
+      }
+
+      // Then delete from catalog
       const { error } = await supabase
         .from('brand_catalog')
         .delete()
@@ -128,7 +157,7 @@ export function CompetitorCatalog() {
 
       toast({
         title: "Competitor removed",
-        description: `${name} has been removed from your catalog.`
+        description: `${name} has been permanently excluded and won't be re-added automatically.`
       });
 
       setSelectedCompetitors(new Set());
@@ -166,7 +195,41 @@ export function CompetitorCatalog() {
 
     try {
       setIsDeleting(true);
+
+      // Get user's org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.org_id) throw new Error('Organization not found');
+
+      // Get competitor names for the selected IDs
+      const competitorsToDelete = catalog.filter(c => selectedCompetitors.has(c.id));
       
+      // Add all to exclusions table first
+      const exclusions = competitorsToDelete.map(c => ({
+        org_id: userData.org_id,
+        competitor_name: c.name,
+        excluded_by: user.id
+      }));
+
+      const { error: exclusionError } = await supabase
+        .from('org_competitor_exclusions')
+        .upsert(exclusions, {
+          onConflict: 'org_id,competitor_name'
+        });
+
+      if (exclusionError) {
+        console.error('Error adding exclusions:', exclusionError);
+        throw exclusionError;
+      }
+      
+      // Then delete from catalog
       const { error } = await supabase
         .from('brand_catalog')
         .delete()
@@ -184,7 +247,7 @@ export function CompetitorCatalog() {
 
       toast({
         title: "Competitors removed",
-        description: `${selectedCompetitors.size} competitor(s) have been removed from your catalog.`
+        description: `${selectedCompetitors.size} competitor(s) have been permanently excluded.`
       });
 
       setSelectedCompetitors(new Set());
