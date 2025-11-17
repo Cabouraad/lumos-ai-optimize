@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const AI_PLATFORMS = ['AI', 'ChatGPT', 'Gemini', 'Perplexity', 'Google AI Overviews'];
+const AI_PLATFORMS = ['ChatGPT', 'Gemini', 'Perplexity', 'Google AI Overviews'];
 
 export function ScrollingAIText() {
   const [currentIndex, setCurrentIndex] = useState(0);
