@@ -175,10 +175,15 @@ export function PricingCard({
   };
 
   return (
-    <Card className={`relative flex flex-col ${isPopular ? 'border-primary ring-2 ring-primary shadow-lg' : ''}`}>
+    <Card className={`relative flex flex-col ${isPopular ? 'border-primary ring-2 ring-primary shadow-lg' : ''} ${tier === 'starter' ? 'border-primary/50' : ''}`}>
       {isPopular && (
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
           Most Popular
+        </Badge>
+      )}
+      {tier === 'starter' && (
+        <Badge className={`absolute ${isPopular ? '-top-3 right-4' : '-top-3 left-1/2 -translate-x-1/2'} bg-primary/10 text-primary border-primary/20`}>
+          🎉 Black Friday: $99/year
         </Badge>
       )}
       
