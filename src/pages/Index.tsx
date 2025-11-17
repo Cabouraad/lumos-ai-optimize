@@ -14,6 +14,7 @@ import { ProofSection } from '@/components/landing/ProofSection';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { SEOHelmet } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
+import { ScrollingAIText } from '@/components/ScrollingAIText';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -130,7 +131,7 @@ const Index = () => {
               </Badge>
               
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight">
-                Understand how <span className="text-primary">AI</span> is
+                Understand how <ScrollingAIText /> is
                 <br />
                 talking about your brand
               </h1>
