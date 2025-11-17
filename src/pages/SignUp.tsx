@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,19 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 export default function SignUp() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { trackSignupBegin, trackSignupSuccess } = useAnalytics();
   
   const { strength: passwordStrength, loading: strengthLoading } = usePasswordStrength(password);
+  
+  // Get redirect path to preserve it through auth flow
+  const redirectPath = searchParams.get('redirect') || '/dashboard';
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={redirectPath} replace />;
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -32,11 +36,16 @@ export default function SignUp() {
     
     trackSignupBegin('email');
     
+    // Build email redirect URL with the redirect path parameter
+    const emailRedirectUrl = redirectPath && redirectPath !== '/dashboard'
+      ? `${window.location.origin}/auth-processing?redirect=${encodeURIComponent(redirectPath)}`
+      : `${window.location.origin}/auth-processing`;
+    
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/processing`
+        emailRedirectTo: emailRedirectUrl
       }
     });
 
@@ -116,7 +125,10 @@ export default function SignUp() {
           
           <div className="mt-4 text-center text-sm">
             <span className="text-muted-foreground">Already have an account? </span>
-            <Link to="/signin" className="text-primary hover:underline font-medium">
+            <Link 
+              to={redirectPath && redirectPath !== '/dashboard' ? `/signin?redirect=${encodeURIComponent(redirectPath)}` : '/signin'}
+              className="text-primary hover:underline font-medium"
+            >
               Sign in
             </Link>
           </div>
