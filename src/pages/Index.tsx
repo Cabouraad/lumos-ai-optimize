@@ -130,12 +130,10 @@ const Index = () => {
                 AI Visibility Analytics Platform
               </Badge>
               
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
-                Understand how
-                <br />
-                <ScrollingAIText />
-                <br className="leading-none" />
-                is talking about your brand
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight">
+                <span className="block mb-2">Understand how</span>
+                <span className="block mb-2"><ScrollingAIText /></span>
+                <span className="block">is talking about your brand</span>
               </h1>
               
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
