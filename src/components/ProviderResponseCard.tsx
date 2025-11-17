@@ -38,6 +38,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
   
   // State for selected historical response
   const [selectedResponseId, setSelectedResponseId] = useState<string>(responses[0]?.id || '');
+  const [historicalDialogOpen, setHistoricalDialogOpen] = useState(false);
   
   if (responses.length === 0) {
     return (
@@ -409,69 +410,90 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
               <div className="border-t pt-4 mt-4 space-y-4">
                 <div className="space-y-2">
                   <p className="text-xs font-medium">View Historical Response ({responses.length} available)</p>
-                  <Select value={selectedResponseId} onValueChange={setSelectedResponseId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a date" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {responses.map((resp) => (
-                        <SelectItem key={resp.id} value={resp.id}>
-                          <div className="flex items-center gap-2">
-                            {resp.org_brand_present ? (
-                              <CheckCircle className="h-3 w-3 text-success" />
-                            ) : (
-                              <XCircle className="h-3 w-3 text-destructive" />
-                            )}
-                            <span>{format(new Date(resp.run_at), 'MMM d, yyyy h:mm a')}</span>
-                            <Badge variant="outline" className={`text-[10px] ml-auto ${getStatusColor(resp.status)}`}>
-                              {resp.status === 'completed' ? 'success' : resp.status}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedResponseId} onValueChange={setSelectedResponseId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a date" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {responses.map((resp) => (
+                          <SelectItem key={resp.id} value={resp.id}>
+                            <div className="flex items-center gap-2">
+                              {resp.org_brand_present ? (
+                                <CheckCircle className="h-3 w-3 text-success" />
+                              ) : (
+                                <XCircle className="h-3 w-3 text-destructive" />
+                              )}
+                              <span>{format(new Date(resp.run_at), 'MMM d, yyyy h:mm a')}</span>
+                              <Badge variant="outline" className={`text-[10px] ml-auto ${getStatusColor(resp.status)}`}>
+                                {resp.status === 'completed' ? 'success' : resp.status}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Dialog open={historicalDialogOpen} onOpenChange={setHistoricalDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-9 text-xs px-3">
+                          <Eye className="h-3 w-3 mr-1" />
+                          View
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh]">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            {config.name} Historical Response
+                          </DialogTitle>
+                          <DialogDescription>
+                            Response from {selectedResponseId && responses.find(r => r.id === selectedResponseId) 
+                              ? format(new Date(responses.find(r => r.id === selectedResponseId)!.run_at), 'MMMM d, yyyy h:mm a')
+                              : 'selected date'}
+                          </DialogDescription>
+                        </DialogHeader>
+                        {selectedResponseId && (() => {
+                          const selectedResp = responses.find(r => r.id === selectedResponseId);
+                          if (!selectedResp) return null;
+                          
+                          return (
+                            <ScrollArea className="max-h-[60vh] mt-4">
+                              <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <Badge variant="outline" className={getStatusColor(selectedResp.status)}>
+                                    {selectedResp.status === 'completed' ? 'success' : selectedResp.status}
+                                  </Badge>
+                                  {selectedResp.org_brand_present ? (
+                                    <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                                      Brand Found
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                                      Brand Not Found
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                {selectedResp.raw_ai_response ? (
+                                  <div className="bg-muted/30 p-4 rounded-lg border">
+                                    <p className="text-sm font-medium mb-3">AI Response:</p>
+                                    <pre className="text-sm whitespace-pre-wrap font-mono text-muted-foreground leading-relaxed">
+                                      {selectedResp.raw_ai_response}
+                                    </pre>
+                                  </div>
+                                ) : (
+                                  <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded p-4">
+                                    No response data available for this date.
+                                  </div>
+                                )}
+                              </div>
+                            </ScrollArea>
+                          );
+                        })()}
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
-
-                {/* Display selected response */}
-                {selectedResponseId && (() => {
-                  const selectedResp = responses.find(r => r.id === selectedResponseId);
-                  if (!selectedResp) return null;
-                  
-                  return (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-xs">
-                        <Badge variant="outline" className={getStatusColor(selectedResp.status)}>
-                          {selectedResp.status === 'completed' ? 'success' : selectedResp.status}
-                        </Badge>
-                        {selectedResp.org_brand_present ? (
-                          <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                            Brand Found
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-                            Brand Not Found
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      {selectedResp.raw_ai_response ? (
-                        <div className="bg-muted/30 p-4 rounded-lg border">
-                          <p className="text-xs font-medium mb-2">AI Response:</p>
-                          <ScrollArea className="max-h-[400px]">
-                            <pre className="whitespace-pre-wrap text-xs leading-relaxed">
-                              {selectedResp.raw_ai_response}
-                            </pre>
-                          </ScrollArea>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-muted-foreground bg-muted/30 p-4 rounded-lg border">
-                          No response content available for this date
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
               </div>
             )}
           </>
