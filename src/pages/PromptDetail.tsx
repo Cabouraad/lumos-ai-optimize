@@ -329,14 +329,21 @@ export default function PromptDetail() {
           </TabsContent>
 
           <TabsContent value="responses" className="space-y-4 mt-6">
-            {displayProviders.map((provider) => (
-              <ProviderResponseCard
-                key={provider}
-                provider={provider}
-                response={promptDetails?.providers?.[provider] || null}
-                promptText={prompt.text}
-              />
-            ))}
+            {displayProviders.map((provider) => {
+              const providerData = promptDetails?.providers?.[provider];
+              // Check if we have _allResponses from date filtering
+              const allProviderResponses = (promptDetails?.providers as any)?._allResponses?.[provider];
+              const responseData = allProviderResponses || (Array.isArray(providerData) ? providerData : (providerData ? [providerData] : null));
+              
+              return (
+                <ProviderResponseCard
+                  key={provider}
+                  provider={provider}
+                  response={responseData}
+                  promptText={prompt.text}
+                />
+              );
+            })}
           </TabsContent>
 
           <TabsContent value="citations" className="mt-6">

@@ -6,16 +6,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProviderResponseData } from '@/lib/data/unified-fetcher';
-import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle, Bot, Search, Sparkles, Globe, Link2, ExternalLink } from 'lucide-react';
+import { CheckCircle, XCircle, Trophy, Users, FileText, Clock, Zap, AlertTriangle, Bot, Search, Sparkles, Globe, Link2, ExternalLink, Eye } from 'lucide-react';
 import { ResponseClassificationFixer } from './ResponseClassificationFixer';
 import { CompetitorChipList } from './CompetitorChip';
 import { useOrgBrands } from '@/hooks/useOrgBrands';
 import { cleanCompetitors } from '@/lib/brand/competitor-cleaning';
 import { useCatalogCompetitors } from '@/hooks/useCatalogCompetitors';
+import { format } from 'date-fns';
 
 interface ProviderResponseCardProps {
   provider: 'openai' | 'gemini' | 'perplexity' | 'google_ai_overview';
-  response: ProviderResponseData | null;
+  response: ProviderResponseData | ProviderResponseData[] | null;
   promptText: string;
 }
 
@@ -31,7 +32,10 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
   const { orgBrandVariants } = useOrgBrands();
   const { filterCompetitorsByCatalog } = useCatalogCompetitors();
 
-  if (!response) {
+  // Handle array of responses
+  const responses = Array.isArray(response) ? response : response ? [response] : [];
+  
+  if (responses.length === 0) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-3">
@@ -45,16 +49,19 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground text-center py-6">
-            No recent responses available
+            No responses in selected date range
           </div>
         </CardContent>
       </Card>
     );
   }
+  
+  // Use the first (latest) response for the main display
+  const mainResponse = responses[0];
 
   // Clean competitors using org brand variants and catalog filter
   const cleanedCompetitors = cleanCompetitors(
-    response.competitors_json || [], 
+    mainResponse.competitors_json || [], 
     orgBrandVariants, 
     { catalogFilter: filterCompetitorsByCatalog }
   );
@@ -143,9 +150,14 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
           <div className="flex items-center gap-2">
             <config.icon className="h-4 w-4" />
             {config.name}
+            {responses.length > 1 && (
+              <Badge variant="secondary" className="text-[10px]">
+                {responses.length} responses
+              </Badge>
+            )}
           </div>
-          <Badge className={`text-xs ${getStatusColor(response.status)}`}>
-            {response.status === 'completed' ? 'success' : response.status}
+          <Badge className={`text-xs ${getStatusColor(mainResponse.status)}`}>
+            {mainResponse.status === 'completed' ? 'success' : mainResponse.status}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -154,16 +166,16 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
         {/* Last Run Time */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          Last run: {getRelativeTime(response.run_at)}
+          Last run: {getRelativeTime(mainResponse.run_at)}
         </div>
 
-        {(response.status === 'error' || response.status === 'failed') && response.error ? (
+        {(mainResponse.status === 'error' || mainResponse.status === 'failed') && mainResponse.error ? (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
             <p className="text-sm font-medium text-rose-800">
               {provider === 'google_ai_overview' ? 'No Response Available' : 'Error'}
             </p>
             {provider !== 'google_ai_overview' && (
-              <p className="text-xs text-rose-600 mt-1">{typeof response.error === 'string' ? response.error : (response.error as any)?.message || 'Unknown error'}</p>
+              <p className="text-xs text-rose-600 mt-1">{typeof mainResponse.error === 'string' ? mainResponse.error : (mainResponse.error as any)?.message || 'Unknown error'}</p>
             )}
           </div>
         ) : (
@@ -172,7 +184,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
             <div className="grid grid-cols-3 gap-3">
               {/* Brand Presence */}
               <div className="flex items-start gap-2">
-                {response.org_brand_present ? (
+                {mainResponse.org_brand_present ? (
                   <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5" />
                 ) : (
                   <XCircle className="h-4 w-4 text-rose-500 mt-0.5" />
@@ -180,7 +192,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                 <div>
                   <p className="text-xs font-medium">Brand Found</p>
                   <p className="text-xs text-muted-foreground">
-                    {response.org_brand_present ? 'Yes' : 'No'}
+                    {mainResponse.org_brand_present ? 'Yes' : 'No'}
                   </p>
                 </div>
               </div>
@@ -191,7 +203,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                 <div>
                   <p className="text-xs font-medium">Position</p>
                    <p className="text-xs text-muted-foreground">
-                     {getProminenceText(response.org_brand_prominence, response.raw_ai_response)}
+                     {getProminenceText(mainResponse.org_brand_prominence, mainResponse.raw_ai_response)}
                    </p>
                 </div>
               </div>
@@ -232,7 +244,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
             </div>
 
             {/* Special handling for Google AIO with no response */}
-            {provider === 'google_ai_overview' && !response.raw_ai_response && (response.status === 'success' || response.status === 'completed') ? (
+            {provider === 'google_ai_overview' && !mainResponse.raw_ai_response && (mainResponse.status === 'success' || mainResponse.status === 'completed') ? (
               <div className="space-y-3">
                 <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-3 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -251,7 +263,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
             ) : (
               <>
                 {/* AI Response Preview */}
-                {response.raw_ai_response && (
+                {mainResponse.raw_ai_response && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-medium">AI Response:</p>
@@ -275,7 +287,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                             <ScrollArea className="max-h-96 mt-4">
                               <div className="p-4 bg-muted rounded-lg">
                                 <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                                  {response.raw_ai_response}
+                                  {mainResponse.raw_ai_response}
                                 </pre>
                               </div>
                             </ScrollArea>
@@ -287,10 +299,10 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                           <DialogTrigger asChild>
                             <Button variant="outline" size="sm" className="h-6 text-xs px-2 gap-1">
                               <Link2 className="h-3 w-3" />
-                              {response.citations_json?.citations?.length || 0} Citations
-                              {(!response.citations_json || !response.citations_json.citations?.length) && (
+                              {mainResponse.citations_json?.citations?.length || 0} Citations
+                              {(!mainResponse.citations_json || !mainResponse.citations_json.citations?.length) && (
                                 <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
-                                  {response.run_at && new Date(response.run_at) < new Date('2025-10-26') 
+                                  {mainResponse.run_at && new Date(mainResponse.run_at) < new Date('2025-10-26')
                                     ? 'Legacy' 
                                     : 'None'}
                                 </Badge>
@@ -309,8 +321,8 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                           </DialogHeader>
                           <ScrollArea className="max-h-96 mt-4">
                             <div className="space-y-3">
-                              {Array.isArray(response.citations_json?.citations) && response.citations_json.citations.length > 0 ? (
-                                response.citations_json.citations.map((citation: any, index: number) => (
+                              {Array.isArray(mainResponse.citations_json?.citations) && mainResponse.citations_json.citations.length > 0 ? (
+                                mainResponse.citations_json.citations.map((citation: any, index: number) => (
                                   <div 
                                     key={index} 
                                     className="p-3 bg-muted/50 rounded-lg border border-border hover:bg-muted/70 transition-colors"
@@ -351,7 +363,7 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                                   <p className="text-xs mt-1">
                                     {provider === 'openai' 
                                       ? 'OpenAI does not provide native citation support. Responses are generated from the model\'s training data.' 
-                                      : !response.citations_json 
+                                      : !mainResponse.citations_json
                                       ? 'Citations were not extracted for this response' 
                                       : 'No sources were detected in the AI response'}
                                   </p>
@@ -364,16 +376,19 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30 line-clamp-3">
-                  {response.raw_ai_response.length > 120 
-                    ? `${response.raw_ai_response.substring(0, 120)}...` 
-                    : response.raw_ai_response
+                  {mainResponse.raw_ai_response.length > 120 
+                    ? `${mainResponse.raw_ai_response.substring(0, 120)}...` 
+                    : mainResponse.raw_ai_response
                   }
                 </div>
               </div>
             )}
 
+            </>
+            )}
+
             {/* Show rate limit message */}
-            {response.metadata?.reason === 'rate_limited' && (
+            {mainResponse.metadata?.reason === 'rate_limited' && (
               <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded p-2 flex items-start gap-2">
                 <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
                 <div>
@@ -384,9 +399,53 @@ const ProviderResponseCardComponent = ({ provider, response, promptText }: Provi
                 </div>
               </div>
             )}
+
+            {/* Show all responses in date range if multiple */}
+            {responses.length > 1 && (
+              <div className="border-t pt-4 mt-4">
+                <p className="text-xs font-medium mb-3">All Responses in Date Range ({responses.length})</p>
+                <div className="space-y-2">
+                  {responses.map((resp, idx) => (
+                    <div key={resp.id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={`text-[10px] ${getStatusColor(resp.status)}`}>
+                          {resp.status === 'completed' ? 'success' : resp.status}
+                        </Badge>
+                        {resp.org_brand_present ? (
+                          <CheckCircle className="h-3 w-3 text-success" />
+                        ) : (
+                          <XCircle className="h-3 w-3 text-destructive" />
+                        )}
+                        <span className="text-muted-foreground">
+                          {format(new Date(resp.run_at), 'MMM d, h:mm a')}
+                        </span>
+                      </div>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 px-2">
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-3xl max-h-[80vh]">
+                          <DialogHeader>
+                            <DialogTitle>Response from {format(new Date(resp.run_at), 'MMM d, yyyy h:mm a')}</DialogTitle>
+                            <DialogDescription>
+                              Full AI response from {config.name}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <ScrollArea className="max-h-[60vh] pr-4">
+                            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {resp.raw_ai_response || 'No response available'}
+                            </pre>
+                          </ScrollArea>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
-        )}
-        </>
         )}
       </CardContent>
     </Card>
