@@ -55,13 +55,15 @@ export function useGenerateOptimizations() {
       return await api.generateRecommendations(params);
     },
     onSuccess: (data) => {
+      console.log('✅ Generation successful:', data);
       queryClient.invalidateQueries({ queryKey: ['optimizations-v2'] });
       queryClient.invalidateQueries({ queryKey: ['low-visibility-prompts'] });
       
       if (data.count > 0) {
+        const errorInfo = data.errors?.length ? ` (${data.errors.length} errors)` : '';
         toast({
           title: "Recommendations generated",
-          description: `Created ${data.count} new recommendations from ${data.processed} prompts`,
+          description: `Created ${data.count} new recommendations from ${data.processed} prompts${errorInfo}`,
         });
       } else if (data.message) {
         toast({
@@ -69,9 +71,9 @@ export function useGenerateOptimizations() {
           description: data.message,
         });
       }
-      // Do not surface individual errors to end users; log count for debugging only
+      // Log errors for debugging
       if (data?.errors?.length) {
-        console.debug(`[Optimizations] Generation completed with ${data.errors.length} backend errors`);
+        console.warn(`[Optimizations] Errors during generation:`, data.errors);
       }
     },
     onError: (error: Error) => {

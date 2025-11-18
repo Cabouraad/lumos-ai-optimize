@@ -10,6 +10,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// AI API timeout in milliseconds
+const AI_TIMEOUT_MS = 15000;
+
+// Helper to call AI with timeout
+async function callAIWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return response;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('AI request timed out');
+    }
+    throw error;
+  }
+}
+
 interface RecommendationOutput {
   recommendations: Array<{
     title: string;
@@ -37,6 +61,15 @@ serve(async (req) => {
   }
 
   try {
+    // Validate API key first
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(JSON.stringify({ error: "AI service not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
@@ -80,9 +113,9 @@ serve(async (req) => {
       .eq("id", orgId)
       .single();
 
-    // Parse request body
+    // Parse request body - reduce default limit to avoid timeouts
     const body = await req.json().catch(() => ({}));
-    const limit = Math.min(body.limit || 10, 20);
+    const limit = Math.min(body.limit || 5, 10); // Reduced from 10/20 to 5/10 to prevent timeouts
 
     // Query for low-visibility prompts directly
     const { data: lowVisPrompts, error: promptError } = await supabase.rpc(
@@ -110,13 +143,17 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${lowVisPrompts.length} low-visibility prompts for org ${orgId}`);
+    console.log(`[GENERATE-RECS] Processing ${lowVisPrompts.length} prompts for org ${orgId}`);
 
     let totalCreated = 0;
     const errors: string[] = [];
+    let processed = 0;
 
     // Process each prompt synchronously
     for (const prompt of lowVisPrompts) {
+      processed++;
+      console.log(`[GENERATE-RECS] Processing prompt ${processed}/${lowVisPrompts.length}: ${prompt.prompt_text.substring(0, 60)}...`);
+      
       try {
         // Build system prompt with org context
         const systemPrompt = `You are an AI optimization strategist helping ${org?.name || "a company"} improve their visibility in AI search results.
@@ -140,8 +177,9 @@ IMPORTANT OUTPUT FORMAT:
 
 Each recommendation should be specific, actionable, and tailored to this prompt.`;
 
-        // Call OpenAI with tool calling for structured output
-        const openaiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        // Call AI with timeout protection
+        console.log(`[GENERATE-RECS] Calling AI for prompt ${processed}`);
+        const openaiResponse = await callAIWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${LOVABLE_API_KEY}`,
@@ -228,32 +266,34 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
             ],
             tool_choice: { type: "function", function: { name: "generate_recommendations" } },
           }),
-        });
+        }, AI_TIMEOUT_MS);
 
         if (!openaiResponse.ok) {
           const errorText = await openaiResponse.text();
           const status = openaiResponse.status;
-          console.error(`AI gateway error for prompt ${prompt.prompt_id} (status ${status}):`, errorText);
+          console.error(`[GENERATE-RECS] AI error for prompt ${processed}:`, status, errorText);
           if (status === 429) {
             errors.push("Rate limit exceeded. Please try again later.");
           } else if (status === 402) {
             errors.push("Payment required for AI usage. Please add credits to Lovable AI workspace.");
           } else {
-            errors.push(`Failed to generate for prompt: ${prompt.prompt_text.substring(0, 50)}...`);
+            errors.push(`AI error for: ${prompt.prompt_text.substring(0, 50)}...`);
           }
           continue;
         }
 
         const data = await openaiResponse.json();
+        console.log(`[GENERATE-RECS] AI response received for prompt ${processed}`);
         const toolCall = data.choices[0]?.message?.tool_calls?.[0];
 
         if (!toolCall) {
-          console.error("No tool call in response");
+          console.error(`[GENERATE-RECS] No tool call in response for prompt ${processed}`);
           errors.push(`No recommendations generated for: ${prompt.prompt_text.substring(0, 50)}...`);
           continue;
         }
 
         const result: RecommendationOutput = JSON.parse(toolCall.function.arguments);
+        console.log(`[GENERATE-RECS] Generated ${result.recommendations.length} recommendations for prompt ${processed}`);
 
         // Insert recommendations into optimizations_v2
         for (const rec of result.recommendations) {
@@ -308,22 +348,26 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
           });
 
           if (insertError) {
-            console.error("Insert error:", insertError, { priorityScore, estimatedHours });
+            console.error(`[GENERATE-RECS] Insert error for prompt ${processed}:`, insertError, { priorityScore, estimatedHours });
             errors.push(`Failed to save recommendation: ${rec.title}`);
           } else {
             totalCreated++;
+            console.log(`[GENERATE-RECS] Saved recommendation: ${rec.title}`);
           }
         }
 
-        // Rate limiting: wait 1 second between OpenAI calls
-        if (lowVisPrompts.indexOf(prompt) < lowVisPrompts.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Rate limiting: wait 500ms between AI calls (reduced from 1s)
+        if (processed < lowVisPrompts.length) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       } catch (error) {
-        console.error(`Error processing prompt ${prompt.prompt_id}:`, error);
-        errors.push(`Error: ${prompt.prompt_text.substring(0, 50)}...`);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[GENERATE-RECS] Error processing prompt ${processed}/${lowVisPrompts.length}:`, errorMsg);
+        errors.push(`Error: ${prompt.prompt_text.substring(0, 50)}... (${errorMsg})`);
       }
     }
+
+    console.log(`[GENERATE-RECS] Completed: ${totalCreated} created, ${processed} processed, ${errors.length} errors`);
 
     return new Response(
       JSON.stringify({
@@ -335,9 +379,10 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Fatal error:", error);
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[GENERATE-RECS] Fatal error:", errorMsg);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: errorMsg }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
