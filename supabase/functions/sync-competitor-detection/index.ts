@@ -209,9 +209,30 @@ Deno.serve(async (req) => {
 
       // Process competitors with frequency threshold
       for (const [competitorName, data] of competitorMap) {
-        // Skip if competitor is excluded
-        if (excludedCompetitors.has(competitorName.toLowerCase().trim())) {
-          console.log(`Skipping excluded competitor: ${competitorName}`);
+        const normalizedName = competitorName.toLowerCase().trim();
+        
+        // Check if competitor is excluded - if so, delete it from catalog if it exists
+        if (excludedCompetitors.has(normalizedName)) {
+          console.log(`Competitor is excluded: ${competitorName}`);
+          
+          const existingKey = competitorName.toLowerCase();
+          const existing = existingMap.get(existingKey);
+          
+          if (existing) {
+            // Delete excluded competitor from catalog
+            const { error: deleteError } = await supabase
+              .from('brand_catalog')
+              .delete()
+              .eq('id', existing.id);
+            
+            if (!deleteError) {
+              console.log(`Deleted excluded competitor from catalog: ${competitorName}`);
+              totalCompetitorsRemoved++;
+            } else {
+              console.error(`Error deleting excluded competitor ${competitorName}:`, deleteError);
+            }
+          }
+          
           continue;
         }
 
