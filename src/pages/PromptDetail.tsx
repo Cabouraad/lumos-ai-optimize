@@ -307,11 +307,15 @@ export default function PromptDetail() {
                             <Badge variant="outline" className="text-xs">
                               Score: {((latest.score || 0) * 10).toFixed(1)}
                             </Badge>
-                            {latest.org_brand_present && (
-                              <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
-                                Brand Present
-                              </Badge>
-                            )}
+                            <Badge 
+                              variant="outline" 
+                              className={latest.org_brand_present 
+                                ? "text-xs bg-success/10 text-success border-success/20" 
+                                : "text-xs bg-destructive/10 text-destructive border-destructive/20"
+                              }
+                            >
+                              {latest.org_brand_present ? "Brand Present" : "Not Present"}
+                            </Badge>
                           </>
                         )}
                       </div>
