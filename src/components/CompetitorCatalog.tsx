@@ -128,7 +128,7 @@ export function CompetitorCatalog() {
         .from('org_competitor_exclusions')
         .upsert({
           org_id: userData.org_id,
-          competitor_name: name,
+          competitor_name: name.trim(),
           excluded_by: user.id
         }, {
           onConflict: 'org_id,competitor_name'
@@ -211,10 +211,10 @@ export function CompetitorCatalog() {
       // Get competitor names for the selected IDs
       const competitorsToDelete = catalog.filter(c => selectedCompetitors.has(c.id));
       
-      // Add all to exclusions table first
+      // Add all to exclusions table first - normalize names for consistent matching
       const exclusions = competitorsToDelete.map(c => ({
         org_id: userData.org_id,
-        competitor_name: c.name,
+        competitor_name: c.name.trim(),
         excluded_by: user.id
       }));
 
