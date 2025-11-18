@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { renderAuditHTML, AuditRun, AuditEvent } from "../_shared/audit_report.ts";
 
 const corsHeaders = {

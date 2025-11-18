@@ -10,7 +10,7 @@
  * - All role checks now use the user_roles table via security definer functions
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 export interface UserOrgAndRole {
   org_id: string;

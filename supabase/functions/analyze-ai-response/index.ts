@@ -1,5 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { extractArtifacts, createBrandGazetteer } from '../_shared/visibility/extractArtifacts.ts';
 import { GLOBAL_COMPETITORS, findGlobalCompetitor } from '../_shared/global-competitors-gazetteer.ts';
 import { isEdgeFeatureEnabled } from '../_shared/feature-flags.ts';

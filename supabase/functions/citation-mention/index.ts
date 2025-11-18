@@ -1,5 +1,5 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { detectBrandMentions } from '../_shared/citations-enhanced.ts';
 import { enrichCitation } from '../_shared/domain-resolver.ts';
 

@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getUserOrgAndRole } from '../_shared/auth-v2.ts';
 import { canAddUser } from '../_shared/user-limits.ts';
 import { PlanTier } from '../_shared/quotas.ts';

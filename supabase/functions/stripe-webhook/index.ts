@@ -1,5 +1,5 @@
 import Stripe from "https://esm.sh/stripe@14.21.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { withRequestLogging } from "../_shared/observability/structured-logger.ts";
 
 const corsHeaders = {

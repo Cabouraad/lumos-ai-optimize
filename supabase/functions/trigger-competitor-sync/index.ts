@@ -1,5 +1,7 @@
 
 
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
 
 const corsHeaders = {

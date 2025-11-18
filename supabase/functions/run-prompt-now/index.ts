@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { detectCompetitors } from '../_shared/enhanced-competitor-detector.ts';
 import { extractPerplexityCitations, extractOpenAICitations, extractGeminiCitations } from '../_shared/citations-enhanced.ts';
 import { getUserOrgId } from '../_shared/auth-v2.ts';

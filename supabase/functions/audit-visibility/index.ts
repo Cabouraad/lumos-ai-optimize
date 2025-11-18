@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getUserOrgId } from '../_shared/auth-v2.ts';
 
 const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
