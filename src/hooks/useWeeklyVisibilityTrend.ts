@@ -70,7 +70,7 @@ export function useWeeklyVisibilityTrend(orgId: string | undefined) {
       const currentWeekData = Array.from(dailyMap.entries())
         .filter(([date]) => {
           const d = new Date(date);
-          return isWithinInterval(d, { start: subDays(today, 7), end: today });
+          return isWithinInterval(d, { start: subDays(today, 6), end: today });
         });
       
       const currentWeekScores = currentWeekData.flatMap(([, data]) => data.scores);
@@ -82,7 +82,7 @@ export function useWeeklyVisibilityTrend(orgId: string | undefined) {
       const previousWeekData = Array.from(dailyMap.entries())
         .filter(([date]) => {
           const d = new Date(date);
-          return isWithinInterval(d, { start: subDays(today, 14), end: subDays(today, 7) });
+          return isWithinInterval(d, { start: subDays(today, 13), end: subDays(today, 7) });
         });
       
       const previousWeekScores = previousWeekData.flatMap(([, data]) => data.scores);
