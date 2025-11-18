@@ -20,7 +20,8 @@ export default function OptimizationsV2() {
 
   const handleGenerate = async () => {
     try {
-      await generateMutation.mutateAsync({});
+      console.log('🚀 Starting recommendation generation...');
+      await generateMutation.mutateAsync({ limit: 5 }); // Process 5 at a time to avoid timeouts
     } catch (error) {
       console.error("Generation error:", error);
     }

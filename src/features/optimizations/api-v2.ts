@@ -40,6 +40,7 @@ export interface LowVisibilityPrompt {
 
 /**
  * Generate recommendations (simplified, synchronous)
+ * Reduced default limit to prevent timeouts
  */
 export async function generateRecommendations(params?: {
   limit?: number;
@@ -50,17 +51,22 @@ export async function generateRecommendations(params?: {
     throw new Error('Authentication required');
   }
 
-  // Call the edge function (matches the actual function name in supabase/functions/)
+  console.log('🤖 [generateRecommendations] Starting with limit:', params?.limit || 5);
+
+  // Call the edge function with reduced timeout expectations
   const { data, error } = await supabase.functions.invoke('generate-recommendations', {
-    body: { limit: params?.limit || 10 },
+    body: { limit: params?.limit || 5 }, // Reduced from 10 to 5
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
     },
   });
 
   if (error) {
+    console.error('🤖 [generateRecommendations] Error:', error);
     throw new Error(error.message || 'Failed to generate recommendations');
   }
+
+  console.log('🤖 [generateRecommendations] Response:', data);
 
   // Normalize common shapes returned by different function versions
   const normalized = {
@@ -71,6 +77,7 @@ export async function generateRecommendations(params?: {
     message: (data as any)?.message ?? (Number((data as any)?.count ?? 0) === 0 ? 'No low-visibility prompts found' : undefined)
   };
 
+  console.log('🤖 [generateRecommendations] Normalized:', normalized);
   return normalized;
 }
 
