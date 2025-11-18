@@ -3,7 +3,7 @@
  * Unified optimization generation engine
  * Used by both direct generation and queue worker
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { WINDOW_DAYS, LLM_MODEL, MAX_RETRIES, RETRY_BASE_MS, FINGERPRINT_ALGO } from "./constants.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";

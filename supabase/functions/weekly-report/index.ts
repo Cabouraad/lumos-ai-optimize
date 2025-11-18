@@ -4,7 +4,7 @@
  * Supports both scheduled runs (all orgs) and user requests (single org)
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getLastCompleteWeekUTC } from '../_shared/report/week.ts';
 import { renderReportPDF } from '../_shared/report/pdf-enhanced.ts';
 import type { WeeklyReportData } from '../_shared/report/types.ts';

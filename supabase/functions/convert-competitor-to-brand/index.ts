@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getStrictCorsHeaders, isRateLimited, getRateLimitHeaders } from "../_shared/cors.ts";
 import { requireRole } from '../_shared/auth-v2.ts';
 
