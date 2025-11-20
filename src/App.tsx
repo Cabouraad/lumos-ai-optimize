@@ -6,6 +6,7 @@ import Health from "@/components/Health";
 import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
 import { loadChunkWithRetry } from "@/utils/chunk-loader";
 import { OnboardingGate } from "@/components/auth/OnboardingGate";
+import { GoogleAdsTracking } from "@/components/tracking/GoogleAdsTracking";
 
 // Lazy load all page components with retry logic to handle chunk loading failures
 const Index = lazy(() => loadChunkWithRetry(() => import("./pages/Index")));
@@ -85,6 +86,7 @@ const App = () => {
 
   return (
     <TooltipProvider>
+      <GoogleAdsTracking />
       <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
         <Routes>
           {/* Public routes - no auth required */}
