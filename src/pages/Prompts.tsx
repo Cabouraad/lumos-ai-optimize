@@ -23,6 +23,7 @@ import { DateRangePicker } from '@/components/DateRangePicker';
 import { getPromptCategory } from '@/lib/prompt-utils';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useClusterPrompts } from '@/hooks/useClusterPrompts';
+import { usePromptsOnboardingTour } from '@/hooks/usePromptsOnboardingTour';
 import { AlertCircle, Sparkles } from 'lucide-react';
 
 // Transform the existing prompt data to match the PromptList interface
@@ -78,6 +79,7 @@ export default function Prompts() {
   const { canCreatePrompts, hasAccessToApp, limits } = useSubscriptionGate();
   const { selectedBrand } = useBrand();
   const clusterPrompts = useClusterPrompts();
+  const { TourComponent } = usePromptsOnboardingTour();
   const [rawPrompts, setRawPrompts] = useState<any[]>([]);
   const [providerData, setProviderData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -692,7 +694,7 @@ export default function Prompts() {
             <Tabs defaultValue="prompts" className="w-full">
               <TabsList className={`grid w-full ${isTestUser ? 'grid-cols-4' : 'grid-cols-3'} rounded-2xl bg-card/80 backdrop-blur-sm shadow-soft p-1 border border-border/50`}>
                 <TabsTrigger value="prompts" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Prompts</TabsTrigger>
-                <TabsTrigger value="suggestions" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Prompt Suggestions</TabsTrigger>
+                <TabsTrigger value="suggestions" data-tour="prompt-suggestions" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Prompt Suggestions</TabsTrigger>
                 <TabsTrigger value="keywords" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Business Context</TabsTrigger>
                 {isTestUser && (
                   <TabsTrigger value="debug" className="rounded-xl transition-smooth hover-glow data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Debug Tools</TabsTrigger>
@@ -848,12 +850,13 @@ export default function Prompts() {
                     {isRunningGlobalBatch ? 'Processing...' : 
                      globalBatchOptions.preflight ? 'Run Preflight' : 'Start Batch Processing'}
                   </Button>
-                </div>
+                 </div>
               </DialogContent>
             </Dialog>
           </div>
         </div>
       </div>
+      <TourComponent />
     </Layout>
   );
 }

@@ -25,10 +25,12 @@ import { WeeklyVisibilityTrend } from '@/components/dashboard/WeeklyVisibilityTr
 import { AISourceIntelligence } from '@/components/dashboard/AISourceIntelligence';
 import { CitationTrends } from '@/components/dashboard/CitationTrends';
 import { useCompetitors } from '@/features/competitors/hooks';
+import { useDashboardOnboardingTour } from '@/hooks/useDashboardOnboardingTour';
 
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
   const navigate = useNavigate();
+  const { TourComponent } = useDashboardOnboardingTour();
   const { hasAccessToApp, limits, canAccessRecommendations, canAccessCompetitorAnalysis, currentTier } = useSubscriptionGate();
   const appAccess = hasAccessToApp();
   const recommendationsAccess = canAccessRecommendations();
@@ -536,6 +538,7 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      <TourComponent />
     </Layout>
   );
 }
