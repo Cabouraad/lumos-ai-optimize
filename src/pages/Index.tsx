@@ -167,20 +167,6 @@ const Index = () => {
                 </Button>
               </div>
               
-              <div className="flex items-center justify-center flex-wrap gap-6 text-sm text-muted-foreground pt-4">
-                <span className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  No credit card required
-                </span>
-                <span className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  Instant results
-                </span>
-                <span className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  Free analysis
-                </span>
-              </div>
             </div>
           </div>
         </section>
