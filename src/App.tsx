@@ -31,6 +31,9 @@ const Features = lazy(() => loadChunkWithRetry(() => import("./pages/Features"))
 const BrandVisibility = lazy(() => loadChunkWithRetry(() => import("./pages/features/BrandVisibility")));
 const CompetitiveAnalysis = lazy(() => loadChunkWithRetry(() => import("./pages/features/CompetitiveAnalysis")));
 const ActionableRecommendations = lazy(() => loadChunkWithRetry(() => import("./pages/features/ActionableRecommendations")));
+const CitationAnalysisFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/CitationAnalysisFeature")));
+const LLMsTextFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/LLMsTextFeature")));
+const TierComparison = lazy(() => loadChunkWithRetry(() => import("./pages/features/TierComparison")));
 const Resources = lazy(() => loadChunkWithRetry(() => import("./pages/Resources")));
 const BlogPost = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPost")));
 const TrialSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/TrialSuccess")));
@@ -100,6 +103,9 @@ const App = () => {
           <Route path="/features/brand-visibility" element={<BrandVisibility />} />
           <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
           <Route path="/features/actionable-recommendations" element={<ActionableRecommendations />} />
+          <Route path="/features/citation-analysis" element={<CitationAnalysisFeature />} />
+          <Route path="/features/llms-txt" element={<LLMsTextFeature />} />
+          <Route path="/features/tier-comparison" element={<TierComparison />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/resources/:slug" element={<BlogPost />} />
           <Route path="/trial-success" element={<TrialSuccess />} />
