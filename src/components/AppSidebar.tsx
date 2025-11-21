@@ -136,7 +136,11 @@ export function AppSidebar() {
                 
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton asChild isActive={isActive}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive}
+                      data-tour={item.href === '/prompts' ? 'prompts-nav' : item.href === '/settings' ? 'settings-nav' : undefined}
+                    >
                       <Link to={item.href} className="flex items-center justify-between transition-smooth hover-glow w-full">
                         <div className="flex items-center gap-2">
                           <Icon className="h-4 w-4" />

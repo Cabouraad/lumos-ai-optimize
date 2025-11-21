@@ -219,7 +219,7 @@ export function PromptList({
                   </SelectContent>
                 </Select>
 
-                <Button onClick={onAddPrompt} className="h-10 hover-lift shadow-glow transition-smooth">
+                <Button onClick={onAddPrompt} data-tour="add-prompt" className="h-10 hover-lift shadow-glow transition-smooth">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Prompt
                 </Button>
