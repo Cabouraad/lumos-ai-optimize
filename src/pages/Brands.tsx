@@ -166,7 +166,7 @@ export default function Brands() {
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4 mb-6">
-                    <BrandDisplay brandName={brand.name} />
+                    <BrandDisplay brandName={brand.name} brandDomain={brand.domain} />
                   </div>
 
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">

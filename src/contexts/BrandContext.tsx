@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Brand {
   id: string;
@@ -22,18 +23,63 @@ const SELECTED_BRAND_KEY = 'llumos_selected_brand';
 
 export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [selectedBrand, setSelectedBrandState] = useState<Brand | null>(null);
+  const [isValidated, setIsValidated] = useState(false);
 
-  // Load selected brand from localStorage on mount
+  // Validate and load selected brand from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(SELECTED_BRAND_KEY);
-    if (stored) {
+    const validateStoredBrand = async () => {
+      const stored = localStorage.getItem(SELECTED_BRAND_KEY);
+      if (!stored) {
+        setIsValidated(true);
+        return;
+      }
+
       try {
-        setSelectedBrandState(JSON.parse(stored));
+        const storedBrand = JSON.parse(stored) as Brand;
+        
+        // Get current user's org_id
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          localStorage.removeItem(SELECTED_BRAND_KEY);
+          setIsValidated(true);
+          return;
+        }
+
+        const { data: userData } = await supabase
+          .from('users')
+          .select('org_id')
+          .eq('id', user.id)
+          .single();
+
+        // Validate the stored brand belongs to the current user's org
+        if (userData?.org_id && storedBrand.org_id === userData.org_id) {
+          // Verify brand still exists in database
+          const { data: brandExists } = await supabase
+            .from('brands')
+            .select('id')
+            .eq('id', storedBrand.id)
+            .eq('org_id', userData.org_id)
+            .single();
+
+          if (brandExists) {
+            setSelectedBrandState(storedBrand);
+          } else {
+            // Brand no longer exists, clear it
+            localStorage.removeItem(SELECTED_BRAND_KEY);
+          }
+        } else {
+          // Brand doesn't belong to current org, clear it
+          localStorage.removeItem(SELECTED_BRAND_KEY);
+        }
       } catch (e) {
-        console.error('Failed to parse stored brand:', e);
+        console.error('Failed to validate stored brand:', e);
         localStorage.removeItem(SELECTED_BRAND_KEY);
       }
-    }
+      
+      setIsValidated(true);
+    };
+
+    validateStoredBrand();
   }, []);
 
   const setSelectedBrand = (brand: Brand | null) => {
