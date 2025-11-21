@@ -32,11 +32,11 @@ export function BrandSwitcher({ brands, collapsed = false }: BrandSwitcherProps)
   const [logoUrls, setLogoUrls] = useState<Record<string, string>>({});
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
 
-  // Generate logo URLs for all brands
+  // Generate logo URLs for all brands using their actual domain
   useEffect(() => {
     const urls: Record<string, string> = {};
     brands.forEach((brand) => {
-      const clearbitUrl = `https://logo.clearbit.com/${brand.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}.com`;
+      const clearbitUrl = `https://logo.clearbit.com/${brand.domain}`;
       urls[brand.id] = clearbitUrl;
     });
     setLogoUrls(urls);
