@@ -121,7 +121,7 @@ const Index = () => {
         </div>
 
         {/* Hero Section */}
-        <section className="relative py-12 md:py-16 px-4 overflow-hidden">
+        <section className="relative pt-20 md:pt-32 pb-8 md:pb-12 px-4 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5"></div>
           
           <div className="container max-w-6xl mx-auto relative z-10">
