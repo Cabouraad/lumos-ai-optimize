@@ -14,20 +14,10 @@ const dashboardSteps: Step[] = [
         <h3 className="text-lg font-semibold">Welcome to Llumos! 🎉</h3>
         <p>Let's take a quick tour to help you get started tracking your AI visibility.</p>
         <p className="text-sm text-muted-foreground">This will only take a minute.</p>
+        <p className="text-sm font-medium mt-4">Click Next to continue to the Prompts page.</p>
       </div>
     ),
     placement: 'center',
-    disableBeacon: true,
-  },
-  {
-    target: '[data-tour="prompts-nav"]',
-    content: (
-      <div className="space-y-2">
-        <h4 className="font-semibold">Track Your Prompts</h4>
-        <p>The Prompts page is where you'll manage all the queries you want to track. Let's head there now.</p>
-      </div>
-    ),
-    placement: 'right',
     disableBeacon: true,
   },
 ];
@@ -98,14 +88,14 @@ export function useDashboardOnboardingTour() {
   }, [userData]);
 
   const handleJoyrideCallback = async (data: CallBackProps) => {
-    const { action, index, status, type, step } = data;
+    const { action, index, status, type } = data;
 
-    // When on dashboard and user clicks "Next" on the prompts nav step
-    if (type === EVENTS.STEP_AFTER && tourStage === 'dashboard' && index === 1) {
+    // When user completes the welcome step on dashboard
+    if (type === EVENTS.STEP_AFTER && tourStage === 'dashboard' && index === 0) {
+      // After welcome screen, navigate directly to prompts page
       setRunTour(false);
-      // Navigate to prompts page
       navigate('/prompts');
-      // Resume tour on prompts page after a delay
+      // Start prompts tour after navigation
       setTimeout(() => {
         setTourStage('prompts');
         setCurrentStep(0);
