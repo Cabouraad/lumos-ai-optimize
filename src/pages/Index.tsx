@@ -15,6 +15,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { SEOHelmet } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
 import { ScrollingAIText } from '@/components/ScrollingAIText';
+import { Logo } from '@/components/Logo';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -125,6 +126,13 @@ const Index = () => {
           
           <div className="container max-w-6xl mx-auto relative z-10">
             <div className="text-center mb-12 space-y-6 animate-fade-in">
+              {/* Large Logo */}
+              <div className="flex justify-center mb-8">
+                <div className="scale-[2.5] md:scale-[3]">
+                  <Logo />
+                </div>
+              </div>
+              
               <Badge variant="outline" className="mx-auto w-fit px-4 py-2 border-primary/20">
                 <Sparkles className="w-4 h-4 mr-2 inline-block" />
                 AI Visibility Analytics Platform
