@@ -82,11 +82,16 @@ export function AppSidebar() {
         isProTier && hasMultipleBrands ? (
           <BrandSwitcher brands={brands} collapsed={collapsed} />
         ) : (
-          <BrandDisplay brandName={selectedBrand.name} collapsed={collapsed} />
+          <BrandDisplay 
+            brandName={selectedBrand.name} 
+            brandDomain={selectedBrand.domain}
+            collapsed={collapsed} 
+          />
         )
       ) : orgData?.organizations?.name && (
         <BrandDisplay 
-          brandName={orgData.organizations.name} 
+          brandName={orgData.organizations.name}
+          brandDomain={orgData.organizations.domain}
           collapsed={collapsed}
         />
       )}

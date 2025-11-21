@@ -3,22 +3,24 @@ import { Building2 } from 'lucide-react';
 
 interface BrandDisplayProps {
   brandName: string;
+  brandDomain?: string;
   collapsed?: boolean;
 }
 
-export function BrandDisplay({ brandName, collapsed = false }: BrandDisplayProps) {
+export function BrandDisplay({ brandName, brandDomain, collapsed = false }: BrandDisplayProps) {
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [logoError, setLogoError] = useState(false);
 
-  // Generate logo URLs
+  // Generate logo URLs using actual domain if available
   useEffect(() => {
     if (!brandName) return;
     
-    // Try Clearbit first (works well for many companies)
-    const clearbitUrl = `https://logo.clearbit.com/${brandName.toLowerCase().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}.com`;
+    // Use provided domain or construct from name
+    const domain = brandDomain || `${brandName.toLowerCase().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}.com`;
+    const clearbitUrl = `https://logo.clearbit.com/${domain}`;
     setLogoUrl(clearbitUrl);
     setLogoError(false);
-  }, [brandName]);
+  }, [brandName, brandDomain]);
 
   const handleLogoError = () => {
     if (!logoError) {
