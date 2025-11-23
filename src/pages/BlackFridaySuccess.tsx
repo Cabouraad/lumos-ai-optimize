@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { trackGoogleAdsConversion } from '@/lib/googleAdsConversion';
 
 const BlackFridaySuccess = () => {
   const navigate = useNavigate();
@@ -10,6 +11,9 @@ const BlackFridaySuccess = () => {
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
+    // Track Google Ads conversion
+    trackGoogleAdsConversion(sessionId || undefined);
+    
     // Optional: You could verify the session with Stripe here
     console.log('Payment session:', sessionId);
     

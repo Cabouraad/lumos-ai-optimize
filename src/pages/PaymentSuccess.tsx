@@ -6,6 +6,7 @@ import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UnifiedAuthProvider';
+import { trackGoogleAdsConversion } from '@/lib/googleAdsConversion';
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
@@ -153,6 +154,9 @@ export default function PaymentSuccess() {
       // Success!
       setSuccess(true);
       setLoading(false);
+      
+      // Track Google Ads conversion
+      trackGoogleAdsConversion(sessionId || undefined);
       
       toast.success(orgCreated ? 'Organization created and subscription activated!' : 'Subscription activated!');
       
