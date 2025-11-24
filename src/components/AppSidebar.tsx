@@ -56,10 +56,21 @@ export function AppSidebar() {
   const { brands } = useBrands();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const [showChecklist, setShowChecklist] = React.useState(() => {
+    const hasSeenChecklist = localStorage.getItem('llumos_setup_checklist_seen');
+    return hasSeenChecklist !== 'true';
+  });
   const [checklistOpen, setChecklistOpen] = React.useState(() => {
     const saved = localStorage.getItem('onboarding-checklist-open');
     return saved !== null ? saved === 'true' : true;
   });
+
+  React.useEffect(() => {
+    // Mark checklist as seen when component mounts and it's visible
+    if (showChecklist) {
+      localStorage.setItem('llumos_setup_checklist_seen', 'true');
+    }
+  }, [showChecklist]);
 
   const handleChecklistToggle = (open: boolean) => {
     setChecklistOpen(open);
@@ -113,8 +124,8 @@ export function AppSidebar() {
       )}
       
       <SidebarContent className="px-3">
-        {/* Onboarding Checklist */}
-        {!collapsed && (
+        {/* Onboarding Checklist - Only show on first login */}
+        {!collapsed && showChecklist && (
           <div className="px-3 py-4">
             <Collapsible open={checklistOpen} onOpenChange={handleChecklistToggle}>
               <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted/50 rounded-lg transition-colors group">
