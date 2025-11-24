@@ -15,6 +15,7 @@ const SignUp = lazy(() => loadChunkWithRetry(() => import("./pages/SignUp")));
 const AuthProcessing = lazy(() => loadChunkWithRetry(() => import("./pages/AuthProcessing")));
 const Onboarding = lazy(() => loadChunkWithRetry(() => import("./pages/Onboarding")));
 const BrandOnboarding = lazy(() => loadChunkWithRetry(() => import("./pages/BrandOnboarding")));
+const StarterPrompts = lazy(() => loadChunkWithRetry(() => import("./pages/StarterPrompts")));
 const Dashboard = lazy(() => loadChunkWithRetry(() => import("./pages/Dashboard")));
 const LlumosScore = lazy(() => loadChunkWithRetry(() => import("./pages/LlumosScore")));
 const CitationAnalytics = lazy(() => loadChunkWithRetry(() => import("./pages/CitationAnalytics")));
@@ -139,6 +140,11 @@ const App = () => {
           <Route path="/onboarding/brand" element={
             <ProtectedRoute>
               <BrandOnboarding />
+            </ProtectedRoute>
+          } />
+          <Route path="/onboarding/prompts" element={
+            <ProtectedRoute>
+              <StarterPrompts />
             </ProtectedRoute>
           } />
           <Route path="/dashboard" element={

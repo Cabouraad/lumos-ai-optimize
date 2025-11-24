@@ -16,6 +16,9 @@ import { SEOHelmet } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
 import { ScrollingAIText } from '@/components/ScrollingAIText';
 import { Logo } from '@/components/Logo';
+import { BlackFridayBanner } from '@/components/BlackFridayBanner';
+import { CompetitorComparison } from '@/components/CompetitorComparison';
+import { TestimonialsSection } from '@/components/TestimonialsSection';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -58,6 +61,7 @@ const Index = () => {
         canonicalPath="/"
       />
       <div className="min-h-screen bg-background">
+        <BlackFridayBanner />
         <ExitIntentPopup />
       
         {/* Sticky CTA Bar */}
@@ -90,86 +94,56 @@ const Index = () => {
           </div>
         </header>
 
-        {/* Black Friday Promo Banner */}
-        <div className="bg-gradient-to-r from-primary via-primary/90 to-primary border-b border-primary/20">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-6 h-6 text-primary-foreground animate-pulse" />
-                <div>
-                  <p className="text-primary-foreground font-bold text-lg">
-                    Black Friday Special: Get 1 Year for Only $99!
-                  </p>
-                  <p className="text-primary-foreground/90 text-sm">
-                    Limited time offer - Save over 60% on Starter Tier
-                  </p>
-                </div>
-              </div>
-              <Button 
-                variant="secondary" 
-                size="lg"
-                className="shrink-0 bg-background hover:bg-background/90 text-primary font-semibold shadow-lg"
-                asChild
-              >
-                <Link to="/black-friday">
-                  Claim Deal
-                  <ArrowRight className="ml-2 w-4 h-4" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
         {/* Hero Section */}
         <section className="relative pt-20 md:pt-32 pb-8 md:pb-12 px-4 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5"></div>
           
-          <div className="container max-w-6xl mx-auto relative z-10">
+          <div className="container max-w-5xl mx-auto relative z-10">
             <div className="text-center mb-12 space-y-6 animate-fade-in">
-              {/* Large Logo */}
-              <div className="flex justify-center mb-8">
-                <div className="scale-[2.5] md:scale-[3]">
-                  <Logo />
-                </div>
-              </div>
-              
-              <Badge variant="outline" className="mx-auto w-fit px-4 py-2 border-primary/20">
+              <Badge variant="outline" className="mx-auto w-fit px-4 py-2 border-primary/20 bg-background/50 backdrop-blur">
                 <Sparkles className="w-4 h-4 mr-2 inline-block" />
-                AI Visibility Analytics Platform
+                AI Search Visibility Platform
               </Badge>
               
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.15]">
-                <span className="block">Understand how</span>
-                <span className="block"><ScrollingAIText /></span>
-                <span className="block">is talking about your brand</span>
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] max-w-4xl mx-auto">
+                Is ChatGPT Recommending Your Competitors Instead of You?
               </h1>
               
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Track your AI visibility, see where and how AI mentions your brand, and uncover insights to enhance your presence.
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed font-medium">
+                Llumos shows how often ChatGPT, Gemini, and Perplexity mention your brand—and how to fix it.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-6">
+              <div className="flex flex-col items-center gap-4 pt-6">
                 <Button 
                   size="lg" 
-                  className="px-8 h-12 text-base shadow-glow" 
+                  className="px-10 h-14 text-lg shadow-glow font-semibold" 
                   asChild
                 >
-                  <Link to="/signup" onClick={() => trackCtaClick('hero-cta')}>Get Started</Link>
+                  <Link to="/signup" onClick={() => trackCtaClick('hero-cta')}>
+                    Start 7-Day Free Trial
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Link>
                 </Button>
                 
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="px-8 h-12 text-base" 
-                  asChild
-                >
-                  <Link to="/features">Learn More</Link>
-                </Button>
+                <p className="text-sm text-muted-foreground">
+                  No credit card needed · Set up in 2 minutes
+                </p>
               </div>
-              
+
+              <div className="pt-8">
+                <p className="text-sm text-muted-foreground mb-4">Trusted by marketers, agencies, and growing brands</p>
+                <div className="flex items-center justify-center gap-6 flex-wrap opacity-60">
+                  <Badge variant="outline" className="px-4 py-2">500+ Users</Badge>
+                  <Badge variant="outline" className="px-4 py-2">10,000+ AI Checks</Badge>
+                  <Badge variant="outline" className="px-4 py-2">50+ Industries</Badge>
+                </div>
+              </div>
             </div>
           </div>
         </section>
+
+        {/* Competitor Comparison Section */}
+        <CompetitorComparison />
 
         {/* Proof Section */}
         <ProofSection />
@@ -366,31 +340,33 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section className="py-20 px-4 border-t">
-          <div className="container max-w-4xl mx-auto text-center space-y-8">
-            <h2 className="text-3xl md:text-5xl font-bold">Ready to optimize your AI visibility?</h2>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Join leading brands tracking their AI presence. Start your free trial today.
+        {/* Testimonials Section */}
+        <TestimonialsSection />
+
+        {/* Final CTA Section */}
+        <section className="py-24 px-4 bg-gradient-to-br from-primary/10 via-background to-secondary/10 border-t">
+          <div className="container max-w-4xl mx-auto text-center space-y-6">
+            <h2 className="text-4xl md:text-5xl font-bold leading-tight">
+              See How Often AI Tools Recommend Your Brand
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Run your first visibility scan in under 2 minutes.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="pt-4">
               <Button 
                 size="lg" 
-                className="px-8 h-12 text-base shadow-glow" 
+                className="px-12 h-14 text-lg shadow-glow font-semibold" 
                 asChild
               >
-                <Link to="/signup" onClick={() => trackCtaClick('final-cta')}>Start Free Trial</Link>
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="px-8 h-12 text-base" 
-                asChild
-              >
-                <Link to="/features">View All Features</Link>
+                <Link to="/signup" onClick={() => trackCtaClick('final-cta')}>
+                  Start 7-Day Free Trial
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">No credit card required • Free 14-day trial</p>
+            <p className="text-sm text-muted-foreground pt-2">
+              Cancel anytime · No credit card required
+            </p>
           </div>
         </section>
 
