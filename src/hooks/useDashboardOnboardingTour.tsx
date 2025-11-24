@@ -90,6 +90,32 @@ export function useDashboardOnboardingTour() {
   const handleJoyrideCallback = async (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
+    // Handle close/skip immediately to prevent blocking
+    if (action === ACTIONS.CLOSE || action === ACTIONS.SKIP || status === STATUS.SKIPPED) {
+      console.log('[Tour] User closed/skipped tour, marking as complete');
+      localStorage.setItem(TOUR_KEY, 'true');
+      setRunTour(false);
+      
+      // Try to save to DB but don't block on it
+      if (userData?.id) {
+        try {
+          const currentCompletions = userData.tour_completions || {};
+          await supabase
+            .from('users')
+            .update({ 
+              tour_completions: { ...currentCompletions, dashboard_onboarding: true }
+            })
+            .eq('id', userData.id);
+          
+          await refreshUserData();
+        } catch (error) {
+          console.error('Failed to update tour completion:', error);
+          // Don't block user if DB update fails
+        }
+      }
+      return;
+    }
+
     // When user completes the welcome step on dashboard
     if (type === EVENTS.STEP_AFTER && tourStage === 'dashboard' && index === 0) {
       // After welcome screen, navigate directly to prompts page
@@ -105,7 +131,11 @@ export function useDashboardOnboardingTour() {
     }
 
     // Handle tour completion
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+    if (status === STATUS.FINISHED) {
+      console.log('[Tour] Tour finished, marking as complete');
+      localStorage.setItem(TOUR_KEY, 'true');
+      setRunTour(false);
+      
       if (userData?.id) {
         try {
           const currentCompletions = userData.tour_completions || {};
@@ -121,9 +151,6 @@ export function useDashboardOnboardingTour() {
           console.error('Failed to update tour completion:', error);
         }
       }
-      
-      localStorage.setItem(TOUR_KEY, 'true');
-      setRunTour(false);
     }
   };
 
@@ -159,6 +186,9 @@ export function useDashboardOnboardingTour() {
       continuous
       showProgress
       showSkipButton
+      disableOverlayClose={false}
+      disableCloseOnEsc={false}
+      spotlightClicks={false}
       callback={handleJoyrideCallback}
       styles={{
         options: {
@@ -176,6 +206,9 @@ export function useDashboardOnboardingTour() {
           borderRadius: 6,
         },
         buttonBack: {
+          color: 'hsl(var(--muted-foreground))',
+        },
+        buttonClose: {
           color: 'hsl(var(--muted-foreground))',
         },
       }}
