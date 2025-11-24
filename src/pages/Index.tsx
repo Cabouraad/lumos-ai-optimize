@@ -19,6 +19,7 @@ import { Logo } from '@/components/Logo';
 import { BlackFridayBanner } from '@/components/BlackFridayBanner';
 import { CompetitorComparison } from '@/components/CompetitorComparison';
 import { TestimonialsSection } from '@/components/TestimonialsSection';
+import { RotatingAIPlatform } from '@/components/RotatingAIPlatform';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -100,13 +101,20 @@ const Index = () => {
           
           <div className="container max-w-5xl mx-auto relative z-10">
             <div className="text-center mb-12 space-y-6 animate-fade-in">
+              {/* Large Logo */}
+              <div className="flex justify-center mb-8">
+                <div className="scale-[2.5] md:scale-[3]">
+                  <Logo />
+                </div>
+              </div>
+              
               <Badge variant="outline" className="mx-auto w-fit px-4 py-2 border-primary/20 bg-background/50 backdrop-blur">
                 <Sparkles className="w-4 h-4 mr-2 inline-block" />
                 AI Search Visibility Platform
               </Badge>
               
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] max-w-4xl mx-auto">
-                Is ChatGPT Recommending Your Competitors Instead of You?
+                Is <RotatingAIPlatform /> Recommending Your Competitors Instead of You?
               </h1>
               
               <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed font-medium">
