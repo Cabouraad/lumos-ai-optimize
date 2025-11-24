@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { format, startOfWeek, subWeeks } from 'date-fns';
 
 interface BrandPresenceRateProps {
   responses: any[];
@@ -17,6 +19,7 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
         change: 0,
         currentCount: 0,
         currentTotal: 0,
+        weeklyData: [],
       };
     }
 
@@ -46,12 +49,34 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
 
     const change = previousRate > 0 ? currentRate - previousRate : 0;
 
+    // Calculate weekly data for the past 4 weeks
+    const weeklyData = [];
+    for (let i = 3; i >= 0; i--) {
+      const weekStart = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), i);
+      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      const weekResponses = responses.filter((r) => {
+        const date = new Date(r.run_at);
+        return date >= weekStart && date < weekEnd;
+      });
+      
+      const weekPresent = weekResponses.filter((r) => r.org_brand_present).length;
+      const weekTotal = weekResponses.length;
+      const weekRate = weekTotal > 0 ? (weekPresent / weekTotal) * 100 : 0;
+      
+      weeklyData.push({
+        week: format(weekStart, 'MMM d'),
+        rate: weekRate,
+      });
+    }
+
     return {
       currentRate,
       previousRate,
       change,
       currentCount: currentPresent,
       currentTotal,
+      weeklyData,
     };
   }, [responses]);
 
@@ -91,7 +116,7 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
           How often AI mentions your brand
         </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="flex items-end justify-between">
           <div className="space-y-1">
             <div className="text-5xl font-bold text-foreground">
@@ -112,6 +137,39 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
             <span className="text-xs text-muted-foreground">vs last week</span>
           </div>
         </div>
+
+        {/* Weekly Trend Chart */}
+        {stats.weeklyData.length > 0 && (
+          <div className="h-24 mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stats.weeklyData}>
+                <XAxis 
+                  dataKey="week" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={[0, 100]}
+                  ticks={[0, 25, 50, 75, 100]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))', r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
