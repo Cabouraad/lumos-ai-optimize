@@ -139,7 +139,7 @@ const Index = () => {
                 </Button>
                 
                 <p className="text-sm text-muted-foreground">
-                  No credit card needed · Set up in 2 minutes
+                  Set up in 2 minutes
                 </p>
               </div>
 
@@ -378,7 +378,7 @@ const Index = () => {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground pt-2">
-              Cancel anytime · No credit card required
+              Cancel anytime
             </p>
           </div>
         </section>
