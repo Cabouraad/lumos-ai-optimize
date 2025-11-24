@@ -21,7 +21,7 @@ export function RotatingAIPlatform() {
         setCurrentIndex((prev) => (prev + 1) % AI_PLATFORMS.length);
         setIsVisible(true);
       }, 300);
-    }, 2500); // Change every 2.5 seconds
+    }, 3500); // Change every 3.5 seconds
 
     return () => clearInterval(interval);
   }, []);
