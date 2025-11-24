@@ -1,3 +1,4 @@
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -22,6 +23,11 @@ import {
   SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { 
   LayoutDashboard, 
   MessageSquare,
@@ -50,6 +56,7 @@ export function AppSidebar() {
   const { brands } = useBrands();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const [checklistOpen, setChecklistOpen] = React.useState(true);
 
   // Check if user is admin (owner role) and Pro tier
   const isAdmin = user?.user_metadata?.role === 'owner' || orgData?.users?.role === 'owner';
@@ -101,7 +108,15 @@ export function AppSidebar() {
         {/* Onboarding Checklist */}
         {!collapsed && (
           <div className="px-3 py-4">
-            <OnboardingChecklist />
+            <Collapsible open={checklistOpen} onOpenChange={setChecklistOpen}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted/50 rounded-lg transition-colors group">
+                <span className="text-sm font-semibold text-foreground">Setup Progress</span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${checklistOpen ? 'rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <OnboardingChecklist />
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         )}
 
