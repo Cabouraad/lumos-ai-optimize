@@ -56,7 +56,15 @@ export function AppSidebar() {
   const { brands } = useBrands();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const [checklistOpen, setChecklistOpen] = React.useState(true);
+  const [checklistOpen, setChecklistOpen] = React.useState(() => {
+    const saved = localStorage.getItem('onboarding-checklist-open');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const handleChecklistToggle = (open: boolean) => {
+    setChecklistOpen(open);
+    localStorage.setItem('onboarding-checklist-open', String(open));
+  };
 
   // Check if user is admin (owner role) and Pro tier
   const isAdmin = user?.user_metadata?.role === 'owner' || orgData?.users?.role === 'owner';
@@ -108,7 +116,7 @@ export function AppSidebar() {
         {/* Onboarding Checklist */}
         {!collapsed && (
           <div className="px-3 py-4">
-            <Collapsible open={checklistOpen} onOpenChange={setChecklistOpen}>
+            <Collapsible open={checklistOpen} onOpenChange={handleChecklistToggle}>
               <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted/50 rounded-lg transition-colors group">
                 <span className="text-sm font-semibold text-foreground">Setup Progress</span>
                 <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${checklistOpen ? 'rotate-180' : ''}`} />
