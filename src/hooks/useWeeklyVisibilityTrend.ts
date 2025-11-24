@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, subDays, format, isWithinInterval } from 'date-fns';
+import { startOfDay, subDays, format, parseISO } from 'date-fns';
 
 interface DailyVisibility {
   date: string;
@@ -32,7 +32,19 @@ export function useWeeklyVisibilityTrend(orgId: string | undefined) {
         .gte('run_at', fourteenDaysAgo.toISOString())
         .order('run_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[WeeklyVisibilityTrend] Database error:', error);
+        throw error;
+      }
+
+      console.log('[WeeklyVisibilityTrend] Fetched data:', {
+        orgId,
+        rowCount: data?.length || 0,
+        dateRange: data && data.length > 0 ? {
+          earliest: data[0].run_at,
+          latest: data[data.length - 1].run_at
+        } : 'no data'
+      });
 
       // Group by day and calculate averages
       const dailyMap = new Map<string, { scores: number[], presenceCount: number, total: number }>();
@@ -67,10 +79,14 @@ export function useWeeklyVisibilityTrend(orgId: string | undefined) {
       }
 
       // Calculate current week (last 7 days) average
+      // Use parseISO for consistent timezone handling and compare date strings directly
+      const sevenDaysAgo = format(subDays(today, 6), 'yyyy-MM-dd');
+      const todayStr = format(today, 'yyyy-MM-dd');
+      
       const currentWeekData = Array.from(dailyMap.entries())
         .filter(([date]) => {
-          const d = new Date(date);
-          return isWithinInterval(d, { start: subDays(today, 6), end: today });
+          // Compare date strings directly to avoid timezone issues
+          return date >= sevenDaysAgo && date <= todayStr;
         });
       
       const currentWeekScores = currentWeekData.flatMap(([, data]) => data.scores);
@@ -79,10 +95,14 @@ export function useWeeklyVisibilityTrend(orgId: string | undefined) {
         : 0;
 
       // Calculate previous week (8-14 days ago) average
+      // Use date string comparison for consistent results
+      const fourteenDaysAgoStr = format(subDays(today, 13), 'yyyy-MM-dd');
+      const eightDaysAgoStr = format(subDays(today, 7), 'yyyy-MM-dd');
+      
       const previousWeekData = Array.from(dailyMap.entries())
         .filter(([date]) => {
-          const d = new Date(date);
-          return isWithinInterval(d, { start: subDays(today, 13), end: subDays(today, 7) });
+          // Compare date strings: previous week is 8-14 days ago (inclusive)
+          return date >= fourteenDaysAgoStr && date <= eightDaysAgoStr;
         });
       
       const previousWeekScores = previousWeekData.flatMap(([, data]) => data.scores);
@@ -94,6 +114,14 @@ export function useWeeklyVisibilityTrend(orgId: string | undefined) {
       const percentageChange = previousWeekAvg > 0
         ? ((currentWeekAvg - previousWeekAvg) / previousWeekAvg) * 100
         : 0;
+
+      console.log('[WeeklyVisibilityTrend] Calculated metrics:', {
+        dailyDataPoints: dailyData.length,
+        currentWeekAvg,
+        previousWeekAvg,
+        percentageChange,
+        sampleDailyData: dailyData.slice(0, 3)
+      });
 
       return {
         dailyData,
