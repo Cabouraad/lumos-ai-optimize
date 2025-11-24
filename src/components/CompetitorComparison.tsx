@@ -103,7 +103,7 @@ export function CompetitorComparison() {
           <Button size="lg" className="px-8 h-12 shadow-glow" asChild>
             <Link to="/signup">Start Free Trial</Link>
           </Button>
-          <p className="text-sm text-muted-foreground mt-3">No credit card required • 7-day free trial</p>
+          <p className="text-sm text-muted-foreground mt-3">7-day free trial</p>
         </div>
       </div>
     </section>
