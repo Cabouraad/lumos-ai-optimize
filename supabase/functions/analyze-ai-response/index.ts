@@ -167,6 +167,27 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
     citations: citations ? citations.citations?.length || 0 : 0
   });
 
+  // Get excluded competitors for this org to filter them out
+  const { data: exclusions } = await supabase
+    .from('org_competitor_exclusions')
+    .select('competitor_name')
+    .eq('org_id', userOrgId);
+  
+  const excludedCompetitors = new Set(
+    exclusions?.map(e => e.competitor_name.toLowerCase().trim()) || []
+  );
+  
+  console.log(`Found ${excludedCompetitors.size} excluded competitors for org ${userOrgId}`);
+
+  // Filter out excluded competitors before storing
+  const filteredCompetitors = analysis.competitors_json.filter((name: string) => 
+    !excludedCompetitors.has(name.toLowerCase().trim())
+  );
+  
+  if (filteredCompetitors.length < analysis.competitors_json.length) {
+    console.log(`Filtered out ${analysis.competitors_json.length - filteredCompetitors.length} excluded competitors`);
+  }
+
   // Store results in prompt_provider_responses using upsert function
   const { data: responseId, error: responseError } = await supabase.rpc(
     'upsert_prompt_provider_response',
@@ -177,12 +198,13 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
       p_score: analysis.score,
       p_org_brand_present: analysis.org_brand_present,
       p_org_brand_prominence: analysis.org_brand_prominence,
-      p_competitors_count: analysis.competitors_json.length,
+      p_competitors_count: filteredCompetitors.length,
       p_brands_json: analysis.brands_json,
-      p_competitors_json: analysis.competitors_json,
+      p_competitors_json: filteredCompetitors,
       p_metadata: {
         ...analysis.metadata,
         response_length: responseText.length,
+        excluded_competitors: analysis.competitors_json.length - filteredCompetitors.length,
         ...(brands ? { input_brands: brands } : {})
       },
       p_raw_ai_response: responseText,
@@ -228,8 +250,8 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
       visibility_score: analysis.score,
       org_brand_present: analysis.org_brand_present,
       org_brand_prominence: analysis.org_brand_prominence,
-      competitors_count: analysis.competitors_json.length,
-      competitors_json: analysis.competitors_json,
+      competitors_count: filteredCompetitors.length,
+      competitors_json: filteredCompetitors,
       brands_json: analysis.brands_json,
       metadata: analysis.metadata
     });
@@ -238,8 +260,8 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
     console.error('❌ Error storing visibility results:', visibilityError);
   }
 
-  // Update competitor mentions using RPC calls
-  for (const competitorName of analysis.competitors_json) {
+  // Update competitor mentions using RPC calls (only for non-excluded competitors)
+  for (const competitorName of filteredCompetitors) {
     await supabase.rpc('upsert_competitor_mention', {
       p_org_id: userOrgId,
       p_competitor_name: competitorName,
@@ -287,7 +309,8 @@ const { promptId, providerId, responseText, citations, brands } = await req.json
         orgBrandPresent: analysis.org_brand_present,
         orgBrandProminence: analysis.org_brand_prominence,
         visibilityScore: analysis.score,
-        competitorsCount: analysis.competitors_json.length,
+        competitorsCount: filteredCompetitors.length,
+        competitorsExcluded: analysis.competitors_json.length - filteredCompetitors.length,
         brandsFound: analysis.brands_json.length,
         confidence: analysis.metadata.confidence_score,
         method: analysis.metadata.analysis_method,
