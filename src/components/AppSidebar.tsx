@@ -8,6 +8,7 @@ import { Logo } from '@/components/Logo';
 import { BrandDisplay } from '@/components/BrandDisplay';
 import { BrandSwitcher } from '@/components/BrandSwitcher';
 import { HelpTooltip } from '@/components/HelpTooltip';
+import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 import {
   Sidebar,
   SidebarContent,
@@ -97,6 +98,13 @@ export function AppSidebar() {
       )}
       
       <SidebarContent className="px-3">
+        {/* Onboarding Checklist */}
+        {!collapsed && (
+          <div className="px-3 py-4">
+            <OnboardingChecklist />
+          </div>
+        )}
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
