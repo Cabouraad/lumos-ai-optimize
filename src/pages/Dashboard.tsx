@@ -21,7 +21,8 @@ import { DataFreshnessIndicator } from '@/components/DataFreshnessIndicator';
 import { useContentOptimizations } from '@/features/visibility-optimizer/hooks';
 import { LlumosScoreWidget } from '@/components/llumos/LlumosScoreWidget';
 import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
-import { WeeklyVisibilityTrend } from '@/components/dashboard/WeeklyVisibilityTrend';
+import { BrandPresenceRate } from '@/components/dashboard/BrandPresenceRate';
+import { TopCompetitorsComparison } from '@/components/dashboard/TopCompetitorsComparison';
 import { AISourceIntelligence } from '@/components/dashboard/AISourceIntelligence';
 import { CitationTrends } from '@/components/dashboard/CitationTrends';
 import { useCompetitors } from '@/features/competitors/hooks';
@@ -455,8 +456,18 @@ export default function Dashboard() {
             hasCompetitorAccess={competitorAccess.hasAccess}
           />
 
-          {/* Weekly Visibility Trend */}
-          <WeeklyVisibilityTrend orgId={orgData?.organizations?.id} />
+          {/* Brand Presence & Competitor Comparison */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BrandPresenceRate 
+              responses={dashboardData?.responses || []} 
+              isLoading={loading}
+            />
+            <TopCompetitorsComparison 
+              orgId={orgData?.organizations?.id}
+              responses={dashboardData?.responses || []}
+              isLoading={loading}
+            />
+          </div>
 
           {/* Quick Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
