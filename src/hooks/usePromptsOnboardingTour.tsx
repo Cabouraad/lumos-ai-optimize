@@ -70,9 +70,15 @@ export function usePromptsOnboardingTour() {
   }, [userData]);
 
   const handleJoyrideCallback = async (data: CallBackProps) => {
-    const { status } = data;
+    const { action, status } = data;
     
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+    // Handle close/skip immediately to prevent blocking
+    if (action === 'close' || action === 'skip' || status === STATUS.SKIPPED) {
+      console.log('[Prompts Tour] User closed/skipped tour, marking as complete');
+      localStorage.setItem(TOUR_KEY, 'true');
+      setRunTour(false);
+      
+      // Try to save to DB but don't block on it
       if (userData?.id) {
         try {
           const currentCompletions = userData.tour_completions || {};
@@ -88,9 +94,29 @@ export function usePromptsOnboardingTour() {
           console.error('Failed to update tour completion:', error);
         }
       }
-      
+      return;
+    }
+    
+    if (status === STATUS.FINISHED) {
+      console.log('[Prompts Tour] Tour finished, marking as complete');
       localStorage.setItem(TOUR_KEY, 'true');
       setRunTour(false);
+      
+      if (userData?.id) {
+        try {
+          const currentCompletions = userData.tour_completions || {};
+          await supabase
+            .from('users')
+            .update({ 
+              tour_completions: { ...currentCompletions, prompts_onboarding: true }
+            })
+            .eq('id', userData.id);
+          
+          await refreshUserData();
+        } catch (error) {
+          console.error('Failed to update tour completion:', error);
+        }
+      }
     }
   };
 
@@ -121,6 +147,9 @@ export function usePromptsOnboardingTour() {
       continuous
       showProgress
       showSkipButton
+      disableOverlayClose={false}
+      disableCloseOnEsc={false}
+      spotlightClicks={false}
       callback={handleJoyrideCallback}
       styles={{
         options: {
@@ -138,6 +167,9 @@ export function usePromptsOnboardingTour() {
           borderRadius: 6,
         },
         buttonBack: {
+          color: 'hsl(var(--muted-foreground))',
+        },
+        buttonClose: {
           color: 'hsl(var(--muted-foreground))',
         },
       }}

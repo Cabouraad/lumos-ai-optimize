@@ -50,9 +50,15 @@ export function useBrandsTour() {
   }, [userData]);
 
   const handleJoyrideCallback = async (data: CallBackProps) => {
-    const { status } = data;
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
-      // Update database if user is authenticated
+    const { action, status } = data;
+    
+    // Handle close/skip immediately to prevent blocking
+    if (action === 'close' || action === 'skip' || status === STATUS.SKIPPED) {
+      console.log('[Brands Tour] User closed/skipped tour, marking as complete');
+      localStorage.setItem(TOUR_KEY, 'true');
+      setRunTour(false);
+      
+      // Try to save to DB but don't block on it
       if (userData?.id) {
         try {
           const currentCompletions = userData.tour_completions || {};
@@ -63,16 +69,34 @@ export function useBrandsTour() {
             })
             .eq('id', userData.id);
           
-          // Refresh user data to reflect the change
           await refreshUserData();
         } catch (error) {
           console.error('Failed to update tour completion:', error);
         }
       }
-      
-      // Also update localStorage as backup
+      return;
+    }
+    
+    if (status === STATUS.FINISHED) {
+      console.log('[Brands Tour] Tour finished, marking as complete');
       localStorage.setItem(TOUR_KEY, 'true');
       setRunTour(false);
+      
+      if (userData?.id) {
+        try {
+          const currentCompletions = userData.tour_completions || {};
+          await supabase
+            .from('users')
+            .update({ 
+              tour_completions: { ...currentCompletions, brands: true }
+            })
+            .eq('id', userData.id);
+          
+          await refreshUserData();
+        } catch (error) {
+          console.error('Failed to update tour completion:', error);
+        }
+      }
     }
   };
 
@@ -104,12 +128,38 @@ export function useBrandsTour() {
       continuous
       showProgress
       showSkipButton
+      disableOverlayClose={false}
+      disableCloseOnEsc={false}
+      spotlightClicks={false}
       callback={handleJoyrideCallback}
       styles={{
         options: {
           primaryColor: 'hsl(var(--primary))',
           zIndex: 10000,
+          arrowColor: 'hsl(var(--popover))',
+          backgroundColor: 'hsl(var(--popover))',
+          textColor: 'hsl(var(--popover-foreground))',
         },
+        tooltip: {
+          borderRadius: 8,
+        },
+        buttonNext: {
+          backgroundColor: 'hsl(var(--primary))',
+          borderRadius: 6,
+        },
+        buttonBack: {
+          color: 'hsl(var(--muted-foreground))',
+        },
+        buttonClose: {
+          color: 'hsl(var(--muted-foreground))',
+        },
+      }}
+      locale={{
+        back: 'Back',
+        close: 'Close',
+        last: 'Finish',
+        next: 'Next',
+        skip: 'Skip Tour',
       }}
     />
   );
