@@ -18,9 +18,8 @@ export function BlackFridayBanner() {
     }
     setVisible(true);
 
-    // Calculate time left (7 days from now)
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 7);
+    // Calculate time left until December 1, 2025
+    const endDate = new Date('2025-12-01T00:00:00');
 
     const interval = setInterval(() => {
       const now = new Date().getTime();
