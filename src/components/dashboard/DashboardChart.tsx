@@ -15,10 +15,20 @@ const DashboardChartComponent = ({
   competitors, 
   loadingCompetitors
 }: DashboardChartProps) => {
-  // Track which competitors are visible
-  const [visibleCompetitors, setVisibleCompetitors] = useState<Set<number>>(
-    new Set(competitors.map((_, index) => index))
-  );
+  // Load persisted competitor visibility from localStorage
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Set<number>>(() => {
+    try {
+      const stored = localStorage.getItem('llumos_competitor_toggles');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new Set(parsed);
+      }
+    } catch (e) {
+      console.warn('Failed to load competitor toggle state:', e);
+    }
+    // Default: all competitors visible
+    return new Set(competitors.map((_, index) => index));
+  });
   
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];
@@ -31,6 +41,14 @@ const DashboardChartComponent = ({
       } else {
         newSet.add(index);
       }
+      
+      // Persist to localStorage
+      try {
+        localStorage.setItem('llumos_competitor_toggles', JSON.stringify(Array.from(newSet)));
+      } catch (e) {
+        console.warn('Failed to persist competitor toggle state:', e);
+      }
+      
       return newSet;
     });
   };
