@@ -1,29 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMemo, useState } from 'react';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip } from 'recharts';
-import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useMemo } from 'react';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { format, startOfWeek, subWeeks } from 'date-fns';
 
 interface BrandPresenceRateProps {
   responses: any[];
   isLoading?: boolean;
 }
 
-const CHART_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(25, 95%, 53%)', // Orange
-  'hsl(48, 96%, 53%)', // Yellow
-  'hsl(142, 71%, 45%)', // Green
-  'hsl(280, 100%, 70%)', // Purple
-  'hsl(340, 75%, 55%)', // Pink
-];
-
 export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRateProps) {
-  const [disabledCompetitors, setDisabledCompetitors] = useState<Set<string>>(new Set());
-  
   const stats = useMemo(() => {
     if (!responses || responses.length === 0) {
       return {
@@ -62,86 +49,30 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
 
     const change = previousRate > 0 ? currentRate - previousRate : 0;
 
-    // Calculate daily data for the past 14 days with competitor comparison
-    const competitorStats = new Map<string, { name: string; dailyRates: Map<string, number> }>();
+    // Calculate daily data for the past 14 days for a clearer trend
     const weeklyData = [];
-    
-    // First pass: identify all competitors and initialize their data
-    responses.forEach((r) => {
-      try {
-        const competitors = Array.isArray(r.competitors_json) ? r.competitors_json : [];
-        competitors.forEach((comp: any) => {
-          const compName = typeof comp === 'string' ? comp : comp?.name || comp?.brand;
-          if (compName && !competitorStats.has(compName)) {
-            competitorStats.set(compName, {
-              name: compName,
-              dailyRates: new Map(),
-            });
-          }
-        });
-      } catch (e) {
-        // Skip invalid competitor data
-      }
-    });
-    
-    // Second pass: calculate daily rates for brand and competitors
     for (let i = 13; i >= 0; i--) {
       const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-      const dateKey = format(dayStart, 'MMM d');
       
       const dayResponses = responses.filter((r) => {
         const date = new Date(r.run_at);
         return date >= dayStart && date < dayEnd;
       });
       
-      if (dayResponses.length > 0) {
-        // Calculate brand presence rate
-        const dayPresent = dayResponses.filter((r) => r.org_brand_present).length;
-        const brandRate = (dayPresent / dayResponses.length) * 100;
-        
-        // Calculate competitor presence rates
-        const competitorMentions = new Map<string, number>();
-        dayResponses.forEach((r) => {
-          try {
-            const competitors = Array.isArray(r.competitors_json) ? r.competitors_json : [];
-            competitors.forEach((comp: any) => {
-              const compName = typeof comp === 'string' ? comp : comp?.name || comp?.brand;
-              if (compName) {
-                competitorMentions.set(compName, (competitorMentions.get(compName) || 0) + 1);
-              }
-            });
-          } catch (e) {
-            // Skip invalid data
-          }
+      const dayPresent = dayResponses.filter((r) => r.org_brand_present).length;
+      const dayTotal = dayResponses.length;
+      
+      // Only add data point if we have responses for that day
+      if (dayTotal > 0) {
+        const dayRate = (dayPresent / dayTotal) * 100;
+        weeklyData.push({
+          week: format(dayStart, 'MMM d'),
+          rate: dayRate,
         });
-        
-        const dataPoint: any = {
-          date: dateKey,
-          'Your Brand': brandRate,
-        };
-        
-        // Add competitor rates
-        competitorStats.forEach((stat, compName) => {
-          const mentions = competitorMentions.get(compName) || 0;
-          const rate = (mentions / dayResponses.length) * 100;
-          dataPoint[compName] = rate;
-        });
-        
-        weeklyData.push(dataPoint);
       }
     }
-    
-    // Get top 5 competitors by total mentions
-    const topCompetitors = Array.from(competitorStats.entries())
-      .map(([name, stat]) => {
-        const totalMentions = Array.from(stat.dailyRates.values()).reduce((a, b) => a + b, 0);
-        return { name, totalMentions };
-      })
-      .sort((a, b) => b.totalMentions - a.totalMentions)
-      .slice(0, 5)
-      .map(c => c.name);
 
     return {
       currentRate,
@@ -150,21 +81,8 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
       currentCount: currentPresent,
       currentTotal,
       weeklyData,
-      topCompetitors,
     };
   }, [responses]);
-  
-  const toggleCompetitor = (competitor: string) => {
-    setDisabledCompetitors(prev => {
-      const next = new Set(prev);
-      if (next.has(competitor)) {
-        next.delete(competitor);
-      } else {
-        next.add(competitor);
-      }
-      return next;
-    });
-  };
 
   if (isLoading) {
     return (
@@ -197,17 +115,10 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
   return (
     <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Brand Presence vs Competitors
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Daily presence rate comparison
-            </p>
-          </div>
-        </div>
+        <CardTitle className="text-lg">Brand Presence Rate</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          How often AI mentions your brand
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-end justify-between">
@@ -231,85 +142,35 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
           </div>
         </div>
 
-        {/* Competitor Toggles */}
-        {stats.topCompetitors && stats.topCompetitors.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            <Badge 
-              variant="default" 
-              className="cursor-pointer hover:opacity-80"
-              style={{ backgroundColor: CHART_COLORS[0] }}
-            >
-              Your Brand
-            </Badge>
-            {stats.topCompetitors.map((competitor, index) => (
-              <Badge
-                key={competitor}
-                variant={disabledCompetitors.has(competitor) ? "outline" : "secondary"}
-                className="cursor-pointer hover:opacity-80 transition-opacity"
-                style={
-                  !disabledCompetitors.has(competitor)
-                    ? { backgroundColor: CHART_COLORS[(index + 1) % CHART_COLORS.length] }
-                    : undefined
-                }
-                onClick={() => toggleCompetitor(competitor)}
-              >
-                {competitor}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {/* Comparison Chart */}
+        {/* Daily Trend Chart */}
         {stats.weeklyData.length > 0 && (
-          <div className="h-48 mt-4">
+          <div className="h-28 mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.weeklyData}>
                 <XAxis 
-                  dataKey="date" 
+                  dataKey="week" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
+                  interval="preserveStartEnd"
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
+                  fontSize={11}
                   tickLine={false}
                   axisLine={false}
                   domain={[0, 100]}
-                  ticks={[0, 25, 50, 75, 100]}
-                  label={{ value: 'Presence %', angle: -90, position: 'insideLeft', fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                  }}
-                  formatter={(value: any) => `${Number(value).toFixed(1)}%`}
+                  ticks={[0, 50, 100]}
                 />
                 <Line
                   type="monotone"
-                  dataKey="Your Brand"
-                  stroke={CHART_COLORS[0]}
-                  strokeWidth={2.5}
-                  dot={{ fill: CHART_COLORS[0], r: 3 }}
+                  dataKey="rate"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))', r: 3 }}
                   activeDot={{ r: 5 }}
                 />
-                {stats.topCompetitors?.map((competitor, index) => (
-                  !disabledCompetitors.has(competitor) && (
-                    <Line
-                      key={competitor}
-                      type="monotone"
-                      dataKey={competitor}
-                      stroke={CHART_COLORS[(index + 1) % CHART_COLORS.length]}
-                      strokeWidth={2}
-                      dot={{ fill: CHART_COLORS[(index + 1) % CHART_COLORS.length], r: 2 }}
-                      activeDot={{ r: 4 }}
-                    />
-                  )
-                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
