@@ -8,7 +8,6 @@ verify_jwt = true
 
 # TODO: Security audit completed - All verify_jwt=false functions have proper internal auth:
 # - daily-batch-trigger: Validates cron secret against database
-# - daily-scheduler-deprecated: Legacy function (consider removal)  
 # - batch-reconciler: Validates cron secret + supports manual calls
 # - robust-batch-processor: Requires Bearer token OR valid cron secret
 # - stripe-webhook: Uses Stripe signature validation (industry standard)
@@ -20,9 +19,6 @@ import_map = ""
 
 [functions.admin-batch-trigger]
 verify_jwt = true
-
-[functions.daily-scheduler-deprecated]
-verify_jwt = false
 
 [functions.batch-reconciler]
 verify_jwt = false
