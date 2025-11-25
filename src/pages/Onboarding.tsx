@@ -329,26 +329,6 @@ export default function Onboarding() {
           variant: "destructive",
         });
       } else {
-        // Generic non-2xx from Supabase client – attempt fallback check
-        const genericNon2xx = typeof error?.message === 'string' && error.message.toLowerCase().includes('non-2xx');
-        if (genericNon2xx && user) {
-          try {
-            const { data: u } = await supabase
-              .from('users')
-              .select('org_id')
-              .eq('id', user.id)
-              .maybeSingle();
-            if (u?.org_id) {
-              // Org actually created; proceed to payment step (never skip pricing)
-              try { updateOrgIdCache(u.org_id); } catch {}
-              toast({ title: 'Setup Complete!', description: 'Your organization has been created.' });
-              setCurrentStep(3);
-              setLoading(false);
-              return;
-            }
-          } catch {}
-        }
-
         toast({
           title: 'Error',
           description: error.message || 'Failed to complete setup',
