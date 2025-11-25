@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Suspense, lazy, useEffect } from "react";
 import Health from "@/components/Health";
 import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
+import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { loadChunkWithRetry } from "@/utils/chunk-loader";
 import { OnboardingGate } from "@/components/auth/OnboardingGate";
 import { GoogleAdsTracking } from "@/components/tracking/GoogleAdsTracking";
@@ -134,7 +135,9 @@ const App = () => {
           {/* Protected routes - require authentication and subscription */}
           <Route path="/onboarding" element={
             <ProtectedRoute requireSubscription={false}>
-              <Onboarding />
+              <PageErrorBoundary pageName="Onboarding">
+                <Onboarding />
+              </PageErrorBoundary>
             </ProtectedRoute>
           } />
           <Route path="/onboarding/brand" element={
@@ -185,9 +188,11 @@ const App = () => {
           } />
           <Route path="/prompts" element={
             <ProtectedRoute>
-              <ChunkErrorBoundary chunkName="Prompts">
-                <Prompts />
-              </ChunkErrorBoundary>
+              <PageErrorBoundary pageName="Prompts">
+                <ChunkErrorBoundary chunkName="Prompts">
+                  <Prompts />
+                </ChunkErrorBoundary>
+              </PageErrorBoundary>
             </ProtectedRoute>
           } />
           <Route path="/prompts/:promptId" element={
@@ -220,9 +225,11 @@ const App = () => {
           } />
           <Route path="/optimizations" element={
             <ProtectedRoute>
-              <ChunkErrorBoundary chunkName="OptimizationsV2">
-                <OptimizationsV2 />
-              </ChunkErrorBoundary>
+              <PageErrorBoundary pageName="Optimizations">
+                <ChunkErrorBoundary chunkName="OptimizationsV2">
+                  <OptimizationsV2 />
+                </ChunkErrorBoundary>
+              </PageErrorBoundary>
             </ProtectedRoute>
           } />
           <Route path="/optimizations-legacy" element={
@@ -246,7 +253,9 @@ const App = () => {
           } />
           <Route path="/settings" element={
             <ProtectedRoute>
-              <Settings />
+              <PageErrorBoundary pageName="Settings">
+                <Settings />
+              </PageErrorBoundary>
             </ProtectedRoute>
           } />
           <Route path="/user-guide" element={

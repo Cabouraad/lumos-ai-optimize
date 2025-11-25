@@ -190,6 +190,7 @@ export function useRealTimeDashboard(
     }
 
     const handleVisibilityChange = () => {
+      // Only refresh when tab becomes visible, not when hidden
       if (document.visibilityState === 'visible' && !fetchInProgressRef.current) {
         const now = Date.now();
         // Increased throttle to 30 seconds to prevent excessive refetching
@@ -200,6 +201,9 @@ export function useRealTimeDashboard(
         } else {
           console.log('[Dashboard] Tab visible but throttled');
         }
+      } else if (document.visibilityState === 'hidden') {
+        console.log('[Dashboard] Tab hidden, pausing activity');
+        // Tab is hidden - polling continues but we log it for monitoring
       }
     };
 

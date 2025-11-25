@@ -17,10 +17,9 @@ import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 
 // Query client is provided by QueryProvider with sane defaults
 
-// Initialize performance monitoring in development
-if (import.meta.env.DEV) {
-  observeWebVitals();
-}
+// Initialize performance monitoring in all environments
+// Now enabled in production for performance tracking
+observeWebVitals();
 
 const Router = HashRouter;
 

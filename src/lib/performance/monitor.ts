@@ -58,9 +58,12 @@ export async function measure<T>(
 
 /**
  * Log Web Vitals when available
+ * Now enabled in production for performance monitoring
  */
 export function observeWebVitals(): void {
   if (typeof window === 'undefined') return;
+
+  const isDev = import.meta.env.DEV;
 
   // CLS - Cumulative Layout Shift
   if ('PerformanceObserver' in window) {
@@ -68,7 +71,18 @@ export function observeWebVitals(): void {
       const clsObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           if ((entry as any).hadRecentInput) continue;
-          console.debug('[WebVitals] CLS:', (entry as any).value);
+          const value = (entry as any).value;
+          
+          // Log in development, report in production
+          if (isDev) {
+            console.debug('[WebVitals] CLS:', value);
+          }
+          
+          // In production, could send to analytics service
+          if (!isDev && value > 0.1) {
+            // CLS above threshold - could report to monitoring service
+            console.warn('[WebVitals] High CLS detected:', value);
+          }
         }
       });
       clsObserver.observe({ type: 'layout-shift', buffered: true });
@@ -81,13 +95,22 @@ export function observeWebVitals(): void {
   window.addEventListener('load', () => {
     const perfData = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
     if (perfData) {
-      console.debug('[WebVitals] Page Load:', {
+      const metrics = {
         dns: perfData.domainLookupEnd - perfData.domainLookupStart,
         tcp: perfData.connectEnd - perfData.connectStart,
         ttfb: perfData.responseStart - perfData.requestStart,
         domLoad: perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart,
         total: perfData.loadEventEnd - perfData.fetchStart,
-      });
+      };
+      
+      if (isDev) {
+        console.debug('[WebVitals] Page Load:', metrics);
+      }
+      
+      // In production, log slow loads
+      if (!isDev && metrics.total > 3000) {
+        console.warn('[WebVitals] Slow page load:', metrics);
+      }
     }
   });
 }
