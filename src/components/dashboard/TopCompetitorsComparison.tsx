@@ -16,8 +16,9 @@ export function TopCompetitorsComparison({
   responses, 
   isLoading: responsesLoading 
 }: TopCompetitorsComparisonProps) {
+  // Fetch competitors for the same period as brand stats (7 days) for accurate comparison
   const { data: competitors = [], isLoading: competitorsLoading } = useCompetitors({
-    days: 30,
+    days: 7,
     limit: 3,
   });
 

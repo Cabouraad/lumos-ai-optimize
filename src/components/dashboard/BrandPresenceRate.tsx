@@ -49,26 +49,27 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
 
     const change = previousRate > 0 ? currentRate - previousRate : 0;
 
-    // Calculate weekly data for the past 4 weeks
+    // Calculate daily data for the past 14 days for a clearer trend
     const weeklyData = [];
-    for (let i = 3; i >= 0; i--) {
-      const weekStart = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), i);
-      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    for (let i = 13; i >= 0; i--) {
+      const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
       
-      const weekResponses = responses.filter((r) => {
+      const dayResponses = responses.filter((r) => {
         const date = new Date(r.run_at);
-        return date >= weekStart && date < weekEnd;
+        return date >= dayStart && date < dayEnd;
       });
       
-      const weekPresent = weekResponses.filter((r) => r.org_brand_present).length;
-      const weekTotal = weekResponses.length;
-      const weekRate = weekTotal > 0 ? (weekPresent / weekTotal) * 100 : null;
+      const dayPresent = dayResponses.filter((r) => r.org_brand_present).length;
+      const dayTotal = dayResponses.length;
       
-      // Only add data point if we have responses for that week
-      if (weekTotal > 0) {
+      // Only add data point if we have responses for that day
+      if (dayTotal > 0) {
+        const dayRate = (dayPresent / dayTotal) * 100;
         weeklyData.push({
-          week: format(weekStart, 'MMM d'),
-          rate: weekRate,
+          week: format(dayStart, 'MMM d'),
+          rate: dayRate,
         });
       }
     }
@@ -141,17 +142,18 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
           </div>
         </div>
 
-        {/* Weekly Trend Chart */}
+        {/* Daily Trend Chart */}
         {stats.weeklyData.length > 0 && (
-          <div className="h-24 mt-4">
+          <div className="h-28 mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.weeklyData}>
                 <XAxis 
                   dataKey="week" 
                   stroke="hsl(var(--muted-foreground))"
-                  fontSize={11}
+                  fontSize={10}
                   tickLine={false}
                   axisLine={false}
+                  interval="preserveStartEnd"
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
