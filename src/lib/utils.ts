@@ -157,6 +157,13 @@ export function deepClone<T>(obj: T): T {
 // Error Handling
 // ============================================================================
 
+export interface RetryOptions {
+  maxRetries?: number;
+  delayMs?: number;
+  backoffMultiplier?: number;
+  onRetry?: (attempt: number, error: Error) => void;
+}
+
 /**
  * Extract error message from unknown error type
  */
@@ -167,6 +174,80 @@ export function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return 'An unknown error occurred';
+}
+
+/**
+ * Categorize error for better handling
+ */
+export function categorizeError(error: unknown): {
+  type: 'network' | 'auth' | 'validation' | 'server' | 'unknown';
+  isRetryable: boolean;
+  message: string;
+} {
+  const message = getErrorMessage(error);
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes('network') || lowerMessage.includes('fetch') || lowerMessage.includes('timeout')) {
+    return { type: 'network', isRetryable: true, message };
+  }
+  
+  if (lowerMessage.includes('auth') || lowerMessage.includes('unauthorized') || lowerMessage.includes('forbidden')) {
+    return { type: 'auth', isRetryable: false, message };
+  }
+  
+  if (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) {
+    return { type: 'validation', isRetryable: false, message };
+  }
+  
+  if (lowerMessage.includes('500') || lowerMessage.includes('server error')) {
+    return { type: 'server', isRetryable: true, message };
+  }
+
+  return { type: 'unknown', isRetryable: false, message };
+}
+
+/**
+ * Retry an async operation with exponential backoff
+ */
+export async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> {
+  const {
+    maxRetries = 3,
+    delayMs = 1000,
+    backoffMultiplier = 2,
+    onRetry
+  } = options;
+
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(getErrorMessage(error));
+      
+      const errorInfo = categorizeError(error);
+      
+      // Don't retry if error is not retryable
+      if (!errorInfo.isRetryable || attempt === maxRetries) {
+        throw lastError;
+      }
+      
+      // Calculate delay with exponential backoff
+      const delay = delayMs * Math.pow(backoffMultiplier, attempt);
+      
+      if (onRetry) {
+        onRetry(attempt + 1, lastError);
+      }
+      
+      console.log(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms...`);
+      await sleep(delay);
+    }
+  }
+  
+  throw lastError!;
 }
 
 /**
