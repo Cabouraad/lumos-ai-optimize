@@ -1,148 +1,118 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { BarChart3 } from 'lucide-react';
 
 interface DashboardChartProps {
-  chartData: any[];
   competitorChartData: any[];
   competitors: any[];
-  chartView: 'score' | 'competitors';
-  onChartViewChange: (view: 'score' | 'competitors') => void;
   loadingCompetitors: boolean;
-  hasCompetitorAccess?: boolean;
 }
 
 const DashboardChartComponent = ({
-  chartData, 
   competitorChartData, 
   competitors, 
-  chartView, 
-  onChartViewChange,
-  loadingCompetitors,
-  hasCompetitorAccess = false
+  loadingCompetitors
 }: DashboardChartProps) => {
+  // Track which competitors are visible
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Set<number>>(
+    new Set(competitors.map((_, index) => index))
+  );
+  
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];
   
-  // Transform chart data to convert scores to percentages
-  const percentageChartData = chartData.map(item => ({
-    ...item,
-    avgScorePercent: item.avgScore ? item.avgScore * 10 : 0
-  }));
+  const toggleCompetitor = (index: number) => {
+    setVisibleCompetitors(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   return (
     <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          <CardTitle>
-            {chartView === 'score' ? 'Visibility Trends' : 'Brand Presence vs Competitors'}
-          </CardTitle>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <CardTitle>Brand Presence vs Competitors</CardTitle>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant={chartView === 'score' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onChartViewChange('score')}
-          >
-            Scores
-          </Button>
-          {hasCompetitorAccess && (
-            <Button
-              variant={chartView === 'competitors' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onChartViewChange('competitors')}
-              disabled={loadingCompetitors}
-            >
-              Competitors
-            </Button>
-          )}
-        </div>
+        
+        {/* Competitor Toggles */}
+        {competitors.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {competitors.map((competitor, index) => (
+              <Button
+                key={competitor.name}
+                variant={visibleCompetitors.has(index) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => toggleCompetitor(index)}
+                className="text-xs"
+                style={{
+                  backgroundColor: visibleCompetitors.has(index) 
+                    ? competitorColors[index % competitorColors.length] 
+                    : undefined,
+                  borderColor: competitorColors[index % competitorColors.length],
+                  color: visibleCompetitors.has(index) ? '#fff' : undefined
+                }}
+              >
+                {competitor.name}
+              </Button>
+            ))}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            {chartView === 'score' ? (
-              <LineChart data={percentageChartData}>
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                  domain={[0, 100]}
-                  label={{ value: 'Visibility %', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
-                    weekday: 'long',
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
-                  formatter={(value: any) => [`${value?.toFixed(1)}%` || '0.0%', 'Visibility Score']}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="avgScorePercent" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={3}
-                  dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: "hsl(var(--primary))", strokeWidth: 2 }}
-                />
-              </LineChart>
-            ) : (
-              <LineChart data={competitorChartData}>
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                  label={{ value: 'Presence %', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
-                    weekday: 'long',
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
-                  formatter={(value: any, name: string) => [
-                    `${value}%`, 
-                    name === 'orgPresence' ? 'Your Brand' : competitors[parseInt(name.replace('competitor', ''))]?.name || name
-                  ]}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="orgPresence" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={3}
-                  name="Your Brand"
-                  dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
-                />
-                {competitors.map((competitor, index) => (
+            <LineChart data={competitorChartData}>
+              <XAxis 
+                dataKey="date" 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12 }}
+                tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              />
+              <YAxis 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12 }}
+                label={{ value: 'Presence %', angle: -90, position: 'insideLeft' }}
+              />
+              <Tooltip 
+                labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
+                  weekday: 'long',
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+                formatter={(value: any, name: string) => [
+                  `${value}%`, 
+                  name === 'orgPresence' ? 'Your Brand' : competitors[parseInt(name.replace('competitor', ''))]?.name || name
+                ]}
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--popover))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '6px'
+                }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="orgPresence" 
+                stroke="hsl(var(--primary))" 
+                strokeWidth={3}
+                name="Your Brand"
+                dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+              />
+              {competitors.map((competitor, index) => 
+                visibleCompetitors.has(index) ? (
                   <Line 
                     key={competitor.name}
                     type="monotone" 
@@ -152,9 +122,9 @@ const DashboardChartComponent = ({
                     name={competitor.name}
                     dot={{ fill: competitorColors[index % competitorColors.length], strokeWidth: 1, r: 3 }}
                   />
-                ))}
-              </LineChart>
-            )}
+                ) : null
+              )}
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

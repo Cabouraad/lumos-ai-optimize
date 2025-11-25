@@ -39,7 +39,6 @@ export default function Dashboard() {
   const { data: optimizations = [] } = useContentOptimizations();
   const [latestReport, setLatestReport] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [chartView, setChartView] = useState<'score' | 'competitors'>('score');
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   
@@ -183,7 +182,7 @@ export default function Dashboard() {
 
   // Compute competitor presence chart data
   const competitorChartData = useMemo(() => {
-    if (chartView !== 'competitors' || !dashboardData?.responses || competitorData.length === 0) {
+    if (!dashboardData?.responses || competitorData.length === 0) {
       return [];
     }
 
@@ -234,7 +233,7 @@ export default function Dashboard() {
     }
 
     return chartData;
-  }, [chartView, dashboardData?.responses, competitorData]);
+  }, [dashboardData?.responses, competitorData]);
 
   useEffect(() => {
     if (orgData?.organizations?.id && isFeatureEnabled('FEATURE_WEEKLY_REPORT')) {
@@ -447,13 +446,9 @@ export default function Dashboard() {
 
           {/* Visibility Trend Chart */}
           <DashboardChart 
-            chartData={memoizedChartData}
             competitorChartData={competitorChartData}
             competitors={competitorData.map(c => ({ name: c.competitor_name }))}
-            chartView={chartView}
-            onChartViewChange={setChartView}
             loadingCompetitors={loadingCompetitors}
-            hasCompetitorAccess={competitorAccess.hasAccess}
           />
 
           {/* Brand Presence & Competitor Comparison */}
