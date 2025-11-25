@@ -8,6 +8,7 @@ import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { loadChunkWithRetry } from "@/utils/chunk-loader";
 import { OnboardingGate } from "@/components/auth/OnboardingGate";
 import { GoogleAdsTracking } from "@/components/tracking/GoogleAdsTracking";
+import { useGlobalShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 // Lazy load all page components with retry logic to handle chunk loading failures
 const Index = lazy(() => loadChunkWithRetry(() => import("./pages/Index")));
@@ -66,6 +67,9 @@ const BlackFridaySuccess = lazy(() => loadChunkWithRetry(() => import("./pages/B
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 const App = () => {
+  // Enable global keyboard shortcuts
+  useGlobalShortcuts();
+
   // Prefetch critical chunks to prevent load failures
   useEffect(() => {
     const prefetchCriticalChunks = () => {
