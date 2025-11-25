@@ -62,12 +62,15 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
       
       const weekPresent = weekResponses.filter((r) => r.org_brand_present).length;
       const weekTotal = weekResponses.length;
-      const weekRate = weekTotal > 0 ? (weekPresent / weekTotal) * 100 : 0;
+      const weekRate = weekTotal > 0 ? (weekPresent / weekTotal) * 100 : null;
       
-      weeklyData.push({
-        week: format(weekStart, 'MMM d'),
-        rate: weekRate,
-      });
+      // Only add data point if we have responses for that week
+      if (weekTotal > 0) {
+        weeklyData.push({
+          week: format(weekStart, 'MMM d'),
+          rate: weekRate,
+        });
+      }
     }
 
     return {
@@ -156,7 +159,7 @@ export function BrandPresenceRate({ responses, isLoading }: BrandPresenceRatePro
                   tickLine={false}
                   axisLine={false}
                   domain={[0, 100]}
-                  ticks={[0, 25, 50, 75, 100]}
+                  ticks={[0, 50, 100]}
                 />
                 <Line
                   type="monotone"
