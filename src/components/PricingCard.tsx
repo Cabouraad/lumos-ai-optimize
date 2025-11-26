@@ -35,7 +35,7 @@ export function PricingCard({
   billingCycle,
   currentTier,
 }: PricingCardProps) {
-  const { user, subscriptionData } = useAuth();
+  const { user, subscriptionData, orgStatus, orgData } = useAuth();
   const { hasAccessToApp } = useSubscriptionGate();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -52,6 +52,26 @@ export function PricingCard({
         title: "Authentication Required",
         description: "Please sign in to subscribe to a plan.",
         variant: "destructive",
+      });
+      navigate('/signin');
+      return;
+    }
+
+    // Check if user has completed onboarding and has an organization
+    if (orgStatus === 'not_found' || !orgData?.org_id) {
+      toast({
+        title: "Complete Onboarding First",
+        description: "Please complete your account setup before subscribing.",
+      });
+      navigate('/onboarding');
+      return;
+    }
+
+    // Wait if org is still loading
+    if (orgStatus === 'loading') {
+      toast({
+        title: "Please wait",
+        description: "Loading your account information...",
       });
       return;
     }
