@@ -189,6 +189,11 @@ export function PricingCard({
       
       <CardHeader className="pb-4 text-center">
         <CardTitle className="text-3xl font-bold mb-2">{title}</CardTitle>
+        {tier === 'starter' && (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300 dark:border-green-700 mb-2">
+            ✓ 7-Day Free Trial
+          </Badge>
+        )}
         <CardDescription className="text-sm text-muted-foreground">
           {description}
         </CardDescription>
