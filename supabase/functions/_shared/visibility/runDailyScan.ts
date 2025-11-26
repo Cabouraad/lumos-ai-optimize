@@ -239,7 +239,7 @@ async function extractBrandsGemini(promptText: string, apiKey: string) {
               text: 'You are a helpful AI assistant. Use Google Search to find current information and cite your sources.'
             }]
           },
-          tools: [{ googleSearch: {} }],
+          tools: [{ google_search: {} }],
           generationConfig: {
             temperature: 0.7,
             topK: 40,
