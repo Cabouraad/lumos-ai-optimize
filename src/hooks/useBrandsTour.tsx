@@ -39,12 +39,19 @@ export function useBrandsTour() {
   const [runTour, setRunTour] = useState(false);
 
   useEffect(() => {
-    // Check database first, fallback to localStorage for non-authenticated users
+    if (!userData) return;
+    
+    // Check if user is new (created within last 24 hours)
+    const userCreatedAt = new Date(userData.created_at);
+    const now = new Date();
+    const hoursSinceCreation = (now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60);
+    const isNewUser = hoursSinceCreation < 24;
+    
+    // Only show tour for new users who haven't completed it
     const tourCompletedInDb = userData?.tour_completions?.brands === true;
     const tourCompletedLocally = localStorage.getItem(TOUR_KEY) === 'true';
     
-    if (!tourCompletedInDb && !tourCompletedLocally && userData) {
-      // Delay to ensure DOM is ready
+    if (!tourCompletedInDb && !tourCompletedLocally && isNewUser) {
       setTimeout(() => setRunTour(true), 500);
     }
   }, [userData]);

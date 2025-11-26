@@ -77,11 +77,20 @@ export function useDashboardOnboardingTour() {
   const [tourStage, setTourStage] = useState<'dashboard' | 'prompts'>('dashboard');
 
   useEffect(() => {
+    if (!userData) return;
+    
     // Check if tour has been completed
     const tourCompletedInDb = userData?.tour_completions?.dashboard_onboarding === true;
     const tourCompletedLocally = localStorage.getItem(TOUR_KEY) === 'true';
     
-    if (!tourCompletedInDb && !tourCompletedLocally && userData) {
+    // Check if user is new (created within last 24 hours)
+    const userCreatedAt = new Date(userData.created_at);
+    const now = new Date();
+    const hoursSinceCreation = (now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60);
+    const isNewUser = hoursSinceCreation < 24;
+    
+    // Only show tour for new users who haven't completed it
+    if (!tourCompletedInDb && !tourCompletedLocally && isNewUser) {
       // Delay to ensure DOM is ready
       setTimeout(() => setRunTour(true), 1000);
     }
