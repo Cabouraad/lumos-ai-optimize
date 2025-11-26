@@ -559,19 +559,25 @@ export default function Onboarding() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-dashed">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-sm">Save time with auto-fill</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Let AI analyze your website ({formData.domain}) and automatically fill in your business context.
+            <div className="mb-6 p-5 bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-lg border-2 border-primary/20 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-base">Save time with auto-fill</h3>
+                    <span className="px-2 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Let AI analyze your website ({formData.domain}) and automatically fill in your business context. This saves 5-10 minutes of manual work.
                   </p>
                 </div>
                 <Button 
-                  variant="outline" 
+                  variant="default" 
                   size="sm"
                   onClick={handleAutoFill}
                   disabled={autoFillLoading || !formData.domain}
+                  className="shrink-0"
                 >
                   {autoFillLoading ? "Auto-filling..." : "Auto-fill from Website"}
                 </Button>
