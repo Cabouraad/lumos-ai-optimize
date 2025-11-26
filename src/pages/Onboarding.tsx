@@ -663,7 +663,7 @@ export default function Onboarding() {
                 <Button type="submit" disabled={loading || subscriptionLoading}>
                   {subscriptionLoading 
                     ? 'Checking subscription…' 
-                    : 'Continue to Pricing'}
+                    : 'Continue'}
                 </Button>
               </div>
             </form>
