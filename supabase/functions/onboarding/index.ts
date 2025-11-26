@@ -195,27 +195,38 @@ Deno.serve(async (req) => {
 
     logger.info("User record created/updated");
 
-    // 3) Create organization's brand in catalog (idempotent)
-    const { error: brandErr } = await supa
-      .from("brand_catalog")
-      .upsert({
-        org_id: org.id,
-        name,
-        variants_json: [],
-        is_org_brand: true
-      }, {
-        onConflict: "org_id, name"
-      });
+    // 3) Create organization's brand in catalog (best-effort, non-blocking)
+    try {
+      const { data: existingBrand } = await supa
+        .from("brand_catalog")
+        .select("id")
+        .eq("org_id", org.id)
+        .eq("name", name)
+        .maybeSingle();
 
-    if (brandErr) {
-      console.error("Error creating brand catalog:", brandErr);
-      return new Response(JSON.stringify({ error: brandErr.message }), { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      if (!existingBrand) {
+        const { error: brandErr } = await supa
+          .from("brand_catalog")
+          .insert({
+            org_id: org.id,
+            name,
+            variants_json: [],
+            is_org_brand: true
+          });
+
+        if (brandErr) {
+          // Non-critical error - log but don't block onboarding
+          console.error("Error creating brand catalog:", brandErr);
+        } else {
+          logger.info("Brand catalog created");
+        }
+      } else {
+        logger.info("Brand catalog already exists");
+      }
+    } catch (brandCatalogError) {
+      // Non-critical - log and continue
+      console.error("Brand catalog operation failed:", brandCatalogError);
     }
-
-    logger.info("Brand catalog created");
 
     // 4) Ensure default providers exist (idempotent)
     const { error: providersErr } = await supa
