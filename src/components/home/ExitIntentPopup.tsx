@@ -58,6 +58,12 @@ export function ExitIntentPopup() {
       isExitIntentEnabled = true;
     }, EXIT_INTENT_ENABLE_MS);
 
+    // Cleanup function
+    return () => {
+      if (popupTimeoutId) clearTimeout(popupTimeoutId);
+      if (exitIntentTimeoutId) clearTimeout(exitIntentTimeoutId);
+    };
+
     // Mouse leave handler for exit intent
     const handleMouseLeave = (e: MouseEvent) => {
       // Only trigger if mouse is leaving from the top of the viewport
