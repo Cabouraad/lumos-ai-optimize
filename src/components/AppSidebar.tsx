@@ -32,18 +32,18 @@ import {
   LayoutDashboard, 
   MessageSquare,
   Users, 
-  FileText,
+  FileCode,
   Lightbulb, 
   Settings,
   LogOut,
   Crown,
-  Calendar,
+  FileBarChart,
   Beaker,
   TestTube2,
   BookOpen,
-  Building2,
+  Layers,
   ChevronDown,
-  BarChart3,
+  LineChart,
   HelpCircle
 } from 'lucide-react';
 
@@ -83,14 +83,14 @@ export function AppSidebar() {
   const hasMultipleBrands = brands.length > 1;
 
   const navigation = [
-    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Building2, tooltip: 'Manage multiple brands and switch between them' }] : []),
+    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Layers, tooltip: 'Manage multiple brands and switch between them' }] : []),
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, tooltip: 'Overview of your AI visibility metrics' },
     { name: 'Prompts', href: '/prompts', icon: MessageSquare, tooltip: 'Manage and monitor tracked prompts' },
     { name: 'Competitors', href: '/competitors', icon: Users, tooltip: 'Analyze competitor visibility and performance' },
-    { name: 'Citation Analytics', href: '/citation-analytics', icon: BarChart3, tooltip: 'Detailed citation and source analysis' },
+    { name: 'Citation Analytics', href: '/citation-analytics', icon: LineChart, tooltip: 'Detailed citation and source analysis' },
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb, tooltip: 'AI-powered recommendations to improve visibility' },
-    { name: 'Reports', href: '/reports', icon: Calendar, tooltip: 'Weekly performance reports and insights' },
-    { name: 'LLMs.txt', href: '/llms-txt', icon: FileText, tooltip: 'Configure LLM-specific instructions' },
+    { name: 'Reports', href: '/reports', icon: FileBarChart, tooltip: 'Weekly performance reports and insights' },
+    { name: 'LLMs.txt', href: '/llms-txt', icon: FileCode, tooltip: 'Configure LLM-specific instructions' },
     { name: 'Settings', href: '/settings', icon: Settings, tooltip: 'Organization and account settings' },
     ...(isAdmin ? [
       { name: 'Labs', href: '/labs', icon: Beaker, tooltip: 'Experimental features and beta testing' },
