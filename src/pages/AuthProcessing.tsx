@@ -14,6 +14,7 @@ export default function AuthProcessing() {
   const redirectPath = searchParams.get('redirect') || null;
 
   useEffect(() => {
+    const timeoutIds: NodeJS.Timeout[] = [];
     const code = searchParams.get('code');
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
@@ -22,14 +23,14 @@ export default function AuthProcessing() {
       setStatus('error');
       setError(errorDescription || error);
       // Redirect to auth page after showing error briefly
-      setTimeout(() => navigate('/auth'), 3000);
+      timeoutIds.push(setTimeout(() => navigate('/auth'), 3000));
       return;
     }
 
     if (!code) {
       setStatus('error');
       setError('No authorization code found');
-      setTimeout(() => navigate('/auth'), 3000);
+      timeoutIds.push(setTimeout(() => navigate('/auth'), 3000));
       return;
     }
 
@@ -62,29 +63,29 @@ export default function AuthProcessing() {
               
               if (subData?.hasAccess) {
                 // Has org and subscription - go to dashboard
-                setTimeout(() => navigate('/dashboard'), 1000);
+                timeoutIds.push(setTimeout(() => navigate('/dashboard'), 1000));
               } else {
                 // Has org but no subscription - check for redirect path (e.g., black-friday)
                 if (redirectPath) {
-                  setTimeout(() => navigate(redirectPath), 1000);
+                  timeoutIds.push(setTimeout(() => navigate(redirectPath), 1000));
                 } else {
                   // Default to pricing if no redirect specified
-                  setTimeout(() => navigate('/pricing'), 1000);
+                  timeoutIds.push(setTimeout(() => navigate('/pricing'), 1000));
                 }
               }
             } else {
               // No organization - send to onboarding
-              setTimeout(() => navigate('/onboarding'), 1000);
+              timeoutIds.push(setTimeout(() => navigate('/onboarding'), 1000));
             }
           } else {
             // Bootstrap failed - safe default to onboarding for new users
             console.warn('Bootstrap failed:', bootstrapError);
-            setTimeout(() => navigate('/onboarding'), 1000);
+            timeoutIds.push(setTimeout(() => navigate('/onboarding'), 1000));
           }
         } catch (bootstrapError) {
           console.warn('Bootstrap failed:', bootstrapError);
           // Default to onboarding for safety
-          setTimeout(() => navigate('/onboarding'), 1000);
+          timeoutIds.push(setTimeout(() => navigate('/onboarding'), 1000));
         }
 
         setStatus('success');
@@ -92,12 +93,17 @@ export default function AuthProcessing() {
         console.error('Error exchanging code for session:', err);
         setStatus('error');
         setError(err instanceof Error ? err.message : 'Failed to authenticate');
-        setTimeout(() => navigate('/auth'), 3000);
+        timeoutIds.push(setTimeout(() => navigate('/auth'), 3000));
       }
     };
 
     exchangeCodeForSession();
-  }, [searchParams, navigate]);
+
+    // Cleanup function to clear all timeouts
+    return () => {
+      timeoutIds.forEach(id => clearTimeout(id));
+    };
+  }, [searchParams, navigate, redirectPath]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

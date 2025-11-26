@@ -20,10 +20,21 @@ class BackgroundDataPreloader {
   private isProcessing = false;
   private processingQueue: string[] = [];
   private worker: Worker | null = null;
+  private preloadInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.initializeWorker();
     this.scheduleRegularPreloads();
+  }
+
+  /**
+   * Cleanup method to clear all timers
+   */
+  destroy(): void {
+    if (this.preloadInterval) {
+      clearInterval(this.preloadInterval);
+      this.preloadInterval = null;
+    }
   }
 
   /**
@@ -257,7 +268,7 @@ class BackgroundDataPreloader {
 
   private scheduleRegularPreloads(): void {
     // Schedule preloads every 5 minutes for active users
-    setInterval(() => {
+    this.preloadInterval = setInterval(() => {
       const now = Date.now();
       const lastActivity = localStorage.getItem('lastUserActivity');
       
