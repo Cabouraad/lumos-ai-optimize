@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
@@ -15,7 +15,7 @@ const DashboardChartComponent = ({
   competitors, 
   loadingCompetitors
 }: DashboardChartProps) => {
-  // Load persisted competitor visibility from localStorage
+  // Initialize visible competitors from localStorage or default to all visible
   const [visibleCompetitors, setVisibleCompetitors] = useState<Set<number>>(() => {
     try {
       const stored = localStorage.getItem('llumos_competitor_toggles');
@@ -26,9 +26,26 @@ const DashboardChartComponent = ({
     } catch (e) {
       console.warn('Failed to load competitor toggle state:', e);
     }
-    // Default: all competitors visible
-    return new Set(competitors.map((_, index) => index));
+    // Default: all competitors visible (but will be updated in useEffect)
+    return new Set();
   });
+
+  // Update visible competitors when competitors list changes
+  useEffect(() => {
+    setVisibleCompetitors(prevVisible => {
+      try {
+        const stored = localStorage.getItem('llumos_competitor_toggles');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return new Set(parsed);
+        }
+      } catch (e) {
+        console.warn('Failed to load competitor toggle state:', e);
+      }
+      // Default: all competitors visible
+      return new Set(competitors.map((_, index) => index));
+    });
+  }, [competitors]);
   
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];

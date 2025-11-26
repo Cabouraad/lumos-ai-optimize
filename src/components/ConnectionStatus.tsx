@@ -50,8 +50,10 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
   useEffect(() => {
     checkConnection();
     const interval = setInterval(checkConnection, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [checkConnection]);
 
   const getStatusIcon = () => {
     switch (status) {

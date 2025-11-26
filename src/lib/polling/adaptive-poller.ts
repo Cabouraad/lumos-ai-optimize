@@ -55,7 +55,9 @@ export class AdaptivePoller {
   private setupEventListeners(): void {
     // Online/offline detection
     window.addEventListener('online', () => {
-      console.log('[AdaptivePoller] Connection restored');
+      if (import.meta.env.MODE === 'development') {
+        console.log('[AdaptivePoller] Connection restored');
+      }
       this.state.isOnline = true;
       this.state.connectionQuality = this.detectConnectionQuality();
       this.adjustInterval();
@@ -63,7 +65,9 @@ export class AdaptivePoller {
     });
 
     window.addEventListener('offline', () => {
-      console.log('[AdaptivePoller] Connection lost');
+      if (import.meta.env.MODE === 'development') {
+        console.log('[AdaptivePoller] Connection lost');
+      }
       this.state.isOnline = false;
       this.state.connectionQuality = 'offline';
       this.pause();
@@ -81,7 +85,9 @@ export class AdaptivePoller {
         }
         
         visibilityTimeout = setTimeout(() => {
-          console.log('[AdaptivePoller] Visibility poll after debounce');
+          if (import.meta.env.MODE === 'development') {
+            console.log('[AdaptivePoller] Visibility poll after debounce');
+          }
           this.executePoll();
         }, 500); // 500ms debounce
       }
@@ -153,11 +159,13 @@ export class AdaptivePoller {
     }
 
     if (newInterval !== this.state.interval) {
-      console.log(`[AdaptivePoller] Interval adjusted: ${this.state.interval}ms -> ${newInterval}ms`, {
-        isActive,
-        connectionQuality: this.state.connectionQuality,
-        consecutiveNoChanges: this.state.consecutiveNoChanges
-      });
+      if (import.meta.env.MODE === 'development') {
+        console.log(`[AdaptivePoller] Interval adjusted: ${this.state.interval}ms -> ${newInterval}ms`, {
+          isActive,
+          connectionQuality: this.state.connectionQuality,
+          consecutiveNoChanges: this.state.consecutiveNoChanges
+        });
+      }
       this.state.interval = newInterval;
     }
   }
@@ -166,7 +174,9 @@ export class AdaptivePoller {
     if (!this.state.isOnline || this.callbacks.length === 0) return;
 
     try {
-      console.log(`[AdaptivePoller] Executing poll (interval: ${this.state.interval}ms)`);
+      if (import.meta.env.MODE === 'development') {
+        console.log(`[AdaptivePoller] Executing poll (interval: ${this.state.interval}ms)`);
+      }
       
       const results = await Promise.all(
         this.callbacks.map(callback => callback().catch(error => {
@@ -182,10 +192,14 @@ export class AdaptivePoller {
         
         if (hasChanges) {
           this.state.consecutiveNoChanges = 0;
-          console.log('[AdaptivePoller] Data changes detected');
+          if (import.meta.env.MODE === 'development') {
+            console.log('[AdaptivePoller] Data changes detected');
+          }
         } else {
           this.state.consecutiveNoChanges++;
-          console.log(`[AdaptivePoller] No changes detected (${this.state.consecutiveNoChanges} consecutive)`);
+          if (import.meta.env.MODE === 'development') {
+            console.log(`[AdaptivePoller] No changes detected (${this.state.consecutiveNoChanges} consecutive)`);
+          }
         }
         
         this.lastDataHash = dataHash;
@@ -246,13 +260,17 @@ export class AdaptivePoller {
       clearTimeout(this.timeoutId);
       this.timeoutId = null;
     }
-    console.log('[AdaptivePoller] Paused');
+    if (import.meta.env.MODE === 'development') {
+      console.log('[AdaptivePoller] Paused');
+    }
   }
 
   public resume(): void {
     if (this.state.isOnline && this.callbacks.length > 0) {
       this.executePoll();
-      console.log('[AdaptivePoller] Resumed');
+      if (import.meta.env.MODE === 'development') {
+        console.log('[AdaptivePoller] Resumed');
+      }
     }
   }
 
