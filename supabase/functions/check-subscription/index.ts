@@ -80,10 +80,11 @@ Deno.serve(async (req) => {
       );
       user = await Promise.race([authPromise, timeoutPromise]);
     } catch (authError: unknown) {
-      diagnostics.logStep("auth_failed", { error: authError.message });
+      const err = authError instanceof Error ? authError : new Error(String(authError));
+      diagnostics.logStep("auth_failed", { error: err.message });
       return new Response(JSON.stringify({ 
         success: false, 
-        error: `Authentication failed: ${authError.message}`,
+        error: `Authentication failed: ${err.message}`,
         code: "AUTH_FAILED"
       }), {
         headers: { ...corsHeaders, "content-type": "application/json" },
@@ -211,10 +212,11 @@ try {
   customers = await Promise.race([customerPromise, timeoutPromise]);
   diagnostics.logStep("stripe_customer_lookup_success", { count: customers.data.length });
 } catch (stripeError: unknown) {
-  diagnostics.logStep("stripe_customer_lookup_failed", { error: stripeError.message });
+  const err = stripeError instanceof Error ? stripeError : new Error(String(stripeError));
+  diagnostics.logStep("stripe_customer_lookup_failed", { error: err.message });
   return new Response(JSON.stringify({ 
     success: false, 
-    error: `Unable to verify subscription status: ${stripeError.message}`,
+    error: `Unable to verify subscription status: ${err.message}`,
     code: "STRIPE_API_ERROR"
   }), {
     headers: { ...corsHeaders, "content-type": "application/json" },
