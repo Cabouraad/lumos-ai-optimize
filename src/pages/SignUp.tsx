@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { usePasswordStrength } from '@/hooks/usePasswordStrength';
 import { PasswordStrengthMeter } from '@/components/ui/password-strength';
-import { Search } from 'lucide-react';
+import { ResendEmailButton } from '@/components/auth/ResendEmailButton';
+import { Search, CheckCircle } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 
 export default function SignUp() {
@@ -19,6 +20,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
   const { trackSignupBegin, trackSignupSuccess } = useAnalytics();
   
   const { strength: passwordStrength, loading: strengthLoading } = usePasswordStrength(password);
@@ -55,16 +57,12 @@ export default function SignUp() {
         description: error.message,
         variant: "destructive",
       });
+      setLoading(false);
     } else {
       trackSignupSuccess('email');
-      
-      toast({
-        title: "Success",
-        description: "Check your email for the confirmation link!",
-      });
+      setEmailSent(true);
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
@@ -88,50 +86,75 @@ export default function SignUp() {
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignUp} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+          {emailSent ? (
+            <div className="space-y-4 text-center">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-primary" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Check Your Email</h3>
+                <p className="text-sm text-muted-foreground">
+                  We sent a verification link to <strong>{email}</strong>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Click the link in the email to complete your signup.
+                </p>
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-3">Didn't receive the email?</p>
+                <ResendEmailButton email={email} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
+          ) : (
+            <>
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  
+                  {password.length > 0 && (
+                    <PasswordStrengthMeter 
+                      strength={passwordStrength}
+                      loading={strengthLoading}
+                      className="mt-2"
+                    />
+                  )}
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Creating account...' : 'Sign Up'}
+                </Button>
+              </form>
               
-              {password.length > 0 && (
-                <PasswordStrengthMeter 
-                  strength={passwordStrength}
-                  loading={strengthLoading}
-                  className="mt-2"
-                />
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : 'Sign Up'}
-            </Button>
-          </form>
-          
-          <div className="mt-4 text-center text-sm">
-            <span className="text-muted-foreground">Already have an account? </span>
-            <Link 
-              to={redirectPath && redirectPath !== '/dashboard' ? `/signin?redirect=${encodeURIComponent(redirectPath)}` : '/signin'}
-              className="text-primary hover:underline font-medium"
-            >
-              Sign in
-            </Link>
-          </div>
+              <div className="mt-4 text-center text-sm">
+                <span className="text-muted-foreground">Already have an account? </span>
+                <Link 
+                  to={redirectPath && redirectPath !== '/dashboard' ? `/signin?redirect=${encodeURIComponent(redirectPath)}` : '/signin'}
+                  className="text-primary hover:underline font-medium"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

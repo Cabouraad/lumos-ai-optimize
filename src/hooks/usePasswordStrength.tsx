@@ -29,8 +29,8 @@ export const usePasswordStrength = (password: string) => {
     }
 
     const analyzePasswordAsync = async () => {
-      setLoading(true);
       try {
+        // Quick local analysis (non-blocking)
         const result = await analyzePassword(password);
         setStrength(result);
       } catch (error) {
@@ -49,12 +49,10 @@ export const usePasswordStrength = (password: string) => {
             offlineFastHashing1e10PerSecond: 'unknown'
           }
         });
-      } finally {
-        setLoading(false);
       }
     };
 
-    // Debounce the analysis
+    // Debounce the analysis but don't show loading state
     const timeoutId = setTimeout(analyzePasswordAsync, 300);
     return () => clearTimeout(timeoutId);
   }, [password]);
