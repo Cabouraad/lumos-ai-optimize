@@ -12,6 +12,7 @@ interface UserData {
   email: string;
   role: string;
   org_id: string | null;
+  created_at: string;
   tour_completions?: Record<string, boolean>;
   organizations: {
     id: string;
@@ -198,6 +199,7 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
             email,
             role,
             org_id,
+            created_at,
             tour_completions,
             organizations (
               id,

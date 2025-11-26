@@ -55,6 +55,17 @@ export function usePromptsOnboardingTour() {
   const [runTour, setRunTour] = useState(false);
 
   useEffect(() => {
+    if (!userData) return;
+    
+    // Check if user is new (created within last 24 hours)
+    const userCreatedAt = new Date(userData.created_at);
+    const now = new Date();
+    const hoursSinceCreation = (now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60);
+    const isNewUser = hoursSinceCreation < 24;
+    
+    // Only show tour for new users
+    if (!isNewUser) return;
+    
     // Only run if we're coming from the dashboard onboarding
     const dashboardOnboardingCompleted = userData?.tour_completions?.dashboard_onboarding === true;
     const promptsTourCompleted = userData?.tour_completions?.prompts_onboarding === true;
@@ -63,7 +74,7 @@ export function usePromptsOnboardingTour() {
     // Check if we should start the tour (from dashboard onboarding navigation)
     const shouldStartTour = sessionStorage.getItem('start_prompts_tour') === 'true';
     
-    if (shouldStartTour && !promptsTourCompleted && !promptsTourCompletedLocally && userData) {
+    if (shouldStartTour && !promptsTourCompleted && !promptsTourCompletedLocally) {
       sessionStorage.removeItem('start_prompts_tour');
       setTimeout(() => setRunTour(true), 500);
     }

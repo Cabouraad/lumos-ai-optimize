@@ -7,6 +7,7 @@ interface UserData {
   email: string;
   role: string;
   org_id: string | null;
+  created_at: string;
   tour_completions?: Record<string, boolean>;
   organizations: {
     id: string;
@@ -82,6 +83,7 @@ export function UserProvider({ children }: UserProviderProps) {
           email,
           role,
           org_id,
+          created_at,
           tour_completions,
           organizations (
             id,
