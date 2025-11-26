@@ -73,7 +73,37 @@ Deno.serve(async (req) => {
       metadata: { name, domain: normDomain } 
     });
 
-    // 1) Check if organization with this domain already exists
+    // 1) Check if user already has an organization
+    const { data: existingUserOrg } = await supa
+      .from("users")
+      .select("org_id, organizations(id, name, domain)")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (existingUserOrg?.org_id && existingUserOrg.organizations) {
+      // User already has an organization - update business context and return
+      logger.info("User already has organization", { metadata: { orgId: existingUserOrg.org_id } });
+      
+      const { error: updateErr } = await supa
+        .from("organizations")
+        .update({
+          business_description: business_description || null,
+          products_services: products_services || null,
+          target_audience: target_audience || null,
+          keywords: keywords ? keywords.split(',').map((k: string) => k.trim()).filter(Boolean) : []
+        })
+        .eq("id", existingUserOrg.org_id);
+
+      if (updateErr) {
+        logger.error("Error updating organization", new Error(updateErr.message));
+      }
+
+      return new Response(JSON.stringify({ ok: true, orgId: existingUserOrg.org_id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2) Check if organization with this domain already exists
     const { data: existingOrg, error: checkErr } = await supa
       .from("organizations")
       .select("id")
@@ -115,7 +145,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        const suffixedDomain = `${normDomain}-${userId.slice(0,8)}`;
+        const suffixedDomain = `${normDomain}-${userId.slice(0,8)}-${Date.now().toString(36)}`;
         logger.info("Domain conflict - creating suffixed trial org", { metadata: { original: normDomain, suffixed: suffixedDomain } });
 
         const { data: newOrg, error: orgErr } = await supa
