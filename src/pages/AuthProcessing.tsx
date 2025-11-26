@@ -135,15 +135,26 @@ export default function AuthProcessing() {
           
           {status === 'error' && (
             <>
-              <div className="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center mx-auto mb-4">
-                <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="h-8 w-8 rounded-full bg-destructive flex items-center justify-center mx-auto mb-4">
+                <svg className="h-5 w-5 text-destructive-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
               <h2 className="text-lg font-semibold mb-2">Authentication Failed</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                {error || 'An error occurred during authentication'}
-              </p>
+              <div className="space-y-2 mb-4">
+                <p className="text-sm text-muted-foreground">
+                  {error === 'No authorization code found' 
+                    ? 'The verification link is invalid or has expired.'
+                    : error === 'Failed to authenticate'
+                    ? 'We couldn\'t verify your email. The link may have expired.'
+                    : error || 'An error occurred during authentication'}
+                </p>
+                {(error?.includes('expired') || error?.includes('invalid')) && (
+                  <p className="text-sm font-medium text-primary">
+                    Please request a new verification email from the signup page.
+                  </p>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Redirecting to sign-in page...
               </p>

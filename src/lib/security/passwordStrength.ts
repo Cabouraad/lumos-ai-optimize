@@ -22,36 +22,50 @@ export const analyzePassword = async (password: string): Promise<PasswordStrengt
   let isCompromised = false;
   let compromisedCount = 0;
 
-  // Check against Have I Been Pwned using k-anonymity (non-blocking)
-  try {
-    const sha1 = await digestMessage(password);
-    const prefix = sha1.substring(0, 5);
-    const suffix = sha1.substring(5).toLowerCase();
-    
-    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
-      method: 'GET',
-      headers: {
-        'Add-Padding': 'true' // Privacy enhancement
-      }
-    });
-    
-    if (response.ok) {
-      const text = await response.text();
-      const lines = text.split('\n');
+  // Check against Have I Been Pwned in background (non-blocking with timeout)
+  const hibpCheck = async () => {
+    try {
+      const sha1 = await digestMessage(password);
+      const prefix = sha1.substring(0, 5);
+      const suffix = sha1.substring(5).toLowerCase();
       
-      for (const line of lines) {
-        const [hashSuffix, count] = line.split(':');
-        if (hashSuffix.toLowerCase() === suffix) {
-          isCompromised = true;
-          compromisedCount = parseInt(count, 10);
-          break;
+      // Add 2 second timeout to prevent blocking
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
+      const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        method: 'GET',
+        headers: {
+          'Add-Padding': 'true' // Privacy enhancement
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const text = await response.text();
+        const lines = text.split('\n');
+        
+        for (const line of lines) {
+          const [hashSuffix, count] = line.split(':');
+          if (hashSuffix.toLowerCase() === suffix) {
+            return { isCompromised: true, compromisedCount: parseInt(count, 10) };
+          }
         }
       }
+    } catch (error) {
+      // Silently fail - don't block on external service
+      console.debug('HIBP check failed:', error);
     }
-  } catch (error) {
-    // Silently fail - don't block on external service
-    console.debug('HIBP check failed:', error);
-  }
+    return { isCompromised: false, compromisedCount: 0 };
+  };
+
+  // Start check in background but don't wait for it
+  hibpCheck().then(breachData => {
+    isCompromised = breachData.isCompromised;
+    compromisedCount = breachData.compromisedCount;
+  });
 
   return {
     score: result.score,
