@@ -20,7 +20,7 @@ export default function Pricing() {
   const [showDiagModal, setShowDiagModal] = useState(false);
   const [diagResult, setDiagResult] = useState<any>(null);
   const [diagLoading, setDiagLoading] = useState(false);
-  const { subscriptionData } = useAuth();
+  const { subscriptionData, user } = useAuth();
   const { toast } = useToast();
 
   // Show dev tools in non-production or with ?dev=1
@@ -143,12 +143,20 @@ export default function Pricing() {
           <Logo collapsed={false} />
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Link to="/signin">
-              <Button variant="outline">Sign In</Button>
-            </Link>
-            <Link to="/signup">
-              <Button>Get Started</Button>
-            </Link>
+            {user ? (
+              <Link to="/dashboard">
+                <Button>Back to Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button variant="outline">Sign In</Button>
+                </Link>
+                <Link to="/signup">
+                  <Button>Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
