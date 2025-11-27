@@ -44,7 +44,8 @@ import {
   Layers,
   ChevronDown,
   LineChart,
-  HelpCircle
+  HelpCircle,
+  Play
 } from 'lucide-react';
 
 export function AppSidebar() {
@@ -96,6 +97,11 @@ export function AppSidebar() {
       { name: 'Labs', href: '/labs', icon: Beaker, iconColor: 'text-pink-500', tooltip: 'Experimental features and beta testing' },
       { name: 'Tests', href: '/tests', icon: TestTube2, iconColor: 'text-teal-500', tooltip: 'System diagnostics and testing tools' }
     ] : []),
+  ];
+
+  const resourceLinks = [
+    { name: 'Demo', href: '/demo', icon: Play, iconColor: 'text-violet-500', tooltip: 'Watch product walkthrough video' },
+    { name: 'User Guide', href: '/user-guide', icon: BookOpen, iconColor: 'text-emerald-500', tooltip: 'How-to guides and documentation' },
   ];
 
   return (
@@ -207,17 +213,27 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-3 border-t border-border/30 mt-auto">
         <div className="space-y-2">
-          <Button 
-            variant="ghost" 
-            asChild
-            className="w-full justify-start"
-            size={collapsed ? "icon" : "default"}
-          >
-            <Link to="/user-guide">
-              <BookOpen className="h-4 w-4 text-emerald-500" />
-              {!collapsed && <span className="ml-3">User Guide</span>}
-            </Link>
-          </Button>
+          {/* Resource Links */}
+          {resourceLinks.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.href;
+            
+            return (
+              <Button 
+                key={item.name}
+                variant="ghost" 
+                asChild
+                className="w-full justify-start"
+                size={collapsed ? "icon" : "default"}
+              >
+                <Link to={item.href}>
+                  <Icon className={`h-4 w-4 ${item.iconColor || ''}`} />
+                  {!collapsed && <span className="ml-3">{item.name}</span>}
+                </Link>
+              </Button>
+            );
+          })}
+          
           <Button 
             variant="ghost" 
             asChild

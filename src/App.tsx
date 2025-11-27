@@ -63,6 +63,7 @@ const Brands = lazy(() => loadChunkWithRetry(() => import("./pages/Brands")));
 const CompetitorManagement = lazy(() => loadChunkWithRetry(() => import("./pages/CompetitorManagement")));
 const BlackFriday = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFriday")));
 const BlackFridaySuccess = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFridaySuccess")));
+const Demo = lazy(() => loadChunkWithRetry(() => import("./pages/Demo")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -312,6 +313,11 @@ const App = () => {
           <Route path="/brands" element={
             <ProtectedRoute>
               <Brands />
+            </ProtectedRoute>
+          } />
+          <Route path="/demo" element={
+            <ProtectedRoute>
+              <Demo />
             </ProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />
