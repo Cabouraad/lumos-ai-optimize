@@ -12,9 +12,9 @@ export default function Terms() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
           <Button variant="outline" asChild>
-            <Link to="/free-checker">
+            <Link to="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Free Checker
+              Back to Home
             </Link>
           </Button>
         </div>
@@ -195,11 +195,8 @@ export default function Terms() {
               If you have any questions about these Terms of Service, please contact us at:
             </p>
             <div className="bg-muted/20 p-4 rounded-lg">
-              <p className="text-foreground"><strong>Email:</strong> legal@llumos.ai</p>
-              <p className="text-foreground"><strong>Address:</strong> Llumos, Inc.<br />
-              1234 Innovation Drive<br />
-              San Francisco, CA 94105<br />
-              United States</p>
+              <p className="text-foreground"><strong>Email:</strong> info@llumos.app</p>
+              <p className="text-foreground"><strong>Website:</strong> https://llumos.app</p>
             </div>
           </section>
         </div>

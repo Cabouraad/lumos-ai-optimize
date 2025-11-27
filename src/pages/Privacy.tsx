@@ -12,9 +12,9 @@ export default function Privacy() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
           <Button variant="outline" asChild>
-            <Link to="/free-checker">
+            <Link to="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Free Checker
+              Back to Home
             </Link>
           </Button>
         </div>
@@ -105,7 +105,7 @@ export default function Privacy() {
               <li><strong>Objection:</strong> Object to certain processing of your information</li>
             </ul>
             <p className="mb-4 text-foreground">
-              To exercise these rights, contact us at privacy@llumos.ai
+              To exercise these rights, contact us at info@llumos.app
             </p>
           </section>
 
@@ -156,11 +156,8 @@ export default function Privacy() {
               If you have any questions about this privacy policy or our data practices, please contact us at:
             </p>
             <div className="bg-muted/20 p-4 rounded-lg">
-              <p className="text-foreground"><strong>Email:</strong> privacy@llumos.ai</p>
-              <p className="text-foreground"><strong>Address:</strong> Llumos, Inc.<br />
-              1234 Innovation Drive<br />
-              San Francisco, CA 94105<br />
-              United States</p>
+              <p className="text-foreground"><strong>Email:</strong> info@llumos.app</p>
+              <p className="text-foreground"><strong>Website:</strong> https://llumos.app</p>
             </div>
           </section>
         </div>
