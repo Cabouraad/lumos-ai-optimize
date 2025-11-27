@@ -138,9 +138,12 @@ export function ComparisonTable() {
                 className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary"
                 asChild
               >
-                <Link to="/signup">Start 7-Day Trial</Link>
+                <Link to="/demo">Watch The Demo</Link>
               </Button>
             </div>
+            <p className="text-sm mt-4 opacity-80">
+              See what Llumos can do for your brand
+            </p>
           </CardContent>
         </Card>
       </div>
