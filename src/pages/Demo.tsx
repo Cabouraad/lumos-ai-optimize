@@ -87,6 +87,16 @@ export default function Demo() {
             </p>
           </Card>
         </div>
+
+        {/* CTA Section */}
+        <div className="text-center space-y-4 mt-12">
+          <p className="text-xl text-foreground">
+            Ready to get started with Llumos?
+          </p>
+          <Button size="lg" asChild>
+            <Link to="/signup">Start 7-Day Free Trial</Link>
+          </Button>
+        </div>
         </div>
       </main>
     </div>
