@@ -83,18 +83,18 @@ export function AppSidebar() {
   const hasMultipleBrands = brands.length > 1;
 
   const navigation = [
-    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Layers, tooltip: 'Manage multiple brands and switch between them' }] : []),
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, tooltip: 'Overview of your AI visibility metrics' },
-    { name: 'Prompts', href: '/prompts', icon: MessageSquare, tooltip: 'Manage and monitor tracked prompts' },
-    { name: 'Competitors', href: '/competitors', icon: Users, tooltip: 'Analyze competitor visibility and performance' },
-    { name: 'Citation Analytics', href: '/citation-analytics', icon: LineChart, tooltip: 'Detailed citation and source analysis' },
-    { name: 'Optimizations', href: '/optimizations', icon: Lightbulb, tooltip: 'AI-powered recommendations to improve visibility' },
-    { name: 'Reports', href: '/reports', icon: FileBarChart, tooltip: 'Weekly performance reports and insights' },
-    { name: 'LLMs.txt', href: '/llms-txt', icon: FileCode, tooltip: 'Configure LLM-specific instructions' },
-    { name: 'Settings', href: '/settings', icon: Settings, tooltip: 'Organization and account settings' },
+    ...(isProTier ? [{ name: 'Brands', href: '/brands', icon: Layers, iconColor: 'text-purple-500', tooltip: 'Manage multiple brands and switch between them' }] : []),
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, iconColor: 'text-primary', tooltip: 'Overview of your AI visibility metrics' },
+    { name: 'Prompts', href: '/prompts', icon: MessageSquare, iconColor: 'text-blue-500', tooltip: 'Manage and monitor tracked prompts' },
+    { name: 'Competitors', href: '/competitors', icon: Users, iconColor: 'text-orange-500', tooltip: 'Analyze competitor visibility and performance' },
+    { name: 'Citation Analytics', href: '/citation-analytics', icon: LineChart, iconColor: 'text-green-500', tooltip: 'Detailed citation and source analysis' },
+    { name: 'Optimizations', href: '/optimizations', icon: Lightbulb, iconColor: 'text-yellow-500', tooltip: 'AI-powered recommendations to improve visibility' },
+    { name: 'Reports', href: '/reports', icon: FileBarChart, iconColor: 'text-cyan-500', tooltip: 'Weekly performance reports and insights' },
+    { name: 'LLMs.txt', href: '/llms-txt', icon: FileCode, iconColor: 'text-indigo-500', tooltip: 'Configure LLM-specific instructions' },
+    { name: 'Settings', href: '/settings', icon: Settings, iconColor: 'text-gray-500', tooltip: 'Organization and account settings' },
     ...(isAdmin ? [
-      { name: 'Labs', href: '/labs', icon: Beaker, tooltip: 'Experimental features and beta testing' },
-      { name: 'Tests', href: '/tests', icon: TestTube2, tooltip: 'System diagnostics and testing tools' }
+      { name: 'Labs', href: '/labs', icon: Beaker, iconColor: 'text-pink-500', tooltip: 'Experimental features and beta testing' },
+      { name: 'Tests', href: '/tests', icon: TestTube2, iconColor: 'text-teal-500', tooltip: 'System diagnostics and testing tools' }
     ] : []),
   ];
 
@@ -159,7 +159,7 @@ export function AppSidebar() {
                         disabled
                         className="opacity-50 cursor-not-allowed"
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon className={`h-4 w-4 ${item.iconColor || ''}`} />
                         {!collapsed && <span>{item.name}</span>}
                       </SidebarMenuButton>
                       <Button
@@ -185,7 +185,7 @@ export function AppSidebar() {
                     >
                       <Link to={item.href} className="flex items-center justify-between transition-smooth hover-glow w-full">
                         <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
+                          <Icon className={`h-4 w-4 ${item.iconColor || ''}`} />
                           {!collapsed && <span>{item.name}</span>}
                         </div>
                         {!collapsed && item.tooltip && (
@@ -214,7 +214,7 @@ export function AppSidebar() {
             size={collapsed ? "icon" : "default"}
           >
             <Link to="/user-guide">
-              <BookOpen className="h-4 w-4" />
+              <BookOpen className="h-4 w-4 text-emerald-500" />
               {!collapsed && <span className="ml-3">User Guide</span>}
             </Link>
           </Button>
@@ -225,7 +225,7 @@ export function AppSidebar() {
             size={collapsed ? "icon" : "default"}
           >
             <a href="https://docs.lovable.dev" target="_blank" rel="noopener noreferrer">
-              <HelpCircle className="h-4 w-4" />
+              <HelpCircle className="h-4 w-4 text-amber-500" />
               {!collapsed && <span className="ml-3">Help</span>}
             </a>
           </Button>
@@ -235,7 +235,7 @@ export function AppSidebar() {
             className="w-full justify-start hover-lift border-border/50 hover:border-primary/50"
             size={collapsed ? "icon" : "default"}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 text-red-500" />
             {!collapsed && <span className="ml-3">Sign Out</span>}
           </Button>
         </div>
