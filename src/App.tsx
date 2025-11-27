@@ -315,11 +315,7 @@ const App = () => {
               <Brands />
             </ProtectedRoute>
           } />
-          <Route path="/demo" element={
-            <ProtectedRoute>
-              <Demo />
-            </ProtectedRoute>
-          } />
+          <Route path="/demo" element={<Demo />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
