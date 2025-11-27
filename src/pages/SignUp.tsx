@@ -77,15 +77,16 @@ export default function SignUp() {
         <span className="text-lg font-bold text-foreground">Llumos</span>
       </Link>
 
-      <Card className="w-[400px]">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create Account</CardTitle>
-          <CardDescription>Get started with Llumos</CardDescription>
-          <p className="text-xs text-muted-foreground mt-2">
-            7-day free trial • Cancel anytime
-          </p>
-        </CardHeader>
-        <CardContent>
+      <div className="w-full max-w-md px-4">
+        <Card className="w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Create Account</CardTitle>
+            <CardDescription>Get started with Llumos</CardDescription>
+            <p className="text-xs text-muted-foreground mt-2">
+              7-day free trial • Cancel anytime
+            </p>
+          </CardHeader>
+          <CardContent>
           {emailSent ? (
             <div className="space-y-4 text-center">
               <div className="flex justify-center">
@@ -168,6 +169,7 @@ export default function SignUp() {
             Watch the Demo
           </Link>
         </Button>
+      </div>
       </div>
     </div>
   );
