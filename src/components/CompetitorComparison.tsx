@@ -101,9 +101,9 @@ export function CompetitorComparison() {
 
         <div className="text-center mt-10">
           <Button size="lg" className="px-8 h-12 shadow-glow" asChild>
-            <Link to="/signup">Start Free Trial</Link>
+            <Link to="/demo">Watch The Demo</Link>
           </Button>
-          <p className="text-sm text-muted-foreground mt-3">7-day free trial</p>
+          <p className="text-sm text-muted-foreground mt-3">See what Llumos can do for your brand</p>
         </div>
       </div>
     </section>
