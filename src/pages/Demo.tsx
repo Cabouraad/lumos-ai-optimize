@@ -1,11 +1,33 @@
-import { Layout } from '@/components/Layout';
 import { Card } from '@/components/ui/card';
-import { Play } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Play, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Logo } from '@/components/Logo';
 
 export default function Demo() {
   return (
-    <Layout>
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-bg">
+      {/* Header */}
+      <header className="border-b border-border/30 bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <Logo collapsed={false} />
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" asChild>
+              <Link to="/">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Home
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/signup">Start Free Trial</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-6xl mx-auto space-y-8">
         {/* Header Section */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20">
@@ -65,7 +87,8 @@ export default function Demo() {
             </p>
           </Card>
         </div>
-      </div>
-    </Layout>
+        </div>
+      </main>
+    </div>
   );
 }
