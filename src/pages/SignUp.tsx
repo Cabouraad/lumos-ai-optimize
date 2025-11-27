@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePasswordStrength } from '@/hooks/usePasswordStrength';
 import { PasswordStrengthMeter } from '@/components/ui/password-strength';
 import { ResendEmailButton } from '@/components/auth/ResendEmailButton';
-import { Search, CheckCircle } from 'lucide-react';
+import { Search, CheckCircle, Play } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 
 export default function SignUp() {
@@ -157,6 +157,18 @@ export default function SignUp() {
           )}
         </CardContent>
       </Card>
+      
+      <div className="mt-6 text-center">
+        <p className="text-sm text-muted-foreground mb-2">
+          Want to see how it works first?
+        </p>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/demo" className="gap-2">
+            <Play className="h-4 w-4" />
+            Watch the Demo
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }
