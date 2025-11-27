@@ -14,6 +14,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { FeatureComparisonTable } from '@/components/pricing/FeatureComparisonTable';
 import { SEOHelmet } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
+import { Play } from 'lucide-react';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -241,6 +242,19 @@ export default function Pricing() {
               currentTier={subscriptionData?.subscription_tier}
             />
           ))}
+        </div>
+
+        {/* Watch Demo Section */}
+        <div className="text-center py-8 mb-8">
+          <p className="text-muted-foreground mb-4">
+            Not sure which plan is right for you?
+          </p>
+          <Button variant="outline" size="lg" asChild>
+            <Link to="/demo" className="gap-2">
+              <Play className="h-4 w-4" />
+              Watch the Demo
+            </Link>
+          </Button>
         </div>
 
         {/* Feature Comparison Table */}
