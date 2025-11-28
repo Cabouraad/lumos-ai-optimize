@@ -402,6 +402,106 @@ export type Database = {
           },
         ]
       }
+      content_studio_items: {
+        Row: {
+          content_type: string
+          created_at: string
+          created_by: string
+          faqs: Json
+          id: string
+          key_entities: Json
+          llm_targets: Json
+          org_id: string
+          outline: Json
+          prompt_id: string | null
+          recommendation_id: string | null
+          schema_suggestions: Json
+          status: string
+          tone_guidelines: Json
+          topic_key: string
+          updated_at: string
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          created_by: string
+          faqs?: Json
+          id?: string
+          key_entities?: Json
+          llm_targets?: Json
+          org_id: string
+          outline?: Json
+          prompt_id?: string | null
+          recommendation_id?: string | null
+          schema_suggestions?: Json
+          status?: string
+          tone_guidelines?: Json
+          topic_key: string
+          updated_at?: string
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          created_by?: string
+          faqs?: Json
+          id?: string
+          key_entities?: Json
+          llm_targets?: Json
+          org_id?: string
+          outline?: Json
+          prompt_id?: string | null
+          recommendation_id?: string | null
+          schema_suggestions?: Json
+          status?: string
+          tone_guidelines?: Json
+          topic_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_studio_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "content_studio_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_studio_items_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "low_visibility_prompts"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "content_studio_items_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_visibility_14d"
+            referencedColumns: ["prompt_id"]
+          },
+          {
+            foreignKeyName: "content_studio_items_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_studio_items_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_usage: {
         Row: {
           created_at: string
