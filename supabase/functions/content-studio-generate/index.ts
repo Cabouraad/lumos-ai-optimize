@@ -383,13 +383,17 @@ Create a comprehensive content blueprint that will help this brand become more v
       );
     }
 
+    // Determine if recommendationId is from recommendations table (not optimizations_v2)
+    // FK constraint only allows IDs from recommendations table
+    const isFromRecommendationsTable = contextData.recommendation !== undefined;
+    
     // Insert into database
     const { data: insertedItem, error: insertError } = await supabaseService
       .from('content_studio_items')
       .insert({
         org_id: orgId,
         created_by: user.id,
-        recommendation_id: recommendationId || null,
+        recommendation_id: isFromRecommendationsTable ? recommendationId : null,
         prompt_id: promptId || null,
         topic_key: topicKey,
         content_type: blueprint.content_type || 'blog_post',
