@@ -45,7 +45,8 @@ import {
   ChevronDown,
   LineChart,
   HelpCircle,
-  Play
+  Play,
+  Sparkles
 } from 'lucide-react';
 
 export function AppSidebar() {
@@ -90,6 +91,7 @@ export function AppSidebar() {
     { name: 'Competitors', href: '/competitors', icon: Users, iconColor: 'text-orange-500', tooltip: 'Analyze competitor visibility and performance' },
     { name: 'Citation Analytics', href: '/citation-analytics', icon: LineChart, iconColor: 'text-green-500', tooltip: 'Detailed citation and source analysis' },
     { name: 'Optimizations', href: '/optimizations', icon: Lightbulb, iconColor: 'text-yellow-500', tooltip: 'AI-powered recommendations to improve visibility' },
+    { name: 'Content Studio', href: '/content-studio', icon: Sparkles, iconColor: 'text-rose-500', tooltip: 'Generate content blueprints from recommendations' },
     { name: 'Reports', href: '/reports', icon: FileBarChart, iconColor: 'text-cyan-500', tooltip: 'Weekly performance reports and insights' },
     { name: 'LLMs.txt', href: '/llms-txt', icon: FileCode, iconColor: 'text-indigo-500', tooltip: 'Configure LLM-specific instructions' },
     { name: 'Settings', href: '/settings', icon: Settings, iconColor: 'text-gray-500', tooltip: 'Organization and account settings' },
@@ -156,6 +158,7 @@ export function AppSidebar() {
                 const isRestricted = 
                   (item.href === '/competitors' && !canAccessCompetitorAnalysis().hasAccess) ||
                   (item.href === '/optimizations' && !canAccessRecommendations().hasAccess) ||
+                  (item.href === '/content-studio' && !canAccessRecommendations().hasAccess) ||
                   (item.href === '/reports' && !canAccessRecommendations().hasAccess);
                 
                 if (isRestricted) {

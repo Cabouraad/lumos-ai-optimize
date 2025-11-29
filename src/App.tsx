@@ -64,6 +64,7 @@ const CompetitorManagement = lazy(() => loadChunkWithRetry(() => import("./pages
 const BlackFriday = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFriday")));
 const BlackFridaySuccess = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFridaySuccess")));
 const Demo = lazy(() => loadChunkWithRetry(() => import("./pages/Demo")));
+const ContentStudio = lazy(() => loadChunkWithRetry(() => import("./pages/ContentStudio")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -233,6 +234,15 @@ const App = () => {
               <PageErrorBoundary pageName="Optimizations">
                 <ChunkErrorBoundary chunkName="OptimizationsV2">
                   <OptimizationsV2 />
+                </ChunkErrorBoundary>
+              </PageErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/content-studio" element={
+            <ProtectedRoute>
+              <PageErrorBoundary pageName="ContentStudio">
+                <ChunkErrorBoundary chunkName="ContentStudio">
+                  <ContentStudio />
                 </ChunkErrorBoundary>
               </PageErrorBoundary>
             </ProtectedRoute>
