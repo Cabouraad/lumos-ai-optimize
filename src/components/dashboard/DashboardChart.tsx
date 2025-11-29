@@ -50,6 +50,17 @@ const DashboardChartComponent = ({
   // Generate colors for competitors
   const competitorColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'];
   
+  // Calculate if text should be dark based on background color luminance
+  const getTextColor = (hexColor: string): string => {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    // Calculate relative luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#1a1a1a' : '#ffffff';
+  };
+  
   const toggleCompetitor = (index: number) => {
     setVisibleCompetitors(prev => {
       const newSet = new Set(prev);
@@ -95,7 +106,9 @@ const DashboardChartComponent = ({
                     ? competitorColors[index % competitorColors.length] 
                     : undefined,
                   borderColor: competitorColors[index % competitorColors.length],
-                  color: visibleCompetitors.has(index) ? '#fff' : undefined
+                  color: visibleCompetitors.has(index) 
+                    ? getTextColor(competitorColors[index % competitorColors.length]) 
+                    : undefined
                 }}
               >
                 {competitor.name}
