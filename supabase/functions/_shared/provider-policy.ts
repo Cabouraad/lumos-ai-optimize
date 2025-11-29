@@ -4,12 +4,20 @@
  */
 
 export type ProviderName = 'openai' | 'perplexity' | 'gemini' | 'google_ai_overview';
-export type SubscriptionTier = 'starter' | 'growth' | 'pro' | 'free';
+export type SubscriptionTier = 'starter' | 'growth' | 'pro' | 'free' | 'enterprise';
 
+/**
+ * Provider access policies aligned with pricing page:
+ * - Starter: 2 providers (OpenAI + Perplexity)
+ * - Growth: 4 providers (all including Google AIO)
+ * - Pro: 4 providers (all including Google AIO)
+ * - Enterprise: 4 providers (all including Google AIO)
+ */
 const PROVIDER_TIER_POLICIES: Record<SubscriptionTier, ProviderName[]> = {
   starter: ['openai', 'perplexity'],
-  growth: ['openai', 'perplexity', 'gemini'], 
+  growth: ['openai', 'perplexity', 'gemini', 'google_ai_overview'],
   pro: ['openai', 'perplexity', 'gemini', 'google_ai_overview'],
+  enterprise: ['openai', 'perplexity', 'gemini', 'google_ai_overview'],
   free: ['openai'] // Fallback for unsubscribed users
 };
 
