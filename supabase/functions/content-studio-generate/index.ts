@@ -110,22 +110,48 @@ serve(async (req) => {
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
     if (recommendationId) {
-      const { data: recData, error: recError } = await supabaseService
-        .from('recommendations')
+      // Try optimizations_v2 first (new table), then fall back to recommendations
+      let sourceData: any = null;
+      let sourceTable = '';
+      
+      // Check optimizations_v2 table first
+      const { data: optData, error: optError } = await supabaseService
+        .from('optimizations_v2')
         .select('*')
         .eq('id', recommendationId)
         .eq('org_id', orgId)
-        .single();
+        .maybeSingle();
 
-      if (recError || !recData) {
-        return new Response(
-          JSON.stringify({ error: 'Recommendation not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (!optError && optData) {
+        sourceData = optData;
+        sourceTable = 'optimizations_v2';
+        topicKey = optData.title || 'Unknown Topic';
+        contextData.optimization = optData;
+        contextData.promptContext = optData.prompt_context;
+      } else {
+        // Fall back to recommendations table
+        const { data: recData, error: recError } = await supabaseService
+          .from('recommendations')
+          .select('*')
+          .eq('id', recommendationId)
+          .eq('org_id', orgId)
+          .maybeSingle();
+
+        if (recError || !recData) {
+          console.error('Recommendation not found in either table:', { recommendationId, optError, recError });
+          return new Response(
+            JSON.stringify({ error: 'Recommendation not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        sourceData = recData;
+        sourceTable = 'recommendations';
+        topicKey = recData.title || 'Unknown Topic';
+        contextData.recommendation = recData;
       }
-
-      topicKey = recData.title || 'Unknown Topic';
-      contextData.recommendation = recData;
+      
+      console.log(`Found source data in ${sourceTable}:`, { id: recommendationId, title: topicKey });
     }
 
     if (promptId) {
