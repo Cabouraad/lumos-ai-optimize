@@ -2,11 +2,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, ChevronDown, Clock, Target, Zap } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock, Target, Zap, Sparkles } from "lucide-react";
 import { useState } from "react";
 import type { OptimizationV2 } from "@/features/optimizations/api-v2";
 import { useUpdateOptimizationStatus } from "@/features/optimizations/hooks-v2";
-
+import { useGenerateContentStudioItem, canUseContentStudio } from "@/features/content-studio/hooks";
+import { ContentStudioDrawer, ContentStudioItem } from "@/features/content-studio";
+import { useSubscriptionGate } from "@/hooks/useSubscriptionGate";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 interface OptimizationCardProps {
   optimization: OptimizationV2;
 }
@@ -37,10 +40,29 @@ const statusColors: Record<string, string> = {
 
 export function OptimizationCard({ optimization }: OptimizationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [studioItem, setStudioItem] = useState<ContentStudioItem | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const updateStatus = useUpdateOptimizationStatus();
+  const generateStudioItem = useGenerateContentStudioItem();
+  const { limits } = useSubscriptionGate();
+  const canUseStudio = canUseContentStudio(limits.hasAdvancedScoring ? 'pro' : limits.hasRecommendations ? 'growth' : 'starter');
 
   const handleStatusChange = (status: 'in_progress' | 'completed' | 'dismissed') => {
     updateStatus.mutate({ id: optimization.id, status });
+  };
+
+  const handleContentStudio = async () => {
+    try {
+      const result = await generateStudioItem.mutateAsync({ 
+        recommendationId: optimization.id 
+      });
+      if (result.item) {
+        setStudioItem(result.item);
+        setDrawerOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to generate content studio item:', error);
+    }
   };
 
   return (
@@ -212,7 +234,38 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
             Dismiss
           </Button>
         )}
+        
+        {/* Content Studio Button */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleContentStudio}
+                  disabled={!canUseStudio || generateStudioItem.isPending}
+                  className="gap-1"
+                >
+                  <Sparkles className="h-4 w-4 text-rose-500" />
+                  {generateStudioItem.isPending ? 'Generating...' : 'Content Studio'}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!canUseStudio && (
+              <TooltipContent>
+                <p>Upgrade to Growth or Pro to access Content Studio</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
+
+      <ContentStudioDrawer
+        item={studioItem}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </Card>
   );
 }
