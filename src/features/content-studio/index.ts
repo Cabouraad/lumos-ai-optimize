@@ -5,3 +5,5 @@ export * from './types';
 export * from './api';
 export * from './hooks';
 export { ContentStudioDrawer } from './components/ContentStudioDrawer';
+export { ContentEditor } from './components/ContentEditor';
+export { useContentEditor } from './hooks/useContentEditor';
