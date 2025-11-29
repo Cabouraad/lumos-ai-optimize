@@ -2,9 +2,9 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sparkles, FileText, Clock, CheckCircle, Trash2 } from 'lucide-react';
+import { Sparkles, FileText, Clock, CheckCircle, Edit3, Eye } from 'lucide-react';
 import { useContentStudioItems, useUpdateContentStudioItemStatus } from '@/features/content-studio/hooks';
-import { ContentStudioDrawer, type ContentStudioItem } from '@/features/content-studio';
+import { ContentStudioDrawer, ContentEditor, type ContentStudioItem } from '@/features/content-studio';
 import { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -16,6 +16,7 @@ export default function ContentStudio() {
   const updateStatus = useUpdateContentStudioItemStatus();
   const [selectedItem, setSelectedItem] = useState<ContentStudioItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState(false);
   const { canAccessRecommendations } = useSubscriptionGate();
   const navigate = useNavigate();
   
@@ -61,10 +62,35 @@ export default function ContentStudio() {
     }
   };
 
-  const handleViewItem = (item: ContentStudioItem) => {
+  const handleViewBlueprint = (item: ContentStudioItem) => {
     setSelectedItem(item);
     setDrawerOpen(true);
   };
+
+  const handleEditContent = (item: ContentStudioItem) => {
+    setSelectedItem(item);
+    setEditorMode(true);
+    // Update status to in_progress when starting to edit
+    if (item.status === 'draft') {
+      updateStatus.mutate({ id: item.id, status: 'in_progress' });
+    }
+  };
+
+  const handleBackFromEditor = () => {
+    setEditorMode(false);
+    setSelectedItem(null);
+  };
+
+  // Show full-screen editor when in editor mode
+  if (editorMode && selectedItem) {
+    return (
+      <Layout>
+        <div className="h-[calc(100vh-8rem)]">
+          <ContentEditor item={selectedItem} onBack={handleBackFromEditor} />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -77,11 +103,11 @@ export default function ContentStudio() {
               Content Studio
             </h1>
             <p className="text-muted-foreground mt-1">
-              AI-generated content blueprints to improve your visibility
+              Create AI-optimized content with guided frameworks and AI assistance
             </p>
           </div>
           <Button variant="outline" onClick={() => navigate('/optimizations')}>
-            Generate from Recommendations
+            Generate New Blueprint
           </Button>
         </div>
 
@@ -105,15 +131,14 @@ export default function ContentStudio() {
             {items.map((item) => (
               <Card 
                 key={item.id} 
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => handleViewItem(item)}
+                className="hover:shadow-md transition-shadow"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-lg line-clamp-2">{item.topic_key}</CardTitle>
                     <Badge variant={getStatusColor(item.status)} className="flex items-center gap-1">
                       {getStatusIcon(item.status)}
-                      {item.status}
+                      {item.status.replace('_', ' ')}
                     </Badge>
                   </div>
                   <CardDescription className="flex items-center gap-2">
@@ -123,18 +148,37 @@ export default function ContentStudio() {
                     </span>
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-1">
-                      {item.llm_targets.slice(0, 3).map((target) => (
-                        <Badge key={target} variant="secondary" className="text-xs">
-                          {target}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {item.outline.sections?.length || 0} sections • {item.faqs.length} FAQs
-                    </p>
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap gap-1">
+                    {item.llm_targets.slice(0, 3).map((target) => (
+                      <Badge key={target} variant="secondary" className="text-xs">
+                        {target}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {item.outline.sections?.length || 0} sections • {item.faqs.length} FAQs
+                  </p>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-1.5"
+                      onClick={() => handleViewBlueprint(item)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View Blueprint
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="flex-1 gap-1.5"
+                      onClick={() => handleEditContent(item)}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                      Write Content
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -146,7 +190,7 @@ export default function ContentStudio() {
               <Sparkles className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Content Blueprints Yet</h3>
               <p className="text-muted-foreground max-w-sm mb-4">
-                Generate your first content blueprint from the Optimizations page to get started.
+                Generate your first content blueprint from the Optimizations page. Then come back here to write your content with AI assistance.
               </p>
               <Button onClick={() => navigate('/optimizations')}>
                 Go to Optimizations
@@ -156,7 +200,7 @@ export default function ContentStudio() {
         )}
       </div>
 
-      {/* Content Studio Drawer */}
+      {/* Content Studio Blueprint Drawer */}
       <ContentStudioDrawer
         item={selectedItem}
         open={drawerOpen}

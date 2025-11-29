@@ -224,6 +224,9 @@ verify_jwt = false
 [functions.content-studio-generate]
 verify_jwt = true
 
+[functions.content-studio-assist]
+verify_jwt = true
+
 # Scheduled runs - BULLETPROOF CONFIGURATION
 [functions.schedules]
 # === WEEKLY REPORTS ===
