@@ -41,9 +41,10 @@ export default function TierComparison() {
       ]
     },
     {
-      category: "Recommendations",
+      category: "Recommendations & Content",
       items: [
         { name: "AI-Powered Content Suggestions", starter: false, growth: true, pro: true },
+        { name: "Content Studio", starter: false, growth: true, pro: true },
         { name: "Priority Recommendations", starter: false, growth: true, pro: true },
         { name: "Custom Optimization Strategies", starter: false, growth: false, pro: true },
         { name: "Prompt Suggestions", starter: true, growth: true, pro: true }
