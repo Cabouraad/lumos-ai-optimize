@@ -229,19 +229,19 @@ export function ContentStudioDrawer({ item, open, onClose }: ContentStudioDrawer
                 ))}
               </ul>
             </section>
-
-            {/* Send to Content Studio Button */}
-            <div className="pt-4 pb-2">
-              <Button 
-                onClick={handleSendToContentStudio}
-                className="w-full gap-2"
-              >
-                Send to Content Studio
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
         </ScrollArea>
+
+        {/* Sticky Send to Content Studio Button */}
+        <div className="flex-shrink-0 pt-4 pb-2 border-t mt-4">
+          <Button 
+            onClick={handleSendToContentStudio}
+            className="w-full gap-2"
+          >
+            Send to Content Studio
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   );
