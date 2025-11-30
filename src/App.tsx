@@ -37,6 +37,7 @@ const ActionableRecommendations = lazy(() => loadChunkWithRetry(() => import("./
 const CitationAnalysisFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/CitationAnalysisFeature")));
 const LLMsTextFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/LLMsTextFeature")));
 const TierComparison = lazy(() => loadChunkWithRetry(() => import("./pages/features/TierComparison")));
+const ContentStudioFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/ContentStudio")));
 const Resources = lazy(() => loadChunkWithRetry(() => import("./pages/Resources")));
 const BlogPost = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPost")));
 const TrialSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/TrialSuccess")));
@@ -114,6 +115,7 @@ const App = () => {
           <Route path="/features/citation-analysis" element={<CitationAnalysisFeature />} />
           <Route path="/features/llms-txt" element={<LLMsTextFeature />} />
           <Route path="/features/tier-comparison" element={<TierComparison />} />
+          <Route path="/features/content-studio" element={<ContentStudioFeature />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/resources/:slug" element={<BlogPost />} />
           <Route path="/trial-success" element={<TrialSuccess />} />
