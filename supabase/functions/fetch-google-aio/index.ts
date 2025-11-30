@@ -33,7 +33,13 @@ Deno.serve(async (req) => {
 
   try {
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-    const ENABLE_GOOGLE_AIO = Deno.env.get('ENABLE_GOOGLE_AIO') === 'true';
+    const ENABLE_GOOGLE_AIO = Deno.env.get('ENABLE_GOOGLE_AIO');
+
+    console.log('[Google AIO] Config check:', {
+      hasKey: !!SERPAPI_KEY,
+      enabledRaw: ENABLE_GOOGLE_AIO,
+      enabledParsed: ENABLE_GOOGLE_AIO === 'true'
+    });
 
     // Parse request
     const body: AioRequest = await req.json();
@@ -42,7 +48,7 @@ Deno.serve(async (req) => {
     if (body.dry_run) {
       return new Response(
         JSON.stringify({ 
-          enabled: ENABLE_GOOGLE_AIO && !!SERPAPI_KEY,
+          enabled: ENABLE_GOOGLE_AIO === 'true' && !!SERPAPI_KEY,
           configured: !!SERPAPI_KEY
         }),
         { 
@@ -53,8 +59,8 @@ Deno.serve(async (req) => {
     }
 
     // Check if feature is enabled and configured
-    if (!ENABLE_GOOGLE_AIO || !SERPAPI_KEY) {
-      console.log('Google AIO disabled or not configured', {
+    if (ENABLE_GOOGLE_AIO !== 'true' || !SERPAPI_KEY) {
+      console.log('[Google AIO] Feature disabled or not configured', {
         enabled: ENABLE_GOOGLE_AIO,
         hasKey: !!SERPAPI_KEY
       });
@@ -100,14 +106,30 @@ Deno.serve(async (req) => {
 
     const data = await response.json();
     
-    // Check if AI Overview is present
-    if (!data.ai_overview) {
-      console.log('[Google AIO] No AI Overview in response');
+    // Log available keys in response for debugging
+    console.log('[Google AIO] Response keys:', Object.keys(data));
+    
+    // Check for AI Overview in multiple possible locations
+    // SerpAPI may use different field names depending on the query/response
+    const aiOverview = data.ai_overview || data.ai_overviews || data.featured_snippet || data.answer_box;
+    
+    if (!aiOverview) {
+      console.log('[Google AIO] No AI Overview found in response. Available keys:', Object.keys(data));
+      
+      // Log if we have organic results but no AIO
+      if (data.organic_results?.length > 0) {
+        console.log('[Google AIO] Has organic results but no AI Overview');
+      }
+      
       return new Response(
         JSON.stringify({ 
           summary: '',
           citations: [],
-          raw: data 
+          raw: null,
+          debug: {
+            hasOrganicResults: !!data.organic_results?.length,
+            responseKeys: Object.keys(data)
+          }
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -115,18 +137,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const aiOverview = data.ai_overview;
+    console.log('[Google AIO] AI Overview found, keys:', Object.keys(aiOverview));
     
-    // Extract summary text from text_blocks
+    // Extract summary text - handle multiple formats
     let summary = '';
+    
+    // Format 1: text_blocks array (newer format)
     if (aiOverview.text_blocks && Array.isArray(aiOverview.text_blocks)) {
       summary = aiOverview.text_blocks
         .map((block: any) => {
           if (block.type === 'paragraph' || block.type === 'heading') {
-            return block.snippet || '';
+            return block.snippet || block.text || '';
           }
           if (block.type === 'list' && block.list) {
-            return block.list.map((item: any) => item.snippet || '').join(' ');
+            return block.list.map((item: any) => item.snippet || item.text || '').join(' ');
+          }
+          // Handle generic blocks
+          if (block.snippet || block.text) {
+            return block.snippet || block.text;
           }
           return '';
         })
@@ -134,14 +162,57 @@ Deno.serve(async (req) => {
         .join(' ')
         .trim();
     }
+    
+    // Format 2: Direct snippet/text field
+    if (!summary && (aiOverview.snippet || aiOverview.text)) {
+      summary = aiOverview.snippet || aiOverview.text || '';
+    }
+    
+    // Format 3: Answer field (answer_box format)
+    if (!summary && aiOverview.answer) {
+      summary = aiOverview.answer;
+    }
+    
+    // Format 4: Contents array
+    if (!summary && aiOverview.contents && Array.isArray(aiOverview.contents)) {
+      summary = aiOverview.contents
+        .map((c: any) => c.text || c.snippet || '')
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    }
 
-    // Extract references
-    const citations = (aiOverview.references || []).map((ref: any) => ({
-      title: ref.title,
-      link: ref.link,
-      domain: extractDomain(ref.link),
-      index: ref.index
-    }));
+    // Extract references/citations - handle multiple formats
+    let citations: Array<{title?: string; link: string; domain?: string; index?: number}> = [];
+    
+    // Format 1: references array
+    if (aiOverview.references && Array.isArray(aiOverview.references)) {
+      citations = aiOverview.references.map((ref: any) => ({
+        title: ref.title,
+        link: ref.link || ref.url,
+        domain: extractDomain(ref.link || ref.url || ''),
+        index: ref.index
+      })).filter((c: any) => c.link);
+    }
+    
+    // Format 2: sources array
+    if (citations.length === 0 && aiOverview.sources && Array.isArray(aiOverview.sources)) {
+      citations = aiOverview.sources.map((src: any, idx: number) => ({
+        title: src.title || src.name,
+        link: src.link || src.url,
+        domain: extractDomain(src.link || src.url || ''),
+        index: idx + 1
+      })).filter((c: any) => c.link);
+    }
+    
+    // Format 3: link field (answer_box format)
+    if (citations.length === 0 && aiOverview.link) {
+      citations = [{
+        title: aiOverview.title,
+        link: aiOverview.link,
+        domain: extractDomain(aiOverview.link)
+      }];
+    }
 
     const result: AioResult = {
       summary,
@@ -152,7 +223,8 @@ Deno.serve(async (req) => {
 
     console.log('[Google AIO] Success', {
       summaryLength: summary.length,
-      citationsCount: citations.length
+      citationsCount: citations.length,
+      hasSummary: !!summary
     });
 
     return new Response(
@@ -182,6 +254,7 @@ Deno.serve(async (req) => {
  * Extract domain from URL
  */
 function extractDomain(url: string): string {
+  if (!url) return 'unknown';
   try {
     const parsed = new URL(url);
     return parsed.hostname.replace(/^www\./, '');
