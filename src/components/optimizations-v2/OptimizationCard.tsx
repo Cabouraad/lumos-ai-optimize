@@ -247,8 +247,17 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
                   disabled={!canUseStudio || generateStudioItem.isPending}
                   className="gap-1"
                 >
-                  <Sparkles className="h-4 w-4 text-rose-500" />
-                  {generateStudioItem.isPending ? 'Generating...' : 'Content Studio'}
+                  {generateStudioItem.isPending ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                      <span>Generating Blueprint...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 text-rose-500" />
+                      <span>Content Studio</span>
+                    </>
+                  )}
                 </Button>
               </span>
             </TooltipTrigger>

@@ -120,8 +120,17 @@ export function LowVisibilityTable() {
                               disabled={!canUseStudio || generatingPromptId === prompt.prompt_id}
                               className="gap-1"
                             >
-                              <Sparkles className="h-4 w-4 text-rose-500" />
-                              {generatingPromptId === prompt.prompt_id ? 'Generating...' : 'Content Studio'}
+                              {generatingPromptId === prompt.prompt_id ? (
+                                <>
+                                  <div className="h-4 w-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                  <span>Generating Blueprint...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-4 w-4 text-rose-500" />
+                                  <span>Content Studio</span>
+                                </>
+                              )}
                             </Button>
                           </span>
                         </TooltipTrigger>
