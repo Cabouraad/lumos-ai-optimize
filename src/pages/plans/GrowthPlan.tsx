@@ -32,8 +32,8 @@ export default function GrowthPlan() {
     },
     {
       icon: Sparkles,
-      title: 'AI-Powered Recommendations',
-      description: 'Get actionable insights to improve your AI search visibility'
+      title: 'Content Studio',
+      description: 'Create AI-optimized content with guided frameworks and AI writing assistance'
     },
     {
       icon: TrendingUp,
@@ -55,6 +55,7 @@ export default function GrowthPlan() {
     '2 additional AI platforms (Gemini + Google AIO)',
     'Competitor tracking (up to 3 competitors)',
     'AI-powered optimization recommendations',
+    'Content Studio with AI writing assistance',
     '2 additional team members (3 total)',
     'Priority email support',
     'Advanced reporting and exports'
@@ -156,6 +157,10 @@ export default function GrowthPlan() {
                   <div className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                     <span>AI-powered recommendations</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                    <span>Content Studio</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />

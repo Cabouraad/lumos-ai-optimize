@@ -32,8 +32,8 @@ export default function ProPlan() {
     },
     {
       icon: Sparkles,
-      title: 'Custom Optimization Plans',
-      description: 'Tailored strategies for your specific industry and goals'
+      title: 'Content Studio',
+      description: 'Create AI-optimized content with guided frameworks and AI writing assistance'
     },
     {
       icon: Crown,
@@ -170,6 +170,10 @@ export default function ProPlan() {
                   <div className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                     <span>Custom optimization plans</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                    <span>Content Studio</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />

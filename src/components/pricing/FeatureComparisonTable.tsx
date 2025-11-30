@@ -32,10 +32,11 @@ const FEATURES = [
     ]
   },
   {
-    category: 'Recommendations',
+    category: 'Recommendations & Content',
     features: [
       { name: 'AI-powered optimizations', starter: false, growth: true, pro: true },
       { name: 'Content suggestions', starter: false, growth: true, pro: true },
+      { name: 'Content Studio', starter: false, growth: true, pro: true },
       { name: 'Positioning recommendations', starter: false, growth: true, pro: true },
       { name: 'Custom optimization plans', starter: false, growth: false, pro: true }
     ]

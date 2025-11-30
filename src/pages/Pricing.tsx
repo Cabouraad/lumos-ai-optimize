@@ -105,6 +105,7 @@ export default function Pricing() {
         'All 4 AI platforms',
         'Track 50 competitors',
         'AI-powered recommendations',
+        'Content Studio',
         'Priority support',
         'Advanced reporting & exports'
       ],
@@ -122,6 +123,7 @@ export default function Pricing() {
         'All 4 AI platforms',
         'Track 50 competitors',
         'Custom optimization plans',
+        'Content Studio',
         'Dedicated account manager',
         'White-label reports',
         'Multi-brand management'
