@@ -3,7 +3,9 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 /**
  * Google AI Overview fetcher using SerpAPI
- * Fetches AI Overview results from Google Search
+ * Two-step process:
+ * 1. Call Google Search API to get ai_overview.page_token
+ * 2. Call Google AI Overview API with the page_token to get full content
  */
 
 interface AioRequest {
@@ -82,53 +84,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('[Google AIO] Fetching AI Overview', { query, gl, hl });
+    console.log('[Google AIO] Step 1: Fetching Google Search to get page_token', { query, gl, hl });
 
-    // Call SerpAPI with Google Search engine
-    const serpApiUrl = new URL('https://serpapi.com/search.json');
-    serpApiUrl.searchParams.set('engine', 'google');
-    serpApiUrl.searchParams.set('q', query);
-    serpApiUrl.searchParams.set('api_key', SERPAPI_KEY);
-    serpApiUrl.searchParams.set('gl', gl);
-    serpApiUrl.searchParams.set('hl', hl);
-    serpApiUrl.searchParams.set('no_cache', 'false'); // Use cache to save quota
+    // STEP 1: Call Google Search API to get the ai_overview.page_token
+    const googleSearchUrl = new URL('https://serpapi.com/search.json');
+    googleSearchUrl.searchParams.set('engine', 'google');
+    googleSearchUrl.searchParams.set('q', query);
+    googleSearchUrl.searchParams.set('api_key', SERPAPI_KEY);
+    googleSearchUrl.searchParams.set('gl', gl);
+    googleSearchUrl.searchParams.set('hl', hl);
 
-    const response = await fetch(serpApiUrl.toString());
+    const searchResponse = await fetch(googleSearchUrl.toString());
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Google AIO] SerpAPI error:', {
-        status: response.status,
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error('[Google AIO] Google Search API error:', {
+        status: searchResponse.status,
         error: errorText
       });
-      throw new Error(`SerpAPI error: ${response.status} - ${errorText}`);
+      throw new Error(`SerpAPI Google Search error: ${searchResponse.status} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const searchData = await searchResponse.json();
     
-    // Log available keys in response for debugging
-    console.log('[Google AIO] Response keys:', Object.keys(data));
+    console.log('[Google AIO] Google Search response keys:', Object.keys(searchData));
     
-    // Check for AI Overview in multiple possible locations
-    // SerpAPI may use different field names depending on the query/response
-    const aiOverview = data.ai_overview || data.ai_overviews || data.featured_snippet || data.answer_box;
+    // Check if ai_overview exists and has page_token
+    const pageToken = searchData.ai_overview?.page_token;
     
-    if (!aiOverview) {
-      console.log('[Google AIO] No AI Overview found in response. Available keys:', Object.keys(data));
+    if (!pageToken) {
+      console.log('[Google AIO] No page_token found in Google Search response', {
+        hasAiOverview: !!searchData.ai_overview,
+        aiOverviewKeys: searchData.ai_overview ? Object.keys(searchData.ai_overview) : []
+      });
       
-      // Log if we have organic results but no AIO
-      if (data.organic_results?.length > 0) {
-        console.log('[Google AIO] Has organic results but no AI Overview');
-      }
-      
+      // Return empty result if no AI Overview available for this query
       return new Response(
         JSON.stringify({ 
           summary: '',
           citations: [],
           raw: null,
           debug: {
-            hasOrganicResults: !!data.organic_results?.length,
-            responseKeys: Object.keys(data)
+            hasAiOverview: !!searchData.ai_overview,
+            responseKeys: Object.keys(searchData)
           }
         }),
         { 
@@ -137,12 +135,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('[Google AIO] AI Overview found, keys:', Object.keys(aiOverview));
+    console.log('[Google AIO] Step 2: Fetching AI Overview with page_token');
+
+    // STEP 2: Call Google AI Overview API with the page_token
+    // page_token expires within 1 minute, so we call immediately
+    const aioUrl = new URL('https://serpapi.com/search.json');
+    aioUrl.searchParams.set('engine', 'google_ai_overview');
+    aioUrl.searchParams.set('page_token', pageToken);
+    aioUrl.searchParams.set('api_key', SERPAPI_KEY);
+
+    const aioResponse = await fetch(aioUrl.toString());
+
+    if (!aioResponse.ok) {
+      const errorText = await aioResponse.text();
+      console.error('[Google AIO] AI Overview API error:', {
+        status: aioResponse.status,
+        error: errorText
+      });
+      throw new Error(`SerpAPI AI Overview error: ${aioResponse.status} - ${errorText}`);
+    }
+
+    const aioData = await aioResponse.json();
     
+    console.log('[Google AIO] AI Overview response keys:', Object.keys(aioData));
+
+    // Extract AI Overview content from the response
+    const aiOverview = aioData.ai_overview || aioData;
+    
+    console.log('[Google AIO] AI Overview content keys:', Object.keys(aiOverview));
+
     // Extract summary text - handle multiple formats
     let summary = '';
     
-    // Format 1: text_blocks array (newer format)
+    // Format 1: text_blocks array
     if (aiOverview.text_blocks && Array.isArray(aiOverview.text_blocks)) {
       summary = aiOverview.text_blocks
         .map((block: any) => {
@@ -152,7 +177,6 @@ Deno.serve(async (req) => {
           if (block.type === 'list' && block.list) {
             return block.list.map((item: any) => item.snippet || item.text || '').join(' ');
           }
-          // Handle generic blocks
           if (block.snippet || block.text) {
             return block.snippet || block.text;
           }
@@ -167,22 +191,13 @@ Deno.serve(async (req) => {
     if (!summary && (aiOverview.snippet || aiOverview.text)) {
       summary = aiOverview.snippet || aiOverview.text || '';
     }
-    
-    // Format 3: Answer field (answer_box format)
+
+    // Format 3: answer field
     if (!summary && aiOverview.answer) {
       summary = aiOverview.answer;
     }
-    
-    // Format 4: Contents array
-    if (!summary && aiOverview.contents && Array.isArray(aiOverview.contents)) {
-      summary = aiOverview.contents
-        .map((c: any) => c.text || c.snippet || '')
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-    }
 
-    // Extract references/citations - handle multiple formats
+    // Extract references/citations
     let citations: Array<{title?: string; link: string; domain?: string; index?: number}> = [];
     
     // Format 1: references array
@@ -204,20 +219,14 @@ Deno.serve(async (req) => {
         index: idx + 1
       })).filter((c: any) => c.link);
     }
-    
-    // Format 3: link field (answer_box format)
-    if (citations.length === 0 && aiOverview.link) {
-      citations = [{
-        title: aiOverview.title,
-        link: aiOverview.link,
-        domain: extractDomain(aiOverview.link)
-      }];
-    }
+
+    // Extract follow-up questions from the search response
+    const followUpQuestions = searchData.related_questions?.map((q: any) => q.question) || [];
 
     const result: AioResult = {
       summary,
       citations,
-      follow_up_questions: data.related_questions?.map((q: any) => q.question) || [],
+      follow_up_questions: followUpQuestions,
       raw: aiOverview
     };
 
