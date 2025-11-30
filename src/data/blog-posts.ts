@@ -2713,6 +2713,35 @@ Local businesses have significant advantages in AI search - you have specific ge
 The local businesses winning in AI search are those that consistently demonstrate they understand their market, serve their community well, and can articulate their expertise clearly.
 
 *Your local expertise is your competitive advantage. Make sure AI systems can recognize and recommend it.*`
+  },
+  {
+    slug: 'content-studio-aeo-geo-guide',
+    title: 'Content Studio: Master Answer Engine Optimization (AEO) and Generative Engine Optimization (GEO)',
+    description: 'Learn how to create AI-optimized content that ranks in ChatGPT, Google AI Overviews, Perplexity, and other generative AI platforms using Content Studio.',
+    keywords: 'AEO, Answer Engine Optimization, GEO, Generative Engine Optimization, AI content, AI search optimization, ChatGPT SEO, AI visibility, content studio, AI content strategy',
+    category: 'AI Search Strategy',
+    tags: ['AEO', 'GEO', 'AI Search', 'Content Strategy', 'ChatGPT', 'Content Studio'],
+    publishedAt: '2024-12-01T10:00:00Z',
+    updatedAt: '2024-12-01T10:00:00Z',
+    readTime: 12,
+    featured: true,
+    content: `# Content Studio: Master Answer Engine Optimization (AEO) and Generative Engine Optimization (GEO)
+
+The way people search for information is fundamentally changing. With the rise of AI assistants like ChatGPT, Google AI Overviews, and Perplexity, consumers are increasingly getting answers directly from AI systems. For brands, this shift requires a new approach: **Answer Engine Optimization (AEO)** and **Generative Engine Optimization (GEO)**.
+
+## What is Answer Engine Optimization (AEO)?
+
+**Answer Engine Optimization (AEO)** is the practice of creating content specifically to be cited by AI-powered answer engines. Unlike traditional SEO, AEO focuses on becoming the authoritative source that AI systems reference when generating responses.
+
+## What is Generative Engine Optimization (GEO)?
+
+**Generative Engine Optimization (GEO)** focuses on how generative AI models synthesize and present information. GEO ensures your content shapes the narrative in AI responses.
+
+## How Content Studio Helps
+
+Content Studio transforms visibility gaps into actionable content blueprints optimized for AI citation, with AI-powered writing assistance to create content that ranks in AI search.
+
+[Read more about Content Studio](/features/content-studio)`
   }
 ];
 

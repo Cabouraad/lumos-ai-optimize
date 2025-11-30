@@ -20,7 +20,9 @@ import {
   RefreshCw,
   Star,
   Award,
-  Sparkles
+  Sparkles,
+  FileText,
+  Bot
 } from 'lucide-react';
 
 const Features = () => {
@@ -359,8 +361,87 @@ const Features = () => {
         </div>
       </section>
 
-      {/* Enterprise Features */}
+      {/* Content Studio - AEO/GEO Section */}
       <section className="py-16 px-4">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <Badge className="mb-4">
+              <Bot className="w-3 h-3 mr-1 inline" />
+              Answer Engine Optimization
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Content Studio for AEO & GEO
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Create AI-optimized content that ranks in ChatGPT, Google AI Overviews, Perplexity, and other generative AI platforms
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-8 mb-8">
+            <Card className="p-8 hover-lift border-2 hover:border-primary/50 transition-all shadow-soft">
+              <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                <FileText className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">AI Content Blueprints</h3>
+              <p className="text-muted-foreground mb-6">
+                Transform visibility gaps into detailed content frameworks. Get structured outlines, FAQ suggestions, 
+                key entities, and schema markup recommendations designed for maximum AI citation potential.
+              </p>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <span>LLM-targeted content types (FAQ, blog, comparison pages)</span>
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <span>Schema markup recommendations for AI parsing</span>
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <span>Entity and keyword optimization for GEO</span>
+                </li>
+              </ul>
+            </Card>
+            
+            <Card className="p-8 hover-lift border-2 hover:border-primary/50 transition-all shadow-soft">
+              <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">AI Writing Assistance</h3>
+              <p className="text-muted-foreground mb-6">
+                Create content directly in Llumos with built-in AI assistance. Get suggestions, expand sections, 
+                and ensure your content follows Answer Engine Optimization and Generative Engine Optimization best practices.
+              </p>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <span>Section-by-section AI writing suggestions</span>
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <span>Tone and brand voice consistency</span>
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <span>Export to Markdown and HTML</span>
+                </li>
+              </ul>
+            </Card>
+          </div>
+          
+          <div className="text-center">
+            <Button asChild size="lg">
+              <Link to="/features/content-studio">
+                Learn More About Content Studio
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Enterprise Features */}
+      <section className="py-16 px-4 bg-muted/30">
         <div className="container mx-auto max-w-4xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">
@@ -505,9 +586,11 @@ const Features = () => {
           <p className="text-muted-foreground mb-4">
             AI Search Optimization. Simplified.
           </p>
-          <div className="flex justify-center space-x-6 text-sm text-muted-foreground">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
+            <Link to="/features/content-studio" className="hover:text-foreground transition-colors">Content Studio</Link>
+            <Link to="/resources" className="hover:text-foreground transition-colors">Resources</Link>
             <Link to="/signin" className="hover:text-foreground transition-colors">Sign In</Link>
           </div>
         </div>
