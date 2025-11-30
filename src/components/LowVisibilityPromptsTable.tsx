@@ -207,13 +207,21 @@ function PromptRow({ prompt, onStudioItemGenerated }: PromptRowProps) {
                     className="h-7"
                   >
                     {contentStudioMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <>
+                        <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+                        <span>Generating Blueprint...</span>
+                      </>
                     ) : hasContentStudioAccess ? (
-                      <Wand2 className="h-3 w-3 mr-1" />
+                      <>
+                        <Wand2 className="h-3 w-3 mr-1" />
+                        <span>Content Studio</span>
+                      </>
                     ) : (
-                      <Lock className="h-3 w-3 mr-1" />
+                      <>
+                        <Lock className="h-3 w-3 mr-1" />
+                        <span>Content Studio</span>
+                      </>
                     )}
-                    {contentStudioMutation.isPending ? 'Creating...' : 'Content Studio'}
                   </Button>
                 </span>
               </TooltipTrigger>

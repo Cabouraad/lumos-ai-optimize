@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
@@ -24,8 +25,10 @@ import {
   Tag, 
   Code2, 
   MessageSquare,
-  Target
+  Target,
+  ArrowRight
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ContentStudioItem, OutlineSection } from '../types';
 import { CONTENT_TYPE_LABELS, SCHEMA_TYPE_COLORS } from '../types';
 
@@ -38,8 +41,17 @@ interface ContentStudioDrawerProps {
 export function ContentStudioDrawer({ item, open, onClose }: ContentStudioDrawerProps) {
   const [copiedOutline, setCopiedOutline] = useState(false);
   const [copiedFaqs, setCopiedFaqs] = useState(false);
+  const navigate = useNavigate();
 
   if (!item) return null;
+
+  const handleSendToContentStudio = () => {
+    toast.success('Blueprint added to Content Studio', {
+      description: 'Your content blueprint is ready for editing.',
+    });
+    onClose();
+    navigate('/content-studio');
+  };
 
   const handleCopyOutline = async () => {
     const outlineText = formatOutlineAsText(item.outline);
@@ -217,6 +229,17 @@ export function ContentStudioDrawer({ item, open, onClose }: ContentStudioDrawer
                 ))}
               </ul>
             </section>
+
+            {/* Send to Content Studio Button */}
+            <div className="pt-4 pb-2">
+              <Button 
+                onClick={handleSendToContentStudio}
+                className="w-full gap-2"
+              >
+                Send to Content Studio
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </ScrollArea>
       </SheetContent>
