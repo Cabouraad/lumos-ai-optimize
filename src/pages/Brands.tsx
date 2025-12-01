@@ -183,12 +183,13 @@ export default function Brands() {
                 className="hover:shadow-lg transition-all hover:scale-[1.02] cursor-pointer group"
                 onClick={() => handleBrandSelect(brand)}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-6">
+                <CardContent className="p-6 flex flex-col">
+                  {/* Centered Brand Display */}
+                  <div className="flex flex-col items-center text-center mb-4">
                     <BrandDisplay brandName={brand.name} brandDomain={brand.domain} />
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
                     <ExternalLink className="h-3 w-3" />
                     <span className="truncate">{brand.domain}</span>
                   </div>
@@ -197,8 +198,8 @@ export default function Brands() {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="bg-secondary/50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
                             <Gauge className="h-3 w-3" />
                             <span>Llumos Score</span>
                           </div>
@@ -210,14 +211,14 @@ export default function Brands() {
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="bg-secondary/50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
                             <Activity className="h-3 w-3" />
                             <span>Prompts</span>
                           </div>
                           <div className="text-lg font-semibold">
                             {scoresLoading ? (
-                              <Skeleton className="h-6 w-12" />
+                              <Skeleton className="h-6 w-12 mx-auto" />
                             ) : (
                               scoreMap.get(brand.id)?.totalPrompts || 0
                             )}
@@ -229,14 +230,14 @@ export default function Brands() {
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="bg-secondary/50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
                             <TrendingUp className="h-3 w-3" />
                             <span>Presence</span>
                           </div>
                           <div className="text-lg font-semibold">
                             {scoresLoading ? (
-                              <Skeleton className="h-6 w-12" />
+                              <Skeleton className="h-6 w-12 mx-auto" />
                             ) : (
                               `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(0)}%`
                             )}
@@ -247,12 +248,13 @@ export default function Brands() {
                     </Tooltip>
                   </div>
 
-                  {/* Last Activity */}
-                  {!scoresLoading && scoreMap.get(brand.id)?.lastActivity && (
-                    <div className="text-xs text-muted-foreground mb-4">
-                      Last activity: {new Date(scoreMap.get(brand.id)!.lastActivity!).toLocaleDateString()}
-                    </div>
-                  )}
+                  {/* Last Activity - fixed height for alignment */}
+                  <div className="text-xs text-muted-foreground mb-4 h-4">
+                    {!scoresLoading && scoreMap.get(brand.id)?.lastActivity 
+                      ? `Last activity: ${new Date(scoreMap.get(brand.id)!.lastActivity!).toLocaleDateString()}`
+                      : '\u00A0'
+                    }
+                  </div>
 
                   <Tooltip>
                     <TooltipTrigger asChild>
