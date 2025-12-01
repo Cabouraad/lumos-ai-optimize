@@ -5,9 +5,10 @@ interface BrandDisplayProps {
   brandName: string;
   brandDomain?: string;
   collapsed?: boolean;
+  size?: 'default' | 'large';
 }
 
-export function BrandDisplay({ brandName, brandDomain, collapsed = false }: BrandDisplayProps) {
+export function BrandDisplay({ brandName, brandDomain, collapsed = false, size = 'default' }: BrandDisplayProps) {
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [logoError, setLogoError] = useState(false);
 
@@ -25,8 +26,9 @@ export function BrandDisplay({ brandName, brandDomain, collapsed = false }: Bran
   const handleLogoError = () => {
     if (!logoError) {
       setLogoError(true);
-      // Fallback to UI Avatars with brand colors
-      setLogoUrl(`https://ui-avatars.com/api/?name=${encodeURIComponent(brandName)}&size=40&background=6366f1&color=ffffff&bold=true&format=svg`);
+      // Fallback to UI Avatars with brand colors - adjust size based on prop
+      const avatarSize = size === 'large' ? 64 : 40;
+      setLogoUrl(`https://ui-avatars.com/api/?name=${encodeURIComponent(brandName)}&size=${avatarSize}&background=6366f1&color=ffffff&bold=true&format=svg`);
     }
   };
 
@@ -49,6 +51,33 @@ export function BrandDisplay({ brandName, brandDomain, collapsed = false }: Bran
     );
   }
 
+  // For large size (brand cards)
+  if (size === 'large') {
+    return (
+      <div className="flex items-center gap-4">
+        {/* Brand Logo */}
+        <div className="w-16 h-16 rounded-lg bg-secondary/20 flex items-center justify-center border border-border/30 shadow-sm">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${brandName} logo`}
+              className="w-14 h-14 rounded object-cover"
+              onError={handleLogoError}
+            />
+          ) : (
+            <Building2 className="w-8 h-8 text-muted-foreground" />
+          )}
+        </div>
+        
+        {/* Brand Name */}
+        <h2 className="text-2xl font-semibold text-foreground break-words leading-tight">
+          {brandName}
+        </h2>
+      </div>
+    );
+  }
+
+  // Default size (sidebar/header)
   return (
     <div className="px-6 py-4 border-b border-border/30 bg-card/30 backdrop-blur-sm">
       <div className="flex items-center gap-3">
