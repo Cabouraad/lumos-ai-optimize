@@ -189,7 +189,8 @@ export default function BrandOnboarding() {
   ) => {
     setLoading(true);
     try {
-      const result = await acceptMultipleSuggestions(selectedSuggestionIds, manualPrompts);
+      // Pass createdBrandId so prompts are associated with this brand
+      const result = await acceptMultipleSuggestions(selectedSuggestionIds, manualPrompts, createdBrandId);
       
       toast({
         title: "Prompts Activated!",

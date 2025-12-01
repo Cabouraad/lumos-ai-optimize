@@ -158,7 +158,8 @@ export async function generateSuggestionsNow() {
  */
 export async function acceptMultipleSuggestions(
   suggestionIds: string[], 
-  manualPrompts: string[]
+  manualPrompts: string[],
+  brandId?: string | null
 ) {
   try {
     const orgId = await getOrgId();
@@ -166,6 +167,9 @@ export async function acceptMultipleSuggestions(
 
     // Filter out any invalid/undefined UUIDs before querying
     const validSuggestionIds = suggestionIds.filter(id => id && isValidUUID(id));
+    
+    // Validate brandId if provided
+    const validBrandId = brandId && isValidUUID(brandId) ? brandId : null;
     
     // Fetch selected suggestions (only if there are valid IDs)
     let suggestions: { id: string; text: string }[] = [];
@@ -180,20 +184,22 @@ export async function acceptMultipleSuggestions(
       suggestions = data ?? [];
     }
 
-    // Create prompts from suggestions
+    // Create prompts from suggestions - include brand_id if provided
     const suggestionPrompts = suggestions.map(s => ({
       org_id: orgId,
       text: s.text,
-      active: true
+      active: true,
+      ...(validBrandId && { brand_id: validBrandId })
     })) ?? [];
 
-    // Create prompts from manual input
+    // Create prompts from manual input - include brand_id if provided
     const manualPromptsData = manualPrompts
       .filter(text => text.trim().length > 0)
       .map(text => ({
         org_id: orgId,
         text: text.trim(),
-        active: true
+        active: true,
+        ...(validBrandId && { brand_id: validBrandId })
       }));
 
     // Combine all prompts
