@@ -3,10 +3,18 @@ import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { ArrowLeft } from 'lucide-react';
+import { SEOHelmet } from '@/components/SEOHelmet';
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEOHelmet
+        title="Privacy Policy"
+        description="Learn how Llumos collects, uses, and protects your data. Our privacy policy explains our data practices for AI search visibility tracking."
+        keywords="Llumos privacy policy, data protection, privacy, GDPR, data security"
+        canonicalPath="/privacy"
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -163,5 +171,6 @@ export default function Privacy() {
         </div>
       </div>
     </div>
+    </>
   );
 }

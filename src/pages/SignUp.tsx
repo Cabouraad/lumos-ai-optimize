@@ -12,6 +12,7 @@ import { PasswordStrengthMeter } from '@/components/ui/password-strength';
 import { ResendEmailButton } from '@/components/auth/ResendEmailButton';
 import { Search, CheckCircle, Play } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { SEOHelmet } from '@/components/SEOHelmet';
 
 export default function SignUp() {
   const { user } = useAuth();
@@ -66,7 +67,13 @@ export default function SignUp() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative">
+    <>
+      <SEOHelmet
+        title="Sign Up - Start Free Trial"
+        description="Create your Llumos account and start tracking your brand's AI search visibility. 7-day free trial, cancel anytime."
+        canonicalPath="/signup"
+      />
+      <div className="min-h-screen flex items-center justify-center bg-background relative">
       <Link 
         to="/" 
         className="absolute top-8 left-8 flex items-center gap-2 group hover:opacity-80 transition-opacity"
@@ -172,5 +179,6 @@ export default function SignUp() {
       </div>
       </div>
     </div>
+    </>
   );
 }
