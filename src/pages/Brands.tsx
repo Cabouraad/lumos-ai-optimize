@@ -185,13 +185,14 @@ export default function Brands() {
               >
                 <CardContent className="p-6 flex flex-col">
                   {/* Centered Brand Display */}
-                  <div className="flex flex-col items-center text-center mb-4">
-                    <BrandDisplay brandName={brand.name} brandDomain={brand.domain} />
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
-                    <ExternalLink className="h-3 w-3" />
-                    <span className="truncate">{brand.domain}</span>
+                  <div className="flex flex-col items-center text-center mb-6">
+                    <div className="flex items-center gap-4 mb-3">
+                      <BrandDisplay brandName={brand.name} brandDomain={brand.domain} size="large" />
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <ExternalLink className="h-3 w-3" />
+                      <span className="truncate">{brand.domain}</span>
+                    </div>
                   </div>
 
                   {/* Metrics Grid */}
@@ -239,14 +240,6 @@ export default function Brands() {
                       </TooltipTrigger>
                       <TooltipContent>Brand presence rate in AI responses</TooltipContent>
                     </Tooltip>
-                  </div>
-
-                  {/* Last Activity - fixed height for alignment */}
-                  <div className="text-xs text-muted-foreground mb-4 h-4">
-                    {!scoresLoading && scoreMap.get(brand.id)?.lastActivity 
-                      ? `Last activity: ${new Date(scoreMap.get(brand.id)!.lastActivity!).toLocaleDateString()}`
-                      : '\u00A0'
-                    }
                   </div>
 
                   <Tooltip>
