@@ -60,6 +60,39 @@ const Index = () => {
         description="Monitor and grow your brand's visibility on ChatGPT, Gemini, and Perplexity. Track AI search mentions, analyze competitors, and get actionable recommendations to improve your AI search presence."
         keywords="AI search visibility, ChatGPT tracking, Perplexity monitoring, AI SEO, brand visibility tracking, AI search optimization, Gemini search"
         canonicalPath="/"
+        ogImage="/og-home.png"
+        structuredData={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Llumos",
+            url: "https://llumos.ai",
+            logo: "https://llumos.ai/logo.png",
+            description: "Track and improve your brand's visibility on AI-powered search engines like ChatGPT, Gemini, and Perplexity",
+            sameAs: ["https://twitter.com/llumos_ai"]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Llumos",
+            url: "https://llumos.ai",
+            description: "AI Search Visibility Tracking Platform"
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "Llumos",
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web",
+            offers: {
+              "@type": "AggregateOffer",
+              lowPrice: "39",
+              highPrice: "250",
+              priceCurrency: "USD",
+              offerCount: "3"
+            }
+          }
+        ]}
       />
       <div className="min-h-screen bg-background">
         <BlackFridayBanner />

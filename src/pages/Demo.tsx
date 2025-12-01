@@ -3,9 +3,32 @@ import { Button } from '@/components/ui/button';
 import { Play, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
+import { SEOHelmet } from '@/components/SEOHelmet';
 
 export default function Demo() {
   return (
+    <>
+      <SEOHelmet
+        title="Product Demo - See Llumos in Action"
+        description="Watch our comprehensive product demo to see how Llumos helps you track, analyze, and improve your brand's visibility across AI platforms like ChatGPT, Gemini, and Perplexity."
+        keywords="Llumos demo, AI visibility demo, ChatGPT tracking demo, brand visibility software demo"
+        canonicalPath="/demo"
+        ogImage="/og-demo.png"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          name: "Llumos Product Demo",
+          description: "Comprehensive walkthrough of Llumos AI Search Visibility Platform",
+          thumbnailUrl: "https://llumos.ai/og-demo.png",
+          uploadDate: "2024-11-01",
+          embedUrl: "https://www.loom.com/embed/0ccbde75ae6347418f31e9409706d6bf",
+          publisher: {
+            "@type": "Organization",
+            name: "Llumos",
+            logo: { "@type": "ImageObject", url: "https://llumos.ai/logo.png" }
+          }
+        }}
+      />
     <div className="min-h-screen bg-gradient-bg">
       {/* Header */}
       <header className="border-b border-border/30 bg-card/30 backdrop-blur-sm">
@@ -100,5 +123,6 @@ export default function Demo() {
         </div>
       </main>
     </div>
+    </>
   );
 }
