@@ -76,6 +76,7 @@ const CompetitiveAnalysis = () => {
                 src={competitiveAnalysisHero} 
                 alt="Competitive analysis dashboard showing competitor rankings and market share data"
                 className="w-full h-auto rounded-lg shadow-lg"
+                loading="lazy"
               />
             </div>
           </div>

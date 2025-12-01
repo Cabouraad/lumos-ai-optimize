@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Search } from 'lucide-react';
+import { SEOHelmet } from '@/components/SEOHelmet';
 
 export default function SignIn() {
   const { user } = useAuth();
@@ -38,7 +39,13 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative">
+    <>
+      <SEOHelmet
+        title="Sign In"
+        description="Sign in to your Llumos account to track your brand's AI search visibility across ChatGPT, Gemini, and Perplexity."
+        canonicalPath="/signin"
+      />
+      <div className="min-h-screen flex items-center justify-center bg-background relative">
       <Link 
         to="/" 
         className="absolute top-8 left-8 flex items-center gap-2 group hover:opacity-80 transition-opacity"
@@ -93,5 +100,6 @@ export default function SignIn() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }

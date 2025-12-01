@@ -3,10 +3,18 @@ import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { ArrowLeft } from 'lucide-react';
+import { SEOHelmet } from '@/components/SEOHelmet';
 
 export default function Terms() {
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEOHelmet
+        title="Terms of Service"
+        description="Read the Llumos Terms of Service. Understand your rights and responsibilities when using our AI search visibility tracking platform."
+        keywords="Llumos terms of service, terms and conditions, user agreement, AI visibility terms"
+        canonicalPath="/terms"
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -202,5 +210,6 @@ export default function Terms() {
         </div>
       </div>
     </div>
+    </>
   );
 }

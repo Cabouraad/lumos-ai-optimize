@@ -76,6 +76,7 @@ const ActionableRecommendations = () => {
                 src={actionableRecommendationsHero} 
                 alt="Actionable recommendations dashboard showing optimization suggestions and priority scoring"
                 className="w-full h-auto rounded-lg shadow-lg"
+                loading="lazy"
               />
             </div>
           </div>

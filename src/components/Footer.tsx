@@ -27,11 +27,11 @@ export function Footer() {
               <Link to="/pricing" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Pricing
               </Link>
+              <Link to="/demo" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Watch Demo
+              </Link>
               <Link to="/free-checker" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Free Llumos Score Checker
-              </Link>
-              <Link to="/dashboard" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Dashboard
               </Link>
             </nav>
           </div>

@@ -75,6 +75,7 @@ const BrandVisibility = () => {
                 src={brandVisibilityHero} 
                 alt="Brand visibility monitoring dashboard showing analytics and tracking data"
                 className="w-full h-auto rounded-lg shadow-lg"
+                loading="lazy"
               />
             </div>
           </div>

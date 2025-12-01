@@ -24,10 +24,34 @@ import {
   FileText,
   Bot
 } from 'lucide-react';
+import { SEOHelmet } from '@/components/SEOHelmet';
 
 const Features = () => {
   return (
-    <div className="min-h-screen bg-gradient-bg">
+    <>
+      <SEOHelmet
+        title="Features - AI Search Visibility Platform"
+        description="Explore Llumos features: brand visibility monitoring, competitive analysis, actionable recommendations, and multi-platform AI search tracking across ChatGPT, Gemini, and Perplexity."
+        keywords="AI visibility features, brand monitoring, competitive analysis, ChatGPT tracking, AI SEO tools, Perplexity monitoring"
+        canonicalPath="/features"
+        ogImage="/og-home.png"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "Llumos",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          featureList: [
+            "Brand Visibility Monitoring",
+            "Competitive Analysis", 
+            "Actionable Recommendations",
+            "Multi-Platform AI Coverage",
+            "Real-Time Tracking",
+            "Content Optimization"
+          ]
+        }}
+      />
+      <div className="min-h-screen bg-gradient-bg">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -596,6 +620,7 @@ const Features = () => {
         </div>
       </footer>
     </div>
+    </>
   );
 };
 
