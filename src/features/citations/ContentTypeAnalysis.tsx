@@ -8,6 +8,7 @@ import { Lightbulb, TrendingUp } from 'lucide-react';
 
 interface ContentTypeAnalysisProps {
   days: number;
+  brandId?: string | null;
 }
 
 interface ContentTypeData {
@@ -21,12 +22,13 @@ interface ContentTypeData {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658', '#ff7c7c'];
 
-export function ContentTypeAnalysis({ days }: ContentTypeAnalysisProps) {
+export function ContentTypeAnalysis({ days, brandId }: ContentTypeAnalysisProps) {
   const { data: contentTypes, isLoading } = useQuery({
-    queryKey: ['content-type-performance', days],
+    queryKey: ['content-type-performance', days, brandId ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_content_type_performance', {
         p_days: days,
+        p_brand_id: brandId || null,
       });
 
       if (error) throw error;

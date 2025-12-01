@@ -27,11 +27,46 @@ export async function generateContentStudioItem(
 }
 
 /**
- * Fetch Content Studio items for the current organization
+ * Fetch Content Studio items for the current organization (filtered by brand via prompts)
  */
-export async function listContentStudioItems(limit = 20): Promise<ContentStudioItem[]> {
+export async function listContentStudioItems(limit = 20, brandId?: string | null): Promise<ContentStudioItem[]> {
   const sb = getSupabaseBrowserClient();
   
+  // If brandId is provided, we need to filter via prompts table
+  if (brandId) {
+    // First get prompt_ids for this brand
+    const { data: brandPrompts, error: promptsError } = await sb
+      .from('prompts')
+      .select('id')
+      .eq('brand_id', brandId);
+    
+    if (promptsError) {
+      console.error('Error fetching brand prompts:', promptsError);
+      throw promptsError;
+    }
+    
+    const promptIds = brandPrompts?.map(p => p.id) || [];
+    
+    if (promptIds.length === 0) {
+      return []; // No prompts for this brand
+    }
+    
+    const { data, error } = await sb
+      .from('content_studio_items')
+      .select('*')
+      .in('prompt_id', promptIds)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching content studio items:', error);
+      throw error;
+    }
+
+    return (data ?? []) as unknown as ContentStudioItem[];
+  }
+  
+  // No brand filter - return all items for org
   const { data, error } = await sb
     .from('content_studio_items')
     .select('*')

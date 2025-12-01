@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/contexts/UnifiedAuthProvider';
+import { useBrand } from '@/contexts/BrandContext';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -18,11 +19,13 @@ import { PromptVisibilityData, ContentOptimization, VisibilityAnalysis } from '.
 
 export function usePromptVisibilityAnalysis() {
   const { userData } = useUser();
+  const { selectedBrand } = useBrand();
   const orgId = userData?.org_id;
+  const brandId = selectedBrand?.id || null;
 
   return useQuery({
-    queryKey: ['prompt-visibility-analysis', orgId],
-    queryFn: () => analyzePromptVisibility(orgId!),
+    queryKey: ['prompt-visibility-analysis', orgId, brandId],
+    queryFn: () => analyzePromptVisibility(orgId!, brandId),
     enabled: !!orgId,
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchOnWindowFocus: false
@@ -31,11 +34,13 @@ export function usePromptVisibilityAnalysis() {
 
 export function useVisibilityAnalysis() {
   const { userData } = useUser();
+  const { selectedBrand } = useBrand();
   const orgId = userData?.org_id;
+  const brandId = selectedBrand?.id || null;
 
   return useQuery({
-    queryKey: ['visibility-analysis', orgId],
-    queryFn: () => getVisibilityAnalysis(orgId!),
+    queryKey: ['visibility-analysis', orgId, brandId],
+    queryFn: () => getVisibilityAnalysis(orgId!, brandId),
     enabled: !!orgId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false
@@ -44,11 +49,13 @@ export function useVisibilityAnalysis() {
 
 export function useContentOptimizations() {
   const { userData } = useUser();
+  const { selectedBrand } = useBrand();
   const orgId = userData?.org_id;
+  const brandId = selectedBrand?.id || null;
 
   return useQuery({
-    queryKey: ['content-optimizations', orgId],
-    queryFn: () => getOptimizationsForOrg(orgId!),
+    queryKey: ['content-optimizations', orgId, brandId],
+    queryFn: () => getOptimizationsForOrg(orgId!, brandId),
     enabled: !!orgId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });

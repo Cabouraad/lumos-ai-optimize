@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 
 interface TopCitedContentProps {
   days: number;
+  brandId?: string | null;
 }
 
 interface CitationInsight {
@@ -164,16 +165,17 @@ function DomainGroup({ group, getContentIcon, getTrendData, CustomTooltip }: Dom
   );
 }
 
-export function TopCitedContent({ days }: TopCitedContentProps) {
+export function TopCitedContent({ days, brandId }: TopCitedContentProps) {
   const [topDomainsLimit, setTopDomainsLimit] = useState<string>('all');
   const [minCitations, setMinCitations] = useState<number>(0);
 
   const { data: citations, isLoading } = useQuery({
-    queryKey: ['citation-performance', days],
+    queryKey: ['citation-performance', days, brandId ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_citation_performance_insights', {
         p_days: days,
-        p_limit: 200, // Increased limit to capture all citations in 30-day rolling history
+        p_limit: 200,
+        p_brand_id: brandId || null,
       });
 
       if (error) throw error;
@@ -182,7 +184,7 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
   });
 
   const { data: trends } = useQuery({
-    queryKey: ['citation-trends', days],
+    queryKey: ['citation-trends-detailed', days, brandId ?? null],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -198,7 +200,8 @@ export function TopCitedContent({ days }: TopCitedContentProps) {
       const { data, error } = await supabase.rpc('get_citation_trends', {
         p_org_id: userData.org_id,
         p_days: days,
-        p_limit: 200, // Increased limit to capture all citation trends in 30-day rolling history
+        p_limit: 200,
+        p_brand_id: brandId || null,
       });
 
       if (error) throw error;

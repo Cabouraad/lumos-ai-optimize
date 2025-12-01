@@ -8,10 +8,11 @@ import { format } from 'date-fns';
 interface CitationTrendsProps {
   orgId: string | undefined;
   days: number;
+  brandId?: string | null;
 }
 
-export function CitationTrends({ orgId, days }: CitationTrendsProps) {
-  const { data, isLoading } = useCitationTrends(orgId, days);
+export function CitationTrends({ orgId, days, brandId }: CitationTrendsProps) {
+  const { data, isLoading } = useCitationTrends(orgId, days, brandId);
 
   if (isLoading) {
     return (

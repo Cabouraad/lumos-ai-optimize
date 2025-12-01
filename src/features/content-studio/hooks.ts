@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useBrand } from '@/contexts/BrandContext';
 import { 
   generateContentStudioItem, 
   listContentStudioItems, 
@@ -35,12 +36,15 @@ export function useGenerateContentStudioItem() {
 }
 
 /**
- * Hook to list Content Studio items for the organization
+ * Hook to list Content Studio items for the organization (filtered by brand)
  */
 export function useContentStudioItems(limit = 20) {
+  const { selectedBrand } = useBrand();
+  const brandId = selectedBrand?.id || null;
+  
   return useQuery({
-    queryKey: ['content-studio-items', limit],
-    queryFn: () => listContentStudioItems(limit),
+    queryKey: ['content-studio-items', limit, brandId],
+    queryFn: () => listContentStudioItems(limit, brandId),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });

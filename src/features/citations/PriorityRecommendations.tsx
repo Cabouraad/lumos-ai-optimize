@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface PriorityRecommendationsProps {
   days: number;
+  brandId?: string | null;
 }
 
 interface Recommendation {
@@ -20,9 +21,9 @@ interface Recommendation {
   data_support: any;
 }
 
-export function PriorityRecommendations({ days }: PriorityRecommendationsProps) {
+export function PriorityRecommendations({ days, brandId }: PriorityRecommendationsProps) {
   const { data: recommendations, isLoading } = useQuery({
-    queryKey: ['citation-recommendations', days],
+    queryKey: ['citation-recommendations', days, brandId ?? null],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -38,6 +39,7 @@ export function PriorityRecommendations({ days }: PriorityRecommendationsProps) 
       const { data, error } = await supabase.rpc('get_citation_recommendations', {
         p_org_id: userData.org_id,
         p_days: days,
+        p_brand_id: brandId || null,
       });
 
       if (error) throw error;

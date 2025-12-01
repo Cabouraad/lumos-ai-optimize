@@ -13,6 +13,7 @@ import {
 
 interface HealthDashboardProps {
   days: number;
+  brandId?: string | null;
 }
 
 interface HealthData {
@@ -26,9 +27,9 @@ interface HealthData {
   trending_up: boolean;
 }
 
-export function CitationHealthDashboard({ days }: HealthDashboardProps) {
+export function CitationHealthDashboard({ days, brandId }: HealthDashboardProps) {
   const { data: health, isLoading } = useQuery({
-    queryKey: ['citation-health-dashboard', days],
+    queryKey: ['citation-health-dashboard', days, brandId ?? null],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -44,6 +45,7 @@ export function CitationHealthDashboard({ days }: HealthDashboardProps) {
       const { data, error } = await supabase.rpc('get_citation_health_dashboard', {
         p_org_id: userData.org_id,
         p_days: days,
+        p_brand_id: brandId || null,
       });
 
       if (error) throw error;
