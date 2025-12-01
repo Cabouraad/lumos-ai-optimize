@@ -25,6 +25,7 @@ import {
   Bot
 } from 'lucide-react';
 import { SEOHelmet } from '@/components/SEOHelmet';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const Features = () => {
   return (
@@ -72,6 +73,9 @@ const Features = () => {
           </nav>
         </div>
       </header>
+
+      {/* Breadcrumb */}
+      <Breadcrumb className="container mx-auto max-w-6xl" />
 
       {/* Hero Section */}
       <section className="py-20 px-4 relative overflow-hidden">

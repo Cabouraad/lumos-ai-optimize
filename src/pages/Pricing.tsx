@@ -14,6 +14,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { FeatureComparisonTable } from '@/components/pricing/FeatureComparisonTable';
 import { SEOHelmet } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
+import { Breadcrumb } from '@/components/Breadcrumb';
 import { Play } from 'lucide-react';
 
 export default function Pricing() {
@@ -188,6 +189,9 @@ export default function Pricing() {
           </div>
         </div>
       </header>
+
+      {/* Breadcrumb */}
+      <Breadcrumb className="container mx-auto" />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

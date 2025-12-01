@@ -109,7 +109,7 @@ export default function ContentStudioFeature() {
         <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
-              <img src="/lovable-uploads/a3631033-2657-4c97-8fd8-079913859ab0.png" alt="Llumos" className="h-8" />
+              <img src="/lovable-uploads/a3631033-2657-4c97-8fd8-079913859ab0.png" alt="Llumos - AI Search Visibility Platform" className="h-8" />
             </Link>
             <div className="flex items-center gap-4">
               <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -452,7 +452,7 @@ export default function ContentStudioFeature() {
           <div className="container mx-auto max-w-6xl">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <Link to="/" className="flex items-center gap-2">
-                <img src="/lovable-uploads/a3631033-2657-4c97-8fd8-079913859ab0.png" alt="Llumos" className="h-6" />
+                <img src="/lovable-uploads/a3631033-2657-4c97-8fd8-079913859ab0.png" alt="Llumos - AI Search Visibility Platform" className="h-6" />
               </Link>
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <Link to="/features" className="hover:text-foreground transition-colors">Features</Link>

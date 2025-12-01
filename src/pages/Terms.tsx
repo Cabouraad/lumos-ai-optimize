@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { ArrowLeft } from 'lucide-react';
 import { SEOHelmet } from '@/components/SEOHelmet';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 export default function Terms() {
   return (
@@ -28,8 +29,11 @@ export default function Terms() {
         </div>
       </header>
 
+      {/* Breadcrumb */}
+      <Breadcrumb className="container mx-auto max-w-4xl" />
+
       {/* Content */}
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-4xl font-display font-bold mb-8">Terms of Service</h1>
         
         <div className="prose prose-lg max-w-none text-foreground">

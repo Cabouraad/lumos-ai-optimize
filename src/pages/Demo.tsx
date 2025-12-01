@@ -4,6 +4,7 @@ import { Play, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
 import { SEOHelmet } from '@/components/SEOHelmet';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 export default function Demo() {
   return (
@@ -47,6 +48,9 @@ export default function Demo() {
           </div>
         </div>
       </header>
+
+      {/* Breadcrumb */}
+      <Breadcrumb className="container mx-auto" />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12">

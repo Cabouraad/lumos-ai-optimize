@@ -43,9 +43,21 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://llumos.ai/features/content-studio</loc>
+    <lastmod>2024-12-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://llumos.ai/free-checker</loc>
     <lastmod>2024-12-01</lastmod>
     <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://llumos.ai/black-friday</loc>
+    <lastmod>2024-12-01</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
