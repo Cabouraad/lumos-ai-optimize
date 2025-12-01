@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LlumosScoreDrawer } from './LlumosScoreDrawer';
 import { formatDistanceToNow } from 'date-fns';
+import { useBrand } from '@/contexts/BrandContext';
 
 interface LlumosScoreWidgetProps {
   promptId?: string;
@@ -14,7 +15,8 @@ interface LlumosScoreWidgetProps {
 }
 
 export function LlumosScoreWidget({ promptId, compact = false }: LlumosScoreWidgetProps) {
-  const { data: scoreData, isLoading, error } = useLlumosScore(promptId);
+  const { selectedBrand } = useBrand();
+  const { data: scoreData, isLoading, error } = useLlumosScore(promptId, selectedBrand?.id);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navigate = useNavigate();
   

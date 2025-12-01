@@ -9,6 +9,7 @@ import { ArrowLeft, TrendingUp, Target, Eye, Award, Zap, RefreshCw, AlertCircle 
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { useBrand } from '@/contexts/BrandContext';
 
 const submetricDetails = {
   pr: {
@@ -103,7 +104,8 @@ const scoreTiers = [
 
 export default function LlumosScore() {
   const navigate = useNavigate();
-  const { data: scoreData, isLoading, error } = useLlumosScore();
+  const { selectedBrand } = useBrand();
+  const { data: scoreData, isLoading, error } = useLlumosScore(undefined, selectedBrand?.id);
   const { mutate: recomputeScore, isPending: isRecomputing } = useComputeLlumosScore();
 
   const handleRefresh = () => {
