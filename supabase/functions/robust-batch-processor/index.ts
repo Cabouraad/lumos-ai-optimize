@@ -213,7 +213,8 @@ async function processTask(
   orgId: string,
   promptId: string,
   promptText: string,
-  provider: ProviderConfig
+  provider: ProviderConfig,
+  brandId: string | null = null
 ): Promise<boolean> {
   try {
     const apiResult = await callProviderAPI(provider, promptText);
@@ -332,7 +333,7 @@ async function processTask(
         token_in: 0,
         token_out: 0,
         metadata: analysis.metadata || {},
-        brand_id: null
+        brand_id: brandId
       })
       .select();
 
@@ -380,7 +381,7 @@ async function processTask(
           error_details: error.message,
           stack: error.stack
         },
-        brand_id: null // Add missing brand_id field
+        brand_id: brandId
       })
       .select();
 
@@ -459,7 +460,7 @@ Deno.serve(async (req) => {
     } else {
       const { data: prompts } = await supabase
         .from('prompts')
-        .select('id, text')
+        .select('id, text, brand_id')
         .eq('org_id', orgId)
         .eq('active', true);
 
@@ -514,10 +515,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch active prompts and providers
+    // Fetch active prompts and providers (include brand_id for response tagging)
     const { data: prompts } = await supabase
       .from('prompts')
-      .select('id, text')
+      .select('id, text, brand_id')
       .eq('org_id', orgId)
       .eq('active', true);
 
@@ -640,7 +641,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const success = await processTask(supabase, orgId, prompt.id, prompt.text, provider);
+      const success = await processTask(supabase, orgId, prompt.id, prompt.text, provider, prompt.brand_id || null);
       
       if (success) {
         completed++;

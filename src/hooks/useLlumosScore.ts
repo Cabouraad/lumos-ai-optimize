@@ -42,7 +42,7 @@ export interface LlumosScoreResponse {
   cached?: boolean;
 }
 
-export function useLlumosScore(promptId?: string) {
+export function useLlumosScore(promptId?: string, brandId?: string | null) {
   const scope = promptId ? 'prompt' : 'org';
   const queryClient = useQueryClient();
 
@@ -90,13 +90,14 @@ export function useLlumosScore(promptId?: string) {
   }, [orgId, scope, promptId, queryClient]);
   
   return useQuery({
-    queryKey: ['llumos-score', orgId ?? 'unknown-org', scope, promptId ?? null],
+    queryKey: ['llumos-score', orgId ?? 'unknown-org', scope, promptId ?? null, brandId ?? null],
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('compute-llumos-score', {
         body: { 
           scope,
           promptId,
+          brandId: brandId || undefined,
           force: false // Use cached if available
         },
       });

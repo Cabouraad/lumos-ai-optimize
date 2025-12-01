@@ -9,6 +9,7 @@ const corsHeaders = {
 interface RequestBody {
   scope?: 'org' | 'prompt';
   promptId?: string;
+  brandId?: string;
   force?: boolean;
   orgId?: string; // Only for cron jobs with x-cron-secret
 }
@@ -243,6 +244,7 @@ serve(async (req) => {
     // Parse request body
     const scope = body.scope || 'org';
     const promptId = body.promptId || null;
+    const brandId = body.brandId || null;
     const force = body.force || false;
 
     // Validate scope
@@ -311,13 +313,14 @@ serve(async (req) => {
     }
 
     // Compute score using RPC
-    console.log(`Computing score for org ${orgId}, scope ${scope}, prompt ${promptId || 'all'}`);
+    console.log(`Computing score for org ${orgId}, scope ${scope}, prompt ${promptId || 'all'}, brand ${brandId || 'all'}`);
     
     const { data: result, error: rpcError } = await serviceClient.rpc(
       'compute_llumos_score',
       {
         p_org_id: orgId,
         p_prompt_id: promptId,
+        p_brand_id: brandId,
       }
     );
 
