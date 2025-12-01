@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, ExternalLink, TrendingUp, Activity, LogOut, HelpCircle, Gauge } from 'lucide-react';
+import { Plus, Search, ExternalLink, LogOut, HelpCircle } from 'lucide-react';
 import { useBrands, Brand } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandDisplay } from '@/components/BrandDisplay';
@@ -20,14 +20,14 @@ function BrandLlumosScore({ brandId }: { brandId: string }) {
   const { data: scoreData, isLoading } = useLlumosScore(undefined, brandId);
   
   if (isLoading) {
-    return <Skeleton className="h-6 w-12" />;
+    return <Skeleton className="h-8 w-10 mx-auto" />;
   }
   
   const score = scoreData?.score || 0;
   const colorClass = getScoreColor(score);
   
   return (
-    <span className={`text-lg font-semibold ${colorClass}`}>
+    <span className={colorClass}>
       {score}
     </span>
   );
@@ -195,15 +195,14 @@ export default function Brands() {
                   </div>
 
                   {/* Metrics Grid */}
-                  <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="grid grid-cols-3 gap-4 mb-4 py-3 border-y border-border/50">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                            <Gauge className="h-3 w-3" />
-                            <span>Llumos Score</span>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">
+                            <BrandLlumosScore brandId={brand.id} />
                           </div>
-                          <BrandLlumosScore brandId={brand.id} />
+                          <div className="text-xs text-muted-foreground mt-1">Llumos Score</div>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>AI visibility score (300-900)</TooltipContent>
@@ -211,18 +210,15 @@ export default function Brands() {
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                            <Activity className="h-3 w-3" />
-                            <span>Prompts</span>
-                          </div>
-                          <div className="text-lg font-semibold">
+                        <div className="text-center border-x border-border/50 px-2">
+                          <div className="text-2xl font-bold">
                             {scoresLoading ? (
-                              <Skeleton className="h-6 w-12 mx-auto" />
+                              <Skeleton className="h-8 w-10 mx-auto" />
                             ) : (
                               scoreMap.get(brand.id)?.totalPrompts || 0
                             )}
                           </div>
+                          <div className="text-xs text-muted-foreground mt-1">Prompts</div>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>Total AI prompts tracked</TooltipContent>
@@ -230,18 +226,15 @@ export default function Brands() {
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                            <TrendingUp className="h-3 w-3" />
-                            <span>Presence</span>
-                          </div>
-                          <div className="text-lg font-semibold">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">
                             {scoresLoading ? (
-                              <Skeleton className="h-6 w-12 mx-auto" />
+                              <Skeleton className="h-8 w-10 mx-auto" />
                             ) : (
                               `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(0)}%`
                             )}
                           </div>
+                          <div className="text-xs text-muted-foreground mt-1">Presence</div>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>Brand presence rate in AI responses</TooltipContent>
