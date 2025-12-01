@@ -118,7 +118,7 @@ export default function Prompts() {
       // No auto-refresh to prevent constant page refreshes
       // Users can manually refresh using the "Refresh Data" button
     }
-  }, [ready, user, orgData?.organizations?.id]);
+  }, [ready, user, orgData?.organizations?.id, selectedBrand?.id]);
 
   const loadSuggestedPrompts = async () => {
     try {
@@ -153,7 +153,7 @@ export default function Prompts() {
       const isFirstLoad = !rawPrompts.length;
 
       const attemptFetch = async () => {
-        const unifiedData = await getUnifiedPromptData(!isFirstLoad, dateFrom, dateTo);
+        const unifiedData = await getUnifiedPromptData(!isFirstLoad, dateFrom, dateTo, selectedBrand?.id || null);
         
         // 🐛 DEBUG: Log detailed provider data received
         console.log('🔍 [Prompts] Unified data received:', {

@@ -441,27 +441,54 @@ async function getUnifiedDashboardDataStandard(
 export async function getUnifiedPromptData(
   useCache = true, 
   dateFrom?: Date, 
-  dateTo?: Date
+  dateTo?: Date,
+  brandId?: string | null
 ): Promise<UnifiedPromptData> {
   try {
     const orgId = await getOrgId();
     const dateKey = dateFrom && dateTo ? `-${dateFrom.toISOString()}-${dateTo.toISOString()}` : '';
-    const cacheKey = `prompt-data-${orgId}${dateKey}`;
+    const brandKey = brandId ? `-brand-${brandId}` : '';
+    const cacheKey = `prompt-data-${orgId}${dateKey}${brandKey}`;
     
-    if (useCache && !dateFrom && !dateTo) {
+    if (useCache && !dateFrom && !dateTo && !brandId) {
       const cached = await advancedCache.get<UnifiedPromptData>(cacheKey);
       if (cached && isValidPromptData(cached)) {
         return cached;
       }
     }
 
-    // Get base dashboard data with date filtering
-    const dashboardData = await getUnifiedDashboardData(useCache, dateFrom, dateTo);
-    const safePrompts = Array.isArray((dashboardData as any)?.prompts) ? (dashboardData as any).prompts : [];
+    // Fetch prompts directly with brand filtering instead of using dashboard data
+    let promptsQuery = supabase
+      .from("prompts")
+      .select("id, text, active, created_at, org_id, brand_id")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false });
+    
+    // Apply brand filter if specified
+    if (brandId) {
+      promptsQuery = promptsQuery.eq('brand_id', brandId);
+    }
+    
+    const { data: fetchedPrompts, error: promptsError } = await promptsQuery;
+    if (promptsError) throw promptsError;
+    
+    const safePrompts = fetchedPrompts || [];
+    
+    // Get providers for consistent response
+    const { data: providers } = await supabase
+      .from("llm_providers")
+      .select("id, name, enabled");
     
     if (safePrompts.length === 0) {
       const emptyData: UnifiedPromptData = {
-        ...dashboardData,
+        avgScore: 0,
+        overallScore: 0,
+        trend: 0,
+        promptCount: 0,
+        totalRuns: 0,
+        recentRunsCount: 0,
+        chartData: [],
+        providers: providers || [],
         prompts: [],
         promptDetails: []
       };
@@ -470,16 +497,6 @@ export async function getUnifiedPromptData(
     }
 
     const promptIds = safePrompts.map(p => p.id);
-    
-    if (promptIds.length === 0) {
-      const emptyData: UnifiedPromptData = {
-        ...dashboardData,
-        prompts: [],
-        promptDetails: []
-      };
-      advancedCache.set(cacheKey, emptyData, CACHE_TTL.prompts);
-      return emptyData;
-    }
 
     // Get latest provider responses - when date filtering is active, get ALL responses in range
     let allResponses: any[] = [];
@@ -734,8 +751,8 @@ export async function getUnifiedPromptData(
       };
     });
 
-    // Update prompts in dashboard data with enhanced details
-    const enhancedPrompts = dashboardData.prompts.map(prompt => {
+    // Update prompts with enhanced details
+    const enhancedPrompts = safePrompts.map(prompt => {
       const detail = promptDetails.find(d => d.promptId === prompt.id);
       if (detail) {
         // Handle both single responses and arrays
@@ -760,6 +777,8 @@ export async function getUnifiedPromptData(
 
         return {
           ...prompt,
+          latestScore: detail.overallScore,
+          hasData: true,
           runs7d: detail.sevenDayStats.totalRuns,
           avgScore7d: detail.sevenDayStats.avgScore,
           brandVisibleCount,
@@ -770,6 +789,8 @@ export async function getUnifiedPromptData(
       }
       return {
         ...prompt,
+        latestScore: 0,
+        hasData: false,
         runs7d: 0,
         avgScore7d: 0,
         brandVisibleCount: 0,
@@ -779,8 +800,20 @@ export async function getUnifiedPromptData(
       };
     });
 
+    // Calculate summary metrics from fetched data
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const allScores = rawLatestResponses.map(r => r.score);
+    const avgScore = allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
+    
     const result: UnifiedPromptData = {
-      ...dashboardData,
+      avgScore: Math.round(avgScore * 10) / 10,
+      overallScore: Math.round(avgScore * 10) / 10,
+      trend: 0,
+      promptCount: safePrompts.length,
+      totalRuns: rawLatestResponses.length,
+      recentRunsCount: rawLatestResponses.length,
+      chartData: [],
+      providers: providers || [],
       prompts: enhancedPrompts,
       promptDetails
     };
