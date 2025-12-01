@@ -22,7 +22,7 @@ export default function Demo() {
           description: "Comprehensive walkthrough of Llumos AI Search Visibility Platform",
           thumbnailUrl: "https://llumos.ai/og-demo.png",
           uploadDate: "2024-11-01",
-          embedUrl: "https://www.loom.com/embed/0ccbde75ae6347418f31e9409706d6bf",
+          embedUrl: "https://www.loom.com/embed/f37c9294260a4e039b07805c1162c1e4",
           publisher: {
             "@type": "Organization",
             name: "Llumos",
@@ -73,7 +73,7 @@ export default function Demo() {
         <Card className="overflow-hidden border-border/50 shadow-elegant">
           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
             <iframe
-              src="https://www.loom.com/embed/0ccbde75ae6347418f31e9409706d6bf?sid=8e8e9f8f-4e5e-4c5e-9e5e-8f8f8f8f8f8f"
+              src="https://www.loom.com/embed/f37c9294260a4e039b07805c1162c1e4"
               frameBorder="0"
               allowFullScreen
               className="absolute top-0 left-0 w-full h-full"
