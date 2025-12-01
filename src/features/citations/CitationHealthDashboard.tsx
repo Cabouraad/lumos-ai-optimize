@@ -46,7 +46,7 @@ export function CitationHealthDashboard({ days, brandId }: HealthDashboardProps)
         p_org_id: userData.org_id,
         p_days: days,
         p_brand_id: brandId || null,
-      });
+      } as any);
 
       if (error) throw error;
       return data?.[0] as HealthData;

@@ -40,7 +40,7 @@ export function PriorityRecommendations({ days, brandId }: PriorityRecommendatio
         p_org_id: userData.org_id,
         p_days: days,
         p_brand_id: brandId || null,
-      });
+      } as any);
 
       if (error) throw error;
       return data as Recommendation[];
