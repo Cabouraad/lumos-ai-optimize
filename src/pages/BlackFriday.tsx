@@ -73,7 +73,7 @@ const BlackFriday = () => {
         <div className="text-center mb-12 space-y-4">
           <Badge variant="secondary" className="mb-4 text-lg px-6 py-2 bg-primary/10 text-primary border-primary/20">
             <Sparkles className="w-4 h-4 mr-2 inline" />
-            Black Friday Exclusive
+            End of Year Exclusive
           </Badge>
           
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
@@ -85,7 +85,7 @@ const BlackFriday = () => {
           </h1>
           
           <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
-            Get full access to Llumos Starter Tier for an entire year. Save over 60% with this limited-time Black Friday offer.
+            Get full access to Llumos Starter Tier for an entire year. Save over 60% with this limited-time End of Year offer.
           </p>
 
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -144,7 +144,7 @@ const BlackFriday = () => {
               ) : (
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5" />
-                  Claim Your Black Friday Deal
+                  Claim Your End of Year Deal
                 </div>
               )}
             </Button>
