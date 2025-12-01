@@ -29,7 +29,7 @@ export function ContentTypeAnalysis({ days, brandId }: ContentTypeAnalysisProps)
       const { data, error } = await supabase.rpc('get_content_type_performance', {
         p_days: days,
         p_brand_id: brandId || null,
-      });
+      } as any);
 
       if (error) throw error;
       return data as ContentTypeData[];

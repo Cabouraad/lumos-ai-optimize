@@ -176,7 +176,7 @@ export function TopCitedContent({ days, brandId }: TopCitedContentProps) {
         p_days: days,
         p_limit: 200,
         p_brand_id: brandId || null,
-      });
+      } as any);
 
       if (error) throw error;
       return data as CitationInsight[];
@@ -202,7 +202,7 @@ export function TopCitedContent({ days, brandId }: TopCitedContentProps) {
         p_days: days,
         p_limit: 200,
         p_brand_id: brandId || null,
-      });
+      } as any);
 
       if (error) throw error;
       return data as CitationTrend[];
