@@ -7,9 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const logStep = (step: string, details?: any) => {
+  const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[BF-CHECKOUT] ${step}${detailsStr}`);
+  console.log(`[EOY-CHECKOUT] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -24,7 +24,7 @@ serve(async (req) => {
   );
 
   try {
-    logStep("Black Friday checkout initiated");
+    logStep("End of Year checkout initiated");
 
     // Retrieve authenticated user
     const authHeader = req.headers.get("Authorization")!;
@@ -57,7 +57,7 @@ serve(async (req) => {
       logStep("New customer will be created");
     }
 
-    // Create checkout session for Black Friday special ($99/year)
+    // Create checkout session for End of Year special ($99/year)
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -73,7 +73,7 @@ serve(async (req) => {
       allow_promotion_codes: true,
       client_reference_id: user.id,
       metadata: {
-        promo_type: "black_friday",
+        promo_type: "end_of_year",
         tier: "starter",
         user_id: user.id
       }

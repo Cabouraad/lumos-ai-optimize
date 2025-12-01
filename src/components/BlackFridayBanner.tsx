@@ -18,8 +18,8 @@ export function BlackFridayBanner() {
     }
     setVisible(true);
 
-    // Calculate time left until December 1, 2025
-    const endDate = new Date('2025-12-01T00:00:00');
+    // Calculate time left until January 1, 2026
+    const endDate = new Date('2026-01-01T00:00:00');
 
     const interval = setInterval(() => {
       const now = new Date().getTime();
@@ -57,7 +57,7 @@ export function BlackFridayBanner() {
             <Sparkles className="w-5 h-5 text-primary-foreground animate-pulse flex-shrink-0" />
             <div className="text-center sm:text-left">
               <p className="text-primary-foreground font-bold text-sm sm:text-base">
-                Black Friday Deal: Get Llumos for $99/year (normally $39/mo). Limited time.
+                End of Year Deal: Get Llumos for $99/year (normally $39/mo). Limited time.
               </p>
             </div>
           </div>
