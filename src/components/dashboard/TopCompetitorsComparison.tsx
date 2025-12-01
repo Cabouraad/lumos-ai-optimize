@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useCompetitors } from '@/features/competitors/hooks';
+import { useBrand } from '@/contexts/BrandContext';
 import { useMemo } from 'react';
 import { Building2 } from 'lucide-react';
 
@@ -16,10 +17,14 @@ export function TopCompetitorsComparison({
   responses, 
   isLoading: responsesLoading 
 }: TopCompetitorsComparisonProps) {
+  const { selectedBrand } = useBrand();
+  
   // Fetch competitors for the same period as brand stats (7 days) for accurate comparison
+  // Pass brandId to filter competitors by the selected brand
   const { data: competitors = [], isLoading: competitorsLoading } = useCompetitors({
     days: 7,
     limit: 3,
+    brandId: selectedBrand?.id || undefined,
   });
 
   const brandStats = useMemo(() => {

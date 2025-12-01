@@ -14,9 +14,9 @@ interface CitationTrendsResult {
   isGrowing: boolean;
 }
 
-export function useCitationTrends(orgId: string | undefined, days: number = 30) {
+export function useCitationTrends(orgId: string | undefined, days: number = 30, brandId?: string | null) {
   return useQuery({
-    queryKey: ['citation-trends', orgId, days],
+    queryKey: ['citation-trends', orgId, days, brandId ?? null],
     queryFn: async (): Promise<CitationTrendsResult> => {
       if (!orgId) {
         return {
@@ -29,13 +29,20 @@ export function useCitationTrends(orgId: string | undefined, days: number = 30) 
 
       const startDate = startOfDay(subDays(new Date(), days));
       
-      // Get citation data from prompt_provider_responses
-      const { data: responses, error } = await supabase
+      // Get citation data - join with prompts to filter by brand
+      let query = supabase
         .from('prompt_provider_responses')
-        .select('run_at, citations_json')
+        .select('run_at, citations_json, prompts!inner(brand_id)')
         .eq('org_id', orgId)
         .gte('run_at', startDate.toISOString())
         .not('citations_json', 'is', null);
+      
+      // Filter by brand via prompts table if brandId provided
+      if (brandId) {
+        query = query.eq('prompts.brand_id', brandId);
+      }
+      
+      const { data: responses, error } = await query;
 
       if (error) throw error;
 

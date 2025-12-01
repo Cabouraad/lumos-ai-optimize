@@ -5,13 +5,20 @@ import { PromptVisibilityData, ContentOptimization, VisibilityAnalysis } from '.
  * Completely new API for the overhauled optimization system
  */
 
-export async function analyzePromptVisibility(orgId: string): Promise<PromptVisibilityData[]> {
+export async function analyzePromptVisibility(orgId: string, brandId?: string | null): Promise<PromptVisibilityData[]> {
   // Get prompts with visibility under 100%
-  const { data: promptsData, error: promptsError } = await supabase
+  let promptsQuery = supabase
     .from('prompts')
     .select('id, text, active')
     .eq('org_id', orgId)
     .eq('active', true);
+  
+  // Filter by brand if provided
+  if (brandId) {
+    promptsQuery = promptsQuery.eq('brand_id', brandId);
+  }
+  
+  const { data: promptsData, error: promptsError } = await promptsQuery;
 
   if (promptsError) throw promptsError;
 
@@ -149,14 +156,20 @@ export async function generateContentOptimizations(
   return { optimizations };
 }
 
-export async function getVisibilityAnalysis(orgId: string): Promise<VisibilityAnalysis> {
-  const promptVisibilityData = await analyzePromptVisibility(orgId);
+export async function getVisibilityAnalysis(orgId: string, brandId?: string | null): Promise<VisibilityAnalysis> {
+  const promptVisibilityData = await analyzePromptVisibility(orgId, brandId);
   
-  const { count: totalPrompts } = await supabase
+  let promptsCountQuery = supabase
     .from('prompts')
     .select('id', { count: 'exact' })
     .eq('org_id', orgId)
     .eq('active', true);
+  
+  if (brandId) {
+    promptsCountQuery = promptsCountQuery.eq('brand_id', brandId);
+  }
+  
+  const { count: totalPrompts } = await promptsCountQuery;
 
   const promptsUnder100 = promptVisibilityData.length;
   const averageVisibility = promptVisibilityData.length > 0 
@@ -244,14 +257,21 @@ export async function getOptimizationsForPrompt(promptId: string): Promise<Conte
   return [];
 }
 
-export async function getOptimizationsForOrg(orgId: string): Promise<ContentOptimization[]> {
-  const { data, error } = await supabase
+export async function getOptimizationsForOrg(orgId: string, brandId?: string | null): Promise<ContentOptimization[]> {
+  let query = supabase
     .from('optimizations_v2')
     .select('*')
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(20);
+  
+  // Filter by brand if provided
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+  
+  const { data, error } = await query;
 
   if (error) throw error;
 
