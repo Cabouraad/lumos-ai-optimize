@@ -56,14 +56,16 @@ export function OnboardingPromptSelection({
       const result = await generateSuggestionsNow();
       
       if (result.suggestions && result.suggestions.length > 0) {
-        setSuggestions(result.suggestions);
-        // Pre-select all suggestions by default
-        const allIds = new Set<string>(result.suggestions.map((s: Suggestion) => s.id));
+        // Filter out any suggestions without valid IDs
+        const validSuggestions = result.suggestions.filter((s: Suggestion) => s.id && s.id !== 'undefined');
+        setSuggestions(validSuggestions);
+        // Pre-select all valid suggestions by default
+        const allIds = new Set<string>(validSuggestions.map((s: Suggestion) => s.id));
         setSelectedIds(allIds);
         
         toast({
           title: "Suggestions Generated!",
-          description: `${result.suggestions.length} prompts ready to track`,
+          description: `${validSuggestions.length} prompts ready to track`,
         });
       } else {
         setError('No suggestions generated. You can add custom prompts below.');
@@ -87,21 +89,21 @@ export function OnboardingPromptSelection({
       const result = await generateSuggestionsNow();
       
       if (result.suggestions && result.suggestions.length > 0) {
-        // Add new suggestions to existing ones
-        const newSuggestions = result.suggestions.filter(
-          (newSug: Suggestion) => !suggestions.some(existing => existing.id === newSug.id)
+        // Filter out invalid suggestions and add new ones to existing
+        const validNewSuggestions = result.suggestions.filter(
+          (newSug: Suggestion) => newSug.id && newSug.id !== 'undefined' && !suggestions.some(existing => existing.id === newSug.id)
         );
         
-        if (newSuggestions.length > 0) {
-          setSuggestions([...suggestions, ...newSuggestions]);
+        if (validNewSuggestions.length > 0) {
+          setSuggestions([...suggestions, ...validNewSuggestions]);
           // Auto-select new suggestions
           const newIds = new Set(selectedIds);
-          newSuggestions.forEach((s: Suggestion) => newIds.add(s.id));
+          validNewSuggestions.forEach((s: Suggestion) => newIds.add(s.id));
           setSelectedIds(newIds);
           
           toast({
             title: "More Suggestions Generated!",
-            description: `Added ${newSuggestions.length} new prompts`,
+            description: `Added ${validNewSuggestions.length} new prompts`,
           });
         } else {
           toast({

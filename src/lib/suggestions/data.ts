@@ -164,17 +164,24 @@ export async function acceptMultipleSuggestions(
     const orgId = await getOrgId();
     if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please complete setup and try again.');
 
-    // Fetch selected suggestions
-    const { data: suggestions, error: fetchError } = await supabase
-      .from('suggested_prompts')
-      .select('id, text')
-      .eq('org_id', orgId)
-      .in('id', suggestionIds);
-
-    if (fetchError) throw fetchError;
+    // Filter out any invalid/undefined UUIDs before querying
+    const validSuggestionIds = suggestionIds.filter(id => id && isValidUUID(id));
+    
+    // Fetch selected suggestions (only if there are valid IDs)
+    let suggestions: { id: string; text: string }[] = [];
+    if (validSuggestionIds.length > 0) {
+      const { data, error: fetchError } = await supabase
+        .from('suggested_prompts')
+        .select('id, text')
+        .eq('org_id', orgId)
+        .in('id', validSuggestionIds);
+      
+      if (fetchError) throw fetchError;
+      suggestions = data ?? [];
+    }
 
     // Create prompts from suggestions
-    const suggestionPrompts = suggestions?.map(s => ({
+    const suggestionPrompts = suggestions.map(s => ({
       org_id: orgId,
       text: s.text,
       active: true
@@ -202,12 +209,12 @@ export async function acceptMultipleSuggestions(
     }
 
     // Mark all suggestions as accepted
-    if (suggestionIds.length > 0) {
+    if (validSuggestionIds.length > 0) {
       const { error: updateError } = await supabase
         .from('suggested_prompts')
         .update({ accepted: true })
         .eq('org_id', orgId)
-        .in('id', suggestionIds);
+        .in('id', validSuggestionIds);
 
       if (updateError) throw updateError;
     }
