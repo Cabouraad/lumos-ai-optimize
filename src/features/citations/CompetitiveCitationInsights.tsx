@@ -8,6 +8,7 @@ import { ExternalLink, TrendingUp, TrendingDown, Minus, Award, Target } from 'lu
 
 interface CompetitiveCitationInsightsProps {
   days: number;
+  brandId?: string | null;
 }
 
 interface CompetitiveData {
@@ -20,12 +21,13 @@ interface CompetitiveData {
   top_cited_pages: Array<{ url: string; title: string }>;
 }
 
-export function CompetitiveCitationInsights({ days }: CompetitiveCitationInsightsProps) {
+export function CompetitiveCitationInsights({ days, brandId }: CompetitiveCitationInsightsProps) {
   const { data: competitiveData, isLoading } = useQuery({
-    queryKey: ['citation-competitive-insights', days],
+    queryKey: ['citation-competitive-insights', days, brandId ?? null],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_citation_competitive_insights', {
         p_days: days,
+        p_brand_id: brandId || null,
       });
 
       if (error) throw error;

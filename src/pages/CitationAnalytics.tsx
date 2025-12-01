@@ -9,9 +9,12 @@ import { CompetitiveCitationInsights } from '@/features/citations/CompetitiveCit
 import { CitationHealthDashboard } from '@/features/citations/CitationHealthDashboard';
 import { PriorityRecommendations } from '@/features/citations/PriorityRecommendations';
 import { Target, TrendingUp, FileText } from 'lucide-react';
+import { useBrand } from '@/contexts/BrandContext';
 
 export default function CitationAnalytics() {
   const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30');
+  const { selectedBrand } = useBrand();
+  const brandId = selectedBrand?.id || null;
 
   return (
     <Layout>
@@ -39,10 +42,10 @@ export default function CitationAnalytics() {
         </div>
 
         {/* Health Dashboard - Always Visible */}
-        <CitationHealthDashboard days={Number(timeRange)} />
+        <CitationHealthDashboard days={Number(timeRange)} brandId={brandId} />
 
         {/* Priority Recommendations */}
-        <PriorityRecommendations days={Number(timeRange)} />
+        <PriorityRecommendations days={Number(timeRange)} brandId={brandId} />
 
         {/* Detailed Analysis Tabs */}
         <Tabs defaultValue="top-content" className="space-y-6">
@@ -62,15 +65,15 @@ export default function CitationAnalytics() {
           </TabsList>
 
           <TabsContent value="top-content" className="space-y-6">
-            <TopCitedContent days={Number(timeRange)} />
+            <TopCitedContent days={Number(timeRange)} brandId={brandId} />
           </TabsContent>
 
           <TabsContent value="content-types" className="space-y-6">
-            <ContentTypeAnalysis days={Number(timeRange)} />
+            <ContentTypeAnalysis days={Number(timeRange)} brandId={brandId} />
           </TabsContent>
 
           <TabsContent value="competitive" className="space-y-6">
-            <CompetitiveCitationInsights days={Number(timeRange)} />
+            <CompetitiveCitationInsights days={Number(timeRange)} brandId={brandId} />
           </TabsContent>
         </Tabs>
       </div>
