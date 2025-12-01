@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, ExternalLink, TrendingUp, Activity, LogOut, HelpCircle } from 'lucide-react';
+import { Plus, Search, ExternalLink, TrendingUp, Activity, LogOut, HelpCircle, Gauge } from 'lucide-react';
 import { useBrands, Brand } from '@/hooks/useBrands';
 import { useBrand } from '@/contexts/BrandContext';
 import { BrandDisplay } from '@/components/BrandDisplay';
@@ -13,6 +13,25 @@ import { signOutWithCleanup } from '@/lib/auth-cleanup';
 import { SupportDialog } from '@/components/SupportDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useBrandsTour } from '@/hooks/useBrandsTour';
+import { useLlumosScore, getScoreColor } from '@/hooks/useLlumosScore';
+
+// Component to display Llumos Score for a specific brand
+function BrandLlumosScore({ brandId }: { brandId: string }) {
+  const { data: scoreData, isLoading } = useLlumosScore(undefined, brandId);
+  
+  if (isLoading) {
+    return <Skeleton className="h-6 w-12" />;
+  }
+  
+  const score = scoreData?.score || 0;
+  const colorClass = getScoreColor(score);
+  
+  return (
+    <span className={`text-lg font-semibold ${colorClass}`}>
+      {score}
+    </span>
+  );
+}
 
 export default function Brands() {
   const navigate = useNavigate();
@@ -175,13 +194,26 @@ export default function Brands() {
                   </div>
 
                   {/* Metrics Grid */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="bg-secondary/50 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <Gauge className="h-3 w-3" />
+                            <span>Llumos Score</span>
+                          </div>
+                          <BrandLlumosScore brandId={brand.id} />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>AI visibility score (300-900)</TooltipContent>
+                    </Tooltip>
+                    
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="bg-secondary/50 rounded-lg p-3">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                             <Activity className="h-3 w-3" />
-                            <span>Total Prompts</span>
+                            <span>Prompts</span>
                           </div>
                           <div className="text-lg font-semibold">
                             {scoresLoading ? (
@@ -192,7 +224,7 @@ export default function Brands() {
                           </div>
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent>Total number of AI prompts tracked for this brand</TooltipContent>
+                      <TooltipContent>Total AI prompts tracked</TooltipContent>
                     </Tooltip>
                     
                     <Tooltip>
@@ -200,18 +232,18 @@ export default function Brands() {
                         <div className="bg-secondary/50 rounded-lg p-3">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                             <TrendingUp className="h-3 w-3" />
-                            <span>Presence Rate</span>
+                            <span>Presence</span>
                           </div>
                           <div className="text-lg font-semibold">
                             {scoresLoading ? (
                               <Skeleton className="h-6 w-12" />
                             ) : (
-                              `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(1)}%`
+                              `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(0)}%`
                             )}
                           </div>
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent>Percentage of prompts where your brand appeared</TooltipContent>
+                      <TooltipContent>Brand presence rate in AI responses</TooltipContent>
                     </Tooltip>
                   </div>
 
