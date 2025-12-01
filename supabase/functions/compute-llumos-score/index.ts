@@ -260,7 +260,8 @@ serve(async (req) => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // PHASE 5: Check for existing score with TTL-based cache (1 hour)
-    if (!force) {
+    // Note: Brand-specific queries always compute fresh to ensure isolation
+    if (!force && !brandId) {
       const cacheExpiryTime = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
       
       let cacheQuery = serviceClient
@@ -310,6 +311,8 @@ serve(async (req) => {
       }
       
       console.log('[Cache Miss] Computing fresh score');
+    } else if (brandId) {
+      console.log('[Brand-specific] Computing fresh score for brand:', brandId);
     }
 
     // Compute score using RPC
