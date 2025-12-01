@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Search, Home, ArrowLeft, HelpCircle } from 'lucide-react';
@@ -22,6 +23,9 @@ const NotFound = () => {
         description="The page you're looking for doesn't exist. Return to Llumos homepage to track your brand's AI search visibility."
         canonicalPath="/404"
       />
+      <Helmet>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="container max-w-lg px-4">
           <Card className="p-8 text-center">

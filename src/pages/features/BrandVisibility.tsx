@@ -15,6 +15,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import brandVisibilityHero from '@/assets/brand-visibility-hero.jpg';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const BrandVisibility = () => {
   return (
@@ -48,6 +49,16 @@ const BrandVisibility = () => {
           </nav>
         </div>
       </header>
+
+      {/* Breadcrumb */}
+      <Breadcrumb 
+        className="container mx-auto max-w-6xl" 
+        items={[
+          { name: 'Home', path: '/' },
+          { name: 'Features', path: '/features' },
+          { name: 'Brand Visibility', path: '/features/brand-visibility' }
+        ]}
+      />
 
       {/* Hero Section */}
       <section className="py-20 px-4">

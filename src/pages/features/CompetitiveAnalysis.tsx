@@ -16,6 +16,7 @@ import {
   Eye
 } from 'lucide-react';
 import competitiveAnalysisHero from '@/assets/competitive-analysis-hero.jpg';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const CompetitiveAnalysis = () => {
   return (
@@ -49,6 +50,16 @@ const CompetitiveAnalysis = () => {
           </nav>
         </div>
       </header>
+
+      {/* Breadcrumb */}
+      <Breadcrumb 
+        className="container mx-auto max-w-6xl" 
+        items={[
+          { name: 'Home', path: '/' },
+          { name: 'Features', path: '/features' },
+          { name: 'Competitive Analysis', path: '/features/competitive-analysis' }
+        ]}
+      />
 
       {/* Hero Section */}
       <section className="py-20 px-4">

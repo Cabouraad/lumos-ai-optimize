@@ -16,6 +16,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import actionableRecommendationsHero from '@/assets/actionable-recommendations-hero.jpg';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const ActionableRecommendations = () => {
   return (
@@ -49,6 +50,16 @@ const ActionableRecommendations = () => {
           </nav>
         </div>
       </header>
+
+      {/* Breadcrumb */}
+      <Breadcrumb 
+        className="container mx-auto max-w-6xl" 
+        items={[
+          { name: 'Home', path: '/' },
+          { name: 'Features', path: '/features' },
+          { name: 'Actionable Recommendations', path: '/features/actionable-recommendations' }
+        ]}
+      />
 
       {/* Hero Section */}
       <section className="py-20 px-4">
