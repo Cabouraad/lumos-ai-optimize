@@ -45,9 +45,17 @@ export interface ContentStudioItem {
   updated_at: string;
 }
 
+export interface ContentPreferences {
+  tone: string;
+  style: string;
+  audience: string;
+  format?: string;
+}
+
 export interface GenerateContentStudioRequest {
   recommendationId?: string;
   promptId?: string;
+  preferences?: ContentPreferences;
 }
 
 export interface GenerateContentStudioResponse {

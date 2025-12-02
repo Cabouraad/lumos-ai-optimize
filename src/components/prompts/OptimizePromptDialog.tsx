@@ -9,8 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGeneratePromptOptimizations, usePromptOptimizations } from '@/features/optimizations/hooks';
 import { useGenerateContentStudioItem } from '@/features/content-studio/hooks';
+import { ContentPreferencesDialog } from './ContentPreferencesDialog';
 import { Sparkles, ArrowRight, Clock, Target, TrendingUp, Loader2 } from 'lucide-react';
 import type { OptimizationV2 } from '@/features/optimizations/api-v2';
+import type { ContentPreferences } from '@/features/content-studio/types';
 
 interface OptimizePromptDialogProps {
   promptId: string;
@@ -30,17 +32,28 @@ export function OptimizePromptDialog({ promptId, promptText, open, onOpenChange 
   const { data: optimizations, isLoading } = usePromptOptimizations(promptId);
   const generateContentMutation = useGenerateContentStudioItem();
   const [generatingContentFor, setGeneratingContentFor] = useState<string | null>(null);
+  const [preferencesDialogOpen, setPreferencesDialogOpen] = useState(false);
+  const [selectedOptimization, setSelectedOptimization] = useState<OptimizationV2 | null>(null);
 
   const handleGenerate = () => {
     generateMutation.mutate(promptId);
   };
 
-  const handleMoveToContentStudio = async (optimization: OptimizationV2) => {
-    setGeneratingContentFor(optimization.id);
+  const handleMoveToContentStudio = (optimization: OptimizationV2) => {
+    setSelectedOptimization(optimization);
+    setPreferencesDialogOpen(true);
+  };
+
+  const handleGenerateWithPreferences = async (preferences: ContentPreferences) => {
+    if (!selectedOptimization) return;
+    
+    setGeneratingContentFor(selectedOptimization.id);
     try {
       await generateContentMutation.mutateAsync({
-        promptId: optimization.prompt_id || undefined,
+        promptId: selectedOptimization.prompt_id || undefined,
+        preferences,
       });
+      setPreferencesDialogOpen(false);
       // Success toast is handled by the hook
     } finally {
       setGeneratingContentFor(null);
@@ -210,6 +223,14 @@ export function OptimizePromptDialog({ promptId, promptText, open, onOpenChange 
           )}
         </div>
       </DialogContent>
+
+      {/* Content Preferences Dialog */}
+      <ContentPreferencesDialog
+        open={preferencesDialogOpen}
+        onOpenChange={setPreferencesDialogOpen}
+        onGenerate={handleGenerateWithPreferences}
+        isGenerating={generateContentMutation.isPending}
+      />
     </Dialog>
   );
 }
