@@ -47,14 +47,20 @@ export async function listContentStudioItems(limit = 20, brandId?: string | null
     
     const promptIds = brandPrompts?.map(p => p.id) || [];
     
-    if (promptIds.length === 0) {
-      return []; // No prompts for this brand
+    // Build query to include items matching brand's prompts OR items with null prompt_id
+    let query = sb
+      .from('content_studio_items')
+      .select('*');
+    
+    if (promptIds.length > 0) {
+      // Items that match this brand's prompts OR have no prompt association
+      query = query.or(`prompt_id.in.(${promptIds.join(',')}),prompt_id.is.null`);
+    } else {
+      // No prompts for this brand yet, only show items without prompt association
+      query = query.is('prompt_id', null);
     }
     
-    const { data, error } = await sb
-      .from('content_studio_items')
-      .select('*')
-      .in('prompt_id', promptIds)
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(limit);
 
