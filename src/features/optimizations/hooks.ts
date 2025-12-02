@@ -39,9 +39,35 @@ export function useGeneratePromptOptimizations() {
     },
     onSuccess: (result) => {
       const count = result?.count || 0;
+      const errors = result?.errors || [];
+      
       if (count > 0) {
         toast.success(`Generated ${count} optimization${count !== 1 ? 's' : ''}!`);
         queryClient.invalidateQueries({ queryKey: ['prompt-optimizations'] });
+      } else if (errors.length > 0) {
+        // Show specific error to user
+        const errorMsg = errors[0];
+        if (errorMsg.includes('timed out')) {
+          toast.error('Generation timed out', {
+            description: 'The AI took too long to respond. Please try again with a shorter prompt or try again later.',
+            duration: 6000,
+          });
+        } else if (errorMsg.includes('429')) {
+          toast.error('Rate limit exceeded', {
+            description: 'Too many requests. Please wait a moment and try again.',
+            duration: 6000,
+          });
+        } else if (errorMsg.includes('402')) {
+          toast.error('Payment required', {
+            description: 'Please add credits to your Lovable AI workspace to continue.',
+            duration: 6000,
+          });
+        } else {
+          toast.error('Generation failed', {
+            description: errorMsg.length > 100 ? errorMsg.substring(0, 100) + '...' : errorMsg,
+            duration: 6000,
+          });
+        }
       } else {
         toast.info('No new optimizations generated', {
           description: result?.message || 'This prompt may already have optimizations or sufficient visibility.'
