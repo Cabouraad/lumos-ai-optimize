@@ -7,8 +7,9 @@ import { useState } from "react";
 import type { OptimizationV2 } from "@/features/optimizations/api-v2";
 import { useUpdateOptimizationStatus } from "@/features/optimizations/hooks-v2";
 import { useGenerateContentStudioItem, canUseContentStudio } from "@/features/content-studio/hooks";
-import { ContentStudioDrawer, ContentStudioItem } from "@/features/content-studio";
+import { ContentStudioDrawer, ContentStudioItem, type ContentPreferences } from "@/features/content-studio";
 import { useSubscriptionGate } from "@/hooks/useSubscriptionGate";
+import { ContentPreferencesDialog } from "@/components/prompts/ContentPreferencesDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 interface OptimizationCardProps {
   optimization: OptimizationV2;
@@ -42,6 +43,7 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [studioItem, setStudioItem] = useState<ContentStudioItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const updateStatus = useUpdateOptimizationStatus();
   const generateStudioItem = useGenerateContentStudioItem();
   const { limits } = useSubscriptionGate();
@@ -51,10 +53,17 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
     updateStatus.mutate({ id: optimization.id, status });
   };
 
-  const handleContentStudio = async () => {
+  const handleContentStudioClick = () => {
+    setPreferencesOpen(true);
+  };
+
+  const handlePreferencesSubmit = async (preferences: ContentPreferences) => {
+    setPreferencesOpen(false);
+    
     try {
       const result = await generateStudioItem.mutateAsync({ 
-        recommendationId: optimization.id 
+        recommendationId: optimization.id,
+        preferences
       });
       if (result.item) {
         setStudioItem(result.item);
@@ -243,7 +252,7 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleContentStudio}
+                  onClick={handleContentStudioClick}
                   disabled={!canUseStudio || generateStudioItem.isPending}
                   className="gap-1"
                 >
@@ -274,6 +283,13 @@ export function OptimizationCard({ optimization }: OptimizationCardProps) {
         item={studioItem}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+      />
+      
+      <ContentPreferencesDialog
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+        onGenerate={handlePreferencesSubmit}
+        isGenerating={generateStudioItem.isPending}
       />
     </Card>
   );

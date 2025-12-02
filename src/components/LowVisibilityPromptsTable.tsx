@@ -30,8 +30,10 @@ import {
   useGenerateContentStudioItem, 
   canUseContentStudio,
   ContentStudioDrawer,
-  type ContentStudioItem 
+  type ContentStudioItem,
+  type ContentPreferences
 } from '@/features/content-studio';
+import { ContentPreferencesDialog } from './prompts/ContentPreferencesDialog';
 
 export function LowVisibilityPromptsTable() {
   const { data: prompts, isLoading } = useLowVisibilityPrompts();
@@ -136,6 +138,7 @@ function PromptRow({ prompt, onStudioItemGenerated }: PromptRowProps) {
   const generateMutation = useGenerateOptimizations();
   const contentStudioMutation = useGenerateContentStudioItem();
   const { subscriptionData } = useSubscription();
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   
   const tier = subscriptionData?.subscription_tier;
   const hasContentStudioAccess = canUseContentStudio(tier);
@@ -144,9 +147,13 @@ function PromptRow({ prompt, onStudioItemGenerated }: PromptRowProps) {
     generateMutation.mutate({ limit: 10 });
   };
 
-  const handleContentStudio = () => {
+  const handleContentStudioClick = () => {
+    setPreferencesOpen(true);
+  };
+
+  const handlePreferencesSubmit = (preferences: ContentPreferences) => {
     contentStudioMutation.mutate(
-      { promptId: prompt.prompt_id },
+      { promptId: prompt.prompt_id, preferences },
       {
         onSuccess: (result) => {
           if (result.success && result.item) {
@@ -155,6 +162,7 @@ function PromptRow({ prompt, onStudioItemGenerated }: PromptRowProps) {
         },
       }
     );
+    setPreferencesOpen(false);
   };
 
   const getPresenceColor = (rate: number) => {
@@ -164,76 +172,85 @@ function PromptRow({ prompt, onStudioItemGenerated }: PromptRowProps) {
   };
 
   return (
-    <TableRow>
-      <TableCell className="max-w-md">
-        <div className="text-sm font-medium truncate" title={prompt.prompt_text}>
-          {prompt.prompt_text}
-        </div>
-      </TableCell>
-      <TableCell className="text-center">
-        <Badge variant="outline" className={getPresenceColor(prompt.presence_rate)}>
-          {prompt.presence_rate.toFixed(1)}%
-        </Badge>
-      </TableCell>
-      <TableCell className="text-center text-sm text-muted-foreground">
-        {prompt.runs || 0}
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleGenerate}
-            disabled={generateMutation.isPending}
-            className="h-7"
-          >
-            {generateMutation.isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : (
-              <Sparkles className="h-3 w-3 mr-1" />
-            )}
-            {generateMutation.isPending ? 'Generating...' : 'Generate'}
-          </Button>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    size="sm"
-                    variant={hasContentStudioAccess ? "default" : "outline"}
-                    onClick={handleContentStudio}
-                    disabled={!hasContentStudioAccess || contentStudioMutation.isPending}
-                    className="h-7"
-                  >
-                    {contentStudioMutation.isPending ? (
-                      <>
-                        <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
-                        <span>Generating Blueprint...</span>
-                      </>
-                    ) : hasContentStudioAccess ? (
-                      <>
-                        <Wand2 className="h-3 w-3 mr-1" />
-                        <span>Content Studio</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="h-3 w-3 mr-1" />
-                        <span>Content Studio</span>
-                      </>
-                    )}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!hasContentStudioAccess && (
-                <TooltipContent>
-                  <p>Content Studio is available on Growth & Pro plans</p>
-                </TooltipContent>
+    <>
+      <TableRow>
+        <TableCell className="max-w-md">
+          <div className="text-sm font-medium truncate" title={prompt.prompt_text}>
+            {prompt.prompt_text}
+          </div>
+        </TableCell>
+        <TableCell className="text-center">
+          <Badge variant="outline" className={getPresenceColor(prompt.presence_rate)}>
+            {prompt.presence_rate.toFixed(1)}%
+          </Badge>
+        </TableCell>
+        <TableCell className="text-center text-sm text-muted-foreground">
+          {prompt.runs || 0}
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+              className="h-7"
+            >
+              {generateMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Sparkles className="h-3 w-3 mr-1" />
               )}
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </TableCell>
-    </TableRow>
+              {generateMutation.isPending ? 'Generating...' : 'Generate'}
+            </Button>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      variant={hasContentStudioAccess ? "default" : "outline"}
+                      onClick={handleContentStudioClick}
+                      disabled={!hasContentStudioAccess || contentStudioMutation.isPending}
+                      className="h-7"
+                    >
+                      {contentStudioMutation.isPending ? (
+                        <>
+                          <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+                          <span>Generating Blueprint...</span>
+                        </>
+                      ) : hasContentStudioAccess ? (
+                        <>
+                          <Wand2 className="h-3 w-3 mr-1" />
+                          <span>Content Studio</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-3 w-3 mr-1" />
+                          <span>Content Studio</span>
+                        </>
+                      )}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!hasContentStudioAccess && (
+                  <TooltipContent>
+                    <p>Content Studio is available on Growth & Pro plans</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </TableCell>
+      </TableRow>
+      
+      <ContentPreferencesDialog
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+        onGenerate={handlePreferencesSubmit}
+        isGenerating={contentStudioMutation.isPending}
+      />
+    </>
   );
 }
