@@ -21,6 +21,10 @@ export function useGenerateContentStudioItem() {
       if (result.success && result.item) {
         toast.success('Content blueprint generated!');
         queryClient.invalidateQueries({ queryKey: ['content-studio-items'] });
+      } else if (result.isDuplicate) {
+        toast.error('Duplicate content', { 
+          description: result.error || 'This content already exists in your Content Studio.' 
+        });
       } else if (result.upgradeRequired) {
         toast.error('Upgrade required', {
           description: 'Content Studio is available on Growth & Pro plans.',
