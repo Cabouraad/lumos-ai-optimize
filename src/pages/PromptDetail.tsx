@@ -12,6 +12,7 @@ import { ProviderResponseCard } from '@/components/ProviderResponseCard';
 
 import { PromptCitationsTable } from '@/components/citations/PromptCitationsTable';
 import { ScoreBreakdownTooltip } from '@/components/prompts/ScoreBreakdownTooltip';
+import { OptimizePromptDialog } from '@/components/prompts/OptimizePromptDialog';
 import { getUnifiedPromptData } from '@/lib/data/unified-fetcher';
 import { getAllowedProviders } from '@/lib/providers/tier-policy';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -24,7 +25,8 @@ import {
   Target, 
   Users,
   BarChart3,
-  Globe
+  Globe,
+  Sparkles
 } from 'lucide-react';
 
 export default function PromptDetail() {
@@ -46,6 +48,7 @@ export default function PromptDetail() {
     to: new Date() 
   });
   const [activeTab, setActiveTab] = useState('overview');
+  const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!promptId || !orgData?.id) return;
@@ -194,12 +197,29 @@ export default function PromptDetail() {
               )}
             </div>
           </div>
-          <DateRangePicker
-            from={dateRange.from}
-            to={dateRange.to}
-            onRangeChange={(from, to) => setDateRange({ from, to })}
-          />
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setOptimizeDialogOpen(true)}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Optimize
+            </Button>
+            <DateRangePicker
+              from={dateRange.from}
+              to={dateRange.to}
+              onRangeChange={(from, to) => setDateRange({ from, to })}
+            />
+          </div>
         </div>
+
+        {/* Optimize Dialog */}
+        <OptimizePromptDialog
+          promptId={promptId!}
+          promptText={prompt.text}
+          open={optimizeDialogOpen}
+          onOpenChange={setOptimizeDialogOpen}
+        />
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
