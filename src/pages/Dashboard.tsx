@@ -4,6 +4,7 @@ import { Layout } from '@/components/Layout';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { AdminDiagnosticPanel } from '@/components/AdminDiagnosticPanel';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBrand } from '@/contexts/BrandContext';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import { useDashboardOnboardingTour } from '@/hooks/useDashboardOnboardingTour';
 
 export default function Dashboard() {
   const { user, orgData, checkSubscription } = useAuth();
+  const { selectedBrand } = useBrand();
   const navigate = useNavigate();
   const { TourComponent } = useDashboardOnboardingTour();
   const { hasAccessToApp, limits, canAccessRecommendations, canAccessCompetitorAnalysis, currentTier } = useSubscriptionGate();
@@ -42,11 +44,12 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   
-  // Use optimized competitor hook - only fetch when viewing competitors
+  // Use optimized competitor hook - filter by selected brand
   const { data: competitorData = [], isLoading: loadingCompetitors } = useCompetitors({
     days: 30,
     limit: 5, // Top 5 competitors only for dashboard chart
-    offset: 0
+    offset: 0,
+    brandId: selectedBrand?.id || null,
   });
   
   // Post-checkout: refresh subscription and clean URL

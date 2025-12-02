@@ -48,7 +48,7 @@ export interface BulkPromptData {
  * Fetch all prompt data in a single optimized query batch
  * Replaces multiple individual queries with coordinated bulk fetching
  */
-export async function getBulkPromptData(): Promise<BulkPromptData> {
+export async function getBulkPromptData(brandId?: string | null): Promise<BulkPromptData> {
   if (!isOptimizationFeatureEnabled('FEATURE_BULK_QUERIES')) {
     throw new Error('Bulk queries not enabled - use standard data fetching');
   }
@@ -57,14 +57,20 @@ export async function getBulkPromptData(): Promise<BulkPromptData> {
   
   const orgId = await getOrgId();
   
+  // Build prompts query with optional brand filtering
+  let promptsQuery = supabase
+    .from("prompts")
+    .select("id, text, active, created_at, org_id, brand_id")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+  
+  if (brandId) {
+    promptsQuery = promptsQuery.eq('brand_id', brandId);
+  }
+  
   // Single batch: Get prompts + latest responses + 7-day stats in parallel
   const [promptsResult, latestResponsesResult, statsResult] = await Promise.all([
-    // Prompts for org
-    supabase
-      .from("prompts")
-      .select("id, text, active, created_at, org_id")
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: false }),
+    promptsQuery,
     
     // Latest responses via optimized RPC (already batched)
     supabase.rpc('get_latest_prompt_provider_responses', { 
@@ -81,10 +87,21 @@ export async function getBulkPromptData(): Promise<BulkPromptData> {
   if (latestResponsesResult.error) throw latestResponsesResult.error;
   if (statsResult.error) throw statsResult.error;
   
+  const prompts = promptsResult.data || [];
+  const promptIds = new Set(prompts.map(p => p.id));
+  
+  // Filter responses and stats to only include data for the filtered prompts
+  const filteredResponses = (latestResponsesResult.data || []).filter(
+    (r: any) => promptIds.has(r.prompt_id)
+  );
+  const filteredStats = (statsResult.data || []).filter(
+    (s: any) => promptIds.has(s.prompt_id)
+  );
+  
   return {
-    prompts: promptsResult.data || [],
-    latestResponses: latestResponsesResult.data || [],
-    sevenDayStats: statsResult.data || []
+    prompts,
+    latestResponses: filteredResponses,
+    sevenDayStats: filteredStats
   };
 }
 
