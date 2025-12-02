@@ -116,12 +116,80 @@ serve(async (req) => {
     // Parse request body - reduce default limit to avoid timeouts
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(body.limit || 5, 10); // Reduced from 10/20 to 5/10 to prevent timeouts
+    const specificPromptId = body.promptId; // Optional: generate for specific prompt
 
-    // Query for low-visibility prompts directly
-    const { data: lowVisPrompts, error: promptError } = await supabase.rpc(
-      "get_low_visibility_prompts",
-      { p_org_id: orgId, p_limit: limit }
-    );
+    let lowVisPrompts;
+    let promptError;
+
+    // If specific promptId provided, fetch just that prompt
+    if (specificPromptId) {
+      console.log(`[GENERATE-RECS] Generating for specific prompt: ${specificPromptId}`);
+      
+      // Fetch the specific prompt with its stats
+      const { data: promptData, error: pError } = await supabase
+        .from('prompts')
+        .select('id, text')
+        .eq('id', specificPromptId)
+        .eq('org_id', orgId)
+        .single();
+
+      if (pError || !promptData) {
+        console.error('[GENERATE-RECS] Error fetching prompt:', pError);
+        return new Response(JSON.stringify({ error: 'Prompt not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get prompt stats from last 14 days
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+      const { data: responses } = await supabase
+        .from('prompt_provider_responses')
+        .select('org_brand_present, score, citations_json')
+        .eq('prompt_id', specificPromptId)
+        .gte('run_at', fourteenDaysAgo.toISOString());
+
+      const totalRuns = responses?.length || 0;
+      const presentCount = responses?.filter(r => r.org_brand_present).length || 0;
+      const presenceRate = totalRuns > 0 ? (presentCount / totalRuns) * 100 : 0;
+
+      // Collect top citations
+      const citationCounts: Record<string, number> = {};
+      responses?.forEach(r => {
+        if (Array.isArray(r.citations_json)) {
+          r.citations_json.forEach((c: any) => {
+            const url = c.url || c.source;
+            if (url) citationCounts[url] = (citationCounts[url] || 0) + 1;
+          });
+        }
+      });
+
+      const topCitations = Object.entries(citationCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([url, count]) => ({ url, count }));
+
+      lowVisPrompts = [{
+        prompt_id: promptData.id,
+        prompt_text: promptData.text,
+        total_runs: totalRuns,
+        presence_rate: presenceRate,
+        avg_score_when_present: null,
+        last_checked_at: new Date().toISOString(),
+        top_citations: topCitations
+      }];
+      promptError = null;
+    } else {
+      // Original behavior: Query for low-visibility prompts
+      const result = await supabase.rpc(
+        "get_low_visibility_prompts",
+        { p_org_id: orgId, p_limit: limit }
+      );
+      lowVisPrompts = result.data;
+      promptError = result.error;
+    }
 
     if (promptError) {
       console.error("Error fetching low visibility prompts:", promptError);
