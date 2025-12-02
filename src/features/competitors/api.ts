@@ -63,12 +63,16 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
       (exclusions || []).map(e => e.competitor_name.toLowerCase().trim())
     );
 
-    const { data: bc, error: bcError } = await sb
+    // Build brand_catalog query with brand filtering
+    let bcQuery = sb
       .from('brand_catalog')
       .select('name,total_appearances,first_detected_at,last_seen_at,average_score')
+      .eq('org_id', orgId)
       .eq('is_org_brand', false)
       .order('total_appearances', { ascending: false })
       .limit(Math.min(filters.limit ?? 5, 50));
+
+    const { data: bc, error: bcError } = await bcQuery;
 
     if (bcError) throw bcError;
 

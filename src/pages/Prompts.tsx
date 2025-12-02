@@ -352,7 +352,7 @@ export default function Prompts() {
     }
 
     try {
-      await acceptSuggestion(suggestionId);
+      await acceptSuggestion(suggestionId, selectedBrand?.id || null);
       toast({
         title: "Success",
         description: "Suggestion accepted and added as prompt",

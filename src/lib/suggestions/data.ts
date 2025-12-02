@@ -31,10 +31,13 @@ export async function getSuggestedPrompts() {
   }
 }
 
-export async function acceptSuggestion(suggestionId: string) {
+export async function acceptSuggestion(suggestionId: string, brandId?: string | null) {
   try {
     const orgId = await getOrgId();
     if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please retry.');
+
+    // Validate brandId if provided
+    const validBrandId = brandId && isValidUUID(brandId) ? brandId : null;
 
     // Get the suggestion first
     const { data: suggestion, error: fetchError } = await supabase
@@ -46,14 +49,20 @@ export async function acceptSuggestion(suggestionId: string) {
 
     if (fetchError) throw fetchError;
 
-    // Create the prompt
+    // Create the prompt with brand_id if provided
+    const insertData: any = {
+      org_id: orgId,
+      text: suggestion.text,
+      active: true
+    };
+    
+    if (validBrandId) {
+      insertData.brand_id = validBrandId;
+    }
+
     const { error: insertError } = await supabase
       .from('prompts')
-      .insert({
-        org_id: orgId,
-        text: suggestion.text,
-        active: true
-      });
+      .insert(insertData);
 
     if (insertError) throw insertError;
 
