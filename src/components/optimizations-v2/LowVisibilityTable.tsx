@@ -7,23 +7,38 @@ import { AlertTriangle, TrendingDown, Sparkles } from "lucide-react";
 import { useLowVisibilityPrompts } from "@/features/optimizations/hooks-v2";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGenerateContentStudioItem, canUseContentStudio } from "@/features/content-studio/hooks";
-import { ContentStudioDrawer, ContentStudioItem } from "@/features/content-studio";
+import { ContentStudioDrawer, ContentStudioItem, type ContentPreferences } from "@/features/content-studio";
 import { useSubscriptionGate } from "@/hooks/useSubscriptionGate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ContentPreferencesDialog } from "@/components/prompts/ContentPreferencesDialog";
 
 export function LowVisibilityTable() {
   const { data: prompts, isLoading } = useLowVisibilityPrompts(10);
   const [studioItem, setStudioItem] = useState<ContentStudioItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [generatingPromptId, setGeneratingPromptId] = useState<string | null>(null);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const generateStudioItem = useGenerateContentStudioItem();
   const { limits } = useSubscriptionGate();
   const canUseStudio = canUseContentStudio(limits.hasRecommendations ? 'growth' : 'starter');
 
-  const handleContentStudio = async (promptId: string) => {
-    setGeneratingPromptId(promptId);
+  const handleContentStudioClick = (promptId: string) => {
+    setSelectedPromptId(promptId);
+    setPreferencesOpen(true);
+  };
+
+  const handlePreferencesSubmit = async (preferences: ContentPreferences) => {
+    if (!selectedPromptId) return;
+    
+    setGeneratingPromptId(selectedPromptId);
+    setPreferencesOpen(false);
+    
     try {
-      const result = await generateStudioItem.mutateAsync({ promptId });
+      const result = await generateStudioItem.mutateAsync({ 
+        promptId: selectedPromptId,
+        preferences 
+      });
       if (result.item) {
         setStudioItem(result.item);
         setDrawerOpen(true);
@@ -32,6 +47,7 @@ export function LowVisibilityTable() {
       console.error('Failed to generate content studio item:', error);
     } finally {
       setGeneratingPromptId(null);
+      setSelectedPromptId(null);
     }
   };
 
@@ -116,7 +132,7 @@ export function LowVisibilityTable() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleContentStudio(prompt.prompt_id)}
+                              onClick={() => handleContentStudioClick(prompt.prompt_id)}
                               disabled={!canUseStudio || generatingPromptId === prompt.prompt_id}
                               className="gap-1"
                             >
@@ -153,6 +169,13 @@ export function LowVisibilityTable() {
         item={studioItem}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+      />
+      
+      <ContentPreferencesDialog
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+        onGenerate={handlePreferencesSubmit}
+        isGenerating={generateStudioItem.isPending}
       />
     </>
   );
