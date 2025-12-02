@@ -10,8 +10,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AI API timeout in milliseconds
-const AI_TIMEOUT_MS = 15000;
+// AI API timeout in milliseconds - increased for complex prompts
+const AI_TIMEOUT_MS = 30000; // 30 seconds
 
 // Helper to call AI with timeout
 async function callAIWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
@@ -246,7 +246,7 @@ IMPORTANT OUTPUT FORMAT:
 Each recommendation should be specific, actionable, and tailored to this prompt.`;
 
         // Call AI with timeout protection
-        console.log(`[GENERATE-RECS] Calling AI for prompt ${processed}`);
+        console.log(`[GENERATE-RECS] Calling AI for prompt ${processed} with 30s timeout`);
         const openaiResponse = await callAIWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -254,7 +254,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "google/gemini-2.5-flash-lite", // Faster model for quicker responses
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `Prompt to optimize: "${prompt.prompt_text}"` },
