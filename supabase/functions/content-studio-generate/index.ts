@@ -401,6 +401,38 @@ Create a comprehensive content blueprint that will help this brand become more v
       );
     }
 
+    // Check for existing content studio item with same topic_key
+    const { data: existingItem, error: checkError } = await supabaseService
+      .from('content_studio_items')
+      .select('id, topic_key, status')
+      .eq('org_id', orgId)
+      .eq('topic_key', topicKey)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('[content-studio-generate] Error checking for existing item:', checkError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Failed to check for existing content' 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (existingItem) {
+      console.log('[content-studio-generate] Duplicate content detected:', existingItem.topic_key);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'A content blueprint for this topic already exists. Please check your Content Studio.',
+          isDuplicate: true,
+          existingItemId: existingItem.id
+        }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Determine if recommendationId is from recommendations table (not optimizations_v2)
     // FK constraint only allows IDs from recommendations table
     const isFromRecommendationsTable = contextData.recommendation !== undefined;

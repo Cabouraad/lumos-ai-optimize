@@ -64,6 +64,8 @@ export interface GenerateContentStudioResponse {
   error?: string;
   upgradeRequired?: boolean;
   currentTier?: string;
+  isDuplicate?: boolean;
+  existingItemId?: string;
 }
 
 // Content type display labels
