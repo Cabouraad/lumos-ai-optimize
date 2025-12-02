@@ -9,9 +9,17 @@ const corsHeaders = {
 // Tier check - only Growth and Pro can use Content Studio
 const ALLOWED_TIERS = ['growth', 'pro', 'enterprise'];
 
+interface ContentPreferences {
+  tone: string;
+  style: string;
+  audience: string;
+  format?: string;
+}
+
 interface ContentStudioRequest {
   recommendationId?: string;
   promptId?: string;
+  preferences?: ContentPreferences;
 }
 
 serve(async (req) => {
@@ -93,7 +101,7 @@ serve(async (req) => {
 
     // Parse request body
     const body: ContentStudioRequest = await req.json();
-    const { recommendationId, promptId } = body;
+    const { recommendationId, promptId, preferences } = body;
 
     if (!recommendationId && !promptId) {
       return new Response(
@@ -179,7 +187,17 @@ serve(async (req) => {
       }
     }
 
-    // Build LLM prompt
+    // Build LLM prompt with preferences
+    const preferencesContext = preferences ? `
+
+Content Preferences:
+- Tone: ${preferences.tone} (${getToneDescription(preferences.tone)})
+- Writing Style: ${preferences.style} (${getStyleDescription(preferences.style)})
+- Target Audience: ${preferences.audience} (${getAudienceDescription(preferences.audience)})
+${preferences.format ? `- Content Format: ${preferences.format} (${getFormatDescription(preferences.format)})` : ''}
+
+Please ensure the content blueprint reflects these preferences in its structure, language, and approach.` : '';
+
     const systemPrompt = `You are an expert content strategist helping brands improve their visibility in AI search results (ChatGPT, Perplexity, Gemini, Google AI Overviews).
 
 Based on the provided context about a low-visibility topic, generate a detailed content blueprint that will help the brand become more visible when AI models respond to queries about this topic.
@@ -188,7 +206,7 @@ The brand context:
 - Brand Name: ${orgData.name || 'Unknown'}
 - Domain: ${orgData.domain || 'Unknown'}
 - Products/Services: ${orgData.products_services || 'Not specified'}
-- Target Audience: ${orgData.target_audience || 'Not specified'}
+- Target Audience: ${orgData.target_audience || 'Not specified'}${preferencesContext}
 
 You must respond with a valid JSON object matching this exact structure:
 {
@@ -431,3 +449,52 @@ Create a comprehensive content blueprint that will help this brand become more v
     );
   }
 });
+
+// Helper functions for preference descriptions
+function getToneDescription(tone: string): string {
+  const descriptions: Record<string, string> = {
+    professional: 'formal and business-appropriate',
+    casual: 'relaxed and conversational',
+    technical: 'detailed and precise',
+    friendly: 'warm and approachable',
+    authoritative: 'expert and confident',
+    educational: 'informative and instructive',
+  };
+  return descriptions[tone] || tone;
+}
+
+function getStyleDescription(style: string): string {
+  const descriptions: Record<string, string> = {
+    conversational: 'natural dialogue style',
+    formal: 'structured and polished',
+    educational: 'teaching and explaining',
+    persuasive: 'compelling and convincing',
+    storytelling: 'narrative-driven',
+    data_driven: 'facts and statistics focused',
+  };
+  return descriptions[style] || style;
+}
+
+function getAudienceDescription(audience: string): string {
+  const descriptions: Record<string, string> = {
+    beginners: 'new to the topic',
+    intermediate: 'some existing knowledge',
+    experts: 'advanced understanding',
+    decision_makers: 'business executives',
+    technical_users: 'developers and engineers',
+    general_public: 'wide audience',
+  };
+  return descriptions[audience] || audience;
+}
+
+function getFormatDescription(format: string): string {
+  const descriptions: Record<string, string> = {
+    how_to: 'step-by-step instructions',
+    listicle: 'numbered or bulleted list',
+    comparison: 'compare options or solutions',
+    case_study: 'real-world examples',
+    faq: 'question and answer format',
+    comprehensive: 'in-depth coverage',
+  };
+  return descriptions[format] || format;
+}
