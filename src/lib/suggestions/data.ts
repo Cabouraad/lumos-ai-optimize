@@ -16,7 +16,7 @@ export async function getSuggestedPrompts() {
 
     const { data: suggestions, error } = await supabase
       .from('suggested_prompts')
-      .select('id, text, source, created_at, accepted')
+      .select('id, text, source, created_at, accepted, search_volume')
       .eq('org_id', orgId)
       .eq('accepted', false)
       .order('created_at', { ascending: false })

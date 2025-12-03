@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Lightbulb, 
   Users, 
@@ -14,7 +15,8 @@ import {
   X, 
   Clock,
   Zap,
-  Award
+  Award,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from '@/lib/org/data';
@@ -25,6 +27,28 @@ interface Suggestion {
   text: string;
   source: string;
   created_at: string;
+  search_volume?: number | null;
+}
+
+// Format search volume as human-readable estimate
+function formatSearchVolume(volume: number | null | undefined): string {
+  if (volume === null || volume === undefined) return '';
+  // Google Trends returns 0-100 scale, estimate monthly searches
+  // Rough estimate: 100 = ~100K+, 50 = ~10K, 10 = ~1K
+  if (volume >= 80) return '100K+ monthly';
+  if (volume >= 60) return '50K+ monthly';
+  if (volume >= 40) return '10K+ monthly';
+  if (volume >= 20) return '5K+ monthly';
+  if (volume >= 10) return '1K+ monthly';
+  if (volume > 0) return '<1K monthly';
+  return 'Low volume';
+}
+
+function getVolumeColor(volume: number | null | undefined): string {
+  if (volume === null || volume === undefined) return 'text-muted-foreground';
+  if (volume >= 60) return 'text-success';
+  if (volume >= 30) return 'text-warning';
+  return 'text-muted-foreground';
 }
 
 interface PromptSuggestionsProps {
@@ -296,7 +320,7 @@ export function PromptSuggestions({
                 <div className="flex items-start justify-between gap-6">
                   <div className="flex-1 space-y-3">
                     {/* Source and metadata */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       {getSourceIcon(suggestion.source)}
                       <Badge 
                         variant="outline" 
@@ -307,6 +331,25 @@ export function PromptSuggestions({
                       <span className="text-xs text-muted-foreground">
                         {new Date(suggestion.created_at).toLocaleDateString()}
                       </span>
+                      {/* Search volume indicator */}
+                      {suggestion.search_volume !== null && suggestion.search_volume !== undefined && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs flex items-center gap-1 ${getVolumeColor(suggestion.search_volume)}`}
+                              >
+                                <TrendingUp className="h-3 w-3" />
+                                {formatSearchVolume(suggestion.search_volume)}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Estimated monthly searches based on Google Trends data</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
 
                     {/* Suggestion text */}
