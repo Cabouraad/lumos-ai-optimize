@@ -1619,8 +1619,10 @@ export type Database = {
       suggested_prompts: {
         Row: {
           accepted: boolean
+          brand_id: string | null
           created_at: string
           id: string
+          metadata: Json | null
           org_id: string
           search_volume: number | null
           source: string
@@ -1628,8 +1630,10 @@ export type Database = {
         }
         Insert: {
           accepted?: boolean
+          brand_id?: string | null
           created_at?: string
           id?: string
+          metadata?: Json | null
           org_id: string
           search_volume?: number | null
           source: string
@@ -1637,14 +1641,23 @@ export type Database = {
         }
         Update: {
           accepted?: boolean
+          brand_id?: string | null
           created_at?: string
           id?: string
+          metadata?: Json | null
           org_id?: string
           search_volume?: number | null
           source?: string
           text?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "suggested_prompts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suggested_prompts_org_id_fkey"
             columns: ["org_id"]
