@@ -1622,6 +1622,7 @@ export type Database = {
           created_at: string
           id: string
           org_id: string
+          search_volume: number | null
           source: string
           text: string
         }
@@ -1630,6 +1631,7 @@ export type Database = {
           created_at?: string
           id?: string
           org_id: string
+          search_volume?: number | null
           source: string
           text: string
         }
@@ -1638,6 +1640,7 @@ export type Database = {
           created_at?: string
           id?: string
           org_id?: string
+          search_volume?: number | null
           source?: string
           text?: string
         }

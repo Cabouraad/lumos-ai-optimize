@@ -8,6 +8,70 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true'
 };
 
+// Fetch Google Trends interest for a query via SerpAPI
+async function getGoogleTrendsInterest(query: string, serpApiKey: string): Promise<number | null> {
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_trends',
+      q: query,
+      api_key: serpApiKey,
+      data_type: 'TIMESERIES',
+      date: 'today 3-m', // Last 3 months
+    });
+    
+    const response = await fetch(`https://serpapi.com/search.json?${params}`);
+    if (!response.ok) {
+      console.warn(`Google Trends API error for "${query}": ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    // Get the interest over time data and calculate average
+    const timelineData = data.interest_over_time?.timeline_data || [];
+    if (timelineData.length === 0) return null;
+    
+    // Extract values and calculate average interest
+    const values = timelineData
+      .map((item: any) => item.values?.[0]?.extracted_value)
+      .filter((v: any) => typeof v === 'number');
+    
+    if (values.length === 0) return null;
+    
+    const avgInterest = Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
+    return avgInterest;
+  } catch (error) {
+    console.warn(`Failed to fetch Google Trends for "${query}":`, error);
+    return null;
+  }
+}
+
+// Batch fetch trends data with rate limiting
+async function batchGetTrendsData(
+  queries: string[], 
+  serpApiKey: string
+): Promise<Map<string, number | null>> {
+  const results = new Map<string, number | null>();
+  
+  // Process in batches of 5 with 200ms delay to avoid rate limits
+  const batchSize = 5;
+  for (let i = 0; i < queries.length; i += batchSize) {
+    const batch = queries.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(q => getGoogleTrendsInterest(q, serpApiKey).then(v => ({ query: q, value: v })))
+    );
+    
+    batchResults.forEach(({ query, value }) => results.set(query, value));
+    
+    // Small delay between batches
+    if (i + batchSize < queries.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+  
+  return results;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -16,6 +80,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const openaiKey = Deno.env.get('OPENAI_API_KEY')!;
+  const serpApiKey = Deno.env.get('SERPAPI_KEY');
   
   const supabase = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: req.headers.get('Authorization')! } }
@@ -24,8 +89,6 @@ Deno.serve(async (req) => {
   try {
     // Verify authentication and get user's org ID (ignore orgId from request body for security)
     const orgId = await getUserOrgId(supabase);
-
-    console.log(`Generating enhanced prompt suggestions for authenticated user's org: ${orgId}`);
 
     console.log(`Generating enhanced prompt suggestions for org: ${orgId}`);
 
@@ -197,11 +260,21 @@ Format as JSON array with this structure:
       });
     });
 
-    // Store suggestions in database
+    // Fetch Google Trends data for filtered suggestions if SerpAPI key is available
+    let trendsData = new Map<string, number | null>();
+    if (serpApiKey && filteredSuggestions.length > 0) {
+      console.log(`Fetching Google Trends data for ${filteredSuggestions.length} suggestions...`);
+      const queries = filteredSuggestions.map((s: any) => s.text);
+      trendsData = await batchGetTrendsData(queries, serpApiKey);
+      console.log(`Got trends data for ${trendsData.size} queries`);
+    }
+
+    // Store suggestions in database with search volume
     const suggestionsToInsert = filteredSuggestions.map((suggestion: any) => ({
       org_id: orgId,
       text: suggestion.text,
       source: `enhanced-ai-${suggestion.category}`,
+      search_volume: trendsData.get(suggestion.text) ?? null,
       metadata: {
         category: suggestion.category,
         rationale: suggestion.rationale,
@@ -226,6 +299,7 @@ Format as JSON array with this structure:
       generated: suggestions.length,
       filtered: filteredSuggestions.length,
       inserted: suggestionsToInsert.length,
+      trendsDataFetched: trendsData.size,
       categories: filteredSuggestions.reduce((acc: any, s: any) => {
         acc[s.category] = (acc[s.category] || 0) + 1;
         return acc;
