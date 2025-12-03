@@ -123,7 +123,7 @@ export default function Prompts() {
   const loadSuggestedPrompts = async () => {
     try {
       setSuggestionsLoading(true);
-      const data = await getSuggestedPrompts();
+      const data = await getSuggestedPrompts(selectedBrand?.id || null);
       setSuggestedPrompts(data);
     } catch (err) {
       console.error('Failed to load suggested prompts:', err);
@@ -388,7 +388,7 @@ export default function Prompts() {
   const handleGenerateMoreSuggestions = async () => {
     try {
       setGeneratingSuggestions(true);
-      const result = await generateSuggestionsNow();
+      const result = await generateSuggestionsNow(selectedBrand?.id || null);
       
       if (result.suggestionsCreated === 0) {
         toast({

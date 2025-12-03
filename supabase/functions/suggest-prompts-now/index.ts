@@ -6,30 +6,89 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface RequestBody {
-  // No body needed - we'll get org data from auth
+// Fetch Google Trends interest for a query via SerpAPI
+async function getGoogleTrendsInterest(query: string, serpApiKey: string): Promise<number | null> {
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_trends',
+      q: query,
+      api_key: serpApiKey,
+      data_type: 'TIMESERIES',
+      date: 'today 3-m',
+    });
+    
+    const response = await fetch(`https://serpapi.com/search.json?${params}`);
+    if (!response.ok) {
+      console.warn(`Google Trends API error for "${query}": ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    const timelineData = data.interest_over_time?.timeline_data || [];
+    if (timelineData.length === 0) return null;
+    
+    const values = timelineData
+      .map((item: any) => item.values?.[0]?.extracted_value)
+      .filter((v: any) => typeof v === 'number');
+    
+    if (values.length === 0) return null;
+    
+    return Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
+  } catch (error) {
+    console.warn(`Failed to fetch Google Trends for "${query}":`, error);
+    return null;
+  }
+}
+
+// Batch fetch trends data with rate limiting
+async function batchGetTrendsData(
+  queries: string[], 
+  serpApiKey: string
+): Promise<Map<string, number | null>> {
+  const results = new Map<string, number | null>();
+  
+  const batchSize = 5;
+  for (let i = 0; i < queries.length; i += batchSize) {
+    const batch = queries.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(q => getGoogleTrendsInterest(q, serpApiKey).then(v => ({ query: q, value: v })))
+    );
+    
+    batchResults.forEach(({ query, value }) => results.set(query, value));
+    
+    if (i + batchSize < queries.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+  
+  return results;
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get user from auth header
+    // Parse request body for brandId
+    let brandId: string | null = null;
+    try {
+      const body = await req.json();
+      brandId = body?.brandId || null;
+    } catch {
+      // Empty body is fine
+    }
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
-    // Set auth for subsequent requests
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
@@ -38,7 +97,6 @@ Deno.serve(async (req) => {
       throw new Error('Authentication failed');
     }
 
-    // Get user's org information
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('org_id')
@@ -50,7 +108,23 @@ Deno.serve(async (req) => {
       throw new Error('Could not get user organization');
     }
 
-    // First, check if localization is enabled for this org
+    // Get brand-specific context if brandId is provided
+    let brandContext: any = null;
+    if (brandId) {
+      const { data: brand, error: brandError } = await supabase
+        .from('brands')
+        .select('id, name, domain')
+        .eq('id', brandId)
+        .eq('org_id', userData.org_id)
+        .single();
+      
+      if (!brandError && brand) {
+        brandContext = brand;
+        console.log(`Using brand context: ${brand.name} (${brand.id})`);
+      }
+    }
+
+    // Get organization settings
     const { data: orgSettings, error: settingsError } = await supabase
       .from('organizations')
       .select('enable_localized_prompts')
@@ -62,7 +136,7 @@ Deno.serve(async (req) => {
       throw new Error('Could not get organization settings');
     }
 
-    // Get organization details - conditionally include location fields
+    // Get organization details
     const locationFields = orgSettings.enable_localized_prompts 
       ? ', business_city, business_state, business_country' 
       : '';
@@ -78,11 +152,21 @@ Deno.serve(async (req) => {
       throw new Error('Could not get organization details');
     }
 
-    // Get existing prompts to avoid duplicates
-    const { data: existingPrompts, error: promptsError } = await supabase
+    // Use brand context if available, otherwise fall back to org context
+    const contextName = brandContext?.name || orgData.name;
+    const contextDomain = brandContext?.domain || orgData.domain;
+
+    // Get existing prompts to avoid duplicates - filter by brand if provided
+    let promptsQuery = supabase
       .from('prompts')
       .select('text')
       .eq('org_id', userData.org_id);
+    
+    if (brandId) {
+      promptsQuery = promptsQuery.eq('brand_id', brandId);
+    }
+    
+    const { data: existingPrompts, error: promptsError } = await promptsQuery;
 
     if (promptsError) {
       console.error('Error fetching existing prompts:', promptsError);
@@ -90,12 +174,18 @@ Deno.serve(async (req) => {
 
     const existingPromptTexts = existingPrompts?.map(p => p.text.toLowerCase()) || [];
 
-    // Get existing suggestions to avoid duplicates
-    const { data: existingSuggestions, error: suggestionsError } = await supabase
+    // Get existing suggestions to avoid duplicates - filter by brand if provided
+    let suggestionsQuery = supabase
       .from('suggested_prompts')
       .select('text')
       .eq('org_id', userData.org_id)
       .eq('accepted', false);
+    
+    if (brandId) {
+      suggestionsQuery = suggestionsQuery.eq('brand_id', brandId);
+    }
+    
+    const { data: existingSuggestions, error: suggestionsError } = await suggestionsQuery;
 
     if (suggestionsError) {
       console.error('Error fetching existing suggestions:', suggestionsError);
@@ -103,13 +193,12 @@ Deno.serve(async (req) => {
 
     const existingSuggestionTexts = existingSuggestions?.map(s => s.text.toLowerCase()) || [];
 
-    // Generate AI-powered suggestions using OpenAI
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Add location context and instructions based on localization setting
+    // Build location context
     let locationInstructions = '';
     let locationContext = '';
     
@@ -127,40 +216,22 @@ Deno.serve(async (req) => {
         const location = locationParts.join(', ');
         locationContext = `\n- Business Location: ${location}`;
         locationInstructions = `
-LOCALIZATION ENABLED: This business has enabled localized prompts. Include their location (${location}) in some prompts where it makes sense. Mix localized and non-localized prompts (about 40% localized, 60% general).
-
-Examples of localized prompts:
-- "best [service] in ${orgData.business_state || orgData.business_city}"
-- "top [industry] companies in ${orgData.business_city || orgData.business_state}"
-- "[service type] near ${orgData.business_city || orgData.business_state}"
-- "where to find [solution] in ${locationParts.join(' ')}"
-
-Make sure localized prompts sound natural and are relevant to the business type.`;
+LOCALIZATION ENABLED: This business has enabled localized prompts. Include their location (${location}) in some prompts where it makes sense. Mix localized and non-localized prompts (about 40% localized, 60% general).`;
         
         console.log(`Generated localized prompts for location: ${location}`);
       }
     } else {
       locationInstructions = `
-LOCALIZATION DISABLED: This business has DISABLED localized prompts. You MUST NOT include any location-specific terms, city names, state names, geographic references, or "near me" type queries.
-
-STRICTLY AVOID:
-- "best [service] in [city/state]"
-- "top [industry] companies in [location]" 
-- "[service type] near [location]"
-- "where to find [solution] in [place]"
-- Any mention of specific cities, states, regions, or countries
-- Terms like "local", "nearby", "in my area", "near me"
-
-ONLY generate completely generic, location-neutral prompts that could apply to any business anywhere in the world.`;
+LOCALIZATION DISABLED: This business has DISABLED localized prompts. You MUST NOT include any location-specific terms, city names, state names, geographic references, or "near me" type queries.`;
       
-      console.log(`Generating NON-LOCALIZED prompts for org ${userData.org_id} - localization is DISABLED`);
+      console.log(`Generating NON-LOCALIZED prompts for org ${userData.org_id}`);
     }
 
     const systemPrompt = `You are an expert at generating natural search prompts that real users would type into AI assistants like ChatGPT, Claude, or Perplexity when looking for business solutions.
 
 Your task is to create realistic search queries that potential customers might use when looking for solutions in this business space. These should sound like genuine questions people ask AI assistants.
 
-CRITICAL: NEVER include the company name "${orgData.name}" or domain "${orgData.domain}" in any of the generated prompts. Focus on the industry, problems, and solutions without mentioning the specific company.
+CRITICAL: NEVER include the company name "${contextName}" or domain "${contextDomain}" in any of the generated prompts. Focus on the industry, problems, and solutions without mentioning the specific company.
 ${locationInstructions}
 
 Business Context (for understanding the industry, not for including in prompts):
@@ -177,13 +248,6 @@ Generate 15 diverse, natural search prompts that potential customers might use w
 4. Be conversational and natural (not keyword-stuffed)
 5. Cover different aspects: comparison, recommendations, best practices, selection criteria
 6. NEVER mention the company name, brand name, or domain
-
-Examples of good prompts:
-- "What are the best available AI search tools"
-- "What software should I use for tracking my brand on AI search?"
-- "Which project management tools integrate with AI assistants?"
-- "How do I choose the right marketing automation platform for a small business?"
-- "What's the difference between popular CRM systems?"
 
 Categorize each prompt as one of:
 - "brand_visibility" (for prompts where their brand should appear)
@@ -230,7 +294,6 @@ Return ONLY a JSON array with this exact format:
 
     console.log('Generated content:', generatedContent);
 
-    // Parse the JSON response
     let suggestions;
     try {
       suggestions = JSON.parse(generatedContent);
@@ -253,7 +316,7 @@ Return ONLY a JSON array with this exact format:
                            existingSuggestionTexts.includes(suggestion.text.toLowerCase());
         return isValid && !isDuplicate;
       })
-      .slice(0, 10); // Limit to 10 new suggestions
+      .slice(0, 10);
 
     if (newSuggestions.length === 0) {
       console.log('No new unique suggestions generated');
@@ -267,21 +330,40 @@ Return ONLY a JSON array with this exact format:
       );
     }
 
+    // Fetch Google Trends data if SerpAPI key is available
+    const serpApiKey = Deno.env.get('SERPAPI_KEY');
+    let trendsData = new Map<string, number | null>();
+    
+    if (serpApiKey) {
+      console.log(`Fetching Google Trends data for ${newSuggestions.length} suggestions...`);
+      const queries = newSuggestions.map((s: any) => s.text);
+      trendsData = await batchGetTrendsData(queries, serpApiKey);
+      console.log(`Got trends data for ${trendsData.size} queries`);
+    } else {
+      console.log('SERPAPI_KEY not configured, skipping trends data');
+    }
+
     // Map AI-generated sources to valid database values
     const mapSourceToDatabase = (aiSource: string): string => {
-      const mapping = {
+      const mapping: Record<string, string> = {
         'competitor_analysis': 'competitors',
         'brand_visibility': 'industry', 
         'market_research': 'trends'
       };
-      return mapping[aiSource as keyof typeof mapping] || 'gap';
+      return mapping[aiSource] || 'gap';
     };
 
-    // Insert suggestions into database
-    const insertData = newSuggestions.map(suggestion => ({
+    // Insert suggestions into database with brand_id and search_volume
+    const insertData = newSuggestions.map((suggestion: any) => ({
       org_id: userData.org_id,
+      brand_id: brandId || null,
       text: suggestion.text.trim(),
       source: mapSourceToDatabase(suggestion.source),
+      search_volume: trendsData.get(suggestion.text) ?? null,
+      metadata: {
+        reasoning: suggestion.reasoning,
+        generated_for_brand: brandContext?.name || null
+      }
     }));
 
     const { error: insertError } = await supabase
@@ -293,12 +375,14 @@ Return ONLY a JSON array with this exact format:
       throw new Error('Failed to save suggestions to database');
     }
 
-    console.log(`Successfully created ${newSuggestions.length} new suggestions`);
+    console.log(`Successfully created ${newSuggestions.length} new suggestions for brand: ${brandContext?.name || 'org-level'}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         suggestionsCreated: newSuggestions.length,
+        trendsDataFetched: trendsData.size,
+        brandId: brandId,
         suggestions: newSuggestions.map(s => ({ text: s.text, source: s.source }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -308,7 +392,7 @@ Return ONLY a JSON array with this exact format:
     console.error('Error in suggest-prompts-now function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error',
+        error: (error as Error).message || 'Internal server error',
         success: false 
       }),
       {

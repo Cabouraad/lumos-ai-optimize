@@ -9,16 +9,23 @@ import { getOrgId } from '@/lib/auth';
 const isValidUUID = (id: string | null | undefined) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
 
-export async function getSuggestedPrompts() {
+export async function getSuggestedPrompts(brandId?: string | null) {
   try {
     const orgId = await getOrgId();
     if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please retry in a moment.');
 
-    const { data: suggestions, error } = await supabase
+    let query = supabase
       .from('suggested_prompts')
-      .select('id, text, source, created_at, accepted, search_volume')
+      .select('id, text, source, created_at, accepted, search_volume, brand_id')
       .eq('org_id', orgId)
-      .eq('accepted', false)
+      .eq('accepted', false);
+    
+    // Filter by brand if provided
+    if (brandId && isValidUUID(brandId)) {
+      query = query.eq('brand_id', brandId);
+    }
+
+    const { data: suggestions, error } = await query
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -102,7 +109,7 @@ export async function dismissSuggestion(suggestionId: string) {
   }
 }
 
-export async function generateSuggestionsNow() {
+export async function generateSuggestionsNow(brandId?: string | null) {
   try {
     // Check if business context is filled before generating suggestions
     const orgId = await getOrgId();
@@ -131,12 +138,12 @@ export async function generateSuggestionsNow() {
 
     // Create timeout promise
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timed out - please try again')), 60000); // 60 second timeout
+      setTimeout(() => reject(new Error('Request timed out - please try again')), 60000);
     });
 
-    // Create the function call promise
+    // Create the function call promise with brandId
     const functionPromise = supabase.functions.invoke('suggest-prompts-now', {
-      body: {},
+      body: { brandId: brandId || null },
       headers: {
         'Content-Type': 'application/json',
       },
