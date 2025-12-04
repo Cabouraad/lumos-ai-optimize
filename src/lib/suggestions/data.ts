@@ -14,15 +14,19 @@ export async function getSuggestedPrompts(brandId?: string | null) {
     const orgId = await getOrgId();
     if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please retry in a moment.');
 
+    console.log('[getSuggestedPrompts] Fetching for brandId:', brandId, 'orgId:', orgId);
+
+    // When a brand is selected, show both brand-specific AND org-level (null brand_id) suggestions
+    // This ensures users see relevant suggestions even if they were generated at org level
     let query = supabase
       .from('suggested_prompts')
       .select('id, text, source, created_at, accepted, search_volume, brand_id')
       .eq('org_id', orgId)
       .eq('accepted', false);
     
-    // Filter by brand if provided
+    // Filter by brand OR null brand_id (org-level suggestions visible to all brands)
     if (brandId && isValidUUID(brandId)) {
-      query = query.eq('brand_id', brandId);
+      query = query.or(`brand_id.eq.${brandId},brand_id.is.null`);
     }
 
     const { data: suggestions, error } = await query
@@ -31,6 +35,7 @@ export async function getSuggestedPrompts(brandId?: string | null) {
 
     if (error) throw error;
 
+    console.log('[getSuggestedPrompts] Found', suggestions?.length || 0, 'suggestions');
     return suggestions ?? [];
   } catch (error) {
     console.error('Suggested prompts data error:', error);
@@ -115,6 +120,8 @@ export async function generateSuggestionsNow(brandId?: string | null) {
     const orgId = await getOrgId();
     if (!isValidUUID(orgId)) throw new Error('Organization not initialized yet. Please complete setup and try again.');
     
+    console.log('[generateSuggestionsNow] Starting with brandId:', brandId);
+
     const { data: orgData, error: orgError } = await supabase
       .from('organizations')
       .select('business_description, products_services, target_audience, keywords')
@@ -141,16 +148,19 @@ export async function generateSuggestionsNow(brandId?: string | null) {
       setTimeout(() => reject(new Error('Request timed out - please try again')), 60000);
     });
 
+    // Ensure brandId is passed correctly - use undefined check to preserve valid null
+    const bodyPayload = { brandId: brandId ?? null };
+    console.log('[generateSuggestionsNow] Invoking edge function with:', bodyPayload);
+
     // Create the function call promise with brandId
     const functionPromise = supabase.functions.invoke('suggest-prompts-now', {
-      body: { brandId: brandId || null },
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      body: bodyPayload,
     });
 
     // Race between timeout and function call
     const result = await Promise.race([functionPromise, timeoutPromise]) as any;
+    
+    console.log('[generateSuggestionsNow] Edge function result:', result.data);
     
     if (result.error) {
       console.error('Supabase function error:', result.error);
