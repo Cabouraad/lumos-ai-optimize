@@ -421,11 +421,12 @@ Deno.serve(async (req) => {
 
     console.log('Processing auto-fill for user:', user.id)
 
-    // Get request body to check for domain override
+    // Get request body to check for domain override and brandId
     const requestBody = await req.json().catch(() => ({}))
     const domainOverride = requestBody?.domain
+    const brandId = requestBody?.brandId
 
-    console.log('Request body:', { domainOverride })
+    console.log('Request body:', { domainOverride, brandId })
 
     // Try to get user's organization, but don't fail if it doesn't exist
     const { data: userData } = await supabaseClient
@@ -435,7 +436,22 @@ Deno.serve(async (req) => {
       .single()
 
     let orgData = null
+    let brandData = null
     let targetDomain = domainOverride
+
+    // If brandId is provided, get brand data first
+    if (brandId) {
+      const { data: brandResult } = await supabaseClient
+        .from('brands')
+        .select('id, name, domain, org_id')
+        .eq('id', brandId)
+        .single()
+      
+      brandData = brandResult
+      if (brandData?.domain && !domainOverride) {
+        targetDomain = brandData.domain
+      }
+    }
 
     // If we have an org_id, try to get organization data
     if (userData?.org_id) {
@@ -446,7 +462,8 @@ Deno.serve(async (req) => {
         .single()
       
       orgData = orgResult
-      if (orgData?.domain && !domainOverride) {
+      // Only use org domain if we don't have a brand domain
+      if (orgData?.domain && !targetDomain) {
         targetDomain = orgData.domain
       }
     }
@@ -494,8 +511,18 @@ Deno.serve(async (req) => {
       console.log('All content acquisition methods failed - generating instructional context')
       const instructionalContext = generateSyntheticContext(targetDomain, orgData?.name, [])
       
-      // Still try to update organization if it exists
-      if (userData?.org_id && orgData) {
+      // Update brand or organization with fallback context
+      if (brandId && brandData) {
+        await supabaseClient
+          .from('brands')
+          .update({
+            keywords: instructionalContext.keywords,
+            business_description: instructionalContext.business_description,
+            products_services: instructionalContext.products_services,
+            target_audience: instructionalContext.target_audience
+          })
+          .eq('id', brandId)
+      } else if (userData?.org_id && orgData) {
         await supabaseClient
           .from('organizations')
           .update({
@@ -715,7 +742,17 @@ RESPOND WITH ONLY THE JSON OBJECT - NO MARKDOWN, NO EXPLANATIONS:
       // Use synthetic context with meta keywords as fallback
       const instructionalContext = generateSyntheticContext(targetDomain, orgData?.name, metaKeywords);
 
-      if (userData?.org_id && orgData) {
+      if (brandId && brandData) {
+        await supabaseClient
+          .from('brands')
+          .update({
+            keywords: instructionalContext.keywords,
+            business_description: instructionalContext.business_description,
+            products_services: instructionalContext.products_services,
+            target_audience: instructionalContext.target_audience
+          })
+          .eq('id', brandId);
+      } else if (userData?.org_id && orgData) {
         await supabaseClient
           .from('organizations')
           .update({
@@ -762,8 +799,25 @@ RESPOND WITH ONLY THE JSON OBJECT - NO MARKDOWN, NO EXPLANATIONS:
       model: 'gemini-2.5-flash'
     })
 
-    // Update organization if it exists
-    if (userData?.org_id && orgData) {
+    // Update brand if brandId provided, otherwise update organization
+    if (brandId && brandData) {
+      const { error: updateError } = await supabaseClient
+        .from('brands')
+        .update({
+          keywords: businessContext.keywords,
+          business_description: businessContext.business_description,
+          products_services: businessContext.products_services,
+          target_audience: businessContext.target_audience
+        })
+        .eq('id', brandId)
+
+      if (updateError) {
+        console.error('Brand update error:', updateError)
+      } else {
+        console.log('Successfully updated brand business context in database')
+      }
+    } else if (userData?.org_id && orgData) {
+      // Fallback to org-level update for backward compatibility
       const { error: updateError } = await supabaseClient
         .from('organizations')
         .update({
@@ -776,9 +830,9 @@ RESPOND WITH ONLY THE JSON OBJECT - NO MARKDOWN, NO EXPLANATIONS:
         .eq('id', userData.org_id)
 
       if (updateError) {
-        console.error('Database update error:', updateError)
+        console.error('Organization update error:', updateError)
       } else {
-        console.log('Successfully updated business context in database')
+        console.log('Successfully updated organization business context in database')
       }
     }
 
