@@ -71,6 +71,9 @@ ENABLE_GOOGLE_AIO = "true"
 [functions.suggest-prompts-now]
 verify_jwt = true
 
+[functions.backfill-search-volume]
+verify_jwt = true
+
 [functions.onboarding]
 verify_jwt = true
 

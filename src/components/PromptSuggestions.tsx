@@ -20,11 +20,14 @@ import {
   TrendingUp,
   Brain,
   Search,
-  Database
+  Database,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from '@/lib/org/data';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useBrand } from '@/contexts/BrandContext';
 
 interface Suggestion {
   id: string;
@@ -189,6 +192,7 @@ export function PromptSuggestions({
 }: PromptSuggestionsProps) {
   const { toast } = useToast();
   const { loading: authLoading, user, orgData } = useAuth();
+  const { selectedBrand } = useBrand();
   const [orgSettings, setOrgSettings] = useState<OrganizationKeywords>({
     keywords: [],
     products_services: "",
@@ -201,6 +205,50 @@ export function PromptSuggestions({
   });
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Count suggestions with missing search volume
+  const missingVolumeCount = suggestions.filter(s => s.search_volume === null || s.search_volume === undefined).length;
+
+  const handleBackfillVolume = async () => {
+    try {
+      setBackfilling(true);
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await supabase.functions.invoke('backfill-search-volume', {
+        body: { 
+          brandId: selectedBrand?.id || null,
+          limit: 20 
+        },
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      const result = response.data;
+      
+      toast({
+        title: "Search Volume Updated",
+        description: result.message || `Updated ${result.updated} suggestions`,
+      });
+
+      // Trigger a refresh of suggestions
+      onSettingsUpdated?.();
+    } catch (error) {
+      console.error('Failed to backfill search volume:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch search volume data",
+        variant: "destructive",
+      });
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   useEffect(() => {
     // Wait for auth to be ready and org data to be available
@@ -408,23 +456,55 @@ export function PromptSuggestions({
                   : "Get intelligent prompt suggestions tailored to your brand and industry"}
               </CardDescription>
             </div>
-            <Button
-              onClick={onGenerate}
-              disabled={generating}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-soft"
-            >
-              {generating ? (
-                <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {suggestions.length > 0 ? 'Generate More' : 'Generate Suggestions'}
-                </>
+            <div className="flex items-center gap-2">
+              {/* Backfill button - show when there are suggestions with missing volume */}
+              {missingVolumeCount > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={handleBackfillVolume}
+                        disabled={backfilling || generating}
+                        className="border-primary/20"
+                      >
+                        {backfilling ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <TrendingUp className="mr-2 h-4 w-4" />
+                            Fetch Volume ({missingVolumeCount})
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Fetch search volume data for {missingVolumeCount} suggestions</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
-            </Button>
+              <Button
+                onClick={onGenerate}
+                disabled={generating || backfilling}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-soft"
+              >
+                {generating ? (
+                  <>
+                    <Clock className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {suggestions.length > 0 ? 'Generate More' : 'Generate Suggestions'}
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
