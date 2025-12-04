@@ -51,8 +51,10 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
 
   let rows = (data ?? []) as CompetitorSummaryRow[];
 
-  // Fallback: if RPC returns empty, derive top competitors from brand_catalog
-  if (!rows || rows.length === 0) {
+  // Fallback: if RPC returns empty AND no specific brand is selected, derive top competitors from brand_catalog
+  // IMPORTANT: When a brandId is specified, do NOT fall back to org-level data - return empty instead
+  // This ensures proper brand isolation (each brand sees only its own competitor data)
+  if ((!rows || rows.length === 0) && !filters.brandId) {
     // First, get excluded competitors for this org
     const { data: exclusions } = await sb
       .from('org_competitor_exclusions')
@@ -63,7 +65,7 @@ export async function fetchCompetitorsV2(filters: CompetitorFilters = {}): Promi
       (exclusions || []).map(e => e.competitor_name.toLowerCase().trim())
     );
 
-    // Build brand_catalog query with brand filtering
+    // Build brand_catalog query - only used for org-level (no brand selected) fallback
     let bcQuery = sb
       .from('brand_catalog')
       .select('name,total_appearances,first_detected_at,last_seen_at,average_score')
