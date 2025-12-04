@@ -14,13 +14,15 @@ import { HelpTooltip } from '@/components/HelpTooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Building2 } from 'lucide-react';
 import { getAllowedProviders, type ProviderName, type SubscriptionTier } from '@/lib/providers/tier-policy';
 import { Bot, Search, Sparkles, Globe } from 'lucide-react';
 import { signOutWithCleanup } from '@/lib/auth-cleanup';
+import { useBrand } from '@/contexts/BrandContext';
 
 export default function Settings() {
   const { user } = useAuth();
+  const { selectedBrand } = useBrand();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { hasAccessToApp } = useSubscriptionGate();
@@ -258,6 +260,35 @@ export default function Settings() {
         </section>
 
 
+        {/* Current Brand Section - show when brand is selected */}
+        {selectedBrand && (
+          <section className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="h-4 w-4 text-primary" />
+              <h2 className="font-medium">Current Brand</h2>
+              <HelpTooltip content="The brand you're currently viewing. Settings on this page apply to this brand's context." />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Brand Name</div>
+                <input className="w-full border rounded-lg p-2 bg-muted" value={selectedBrand.name} readOnly />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Brand Domain</div>
+                <input className="w-full border rounded-lg p-2 bg-muted" value={selectedBrand.domain} readOnly />
+              </div>
+            </div>
+            <div className="mt-3">
+              <Link 
+                to="/brands"
+                className="inline-block rounded-lg border px-3 py-2 hover:bg-muted transition-colors text-sm"
+              >
+                Manage Brands
+              </Link>
+            </div>
+          </section>
+        )}
+
         <section className="rounded-xl border p-4">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="font-medium">Organization</h2>
@@ -290,7 +321,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-muted-foreground mb-1">Domain</div>
-              <input className="w-full border rounded-lg p-2 bg-muted" value={orgData.domain} readOnly />
+              <input className="w-full border rounded-lg p-2 bg-muted" value={selectedBrand?.domain || orgData.domain} readOnly />
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1">Status</div>
