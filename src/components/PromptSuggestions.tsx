@@ -36,7 +36,7 @@ interface Suggestion {
 
 // Format search volume as human-readable estimate
 function formatSearchVolume(volume: number | null | undefined): string {
-  if (volume === null || volume === undefined) return '';
+  if (volume === null || volume === undefined) return 'Est. pending';
   // Google Trends returns 0-100 scale, estimate monthly searches
   // Rough estimate: 100 = ~100K+, 50 = ~10K, 10 = ~1K
   if (volume >= 80) return '100K+ monthly';
@@ -49,7 +49,7 @@ function formatSearchVolume(volume: number | null | undefined): string {
 }
 
 function getVolumeColor(volume: number | null | undefined): string {
-  if (volume === null || volume === undefined) return 'text-muted-foreground';
+  if (volume === null || volume === undefined) return 'text-muted-foreground/70';
   if (volume >= 60) return 'text-success';
   if (volume >= 30) return 'text-warning';
   return 'text-muted-foreground';
@@ -453,25 +453,27 @@ export function PromptSuggestions({
                       <span className="text-xs text-muted-foreground">
                         {new Date(suggestion.created_at).toLocaleDateString()}
                       </span>
-                      {/* Search volume indicator */}
-                      {suggestion.search_volume !== null && suggestion.search_volume !== undefined && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge 
-                                variant="secondary" 
-                                className={`text-xs flex items-center gap-1 ${getVolumeColor(suggestion.search_volume)}`}
-                              >
-                                <TrendingUp className="h-3 w-3" />
-                                {formatSearchVolume(suggestion.search_volume)}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Estimated monthly searches based on Google Trends data</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      {/* Search volume indicator - always shown */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge 
+                              variant="secondary" 
+                              className={`text-xs flex items-center gap-1 ${getVolumeColor(suggestion.search_volume)}`}
+                            >
+                              <TrendingUp className="h-3 w-3" />
+                              {formatSearchVolume(suggestion.search_volume)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {suggestion.search_volume === null || suggestion.search_volume === undefined 
+                                ? 'Search volume data is being collected'
+                                : 'Estimated monthly searches based on Google Trends data'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
 
                     {/* Suggestion text */}
