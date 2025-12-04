@@ -51,11 +51,12 @@ function formatSearchVolume(volume: number | null | undefined): string {
   return 'Low volume';
 }
 
-function getVolumeColor(volume: number | null | undefined): string {
-  if (volume === null || volume === undefined) return 'text-muted-foreground/70';
-  if (volume >= 60) return 'text-success';
-  if (volume >= 30) return 'text-warning';
-  return 'text-muted-foreground';
+function getVolumeBadgeStyle(volume: number | null | undefined): string {
+  if (volume === null || volume === undefined) return 'bg-muted/80 text-muted-foreground border-muted';
+  if (volume >= 60) return 'bg-success/20 text-success border-success/30';
+  if (volume >= 30) return 'bg-warning/20 text-warning border-warning/30';
+  if (volume > 0) return 'bg-primary/20 text-primary border-primary/30';
+  return 'bg-muted text-muted-foreground border-muted';
 }
 
 // Progress indicator component for prompt generation
@@ -538,8 +539,8 @@ export function PromptSuggestions({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Badge 
-                              variant="secondary" 
-                              className={`text-xs flex items-center gap-1 ${getVolumeColor(suggestion.search_volume)}`}
+                              variant="outline" 
+                              className={`text-xs flex items-center gap-1 font-medium ${getVolumeBadgeStyle(suggestion.search_volume)}`}
                             >
                               <TrendingUp className="h-3 w-3" />
                               {formatSearchVolume(suggestion.search_volume)}
