@@ -193,6 +193,44 @@ Deno.serve(async (req) => {
         console.log(`Found ${excludedCompetitors.size} excluded competitors for org ${orgId}`);
       }
 
+      // CRITICAL: Get org brands to prevent adding them as competitors
+      const { data: orgBrands } = await supabase
+        .from('brand_catalog')
+        .select('name, variants_json')
+        .eq('org_id', orgId)
+        .eq('is_org_brand', true);
+      
+      // Build set of all org brand names and variants (lowercase)
+      const orgBrandNames = new Set<string>();
+      for (const brand of orgBrands || []) {
+        orgBrandNames.add(brand.name.toLowerCase().trim());
+        for (const variant of brand.variants_json || []) {
+          if (typeof variant === 'string') {
+            orgBrandNames.add(variant.toLowerCase().trim());
+          }
+        }
+      }
+      
+      // Also add org name and domain from organizations table
+      const { data: orgDetails } = await supabase
+        .from('organizations')
+        .select('name, domain')
+        .eq('id', orgId)
+        .single();
+      
+      if (orgDetails) {
+        orgBrandNames.add(orgDetails.name.toLowerCase().trim());
+        if (orgDetails.domain) {
+          // Add domain without TLD as potential brand match
+          const domainName = orgDetails.domain.toLowerCase().replace(/\.(com|org|net|io|co|ai).*$/, '').trim();
+          orgBrandNames.add(domainName);
+        }
+      }
+      
+      if (orgBrandNames.size > 0) {
+        console.log(`Found ${orgBrandNames.size} org brand names/variants to exclude for org ${orgId}`);
+      }
+
       // Get existing competitors for this org
       const { data: existingCompetitors, error: existingError } = await supabase
         .from('brand_catalog')
@@ -210,6 +248,12 @@ Deno.serve(async (req) => {
       // Process competitors with frequency threshold
       for (const [competitorName, data] of competitorMap) {
         const normalizedName = competitorName.toLowerCase().trim();
+        
+        // CRITICAL: Skip if this is an org brand (prevent self-competitor)
+        if (orgBrandNames.has(normalizedName)) {
+          console.log(`Skipping org brand detected as competitor: ${competitorName}`);
+          continue;
+        }
         
         // Check if competitor is excluded - if so, delete it from catalog if it exists
         if (excludedCompetitors.has(normalizedName)) {
