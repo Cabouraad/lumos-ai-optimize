@@ -309,6 +309,7 @@ export type Database = {
       brand_catalog: {
         Row: {
           average_score: number | null
+          brand_id: string | null
           first_detected_at: string | null
           id: string
           is_org_brand: boolean
@@ -320,6 +321,7 @@ export type Database = {
         }
         Insert: {
           average_score?: number | null
+          brand_id?: string | null
           first_detected_at?: string | null
           id?: string
           is_org_brand?: boolean
@@ -331,6 +333,7 @@ export type Database = {
         }
         Update: {
           average_score?: number | null
+          brand_id?: string | null
           first_detected_at?: string | null
           id?: string
           is_org_brand?: boolean
@@ -341,6 +344,13 @@ export type Database = {
           variants_json?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "brand_catalog_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "brand_catalog_org_id_fkey"
             columns: ["org_id"]
