@@ -20,9 +20,9 @@ export function useAISourceIntelligence(orgId: string | undefined, limit?: numbe
         .select('*')
         .eq('org_id', orgId);
 
-      // Apply brand filter if specified, showing brand-specific data OR unassigned data
+      // Apply brand filter - show only brand-specific data when brand is selected
       if (brandId && brandId !== 'null') {
-        query = query.or(`brand_id.eq.${brandId},brand_id.is.null`);
+        query = query.eq('brand_id', brandId);
       }
 
       const { data, error } = await query

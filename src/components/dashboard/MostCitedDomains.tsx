@@ -45,9 +45,9 @@ export function MostCitedDomains({ orgId, brandId }: MostCitedDomainsProps) {
         .gte('run_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .not('citations_json', 'is', null);
 
-      // Filter by brand if specified
+      // Filter by brand - show only brand-specific data when brand is selected
       if (brandId && brandId !== 'null') {
-        query = query.or(`brand_id.eq.${brandId},brand_id.is.null`);
+        query = query.eq('brand_id', brandId);
       }
 
       const { data, error } = await query;
