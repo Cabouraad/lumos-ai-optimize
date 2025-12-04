@@ -419,8 +419,15 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
   // SUBSCRIPTION ACCESS CALCULATION
   // ============================================================================
 
+  // SECURITY: Access granted if:
+  // 1. User has active paid subscription (subscribed=true with a paid tier)
+  // 2. OR user is on active trial WITH payment method collected
   const hasAccess = subscriptionData ? (
-    (subscriptionData.subscribed && subscriptionData.payment_collected === true) ||
+    // Active paid subscription - subscribed flag is set by Stripe sync or manual override
+    (subscriptionData.subscribed === true && 
+      subscriptionData.subscription_tier && 
+      subscriptionData.subscription_tier !== 'free') ||
+    // Active trial with payment collected (security requirement for trials)
     (subscriptionData.trial_expires_at &&
       new Date(subscriptionData.trial_expires_at) > new Date() &&
       subscriptionData.payment_collected === true)
