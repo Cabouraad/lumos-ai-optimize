@@ -470,7 +470,7 @@ export default function Dashboard() {
           {/* Quick Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* AI Source Intelligence */}
-            <AISourceIntelligence orgId={orgData?.organizations?.id} />
+            <AISourceIntelligence orgId={orgData?.organizations?.id} brandId={selectedBrand?.id} />
 
             {/* Recommendations Card - Show to all users */}
             <Card className="bg-card/80 backdrop-blur-sm border shadow-soft">
@@ -535,10 +535,10 @@ export default function Dashboard() {
             </Card>
 
             {/* Most Cited Domains Card */}
-            <MostCitedDomains orgId={orgData?.organizations?.id} />
+            <MostCitedDomains orgId={orgData?.organizations?.id} brandId={selectedBrand?.id} />
 
             {/* Citation Trends Card */}
-            <CitationTrends orgId={orgData?.organizations?.id} days={30} />
+            <CitationTrends orgId={orgData?.organizations?.id} days={30} brandId={selectedBrand?.id} />
           </div>
 
           {/* Admin Panel for Test Users */}

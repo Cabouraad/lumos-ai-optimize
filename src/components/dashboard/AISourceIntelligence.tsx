@@ -8,11 +8,12 @@ import { useNavigate } from 'react-router-dom';
 
 interface AISourceIntelligenceProps {
   orgId: string | undefined;
+  brandId?: string | null;
 }
 
-export function AISourceIntelligence({ orgId }: AISourceIntelligenceProps) {
+export function AISourceIntelligence({ orgId, brandId }: AISourceIntelligenceProps) {
   const navigate = useNavigate();
-  const { data: sources, isLoading } = useAISourceIntelligence(orgId, 5);
+  const { data: sources, isLoading } = useAISourceIntelligence(orgId, 5, brandId);
 
   if (isLoading) {
     return (
