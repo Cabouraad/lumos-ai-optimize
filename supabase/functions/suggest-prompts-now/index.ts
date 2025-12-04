@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     if (brandId) {
       const { data: brand, error: brandError } = await supabase
         .from('brands')
-        .select('id, name, domain')
+        .select('id, name, domain, business_description, products_services, keywords, target_audience')
         .eq('id', brandId)
         .eq('org_id', userData.org_id)
         .single();
@@ -123,6 +123,8 @@ Deno.serve(async (req) => {
       if (!brandError && brand) {
         brandContext = brand;
         console.log(`Using brand context: ${brand.name} (${brand.id})`);
+        console.log(`Brand has business_description: ${!!brand.business_description}`);
+        console.log(`Brand has keywords: ${!!brand.keywords?.length}`);
       }
     }
 
@@ -157,6 +159,15 @@ Deno.serve(async (req) => {
     // Use brand context if available, otherwise fall back to org context
     const contextName = brandContext?.name || orgData.name;
     const contextDomain = brandContext?.domain || orgData.domain;
+    
+    // CRITICAL: Use brand-level business context when available, fall back to org-level
+    const businessDescription = brandContext?.business_description || orgData.business_description;
+    const productsServices = brandContext?.products_services || orgData.products_services;
+    const keywords = brandContext?.keywords || orgData.keywords;
+    const targetAudience = brandContext?.target_audience || orgData.target_audience;
+    
+    console.log(`Context source for ${contextName}: ${brandContext?.business_description ? 'brand-level' : 'org-level'}`);
+    console.log(`Keywords being used:`, keywords?.slice(0, 5) || 'none');
 
     // Get existing prompts to avoid duplicates - filter by brand if provided
     let promptsQuery = supabase
@@ -237,10 +248,10 @@ CRITICAL: NEVER include the company name "${contextName}" or domain "${contextDo
 ${locationInstructions}
 
 Business Context (for understanding the industry, not for including in prompts):
-- Industry/Description: ${orgData.business_description || 'Not specified'}
-- Products/Services: ${orgData.products_services || 'Not specified'}
-- Keywords: ${orgData.keywords?.join(', ') || 'Not specified'}
-- Target Audience: ${orgData.target_audience || 'Not specified'}${locationContext}
+- Industry/Description: ${businessDescription || 'Not specified'}
+- Products/Services: ${productsServices || 'Not specified'}
+- Keywords: ${keywords?.join(', ') || 'Not specified'}
+- Target Audience: ${targetAudience || 'Not specified'}${locationContext}
 
 Generate 15 diverse, natural search prompts that potential customers might use when looking for solutions in this industry. Each prompt should:
 

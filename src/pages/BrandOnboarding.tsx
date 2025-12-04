@@ -123,19 +123,28 @@ export default function BrandOnboarding() {
     setLoading(true);
 
     try {
-      // Update organization with brand-specific context
-      const { error } = await supabase
-        .from('organizations')
+      // Update brand with brand-specific context (NOT organization)
+      const { error: brandError } = await supabase
+        .from('brands')
         .update({
           keywords: formData.keywords.split(',').map(k => k.trim()).filter(Boolean),
-          competitors: formData.competitors.split(',').map(c => c.trim()).filter(Boolean),
           business_description: formData.business_description,
           products_services: formData.products_services,
           target_audience: formData.target_audience
         })
-        .eq('id', orgData.org_id);
+        .eq('id', createdBrandId);
 
-      if (error) throw error;
+      if (brandError) throw brandError;
+
+      // Also update competitors at org level if provided (competitors are shared)
+      if (formData.competitors) {
+        await supabase
+          .from('organizations')
+          .update({
+            competitors: formData.competitors.split(',').map(c => c.trim()).filter(Boolean)
+          })
+          .eq('id', orgData.org_id);
+      }
 
       toast({
         title: "Business Context Saved!",

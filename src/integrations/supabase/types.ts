@@ -359,30 +359,42 @@ export type Database = {
       }
       brands: {
         Row: {
+          business_description: string | null
           created_at: string
           domain: string
           id: string
           is_primary: boolean
+          keywords: string[] | null
           name: string
           org_id: string
+          products_services: string | null
+          target_audience: string | null
           updated_at: string
         }
         Insert: {
+          business_description?: string | null
           created_at?: string
           domain: string
           id?: string
           is_primary?: boolean
+          keywords?: string[] | null
           name: string
           org_id: string
+          products_services?: string | null
+          target_audience?: string | null
           updated_at?: string
         }
         Update: {
+          business_description?: string | null
           created_at?: string
           domain?: string
           id?: string
           is_primary?: boolean
+          keywords?: string[] | null
           name?: string
           org_id?: string
+          products_services?: string | null
+          target_audience?: string | null
           updated_at?: string
         }
         Relationships: [
