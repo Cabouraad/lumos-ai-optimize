@@ -9,6 +9,7 @@ import { getOrgId } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, Eye, Calendar, TrendingUp, Sparkles, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useBrand } from '@/contexts/BrandContext';
 
 interface CompetitorCatalogEntry {
   id: string;
@@ -18,7 +19,8 @@ interface CompetitorCatalogEntry {
   last_seen_at: string;
   total_appearances: number;
   average_score: number;
-  variants_json: any; // Using any for Json type from Supabase
+  variants_json: any;
+  brand_id: string | null;
 }
 
 interface CleanupResult {
@@ -74,22 +76,31 @@ export function CompetitorCatalog() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const { toast } = useToast();
+  const { selectedBrand } = useBrand();
 
   useEffect(() => {
     fetchCatalog();
-  }, []);
+  }, [selectedBrand?.id]); // Re-fetch when brand changes
 
   const fetchCatalog = async () => {
     try {
       setLoading(true);
       const orgId = await getOrgId();
 
-      const { data, error } = await supabase
+      // Build query with brand filtering
+      let query = supabase
         .from('brand_catalog')
         .select('*')
         .eq('org_id', orgId)
         .eq('is_org_brand', false)
         .order('total_appearances', { ascending: false });
+
+      // Filter by brand if one is selected
+      if (selectedBrand?.id) {
+        query = query.eq('brand_id', selectedBrand.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching competitor catalog:', error);

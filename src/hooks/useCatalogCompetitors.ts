@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrgId } from '@/lib/auth';
+import { useBrand } from '@/contexts/BrandContext';
 
 interface CatalogCompetitor {
   id: string;
@@ -9,12 +10,14 @@ interface CatalogCompetitor {
   is_org_brand: boolean;
   total_appearances: number;
   last_seen_at: string;
+  brand_id: string | null;
 }
 
 export function useCatalogCompetitors() {
   const [competitors, setCompetitors] = useState<CatalogCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const { ready, user } = useAuth();
+  const { selectedBrand } = useBrand();
 
   useEffect(() => {
     // Wait for auth to be ready and user to be authenticated
@@ -25,19 +28,27 @@ export function useCatalogCompetitors() {
       return;
     }
     fetchCatalogCompetitors();
-  }, [ready, user]);
+  }, [ready, user, selectedBrand?.id]); // Re-fetch when brand changes
 
   const fetchCatalogCompetitors = async () => {
     try {
       setLoading(true);
       const orgId = await getOrgId();
 
-      const { data, error } = await supabase
+      // Build query with brand filtering
+      let query = supabase
         .from('brand_catalog')
-        .select('id, name, is_org_brand, total_appearances, last_seen_at')
+        .select('id, name, is_org_brand, total_appearances, last_seen_at, brand_id')
         .eq('org_id', orgId)
         .eq('is_org_brand', false)
         .order('total_appearances', { ascending: false });
+
+      // Filter by brand if one is selected
+      if (selectedBrand?.id) {
+        query = query.eq('brand_id', selectedBrand.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching catalog competitors:', error);
