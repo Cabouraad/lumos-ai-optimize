@@ -305,7 +305,29 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
 
     } catch (err) {
       console.error('[UnifiedAuthProvider] Error fetching user data:', err);
-      setUserError(err instanceof Error ? err.message : 'Failed to load user data');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load user data';
+      
+      // Detect auth-related errors (permission denied, invalid token, session not found)
+      const isAuthError = errorMessage.includes('permission denied') ||
+        errorMessage.includes('42501') ||
+        errorMessage.includes('Invalid token') ||
+        errorMessage.includes('session_not_found') ||
+        errorMessage.includes('Unauthorized');
+      
+      if (isAuthError) {
+        console.warn('[UnifiedAuthProvider] Auth error detected, clearing session');
+        try {
+          localStorage.removeItem('sb-cgocsffxqyhojtyzniyz-auth-token');
+        } catch (e) {
+          // Ignore storage errors
+        }
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        clearOrgIdCache();
+      }
+      
+      setUserError(errorMessage);
       setUserData(null);
       setOrgId(null);
       
@@ -333,20 +355,40 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
   useEffect(() => {
     let isMounted = true;
 
+    const clearInvalidSession = async () => {
+      console.warn('[UnifiedAuthProvider] Clearing invalid session from storage');
+      // Explicitly clear localStorage to prevent stale token usage
+      try {
+        localStorage.removeItem('sb-cgocsffxqyhojtyzniyz-auth-token');
+      } catch (e) {
+        console.warn('[UnifiedAuthProvider] Could not clear localStorage:', e);
+      }
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      clearOrgIdCache();
+    };
+
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
+        // Handle session retrieval errors (session_not_found, etc.)
+        if (sessionError) {
+          console.warn('[UnifiedAuthProvider] Session error:', sessionError.message);
+          await clearInvalidSession();
+          return;
+        }
+        
         if (session) {
+          // Validate session against server - this catches stale/expired sessions
           const { data: { user }, error } = await supabase.auth.getUser();
           
           if (error || !user) {
             console.warn('[UnifiedAuthProvider] Session invalid, clearing:', error?.message);
-            await supabase.auth.signOut();
-            setSession(null);
-            setUser(null);
+            await clearInvalidSession();
           } else {
             setSession(session);
             setUser(user);
@@ -357,9 +399,7 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
         }
       } catch (error) {
         console.error('[UnifiedAuthProvider] Error getting initial session:', error);
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
+        await clearInvalidSession();
       } finally {
         if (isMounted) {
           setLoading(false);
