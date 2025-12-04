@@ -63,8 +63,10 @@ function sanitizeCompetitorName(name: string): string {
   // Unicode normalize
   sanitized = sanitized.normalize('NFKC');
   
-  // Remove dangerous characters (control chars, some unicode categories)
-  sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F\p{C}\p{Z}&&[^\x20]]/gu, '');
+  // Remove control characters and invisible unicode
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+  // Remove common invisible unicode characters
+  sanitized = sanitized.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
   
   // Remove script tags and other dangerous patterns
   sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
@@ -167,12 +169,6 @@ Deno.serve(async (req) => {
 
     // Verify user has required role (owner or admin) and get org
     const { org_id: userOrgId, role } = await requireRole(supabase, ['owner', 'admin']);
-
-    // Validate orgId format (UUID)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(orgId)) {
-      return createErrorResponse(422, 'INVALID_ORG_ID', 'Invalid organization ID format');
-    }
 
     // Verify user belongs to the requested organization
     if (userOrgId !== orgId) {
