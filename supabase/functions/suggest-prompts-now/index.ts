@@ -80,8 +80,10 @@ Deno.serve(async (req) => {
     try {
       const body = await req.json();
       brandId = body?.brandId || null;
-    } catch {
-      // Empty body is fine
+      console.log('Received request body:', JSON.stringify(body));
+      console.log('Parsed brandId:', brandId);
+    } catch (e) {
+      console.log('No body provided or parsing failed:', e);
     }
 
     const authHeader = req.headers.get('Authorization');
