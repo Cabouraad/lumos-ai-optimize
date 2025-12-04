@@ -784,6 +784,7 @@ export type Database = {
       }
       llumos_scores: {
         Row: {
+          brand_id: string | null
           composite: number
           created_at: string
           id: string
@@ -798,6 +799,7 @@ export type Database = {
           window_start: string
         }
         Insert: {
+          brand_id?: string | null
           composite: number
           created_at?: string
           id?: string
@@ -812,6 +814,7 @@ export type Database = {
           window_start: string
         }
         Update: {
+          brand_id?: string | null
           composite?: number
           created_at?: string
           id?: string
@@ -826,6 +829,13 @@ export type Database = {
           window_start?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "llumos_scores_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "llumos_scores_org_id_fkey"
             columns: ["org_id"]

@@ -20,6 +20,7 @@ async function getCachedScore(
   orgId: string,
   scope: string,
   promptId: string | null,
+  brandId: string | null,
   maxAgeMs: number = 60 * 60 * 1000 // 1 hour default
 ) {
   const cacheExpiryTime = new Date(Date.now() - maxAgeMs);
@@ -37,6 +38,13 @@ async function getCachedScore(
     cacheQuery = cacheQuery.eq('prompt_id', promptId);
   } else if (scope === 'org') {
     cacheQuery = cacheQuery.is('prompt_id', null);
+  }
+  
+  // Filter by brand_id - critical for brand isolation
+  if (brandId) {
+    cacheQuery = cacheQuery.eq('brand_id', brandId);
+  } else {
+    cacheQuery = cacheQuery.is('brand_id', null);
   }
   
   const { data: existingScore } = await cacheQuery.maybeSingle();
@@ -325,7 +333,7 @@ serve(async (req) => {
     // Check for cached score (both for regular and brand-specific requests)
     // Use 1 hour TTL for regular, 24 hour TTL for brand-specific (to reduce load)
     const cacheTtl = brandId ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
-    const cachedScore = await getCachedScore(serviceClient, orgId, scope, promptId, cacheTtl);
+    const cachedScore = await getCachedScore(serviceClient, orgId, scope, promptId, brandId, cacheTtl);
     
     if (!force && cachedScore) {
       const cacheAge = Math.round((Date.now() - new Date(cachedScore.updated_at || cachedScore.created_at).getTime()) / 1000 / 60);
@@ -363,7 +371,8 @@ serve(async (req) => {
         serviceClient, 
         orgId, 
         scope, 
-        promptId, 
+        promptId,
+        brandId,
         365 * 24 * 60 * 60 * 1000 // 1 year - basically any cached score
       );
       
@@ -410,10 +419,18 @@ serve(async (req) => {
       conflictQuery = conflictQuery.is('prompt_id', null);
     }
     
+    // Apply brand filter for brand isolation
+    if (brandId) {
+      conflictQuery = conflictQuery.eq('brand_id', brandId);
+    } else {
+      conflictQuery = conflictQuery.is('brand_id', null);
+    }
+    
     console.log('[UpsertLookup]', {
       orgId,
       scope,
       promptId: scope === 'prompt' ? promptId : null,
+      brandId: brandId || null,
       windowStart: result.window.start,
     });
     
@@ -442,6 +459,7 @@ serve(async (req) => {
         .insert({
           org_id: orgId,
           prompt_id: promptId ?? null,
+          brand_id: brandId ?? null,
           scope,
           composite: result.composite,
           llumos_score: result.score,
