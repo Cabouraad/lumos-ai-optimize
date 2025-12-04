@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 import { 
   Lightbulb, 
   Users, 
@@ -16,7 +17,10 @@ import {
   Clock,
   Zap,
   Award,
-  TrendingUp
+  TrendingUp,
+  Brain,
+  Search,
+  Database
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrganizationKeywords, updateOrganizationKeywords, type OrganizationKeywords } from '@/lib/org/data';
@@ -49,6 +53,119 @@ function getVolumeColor(volume: number | null | undefined): string {
   if (volume >= 60) return 'text-success';
   if (volume >= 30) return 'text-warning';
   return 'text-muted-foreground';
+}
+
+// Progress indicator component for prompt generation
+function GeneratingProgressCard() {
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  const steps = [
+    { icon: Brain, label: 'Analyzing your brand context', duration: 2000 },
+    { icon: Search, label: 'Researching industry trends', duration: 3000 },
+    { icon: Sparkles, label: 'Generating AI prompts', duration: 4000 },
+    { icon: TrendingUp, label: 'Fetching search volume data', duration: 3000 },
+    { icon: Database, label: 'Saving suggestions', duration: 1000 },
+  ];
+
+  useEffect(() => {
+    // Animate progress bar
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 95) return prev;
+        // Slow down as we get higher
+        const increment = prev < 30 ? 3 : prev < 60 ? 2 : prev < 80 ? 1 : 0.5;
+        return Math.min(prev + increment, 95);
+      });
+    }, 200);
+
+    // Cycle through steps
+    let stepIndex = 0;
+    const stepInterval = setInterval(() => {
+      stepIndex = (stepIndex + 1) % steps.length;
+      setCurrentStep(stepIndex);
+    }, 2500);
+
+    return () => {
+      clearInterval(progressInterval);
+      clearInterval(stepInterval);
+    };
+  }, []);
+
+  const CurrentIcon = steps[currentStep].icon;
+
+  return (
+    <Card className="shadow-soft rounded-2xl border-0 overflow-hidden bg-gradient-to-br from-primary/5 to-accent/5">
+      <CardContent className="p-6">
+        <div className="space-y-6">
+          {/* Main progress display */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+                <CurrentIcon className="h-7 w-7 text-primary animate-bounce" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-accent flex items-center justify-center">
+                <Clock className="h-3 w-3 text-accent-foreground animate-spin" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground mb-1">
+                Generating Prompt Suggestions
+              </h3>
+              <p className="text-sm text-muted-foreground transition-all duration-500">
+                {steps[currentStep].label}...
+              </p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="space-y-2">
+            <Progress value={progress} className="h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Processing...</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+          </div>
+
+          {/* Step indicators */}
+          <div className="flex justify-between">
+            {steps.map((step, index) => {
+              const StepIcon = step.icon;
+              const isActive = index === currentStep;
+              const isComplete = index < currentStep;
+              
+              return (
+                <div 
+                  key={index}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+                    isActive ? 'scale-110' : 'opacity-50'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                    isActive ? 'bg-primary text-primary-foreground' : 
+                    isComplete ? 'bg-success/20 text-success' : 
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    {isComplete ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <StepIcon className={`h-4 w-4 ${isActive ? 'animate-pulse' : ''}`} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Helpful tip */}
+          <div className="text-xs text-center text-muted-foreground bg-muted/50 rounded-lg p-3">
+            <Lightbulb className="h-3 w-3 inline mr-1" />
+            This typically takes 15-30 seconds. We're analyzing trends and generating personalized prompts.
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 interface PromptSuggestionsProps {
@@ -311,6 +428,11 @@ export function PromptSuggestions({
           </div>
         </CardHeader>
       </Card>
+
+      {/* Progress Indicator when generating */}
+      {generating && (
+        <GeneratingProgressCard />
+      )}
 
       {suggestions.length > 0 ? (
         <div className="space-y-4">
