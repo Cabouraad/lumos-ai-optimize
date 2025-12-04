@@ -14,6 +14,69 @@ interface RequestBody {
   orgId?: string; // Only for cron jobs with x-cron-secret
 }
 
+// Helper to get cached score
+async function getCachedScore(
+  serviceClient: ReturnType<typeof createClient>,
+  orgId: string,
+  scope: string,
+  promptId: string | null,
+  maxAgeMs: number = 60 * 60 * 1000 // 1 hour default
+) {
+  const cacheExpiryTime = new Date(Date.now() - maxAgeMs);
+  
+  let cacheQuery = serviceClient
+    .from('llumos_scores')
+    .select('*')
+    .eq('org_id', orgId)
+    .eq('scope', scope)
+    .gte('updated_at', cacheExpiryTime.toISOString())
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  
+  if (scope === 'prompt' && promptId) {
+    cacheQuery = cacheQuery.eq('prompt_id', promptId);
+  } else if (scope === 'org') {
+    cacheQuery = cacheQuery.is('prompt_id', null);
+  }
+  
+  const { data: existingScore } = await cacheQuery.maybeSingle();
+  return existingScore;
+}
+
+// Helper to compute score with timeout
+async function computeScoreWithTimeout(
+  serviceClient: ReturnType<typeof createClient>,
+  orgId: string,
+  promptId: string | null,
+  brandId: string | null,
+  timeoutMs: number = 25000 // 25 second timeout (edge functions have 30s limit)
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const { data: result, error: rpcError } = await serviceClient.rpc(
+      'compute_llumos_score',
+      {
+        p_org_id: orgId,
+        p_prompt_id: promptId,
+        p_brand_id: brandId,
+      }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    if (rpcError) {
+      throw new Error(`Score computation failed: ${rpcError.message}`);
+    }
+    
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -259,77 +322,75 @@ serve(async (req) => {
     // Use service role client for computation
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // PHASE 5: Check for existing score with TTL-based cache (1 hour)
-    // Note: Brand-specific queries always compute fresh to ensure isolation
-    if (!force && !brandId) {
-      const cacheExpiryTime = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
-      
-      let cacheQuery = serviceClient
-        .from('llumos_scores')
-        .select('*')
-        .eq('org_id', orgId)
-        .eq('scope', scope)
-        .gte('updated_at', cacheExpiryTime.toISOString())
-        .order('updated_at', { ascending: false })
-        .limit(1);
-      
-      // Apply prompt filter based on scope
-      if (scope === 'prompt' && promptId) {
-        cacheQuery = cacheQuery.eq('prompt_id', promptId);
-      } else if (scope === 'org') {
-        cacheQuery = cacheQuery.is('prompt_id', null);
-      }
-      
-      console.log('[CacheLookup TTL]', {
-        orgId,
-        scope,
-        promptId: scope === 'prompt' ? promptId : null,
-        cacheExpiry: cacheExpiryTime.toISOString(),
-      });
-      
-      const { data: existingScore } = await cacheQuery.maybeSingle();
+    // Check for cached score (both for regular and brand-specific requests)
+    // Use 1 hour TTL for regular, 24 hour TTL for brand-specific (to reduce load)
+    const cacheTtl = brandId ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+    const cachedScore = await getCachedScore(serviceClient, orgId, scope, promptId, cacheTtl);
+    
+    if (!force && cachedScore) {
+      const cacheAge = Math.round((Date.now() - new Date(cachedScore.updated_at || cachedScore.created_at).getTime()) / 1000 / 60);
+      console.log(`[Cache Hit] Returning cached score (age: ${cacheAge} minutes, brand: ${brandId || 'none'})`);
+      return new Response(
+        JSON.stringify({
+          score: cachedScore.llumos_score,
+          composite: cachedScore.composite,
+          tier: getTier(cachedScore.llumos_score),
+          submetrics: cachedScore.submetrics,
+          window: {
+            start: cachedScore.window_start,
+            end: cachedScore.window_end,
+          },
+          totalResponses: cachedScore.reason === 'insufficient_data' ? 0 : undefined,
+          refreshedAt: cachedScore.updated_at || cachedScore.created_at,
+          cached: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`[Cache Miss] Computing fresh score for org ${orgId}, scope ${scope}, prompt ${promptId || 'all'}, brand ${brandId || 'all'}`);
 
-      if (existingScore) {
-        const cacheAge = Math.round((Date.now() - new Date(existingScore.updated_at || existingScore.created_at).getTime()) / 1000 / 60);
-        console.log(`[Cache Hit] Returning cached score (age: ${cacheAge} minutes)`);
+    // Try to compute score with timeout protection
+    let result;
+    try {
+      result = await computeScoreWithTimeout(serviceClient, orgId, promptId, brandId);
+    } catch (computeError) {
+      // If computation times out, try to return stale cached data
+      console.error('[Compute Timeout/Error]', computeError);
+      
+      // Try to get any cached score (without TTL restriction) as fallback
+      const staleCachedScore = await getCachedScore(
+        serviceClient, 
+        orgId, 
+        scope, 
+        promptId, 
+        365 * 24 * 60 * 60 * 1000 // 1 year - basically any cached score
+      );
+      
+      if (staleCachedScore) {
+        const cacheAge = Math.round((Date.now() - new Date(staleCachedScore.updated_at || staleCachedScore.created_at).getTime()) / 1000 / 60);
+        console.log(`[Fallback] Returning stale cached score (age: ${cacheAge} minutes)`);
         return new Response(
           JSON.stringify({
-            score: existingScore.llumos_score,
-            composite: existingScore.composite,
-            tier: getTier(existingScore.llumos_score),
-            submetrics: existingScore.submetrics,
+            score: staleCachedScore.llumos_score,
+            composite: staleCachedScore.composite,
+            tier: getTier(staleCachedScore.llumos_score),
+            submetrics: staleCachedScore.submetrics,
             window: {
-              start: existingScore.window_start,
-              end: existingScore.window_end,
+              start: staleCachedScore.window_start,
+              end: staleCachedScore.window_end,
             },
-            totalResponses: existingScore.reason === 'insufficient_data' ? 0 : undefined,
-            refreshedAt: existingScore.updated_at || existingScore.created_at,
+            totalResponses: staleCachedScore.reason === 'insufficient_data' ? 0 : undefined,
+            refreshedAt: staleCachedScore.updated_at || staleCachedScore.created_at,
             cached: true,
+            stale: true,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      console.log('[Cache Miss] Computing fresh score');
-    } else if (brandId) {
-      console.log('[Brand-specific] Computing fresh score for brand:', brandId);
-    }
-
-    // Compute score using RPC
-    console.log(`Computing score for org ${orgId}, scope ${scope}, prompt ${promptId || 'all'}, brand ${brandId || 'all'}`);
-    
-    const { data: result, error: rpcError } = await serviceClient.rpc(
-      'compute_llumos_score',
-      {
-        p_org_id: orgId,
-        p_prompt_id: promptId,
-        p_brand_id: brandId,
-      }
-    );
-
-    if (rpcError) {
-      console.error('RPC error:', rpcError);
-      throw new Error(`Score computation failed: ${rpcError.message}`);
+      // No cached data available, re-throw the error
+      throw computeError;
     }
 
     console.log('Score computed:', result);
