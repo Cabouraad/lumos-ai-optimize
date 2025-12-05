@@ -222,6 +222,37 @@ const Resources = () => {
             </motion.div>
           </section>
 
+          {/* Featured Article */}
+          <section className="mb-12">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Link to="/blog/how-to-optimize-for-chatgpt-search">
+                <Card className="group overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 hover:border-primary/40 transition-all duration-300 hover:shadow-xl">
+                  <div className="p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Sparkles className="w-8 h-8 text-primary" />
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center md:text-left">
+                      <Badge variant="secondary" className="mb-2">Featured Guide</Badge>
+                      <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
+                        How to Optimize for ChatGPT Search: The 2025 GEO Guide
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Learn the 5 core strategies of Generative Engine Optimization (GEO) to get cited by ChatGPT, Perplexity, and Gemini.
+                      </p>
+                    </div>
+                    <ArrowRight className="w-6 h-6 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </div>
+                </Card>
+              </Link>
+            </motion.div>
+          </section>
+
           {/* Category Filter Tabs */}
           <section className="mb-10">
             <div className="flex flex-wrap justify-center gap-2">

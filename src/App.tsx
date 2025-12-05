@@ -68,6 +68,7 @@ const Demo = lazy(() => loadChunkWithRetry(() => import("./pages/Demo")));
 const ContentStudio = lazy(() => loadChunkWithRetry(() => import("./pages/ContentStudio")));
 const ComparisonPage = lazy(() => loadChunkWithRetry(() => import("./pages/ComparisonPage")));
 const Sitemap = lazy(() => loadChunkWithRetry(() => import("./pages/Sitemap")));
+const BlogPostGPT = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostGPT")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -127,6 +128,7 @@ const App = () => {
           <Route path="/terms" element={<Terms />} />
           <Route path="/black-friday" element={<BlackFriday />} />
           <Route path="/black-friday-success" element={<BlackFridaySuccess />} />
+          <Route path="/blog/how-to-optimize-for-chatgpt-search" element={<BlogPostGPT />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
