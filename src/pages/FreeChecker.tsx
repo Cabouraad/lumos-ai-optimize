@@ -21,6 +21,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
 
 const INDUSTRIES = [
   "Software & Technology",
@@ -130,7 +131,24 @@ export default function FreeChecker() {
   const brandRank = ranking.findIndex(r => r.isBrand) + 1;
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEOHelmet
+        title="Free AI Visibility Score Checker | Audit Your Brand in ChatGPT"
+        description="Instant analysis. See how often AI models mention your brand vs. competitors. Get your free Llumos Score and actionable insights in under 2 minutes."
+        keywords="AI visibility checker, ChatGPT audit, brand visibility score, free AI analysis, competitor comparison"
+        canonicalPath="/free-checker"
+        structuredData={[
+          structuredDataGenerators.organization(),
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            name: "Free AI Visibility Score Checker",
+            description: "Check how often AI models mention your brand vs. competitors",
+            url: "https://llumos.ai/free-checker"
+          }
+        ]}
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -537,6 +555,7 @@ export default function FreeChecker() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

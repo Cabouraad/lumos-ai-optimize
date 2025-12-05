@@ -56,9 +56,9 @@ const Index = () => {
   return (
     <>
       <SEOHelmet
-        title="AI Search Visibility Tracking for Modern Brands"
-        description="Monitor and grow your brand's visibility on ChatGPT, Gemini, and Perplexity. Track AI search mentions, analyze competitors, and get actionable recommendations to improve your AI search presence."
-        keywords="AI search visibility, ChatGPT tracking, Perplexity monitoring, AI SEO, brand visibility tracking, AI search optimization, Gemini search"
+        title="AI Search Visibility & GEO Platform for Modern Brands"
+        description="Stop guessing if ChatGPT recommends you. Track, measure, and optimize your brand's visibility in AI search engines like Gemini, Perplexity & ChatGPT. Start for free."
+        keywords="AI search visibility, ChatGPT ranking, GEO platform, brand visibility tracking, AI SEO, Gemini search, Perplexity monitoring"
         canonicalPath="/"
         ogImage="/og-home.png"
         structuredData={[

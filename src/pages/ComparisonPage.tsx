@@ -44,9 +44,9 @@ const ComparisonPage = () => {
   return (
     <>
       <SEOHelmet
-        title="Llumos vs Enterprise Tools"
-        description="See why marketers choose Llumos over expensive enterprise AI visibility tools. Compare features, pricing, and setup time. Save $5,500/year."
-        keywords="AI visibility comparison, brand monitoring tools, competitor analysis pricing, marketing tools comparison, enterprise alternative"
+        title="Llumos vs. Profound AI & Enterprise Tools | Best Value AI Tracker"
+        description="Why pay $500/mo for enterprise bloat? See why agencies and marketers choose Llumos for actionable AI insights at a fraction of the cost. Compare features now."
+        keywords="AI visibility comparison, Profound AI alternative, brand monitoring tools, enterprise alternative, ChatGPT tracking comparison"
         canonicalPath="/vs-competitors"
         structuredData={[
           structuredDataGenerators.organization(),
