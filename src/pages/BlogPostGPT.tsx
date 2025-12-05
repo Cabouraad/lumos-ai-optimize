@@ -6,6 +6,13 @@ import { ArrowLeft, Calendar, Clock, User, ArrowRight, Sparkles, Search } from '
 import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
 import { motion } from 'framer-motion';
+import { OptimizedImage } from '@/components/OptimizedImage';
+
+// Import blog images
+import heroImage from '@/assets/blog/chatgpt-optimization-hero.jpg';
+import answerFirstImage from '@/assets/blog/answer-first-content-structure.jpg';
+import entityDensityImage from '@/assets/blog/entity-density-optimization.jpg';
+import statisticsImage from '@/assets/blog/quotable-statistics-geo.jpg';
 
 const BlogPostGPT = () => {
   return (
@@ -19,6 +26,7 @@ const BlogPostGPT = () => {
         publishedDate="2025-12-04"
         authorName="Llumos Editorial Team"
         keywords="GEO, Generative Engine Optimization, ChatGPT SEO, AI search optimization, brand visibility AI, Perplexity optimization, Gemini search"
+        ogImage={heroImage}
         structuredData={[
           structuredDataGenerators.breadcrumb([
             { name: "Home", url: "/" },
@@ -98,6 +106,19 @@ const BlogPostGPT = () => {
                   <span>8 min read</span>
                 </div>
               </div>
+
+              {/* Hero Image */}
+              <figure className="mb-10">
+                <OptimizedImage
+                  src={heroImage}
+                  alt="ChatGPT search optimization concept showing AI neural network connected to search interface - Generative Engine Optimization (GEO) visualization"
+                  className="w-full h-auto rounded-xl shadow-lg"
+                  priority
+                />
+                <figcaption className="text-sm text-muted-foreground mt-3 text-center">
+                  AI search optimization: How ChatGPT and other LLMs process and cite content sources
+                </figcaption>
+              </figure>
             </motion.div>
 
             {/* Article Content */}
@@ -119,6 +140,22 @@ const BlogPostGPT = () => {
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 mt-12">
                   1. Adopt an "Answer-First" Content Structure
                 </h2>
+                
+                <figure className="my-6">
+                  <img
+                    src={answerFirstImage}
+                    alt="Answer-first content structure diagram showing organized text blocks flowing into an AI brain for optimal LLM comprehension"
+                    className="w-full h-auto rounded-lg shadow-md"
+                    loading="lazy"
+                    decoding="async"
+                    width="800"
+                    height="608"
+                  />
+                  <figcaption className="text-sm text-muted-foreground mt-2 text-center">
+                    Structure your content so AI can easily extract and summarize key answers
+                  </figcaption>
+                </figure>
+                
                 <p className="text-foreground/90 leading-relaxed mb-4">
                   LLMs are lazy. They prefer content that is easy to summarize. Stop hiding your main point.
                 </p>
@@ -134,6 +171,22 @@ const BlogPostGPT = () => {
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 mt-12">
                   2. Optimize for "Entity Density"
                 </h2>
+                
+                <figure className="my-6">
+                  <img
+                    src={entityDensityImage}
+                    alt="Entity density visualization showing interconnected knowledge graph nodes representing brands, concepts, and people that AI models recognize"
+                    className="w-full h-auto rounded-lg shadow-md"
+                    loading="lazy"
+                    decoding="async"
+                    width="800"
+                    height="608"
+                  />
+                  <figcaption className="text-sm text-muted-foreground mt-2 text-center">
+                    AI models understand entities (brands, concepts, people) better than keywords
+                  </figcaption>
+                </figure>
+                
                 <p className="text-foreground/90 leading-relaxed mb-4">
                   Search engines used to look for keywords; AI models look for <strong>Entities</strong> (Concepts, Brands, People).
                 </p>
@@ -148,6 +201,22 @@ const BlogPostGPT = () => {
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 mt-12">
                   3. The Power of "Quotable" Statistics
                 </h2>
+                
+                <figure className="my-6">
+                  <img
+                    src={statisticsImage}
+                    alt="Data analytics dashboard showing quotable statistics and benchmarks that AI models cite as authoritative sources"
+                    className="w-full h-auto rounded-lg shadow-md"
+                    loading="lazy"
+                    decoding="async"
+                    width="800"
+                    height="608"
+                  />
+                  <figcaption className="text-sm text-muted-foreground mt-2 text-center">
+                    Original statistics and data points make your content more likely to be cited by AI
+                  </figcaption>
+                </figure>
+                
                 <p className="text-foreground/90 leading-relaxed mb-4">
                   AI models prioritize sources that provide unique data points to back up claims. 
                   To get cited, you must be <strong>the source of the truth</strong>.
