@@ -61,29 +61,12 @@ const BlogPost = () => {
         description={post.description}
         keywords={post.keywords}
         canonicalPath={`/resources/${post.slug}`}
+        ogType="article"
+        schemaType="Article"
+        publishedDate={post.publishedAt}
+        modifiedDate={post.updatedAt}
+        authorName="Llumos"
         structuredData={[
-          {
-            "@context": "https://schema.org",
-            "@type": "Article",
-            headline: post.title,
-            description: post.description,
-            image: "https://llumos.ai/og-image.png",
-            datePublished: post.publishedAt,
-            dateModified: post.updatedAt,
-            url: `https://llumos.ai/resources/${post.slug}`,
-            author: {
-              "@type": "Organization",
-              name: "Llumos"
-            },
-            publisher: {
-              "@type": "Organization",
-              name: "Llumos",
-              logo: {
-                "@type": "ImageObject",
-                url: "https://llumos.ai/logo.png"
-              }
-            }
-          },
           structuredDataGenerators.breadcrumb([
             { name: "Home", url: "/" },
             { name: "Resources", url: "/resources" },
