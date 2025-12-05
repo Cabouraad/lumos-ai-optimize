@@ -275,11 +275,38 @@ async function processTask(
       .eq('id', orgId)
       .single();
     
+    // CRITICAL: If brandId is provided, fetch the specific brand name
+    let brandNameForAnalysis = orgData?.name || 'Unknown';
+    if (brandId) {
+      const { data: brandData } = await supabase
+        .from('brands')
+        .select('name')
+        .eq('id', brandId)
+        .single();
+      
+      if (brandData?.name) {
+        brandNameForAnalysis = brandData.name;
+        console.log(`[${provider.name}] Using brand name for analysis: ${brandNameForAnalysis} (brandId: ${brandId})`);
+      }
+    }
+    
     // Fetch brand catalog for comprehensive analysis
     const { data: brandCatalog } = await supabase
       .from('brand_catalog')
       .select('name, is_org_brand, variants_json')
       .eq('org_id', orgId);
+    
+    // CRITICAL: For brand-specific analysis, ensure the correct brand is marked as org_brand
+    // Filter catalog to only mark the target brand as is_org_brand
+    let adjustedCatalog = brandCatalog || [];
+    if (brandId && brandNameForAnalysis !== orgData?.name) {
+      adjustedCatalog = (brandCatalog || []).map((entry: any) => ({
+        ...entry,
+        // Mark only the target brand as org_brand for analysis
+        is_org_brand: entry.name.toLowerCase() === brandNameForAnalysis.toLowerCase()
+      }));
+      console.log(`[${provider.name}] Adjusted catalog for brand-specific analysis. Target: ${brandNameForAnalysis}`);
+    }
     
     // Perform comprehensive brand analysis
     let analysis;
@@ -288,23 +315,22 @@ async function processTask(
       
       analysis = await analyzePromptResponse(
         rawResponse,
-        { name: orgData?.name || 'Unknown' },
-        brandCatalog || []
+        { name: brandNameForAnalysis },
+        adjustedCatalog
       );
       
       console.log(`[${provider.name}] Analysis: Score=${analysis.score}, Brand=${analysis.org_brand_present}, Competitors=${analysis.competitors_json.length}`);
     } catch (analysisError: any) {
       console.error(`[${provider.name}] Analysis failed:`, analysisError.message);
-      // Fallback to basic detection
-      const orgName = orgData?.name || 'Unknown';
-      const brandPresent = rawResponse.toLowerCase().includes(orgName.toLowerCase());
+      // Fallback to basic detection - use brand name not org name
+      const brandPresent = rawResponse.toLowerCase().includes(brandNameForAnalysis.toLowerCase());
       analysis = {
         score: brandPresent ? 6.0 : 1.0,
         org_brand_present: brandPresent,
         org_brand_prominence: brandPresent ? 1 : 0,
         competitors_count: 0,
         competitors_json: [],
-        brands_json: brandPresent ? [orgName] : [],
+        brands_json: brandPresent ? [brandNameForAnalysis] : [],
         metadata: { analysis_error: analysisError.message }
       };
     }
