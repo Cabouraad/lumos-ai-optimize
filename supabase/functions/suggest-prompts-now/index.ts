@@ -367,17 +367,32 @@ Return ONLY a JSON array with this exact format:
     };
 
     // Insert suggestions into database with brand_id and search_volume
-    const insertData = newSuggestions.map((suggestion: any) => ({
-      org_id: userData.org_id,
-      brand_id: brandId || null,
-      text: suggestion.text.trim(),
-      source: mapSourceToDatabase(suggestion.source),
-      search_volume: trendsData.get(suggestion.text) ?? null,
-      metadata: {
-        reasoning: suggestion.reasoning,
-        generated_for_brand: brandContext?.name || null
-      }
-    }));
+    // Only include prompts that have search volume data available
+    const insertData = newSuggestions
+      .map((suggestion: any) => ({
+        org_id: userData.org_id,
+        brand_id: brandId || null,
+        text: suggestion.text.trim(),
+        source: mapSourceToDatabase(suggestion.source),
+        search_volume: trendsData.get(suggestion.text) ?? null,
+        metadata: {
+          reasoning: suggestion.reasoning,
+          generated_for_brand: brandContext?.name || null
+        }
+      }))
+      .filter((item: any) => item.search_volume !== null);
+
+    if (insertData.length === 0) {
+      console.log('No suggestions with search volume data available');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          suggestionsCreated: 0, 
+          message: 'No prompts had search volume data available. Try again later.' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const { error: insertError } = await supabase
       .from('suggested_prompts')
