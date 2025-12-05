@@ -1,14 +1,14 @@
-import { Helmet } from 'react-helmet-async';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, BookOpen, Search, Mail, ArrowRight, Sparkles } from 'lucide-react';
-import { getAllBlogPosts, getFeaturedPosts, getPostsByCategory } from '@/data/blog-posts';
-import { generateMetaTags, generateStructuredData, createBreadcrumbStructuredData } from '@/lib/seo';
+import { getAllBlogPosts, getPostsByCategory } from '@/data/blog-posts';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
+import { Footer } from '@/components/Footer';
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -163,40 +163,22 @@ const Resources = () => {
     }
     return result;
   }, [filteredPosts]);
-  
-  const metaTags = generateMetaTags({
-    title: "AI Search Resources & Insights | Llumos",
-    description: "Expert guides, case studies, and best practices for tracking and improving your brand visibility on AI-powered search engines like ChatGPT, Claude, and Perplexity.",
-    keywords: "AI search resources, brand visibility guides, ChatGPT optimization, AI SEO best practices, competitor analysis guides",
-    canonicalUrl: "/resources",
-    ogType: "website"
-  });
-
-  const structuredData = generateStructuredData('WebSite', {
-    name: "Llumos Resources",
-    description: "Expert guides and insights for AI search optimization",
-    url: "https://llumos.ai/resources"
-  });
-
-  const breadcrumbData = createBreadcrumbStructuredData([
-    { name: "Home", url: "/" },
-    { name: "Resources", url: "/resources" }
-  ]);
 
   return (
     <>
-      <Helmet>
-        <title>{metaTags.title}</title>
-        {metaTags.meta.map((tag, index) => (
-          <meta key={index} {...tag} />
-        ))}
-        <script type="application/ld+json">
-          {JSON.stringify(structuredData)}
-        </script>
-        <script type="application/ld+json">
-          {JSON.stringify(breadcrumbData)}
-        </script>
-      </Helmet>
+      <SEOHelmet
+        title="AI Search Resources & Insights"
+        description="Expert guides, case studies, and best practices for tracking and improving your brand visibility on AI-powered search engines like ChatGPT, Claude, and Perplexity."
+        keywords="AI search resources, brand visibility guides, ChatGPT optimization, AI SEO best practices, competitor analysis guides"
+        canonicalPath="/resources"
+        structuredData={[
+          structuredDataGenerators.website(),
+          structuredDataGenerators.breadcrumb([
+            { name: "Home", url: "/" },
+            { name: "Resources", url: "/resources" }
+          ])
+        ]}
+      />
 
       <div className="min-h-screen bg-background">
         {/* Header */}
@@ -312,23 +294,7 @@ const Resources = () => {
           </section>
         </main>
 
-        {/* Footer */}
-        <footer className="py-12 px-4 border-t bg-background mt-20">
-          <div className="container mx-auto max-w-4xl text-center">
-            <Link to="/" className="flex items-center justify-center space-x-2 mb-4">
-              <Search className="w-6 h-6 text-primary" />
-              <span className="text-xl font-bold text-foreground">Llumos</span>
-            </Link>
-            <p className="text-muted-foreground mb-4">
-              AI Search Optimization. Simplified.
-            </p>
-            <div className="flex justify-center space-x-6 text-sm text-muted-foreground">
-              <Link to="/resources" className="text-foreground font-medium">Resources</Link>
-              <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-              <Link to="/signin" className="hover:text-foreground transition-colors">Sign In</Link>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   );

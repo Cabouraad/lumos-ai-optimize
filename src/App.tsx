@@ -67,6 +67,7 @@ const BlackFridaySuccess = lazy(() => loadChunkWithRetry(() => import("./pages/B
 const Demo = lazy(() => loadChunkWithRetry(() => import("./pages/Demo")));
 const ContentStudio = lazy(() => loadChunkWithRetry(() => import("./pages/ContentStudio")));
 const ComparisonPage = lazy(() => loadChunkWithRetry(() => import("./pages/ComparisonPage")));
+const Sitemap = lazy(() => loadChunkWithRetry(() => import("./pages/Sitemap")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -330,6 +331,7 @@ const App = () => {
           } />
           <Route path="/demo" element={<Demo />} />
           <Route path="/vs-competitors" element={<ComparisonPage />} />
+          <Route path="/sitemap" element={<Sitemap />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
