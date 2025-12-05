@@ -2214,6 +2214,7 @@ export type Database = {
         | { Args: { p_dry_run?: boolean }; Returns: Json }
       compute_daily_llumos_scores: { Args: never; Returns: undefined }
       compute_llumos_score:
+        | { Args: { p_org_id: string; p_prompt_id?: string }; Returns: Json }
         | {
             Args: {
               p_brand_id?: string
@@ -2222,7 +2223,6 @@ export type Database = {
             }
             Returns: Json
           }
-        | { Args: { p_org_id: string; p_prompt_id?: string }; Returns: Json }
       cron_schedule: {
         Args: { cron_schedule: string; job_name: string; sql_command: string }
         Returns: number
