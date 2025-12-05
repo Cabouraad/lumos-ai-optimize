@@ -6,13 +6,12 @@ import { ArrowLeft, Calendar, Clock, User, ArrowRight, Sparkles, Search } from '
 import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
 import { motion } from 'framer-motion';
-import { OptimizedImage } from '@/components/OptimizedImage';
 
 // Import blog images
-import heroImage from '@/assets/blog/chatgpt-optimization-hero.jpg';
-import answerFirstImage from '@/assets/blog/answer-first-content-structure.jpg';
-import entityDensityImage from '@/assets/blog/entity-density-optimization.jpg';
-import statisticsImage from '@/assets/blog/quotable-statistics-geo.jpg';
+import heroImage from '@/assets/blog/geo-guide-hero.jpg';
+import contentStructureImage from '@/assets/blog/content-hierarchy-structure.jpg';
+import entityGraphImage from '@/assets/blog/knowledge-graph-entities.jpg';
+import analyticsImage from '@/assets/blog/analytics-statistics.jpg';
 
 const BlogPostGPT = () => {
   return (
@@ -109,14 +108,17 @@ const BlogPostGPT = () => {
 
               {/* Hero Image */}
               <figure className="mb-10">
-                <OptimizedImage
+                <img
                   src={heroImage}
-                  alt="ChatGPT search optimization concept showing AI neural network connected to search interface - Generative Engine Optimization (GEO) visualization"
+                  alt="ChatGPT search interface on laptop showing AI-powered search results - Generative Engine Optimization workspace setup"
                   className="w-full h-auto rounded-xl shadow-lg"
-                  priority
+                  width="1200"
+                  height="672"
+                  loading="eager"
+                  decoding="sync"
                 />
                 <figcaption className="text-sm text-muted-foreground mt-3 text-center">
-                  AI search optimization: How ChatGPT and other LLMs process and cite content sources
+                  Modern AI search optimization requires understanding how ChatGPT and other LLMs process content
                 </figcaption>
               </figure>
             </motion.div>
@@ -143,8 +145,8 @@ const BlogPostGPT = () => {
                 
                 <figure className="my-6">
                   <img
-                    src={answerFirstImage}
-                    alt="Answer-first content structure diagram showing organized text blocks flowing into an AI brain for optimal LLM comprehension"
+                    src={contentStructureImage}
+                    alt="Answer-first content hierarchy diagram showing structured document organization for AI readability with checkmarks indicating optimized sections"
                     className="w-full h-auto rounded-lg shadow-md"
                     loading="lazy"
                     decoding="async"
@@ -152,7 +154,7 @@ const BlogPostGPT = () => {
                     height="608"
                   />
                   <figcaption className="text-sm text-muted-foreground mt-2 text-center">
-                    Structure your content so AI can easily extract and summarize key answers
+                    Organize content with clear hierarchies so AI can quickly extract and cite your answers
                   </figcaption>
                 </figure>
                 
@@ -174,8 +176,8 @@ const BlogPostGPT = () => {
                 
                 <figure className="my-6">
                   <img
-                    src={entityDensityImage}
-                    alt="Entity density visualization showing interconnected knowledge graph nodes representing brands, concepts, and people that AI models recognize"
+                    src={entityGraphImage}
+                    alt="Knowledge graph visualization showing interconnected entity nodes representing brands, concepts, and topics that AI models recognize and reference"
                     className="w-full h-auto rounded-lg shadow-md"
                     loading="lazy"
                     decoding="async"
@@ -183,7 +185,7 @@ const BlogPostGPT = () => {
                     height="608"
                   />
                   <figcaption className="text-sm text-muted-foreground mt-2 text-center">
-                    AI models understand entities (brands, concepts, people) better than keywords
+                    AI models understand interconnected entities—build your brand as a recognizable node in the knowledge graph
                   </figcaption>
                 </figure>
                 
@@ -204,8 +206,8 @@ const BlogPostGPT = () => {
                 
                 <figure className="my-6">
                   <img
-                    src={statisticsImage}
-                    alt="Data analytics dashboard showing quotable statistics and benchmarks that AI models cite as authoritative sources"
+                    src={analyticsImage}
+                    alt="Analytics dashboard displaying brand visibility metrics, citation tracking charts, and performance statistics that AI models reference as authoritative data"
                     className="w-full h-auto rounded-lg shadow-md"
                     loading="lazy"
                     decoding="async"
@@ -213,7 +215,7 @@ const BlogPostGPT = () => {
                     height="608"
                   />
                   <figcaption className="text-sm text-muted-foreground mt-2 text-center">
-                    Original statistics and data points make your content more likely to be cited by AI
+                    Original data and statistics make your content more likely to be cited by AI as an authoritative source
                   </figcaption>
                 </figure>
                 

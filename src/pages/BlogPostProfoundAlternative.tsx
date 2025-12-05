@@ -6,6 +6,9 @@ import { ArrowLeft, ArrowRight, Search, Check, X, Star } from 'lucide-react';
 import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
 
+// Import hero image
+import heroImage from '@/assets/blog/pricing-comparison-hero.jpg';
+
 const BlogPostProfoundAlternative = () => {
   return (
     <>
@@ -17,6 +20,7 @@ const BlogPostProfoundAlternative = () => {
         schemaType="Article"
         publishedDate="2025-12-05"
         authorName="Llumos Editorial Team"
+        ogImage={heroImage}
         structuredData={[
           structuredDataGenerators.organization(),
           structuredDataGenerators.breadcrumb([
@@ -74,6 +78,22 @@ const BlogPostProfoundAlternative = () => {
               <span>•</span>
               <span>6 min read</span>
             </div>
+
+            {/* Hero Image */}
+            <figure className="mb-10">
+              <img
+                src={heroImage}
+                alt="AI visibility tools pricing comparison showing three software pricing tiers with the best value option highlighted - compare Profound AI alternatives"
+                className="w-full h-auto rounded-xl shadow-lg"
+                width="1200"
+                height="672"
+                loading="eager"
+                decoding="sync"
+              />
+              <figcaption className="text-sm text-muted-foreground mt-3 text-center">
+                Compare AI visibility tracking tools to find the best value for your budget
+              </figcaption>
+            </figure>
 
             {/* The Hook */}
             <p className="text-xl text-muted-foreground leading-relaxed mb-8">
