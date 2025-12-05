@@ -95,9 +95,9 @@ export function Footer() {
               <Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Terms of Service
               </Link>
-              <Link to="/sitemap" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <a href="/sitemap.xml" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Sitemap
-              </Link>
+              </a>
             </nav>
           </div>
         </div>
