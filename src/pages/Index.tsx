@@ -84,12 +84,17 @@ const Index = () => {
             name: "Llumos",
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
+            description: "AI Search Visibility and GEO tracking platform for brands.",
             offers: {
-              "@type": "AggregateOffer",
-              lowPrice: "39",
-              highPrice: "250",
+              "@type": "Offer",
+              price: "39.00",
               priceCurrency: "USD",
-              offerCount: "3"
+              priceValidUntil: "2025-12-31"
+            },
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: "4.8",
+              ratingCount: "124"
             }
           }
         ]}
