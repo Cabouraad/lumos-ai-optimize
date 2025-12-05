@@ -167,9 +167,9 @@ const Resources = () => {
   return (
     <>
       <SEOHelmet
-        title="AI Search Resources & Insights"
-        description="Expert guides, case studies, and best practices for tracking and improving your brand visibility on AI-powered search engines like ChatGPT, Claude, and Perplexity."
-        keywords="AI search resources, brand visibility guides, ChatGPT optimization, AI SEO best practices, competitor analysis guides"
+        title="AI Search Marketing & GEO Guides | The Llumos Resource Hub"
+        description="Master the new era of search. Read expert guides, case studies, and strategies for Generative Engine Optimization (GEO) and increasing brand visibility in LLMs."
+        keywords="AI search marketing, GEO guides, Generative Engine Optimization, AI visibility strategies, LLM brand visibility"
         canonicalPath="/resources"
         structuredData={[
           structuredDataGenerators.website(),
