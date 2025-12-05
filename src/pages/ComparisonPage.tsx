@@ -2,7 +2,8 @@ import { motion } from 'framer-motion';
 import { Check, X, Sparkles, BadgeCheck, Zap, Calendar, FileText, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { SEOHelmet } from '@/components/SEOHelmet';
+import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
+import { Footer } from '@/components/Footer';
 
 const comparisonData = [
   {
@@ -43,9 +44,20 @@ const ComparisonPage = () => {
   return (
     <>
       <SEOHelmet
-        title="Llumos vs Enterprise Tools | AI Visibility Comparison"
-        description="See why marketers choose Llumos over expensive enterprise AI visibility tools. Compare features, pricing, and setup time."
-        keywords="AI visibility, brand monitoring, competitor analysis, marketing tools"
+        title="Llumos vs Enterprise Tools"
+        description="See why marketers choose Llumos over expensive enterprise AI visibility tools. Compare features, pricing, and setup time. Save $5,500/year."
+        keywords="AI visibility comparison, brand monitoring tools, competitor analysis pricing, marketing tools comparison, enterprise alternative"
+        canonicalPath="/vs-competitors"
+        structuredData={[
+          structuredDataGenerators.organization(),
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            name: "Llumos vs Enterprise Tools Comparison",
+            description: "Compare Llumos with expensive enterprise AI visibility tools",
+            url: "https://llumos.ai/vs-competitors"
+          }
+        ]}
       />
 
       <div className="min-h-screen bg-background">
@@ -235,6 +247,8 @@ const ComparisonPage = () => {
             </Button>
           </div>
         </motion.div>
+
+        <Footer />
       </div>
     </>
   );

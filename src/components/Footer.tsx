@@ -88,14 +88,17 @@ export function Footer() {
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Llumos. All rights reserved.
             </p>
-            <div className="flex gap-6">
+            <nav className="flex gap-6" aria-label="Legal">
               <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
               </Link>
               <Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Terms of Service
               </Link>
-            </div>
+              <Link to="/sitemap" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Sitemap
+              </Link>
+            </nav>
           </div>
         </div>
       </div>
