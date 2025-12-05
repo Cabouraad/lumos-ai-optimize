@@ -70,6 +70,7 @@ const ComparisonPage = lazy(() => loadChunkWithRetry(() => import("./pages/Compa
 const Sitemap = lazy(() => loadChunkWithRetry(() => import("./pages/Sitemap")));
 const BlogPostGPT = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostGPT")));
 const BlogPostProfoundAlternative = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostProfoundAlternative")));
+const IndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/IndustryLandingPage")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -131,6 +132,7 @@ const App = () => {
           <Route path="/black-friday-success" element={<BlackFridaySuccess />} />
           <Route path="/blog/how-to-optimize-for-chatgpt-search" element={<BlogPostGPT />} />
           <Route path="/blog/profound-ai-alternative-pricing" element={<BlogPostProfoundAlternative />} />
+          <Route path="/solutions/:industry" element={<IndustryLandingPage />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
