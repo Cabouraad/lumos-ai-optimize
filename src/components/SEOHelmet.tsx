@@ -6,6 +6,11 @@ interface SEOHelmetProps {
   keywords?: string;
   canonicalPath?: string;
   ogImage?: string;
+  ogType?: 'website' | 'article';
+  publishedDate?: string;
+  modifiedDate?: string;
+  authorName?: string;
+  schemaType?: 'WebSite' | 'Article' | 'SoftwareApplication' | 'Organization';
   structuredData?: object | object[];
 }
 
@@ -15,12 +20,89 @@ export function SEOHelmet({
   keywords,
   canonicalPath = '',
   ogImage = '/og-image.png',
+  ogType = 'website',
+  publishedDate,
+  modifiedDate,
+  authorName = 'Llumos',
+  schemaType,
   structuredData
 }: SEOHelmetProps) {
   const baseUrl = 'https://llumos.ai';
   const fullUrl = `${baseUrl}${canonicalPath}`;
   const fullTitle = `${title} | Llumos - AI Search Visibility Tracking`;
   const fullOgImage = ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`;
+
+  // Generate schema based on schemaType prop
+  const generateSchemaFromType = () => {
+    if (!schemaType) return null;
+
+    switch (schemaType) {
+      case 'Article':
+        return {
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: title,
+          description: description,
+          image: fullOgImage,
+          datePublished: publishedDate || new Date().toISOString(),
+          dateModified: modifiedDate || publishedDate || new Date().toISOString(),
+          author: {
+            "@type": "Person",
+            name: authorName,
+            url: baseUrl
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Llumos",
+            logo: {
+              "@type": "ImageObject",
+              url: `${baseUrl}/logo.png`,
+              width: 200,
+              height: 60
+            }
+          },
+          mainEntityOfPage: {
+            "@type": "WebPage",
+            "@id": fullUrl
+          },
+          url: fullUrl
+        };
+
+      case 'WebSite':
+        return structuredDataGenerators.website();
+
+      case 'Organization':
+        return structuredDataGenerators.organization();
+
+      case 'SoftwareApplication':
+        return structuredDataGenerators.softwareApplication();
+
+      default:
+        return null;
+    }
+  };
+
+  // Combine schema from schemaType with any additional structuredData
+  const getAllStructuredData = () => {
+    const schemaFromType = generateSchemaFromType();
+    const dataArray: object[] = [];
+
+    if (schemaFromType) {
+      dataArray.push(schemaFromType);
+    }
+
+    if (structuredData) {
+      if (Array.isArray(structuredData)) {
+        dataArray.push(...structuredData);
+      } else {
+        dataArray.push(structuredData);
+      }
+    }
+
+    return dataArray.length > 0 ? dataArray : null;
+  };
+
+  const allStructuredData = getAllStructuredData();
 
   return (
     <Helmet>
@@ -36,8 +118,19 @@ export function SEOHelmet({
       <meta property="og:description" content={description} />
       <meta property="og:url" content={fullUrl} />
       <meta property="og:image" content={fullOgImage} />
-      <meta property="og:type" content="website" />
+      <meta property="og:type" content={ogType} />
       <meta property="og:site_name" content="Llumos" />
+      
+      {/* Article-specific Open Graph tags */}
+      {ogType === 'article' && publishedDate && (
+        <meta property="article:published_time" content={publishedDate} />
+      )}
+      {ogType === 'article' && modifiedDate && (
+        <meta property="article:modified_time" content={modifiedDate} />
+      )}
+      {ogType === 'article' && authorName && (
+        <meta property="article:author" content={authorName} />
+      )}
       
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
@@ -50,9 +143,9 @@ export function SEOHelmet({
       <meta name="robots" content="index, follow" />
 
       {/* JSON-LD Structured Data */}
-      {structuredData && (
+      {allStructuredData && (
         <script type="application/ld+json">
-          {JSON.stringify(Array.isArray(structuredData) ? structuredData : [structuredData])}
+          {JSON.stringify(allStructuredData)}
         </script>
       )}
     </Helmet>
@@ -149,5 +242,43 @@ export const structuredDataGenerators = {
       name: item.name,
       item: `https://llumos.ai${item.url}`
     }))
+  }),
+
+  blogPosting: (props: { 
+    title: string; 
+    description: string; 
+    url: string; 
+    image?: string;
+    publishedDate: string; 
+    modifiedDate?: string; 
+    authorName?: string 
+  }) => ({
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: props.title,
+    description: props.description,
+    image: props.image || "https://llumos.ai/og-image.png",
+    datePublished: props.publishedDate,
+    dateModified: props.modifiedDate || props.publishedDate,
+    author: {
+      "@type": "Person",
+      name: props.authorName || "Llumos",
+      url: "https://llumos.ai"
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Llumos",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://llumos.ai/logo.png",
+        width: 200,
+        height: 60
+      }
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": props.url
+    },
+    url: props.url
   })
 };
