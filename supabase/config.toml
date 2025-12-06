@@ -262,3 +262,6 @@ llumos_score_weekly = { schedule = "5 8 * * MON", endpoint = "/compute-llumos-sc
 
 # === SYSTEM HEALTH: Monitor cron job health (every 6 hours) ===
 cron_health_monitor = { schedule = "0 */6 * * *", endpoint = "/cron-health-monitor", method = "POST", headers = { "x-cron-secret" = "${CRON_SECRET}" } }
+
+[functions.send-visibility-alert]
+verify_jwt = false
