@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { getOrgId } from '@/lib/auth';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useBrand } from '@/contexts/BrandContext';
 
 interface ManualCompetitorAddProps {
   onCompetitorAdded?: () => void;
@@ -17,6 +18,7 @@ export function ManualCompetitorAdd({ onCompetitorAdded }: ManualCompetitorAddPr
   const [competitorName, setCompetitorName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { selectedBrand } = useBrand();
 
   const handleAddCompetitor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,43 +37,56 @@ export function ManualCompetitorAdd({ onCompetitorAdded }: ManualCompetitorAddPr
     try {
       const orgId = await getOrgId();
       
-      // Check 50-competitor limit
-      const { data: competitorCount } = await supabase
+      // Check 50-competitor limit (per brand if brand selected, otherwise org-wide)
+      let countQuery = supabase
         .from('brand_catalog')
         .select('id', { count: 'exact' })
         .eq('org_id', orgId)
         .eq('is_org_brand', false);
+      
+      if (selectedBrand?.id) {
+        countQuery = countQuery.eq('brand_id', selectedBrand.id);
+      }
+      
+      const { data: competitorCount } = await countQuery;
 
       if (competitorCount && competitorCount.length >= 50) {
         toast({
           title: "Competitor limit reached",
-          description: "You can track a maximum of 50 competitors. Please remove some competitors first.",
+          description: `You can track a maximum of 50 competitors${selectedBrand ? ` for ${selectedBrand.name}` : ''}. Please remove some competitors first.`,
           variant: "destructive"
         });
         return;
       }
       
-      // Check if competitor already exists
-      const { data: existing } = await supabase
+      // Check if competitor already exists (for this brand if selected)
+      let existsQuery = supabase
         .from('brand_catalog')
         .select('id')
         .eq('org_id', orgId)
         .ilike('name', competitorName.trim());
+      
+      if (selectedBrand?.id) {
+        existsQuery = existsQuery.eq('brand_id', selectedBrand.id);
+      }
+      
+      const { data: existing } = await existsQuery;
 
       if (existing && existing.length > 0) {
         toast({
           title: "Competitor already exists",
-          description: "This competitor is already in your catalog.",
+          description: `This competitor is already in your catalog${selectedBrand ? ` for ${selectedBrand.name}` : ''}.`,
           variant: "destructive"
         });
         return;
       }
 
-      // Add competitor to catalog
+      // Add competitor to catalog with brand_id for brand isolation
       const { error } = await supabase
         .from('brand_catalog')
         .insert({
           org_id: orgId,
+          brand_id: selectedBrand?.id || null, // Associate with specific brand
           name: competitorName.trim(),
           is_org_brand: false,
           variants_json: [],
