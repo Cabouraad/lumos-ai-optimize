@@ -1507,6 +1507,7 @@ export type Database = {
           metadata: Json | null
           org_id: string
           previous_rank: number | null
+          public_share_token: string | null
           rank: number | null
           raw_response: string | null
           score: number
@@ -1519,6 +1520,7 @@ export type Database = {
           metadata?: Json | null
           org_id: string
           previous_rank?: number | null
+          public_share_token?: string | null
           rank?: number | null
           raw_response?: string | null
           score?: number
@@ -1531,6 +1533,7 @@ export type Database = {
           metadata?: Json | null
           org_id?: string
           previous_rank?: number | null
+          public_share_token?: string | null
           rank?: number | null
           raw_response?: string | null
           score?: number
