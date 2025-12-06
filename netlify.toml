@@ -1,5 +1,8 @@
 # Netlify configuration for Single Page App routing
-# Ensures all routes are handled by index.html for client-side routing
+# Ensures all routes are handled by index.html for client-side routing (BrowserRouter)
+
+[build]
+  publish = "dist"
 
 [[redirects]]
   from = "/*"
@@ -13,3 +16,8 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
