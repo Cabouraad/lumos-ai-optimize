@@ -45,6 +45,9 @@
     <!-- Preload critical font file directly -->
     <link rel="preload" href="https://fonts.gstatic.com/s/inter/v19/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2" as="font" type="font/woff2" crossorigin>
     
+    <!-- Preload LCP optimization: hint browser to fetch critical resources early -->
+    <link rel="modulepreload" href="/src/main.tsx">
+    
     <!-- Critical CSS for landing page - above-the-fold content -->
     <style>
       :root {
