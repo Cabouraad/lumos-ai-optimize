@@ -78,6 +78,7 @@ const KnowledgeBaseArticle = lazy(() => loadChunkWithRetry(() => import("./pages
 const ComparisonLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/ComparisonLandingPage")));
 const DynamicIndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/DynamicIndustryLandingPage")));
 const AICompetitorFinder = lazy(() => loadChunkWithRetry(() => import("./pages/AICompetitorFinder")));
+const SharedScanReport = lazy(() => loadChunkWithRetry(() => import("./pages/SharedScanReport")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -147,6 +148,7 @@ const App = () => {
               <Route path="/vs/:competitor" element={<ComparisonLandingPage />} />
               <Route path="/industries/:industry" element={<DynamicIndustryLandingPage />} />
               <Route path="/tools/ai-competitor-finder" element={<AICompetitorFinder />} />
+              <Route path="/share/:token" element={<SharedScanReport />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
