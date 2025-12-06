@@ -19,6 +19,7 @@ import { ScrollingAIText } from '@/components/ScrollingAIText';
 import { Logo } from '@/components/Logo';
 import { BlackFridayBanner } from '@/components/BlackFridayBanner';
 import { CompetitorComparison } from '@/components/CompetitorComparison';
+import EnterpriseComparisonSection from '@/components/landing/EnterpriseComparisonSection';
 import { TestimonialsSection } from '@/components/TestimonialsSection';
 import { RotatingAIPlatform } from '@/components/RotatingAIPlatform';
 import { SoftwareApplicationSchema, LLUMOS_PRICING } from '@/components/seo/SoftwareApplicationSchema';
@@ -401,6 +402,9 @@ const Index = () => {
 
         {/* Testimonials Section */}
         <TestimonialsSection />
+
+        {/* Enterprise Comparison Section */}
+        <EnterpriseComparisonSection />
 
         {/* Final CTA Section */}
         <section className="py-24 px-4 bg-gradient-to-br from-primary/10 via-background to-secondary/10 border-t">
