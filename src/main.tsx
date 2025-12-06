@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom/client';
-import { BrowserRouter, HashRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { QueryProvider } from './app/providers/QueryProvider';
 import { HelmetProvider } from 'react-helmet-async';
 import { AppProviders } from './contexts/AppProviders';
@@ -21,7 +21,8 @@ import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 // Now enabled in production for performance tracking
 observeWebVitals();
 
-const Router = HashRouter;
+// Use BrowserRouter for clean SEO-friendly URLs (no hash)
+const Router = BrowserRouter;
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
