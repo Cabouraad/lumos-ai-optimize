@@ -96,7 +96,7 @@ const EnterpriseComparisonSection = () => {
           <h3 className="text-2xl font-bold text-center text-foreground mb-8">
             Feature-by-Feature Comparison
           </h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pt-6">
             <table className="w-full max-w-4xl mx-auto">
               <thead>
                 <tr>
