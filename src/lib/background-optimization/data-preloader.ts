@@ -1,5 +1,8 @@
 /**
  * Phase 3: Background Data Pre-loading and Performance Optimization
+ * 
+ * BRAND ISOLATION: All cache keys and preloading now support brandId
+ * to prevent data bleeding between brands in multi-brand accounts.
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +16,18 @@ interface PreloadJob {
   scheduledAt: number;
   status: 'pending' | 'running' | 'completed' | 'failed';
   estimatedDuration: number;
+  brandId?: string; // Optional brand context
+}
+
+interface PreloadContext {
+  brandId?: string;
+}
+
+/**
+ * Generate brand-scoped cache key
+ */
+function getBrandScopedKey(base: string, orgId: string, brandId?: string): string {
+  return `${base}-${orgId}${brandId ? `-${brandId}` : ''}`;
 }
 
 class BackgroundDataPreloader {
@@ -21,10 +36,18 @@ class BackgroundDataPreloader {
   private processingQueue: string[] = [];
   private worker: Worker | null = null;
   private preloadInterval: NodeJS.Timeout | null = null;
+  private currentBrandId?: string;
 
   constructor() {
     this.initializeWorker();
     this.scheduleRegularPreloads();
+  }
+
+  /**
+   * Set the current brand context for preloading
+   */
+  setBrandContext(brandId?: string): void {
+    this.currentBrandId = brandId;
   }
 
   /**
@@ -40,14 +63,17 @@ class BackgroundDataPreloader {
   /**
    * Schedule high-priority data preloading for critical user paths
    */
-  preloadCriticalData(): void {
+  preloadCriticalData(context?: PreloadContext): void {
+    const brandId = context?.brandId || this.currentBrandId;
+    
     this.addJob({
       id: `dashboard-${Date.now()}`,
       type: 'dashboard',
       priority: 'high',
       scheduledAt: Date.now(),
       status: 'pending',
-      estimatedDuration: 2000
+      estimatedDuration: 2000,
+      brandId
     });
 
     this.addJob({
@@ -56,14 +82,20 @@ class BackgroundDataPreloader {
       priority: 'high',
       scheduledAt: Date.now() + 500, // Slight delay to avoid overwhelming
       status: 'pending',
-      estimatedDuration: 1500
+      estimatedDuration: 1500,
+      brandId
     });
   }
 
   /**
    * Preload data for specific user interactions
    */
-  preloadForUserIntent(intent: 'viewing-competitors' | 'checking-recommendations' | 'analyzing-prompts'): void {
+  preloadForUserIntent(
+    intent: 'viewing-competitors' | 'checking-recommendations' | 'analyzing-prompts',
+    context?: PreloadContext
+  ): void {
+    const brandId = context?.brandId || this.currentBrandId;
+    
     switch (intent) {
       case 'viewing-competitors':
         this.addJob({
@@ -72,7 +104,8 @@ class BackgroundDataPreloader {
           priority: 'medium',
           scheduledAt: Date.now(),
           status: 'pending',
-          estimatedDuration: 1000
+          estimatedDuration: 1000,
+          brandId
         });
         break;
       
@@ -83,12 +116,13 @@ class BackgroundDataPreloader {
           priority: 'medium',
           scheduledAt: Date.now(),
           status: 'pending',
-          estimatedDuration: 800
+          estimatedDuration: 800,
+          brandId
         });
         break;
       
       case 'analyzing-prompts':
-        this.preloadCriticalData(); // Prompts need dashboard context
+        this.preloadCriticalData(context); // Prompts need dashboard context
         break;
     }
   }
@@ -100,17 +134,19 @@ class BackgroundDataPreloader {
     lastVisitedPages: string[];
     frequentActions: string[];
     timeOfDay: number;
+    brandId?: string;
   }): void {
-    const { lastVisitedPages, frequentActions, timeOfDay } = userActivity;
+    const { lastVisitedPages, frequentActions, timeOfDay, brandId } = userActivity;
+    const context = { brandId: brandId || this.currentBrandId };
     
     // Morning users typically check dashboard first
     if (timeOfDay >= 6 && timeOfDay <= 10) {
-      this.preloadCriticalData();
+      this.preloadCriticalData(context);
     }
     
     // If user frequently views competitors, preload that data
     if (frequentActions.includes('view-competitors')) {
-      this.preloadForUserIntent('viewing-competitors');
+      this.preloadForUserIntent('viewing-competitors', context);
     }
     
     // If user was recently on prompts page, likely to return
@@ -121,7 +157,8 @@ class BackgroundDataPreloader {
         priority: 'low',
         scheduledAt: Date.now() + 30000, // 30 seconds delay
         status: 'pending',
-        estimatedDuration: 1500
+        estimatedDuration: 1500,
+        brandId: context.brandId
       });
     }
   }
@@ -165,28 +202,29 @@ class BackgroundDataPreloader {
 
   private async executeJob(job: PreloadJob): Promise<void> {
     const orgId = await getOrgId();
+    const brandId = job.brandId;
     
     switch (job.type) {
       case 'dashboard':
-        await this.preloadDashboardData(orgId);
+        await this.preloadDashboardData(orgId, brandId);
         break;
       
       case 'prompts':
-        await this.preloadPromptsData(orgId);
+        await this.preloadPromptsData(orgId, brandId);
         break;
       
       case 'competitors':
-        await this.preloadCompetitorsData(orgId);
+        await this.preloadCompetitorsData(orgId, brandId);
         break;
       
       case 'recommendations':
-        await this.preloadRecommendationsData(orgId);
+        await this.preloadRecommendationsData(orgId, brandId);
         break;
     }
   }
 
-  private async preloadDashboardData(orgId: string): Promise<void> {
-    const cacheKey = `dashboard-data-${orgId}`;
+  private async preloadDashboardData(orgId: string, brandId?: string): Promise<void> {
+    const cacheKey = getBrandScopedKey('dashboard-data', orgId, brandId);
     
     // Check if already cached
     const cached = await advancedCache.get(cacheKey);
@@ -197,15 +235,16 @@ class BackgroundDataPreloader {
     
     try {
       // Use the actual unified fetcher to warm the cache with the correct data structure
+      // Note: getUnifiedDashboardData needs to be updated to accept brandId
       await getUnifiedDashboardData(false); // Skip cache check, force fetch
-      console.log('Background: Dashboard data preloaded');
+      console.log('Background: Dashboard data preloaded', { orgId, brandId: brandId || 'org-level' });
     } catch (error) {
       console.error('Background preload failed for dashboard:', error);
     }
   }
 
-  private async preloadPromptsData(orgId: string): Promise<void> {
-    const cacheKey = `prompt-data-${orgId}`;
+  private async preloadPromptsData(orgId: string, brandId?: string): Promise<void> {
+    const cacheKey = getBrandScopedKey('prompt-data', orgId, brandId);
     
     const cached = await advancedCache.get(cacheKey);
     if (cached) return;
@@ -215,20 +254,22 @@ class BackgroundDataPreloader {
     
     try {
       // Use the actual unified fetcher to warm the cache with the correct data structure
-      await getUnifiedPromptData(false); // Skip cache check, force fetch
-      console.log('Background: Prompt data preloaded');
+      // getUnifiedPromptData signature: (useCache, dateFrom?, dateTo?, brandId?)
+      await getUnifiedPromptData(false, undefined, undefined, brandId); // Skip cache check, force fetch with brand
+      console.log('Background: Prompt data preloaded', { orgId, brandId: brandId || 'org-level' });
     } catch (error) {
       console.error('Background preload failed for prompts:', error);
     }
   }
 
-  private async preloadCompetitorsData(orgId: string): Promise<void> {
-    const cacheKey = `competitors-data-${orgId}`;
+  private async preloadCompetitorsData(orgId: string, brandId?: string): Promise<void> {
+    const cacheKey = getBrandScopedKey('competitors-data', orgId, brandId);
     
     const cached = await advancedCache.get(cacheKey);
     if (cached) return;
 
-    const { data: competitors } = await supabase
+    // Build query with brand filter
+    let query = supabase
       .from('brand_catalog')
       .select('*')
       .eq('org_id', orgId)
@@ -236,18 +277,27 @@ class BackgroundDataPreloader {
       .order('total_appearances', { ascending: false })
       .limit(50);
 
+    // Apply brand filter if provided
+    if (brandId) {
+      query = query.eq('brand_id', brandId);
+    }
+
+    const { data: competitors } = await query;
+
     if (competitors) {
       advancedCache.set(cacheKey, competitors, 600000); // 10 minute cache
+      console.log('Background: Competitors data preloaded', { orgId, brandId: brandId || 'org-level', count: competitors.length });
     }
   }
 
-  private async preloadRecommendationsData(orgId: string): Promise<void> {
-    const cacheKey = `recommendations-data-${orgId}`;
+  private async preloadRecommendationsData(orgId: string, brandId?: string): Promise<void> {
+    const cacheKey = getBrandScopedKey('recommendations-data', orgId, brandId);
     
     const cached = await advancedCache.get(cacheKey);
     if (cached) return;
 
-    const { data: recommendations } = await supabase
+    // Build query with brand filter
+    let query = supabase
       .from('recommendations')
       .select('*')
       .eq('org_id', orgId)
@@ -255,8 +305,16 @@ class BackgroundDataPreloader {
       .order('created_at', { ascending: false })
       .limit(20);
 
+    // Apply brand filter if provided
+    if (brandId) {
+      query = query.eq('brand_id', brandId);
+    }
+
+    const { data: recommendations } = await query;
+
     if (recommendations) {
       advancedCache.set(cacheKey, recommendations, 240000); // 4 minute cache
+      console.log('Background: Recommendations data preloaded', { orgId, brandId: brandId || 'org-level', count: recommendations.length });
     }
   }
 
@@ -273,7 +331,8 @@ class BackgroundDataPreloader {
       const lastActivity = localStorage.getItem('lastUserActivity');
       
       if (lastActivity && (now - parseInt(lastActivity)) < 300000) { // 5 minutes
-        this.preloadCriticalData();
+        // Use current brand context for scheduled preloads
+        this.preloadCriticalData({ brandId: this.currentBrandId });
       }
     }, 300000); // 5 minutes
   }
@@ -292,7 +351,8 @@ class BackgroundDataPreloader {
       failedJobs,
       successRate: totalJobs > 0 ? completedJobs / totalJobs : 0,
       queueLength: this.processingQueue.length,
-      isProcessing: this.isProcessing
+      isProcessing: this.isProcessing,
+      currentBrandId: this.currentBrandId
     };
   }
 }
@@ -302,39 +362,52 @@ export const backgroundPreloader = new BackgroundDataPreloader();
 
 // Hook for components to trigger intelligent preloading
 export function useDataPreloader() {
-  const preloadForPage = (page: string) => {
+  const preloadForPage = (page: string, brandId?: string) => {
     // Track user activity for intelligent caching
     localStorage.setItem('lastUserActivity', Date.now().toString());
     
+    // Set brand context for this preload session
+    if (brandId) {
+      backgroundPreloader.setBrandContext(brandId);
+    }
+    
+    const context = { brandId };
+    
     switch (page) {
       case '/dashboard':
-        backgroundPreloader.preloadCriticalData();
+        backgroundPreloader.preloadCriticalData(context);
         break;
       case '/competitors':
-        backgroundPreloader.preloadForUserIntent('viewing-competitors');
+        backgroundPreloader.preloadForUserIntent('viewing-competitors', context);
         break;
       case '/recommendations':
-        backgroundPreloader.preloadForUserIntent('checking-recommendations');
+        backgroundPreloader.preloadForUserIntent('checking-recommendations', context);
         break;
       case '/prompts':
-        backgroundPreloader.preloadForUserIntent('analyzing-prompts');
+        backgroundPreloader.preloadForUserIntent('analyzing-prompts', context);
         break;
     }
   };
 
-  const warmCache = () => {
+  const warmCache = (brandId?: string) => {
     const userActivity = {
       lastVisitedPages: JSON.parse(localStorage.getItem('visitedPages') || '[]'),
       frequentActions: JSON.parse(localStorage.getItem('frequentActions') || '[]'),
-      timeOfDay: new Date().getHours()
+      timeOfDay: new Date().getHours(),
+      brandId
     };
     
     backgroundPreloader.warmCacheIntelligently(userActivity);
   };
 
+  const setBrandContext = (brandId?: string) => {
+    backgroundPreloader.setBrandContext(brandId);
+  };
+
   return {
     preloadForPage,
     warmCache,
+    setBrandContext,
     getStats: () => backgroundPreloader.getStats()
   };
 }
