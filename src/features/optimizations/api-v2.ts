@@ -41,9 +41,11 @@ export interface LowVisibilityPrompt {
 /**
  * Generate recommendations (simplified, synchronous)
  * Reduced default limit to prevent timeouts
+ * Supports optional brandId for multi-brand isolation
  */
 export async function generateRecommendations(params?: {
   limit?: number;
+  brandId?: string;
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   
@@ -51,11 +53,14 @@ export async function generateRecommendations(params?: {
     throw new Error('Authentication required');
   }
 
-  console.log('🤖 [generateRecommendations] Starting with limit:', params?.limit || 5);
+  console.log('🤖 [generateRecommendations] Starting with limit:', params?.limit || 5, 'brandId:', params?.brandId || 'org-level');
 
   // Call the edge function with reduced timeout expectations
   const { data, error } = await supabase.functions.invoke('generate-recommendations', {
-    body: { limit: params?.limit || 5 }, // Reduced from 10 to 5
+    body: { 
+      limit: params?.limit || 5, // Reduced from 10 to 5
+      brandId: params?.brandId  // Pass brandId for brand isolation
+    },
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
     },
@@ -83,11 +88,13 @@ export async function generateRecommendations(params?: {
 
 /**
  * List optimizations for the current organization
+ * Supports optional brandId for multi-brand isolation
  */
 export async function listOptimizations(params?: {
   category?: string;
   status?: string;
   limit?: number;
+  brandId?: string;
 }) {
   let query = supabase
     .from('optimizations_v2')
@@ -102,6 +109,11 @@ export async function listOptimizations(params?: {
 
   if (params?.status) {
     query = query.eq('status', params.status);
+  }
+
+  // Apply brand filter for multi-brand isolation
+  if (params?.brandId) {
+    query = query.eq('brand_id', params.brandId);
   }
 
   if (params?.limit) {
@@ -157,8 +169,9 @@ export async function updateOptimizationStatus(
 
 /**
  * Get low visibility prompts
+ * Supports optional brandId for multi-brand isolation
  */
-export async function getLowVisibilityPrompts(limit = 20) {
+export async function getLowVisibilityPrompts(limit = 20, brandId?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -172,12 +185,14 @@ export async function getLowVisibilityPrompts(limit = 20) {
 
   console.log('🔍 [getLowVisibilityPrompts] Calling RPC with:', { 
     org_id: userData.org_id, 
-    limit 
+    limit,
+    brandId: brandId || 'org-level'
   });
 
   const { data, error } = await supabase.rpc('get_low_visibility_prompts', {
     p_org_id: userData.org_id,
-    p_limit: limit
+    p_limit: limit,
+    p_brand_id: brandId || null
   });
 
   console.log('🔍 [getLowVisibilityPrompts] RPC result:', { 

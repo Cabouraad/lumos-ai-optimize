@@ -38,7 +38,14 @@ interface CitationAnalytics {
   }>;
 }
 
-export function useCitationAnalytics(timeRange: '7d' | '30d' | '90d' = '30d') {
+/**
+ * Hook for fetching citation analytics
+ * Supports optional brandId for multi-brand isolation
+ */
+export function useCitationAnalytics(
+  timeRange: '7d' | '30d' | '90d' = '30d',
+  brandId?: string
+) {
   // Get orgId using the same pattern as useLlumosScore
   const { data: orgId } = useQuery({
     queryKey: ['org-id'],
@@ -47,21 +54,52 @@ export function useCitationAnalytics(timeRange: '7d' | '30d' | '90d' = '30d') {
   });
 
   return useQuery({
-    queryKey: ['citation-analytics', orgId, timeRange],
+    queryKey: ['citation-analytics', orgId, timeRange, brandId || 'org-level'],
     queryFn: async (): Promise<CitationAnalytics> => {
       if (!orgId) throw new Error('No organization ID');
 
       const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
       const startDate = subDays(new Date(), days);
 
+      // If brandId provided, first get prompt IDs for that brand
+      let promptIdFilter: string[] | null = null;
+      if (brandId) {
+        const { data: brandPrompts } = await supabase
+          .from('prompts')
+          .select('id')
+          .eq('org_id', orgId)
+          .eq('brand_id', brandId);
+        
+        if (brandPrompts && brandPrompts.length > 0) {
+          promptIdFilter = brandPrompts.map(p => p.id);
+        } else {
+          // Brand has no prompts, return empty data
+          return {
+            summary: { totalCitations: 0, uniquePages: 0, avgPerResponse: 0, topDomain: 'N/A' },
+            trendsOverTime: [],
+            topModels: [],
+            citationsByProvider: [],
+            topPages: [],
+            topPrompts: [],
+          };
+        }
+      }
+
       // Fetch all responses with citations in the time range
-      const { data: responses, error } = await supabase
+      let query = supabase
         .from('prompt_provider_responses')
         .select('id, prompt_id, provider, model, citations_json, run_at, prompts(text)')
         .eq('org_id', orgId)
         .eq('status', 'completed')
         .gte('run_at', startDate.toISOString())
         .not('citations_json', 'is', null);
+
+      // Apply brand filter via prompt_id if needed
+      if (promptIdFilter) {
+        query = query.in('prompt_id', promptIdFilter);
+      }
+
+      const { data: responses, error } = await query;
 
       if (error) throw error;
       if (!responses || responses.length === 0) {
