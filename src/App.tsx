@@ -71,6 +71,7 @@ const Sitemap = lazy(() => loadChunkWithRetry(() => import("./pages/Sitemap")));
 const BlogPostGPT = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostGPT")));
 const BlogPostProfoundAlternative = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostProfoundAlternative")));
 const IndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/IndustryLandingPage")));
+const AuditResults = lazy(() => loadChunkWithRetry(() => import("./pages/AuditResults")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -133,6 +134,7 @@ const App = () => {
           <Route path="/blog/how-to-optimize-for-chatgpt-search" element={<BlogPostGPT />} />
           <Route path="/blog/profound-ai-alternative-pricing" element={<BlogPostProfoundAlternative />} />
           <Route path="/solutions/:industry" element={<IndustryLandingPage />} />
+          <Route path="/audit-results" element={<AuditResults />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
