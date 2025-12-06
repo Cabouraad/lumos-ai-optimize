@@ -14,11 +14,9 @@ import './index.css';
 import App from './App';
 import { QueryAuthBridge } from '@/components/auth/QueryAuthBridge';
 
-
 // Query client is provided by QueryProvider with sane defaults
 
 // Initialize performance monitoring in all environments
-// Now enabled in production for performance tracking
 observeWebVitals();
 
 // Use BrowserRouter for clean SEO-friendly URLs (no hash)

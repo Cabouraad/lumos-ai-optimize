@@ -82,6 +82,7 @@
     "tsx": "^4.20.4",
     "vaul": "^0.9.9",
     "vite-plugin-prerender": "^1.0.8",
+    "vite-react-ssg": "^0.8.9",
     "vitest": "^3.2.4",
     "zod": "^4.1.11",
     "zxcvbn": "^4.4.2"
