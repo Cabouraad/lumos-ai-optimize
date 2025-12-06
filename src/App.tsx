@@ -77,6 +77,7 @@ const ChatGPTvsPerplexity = lazy(() => loadChunkWithRetry(() => import("./pages/
 const KnowledgeBaseArticle = lazy(() => loadChunkWithRetry(() => import("./pages/KnowledgeBaseArticle")));
 const ComparisonLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/ComparisonLandingPage")));
 const DynamicIndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/DynamicIndustryLandingPage")));
+const AICompetitorFinder = lazy(() => loadChunkWithRetry(() => import("./pages/AICompetitorFinder")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -145,6 +146,7 @@ const App = () => {
               <Route path="/knowledge/geo-guide" element={<KnowledgeBaseArticle />} />
               <Route path="/vs/:competitor" element={<ComparisonLandingPage />} />
               <Route path="/industries/:industry" element={<DynamicIndustryLandingPage />} />
+              <Route path="/tools/ai-competitor-finder" element={<AICompetitorFinder />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={

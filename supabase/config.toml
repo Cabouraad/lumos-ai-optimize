@@ -271,3 +271,6 @@ verify_jwt = false
 
 [functions.perform-scan]
 verify_jwt = false
+
+[functions.public-competitor-lookup]
+verify_jwt = false
