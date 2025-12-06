@@ -437,9 +437,39 @@ export function CompetitorCatalog() {
           <div className="text-center py-8">
             <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No Competitors Detected</h3>
-            <p className="text-sm text-muted-foreground">
-              Run some prompts to start detecting competitors in AI responses
+            <p className="text-sm text-muted-foreground mb-4">
+              {selectedBrand?.id 
+                ? `No competitors found for ${selectedBrand.name}. Run prompts for this brand to detect competitors.`
+                : 'Run some prompts to start detecting competitors in AI responses'}
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  const { data, error } = await supabase.functions.invoke('sync-competitor-detection');
+                  if (error) throw error;
+                  toast({
+                    title: "Sync completed",
+                    description: `Found ${data?.competitorsAdded || 0} new competitors.`
+                  });
+                  await fetchCatalog();
+                } catch (error) {
+                  console.error('Sync error:', error);
+                  toast({
+                    title: "Sync failed",
+                    description: "Failed to sync competitors. Please try again.",
+                    variant: "destructive"
+                  });
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Sync Competitors Now
+            </Button>
           </div>
         ) : (
           <div>

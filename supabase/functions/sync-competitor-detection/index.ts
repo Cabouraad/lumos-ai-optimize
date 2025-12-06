@@ -30,8 +30,8 @@ function isValidCompetitor(name: string): boolean {
   
   const normalized = name.toLowerCase().trim();
   
-  // Length check
-  if (normalized.length < 3 || normalized.length > 50) return false;
+  // Length check - minimum 2 chars to allow brands like "Wix"
+  if (normalized.length < 2 || normalized.length > 50) return false;
   
   // Generic terms check
   if (GENERIC_TERMS.has(normalized)) return false;
@@ -55,7 +55,7 @@ function isValidCompetitor(name: string): boolean {
   const hasBusinessPattern = businessSoftwarePatterns.some(pattern => pattern.test(name));
   if (hasBusinessPattern) return true;
   
-  // Well-known business software brands (case-insensitive check)
+  // Well-known business software brands - expanded list
   const knownBusinessBrands = new Set([
     'salesforce', 'hubspot', 'mailchimp', 'zapier', 'slack', 'zoom', 'dropbox',
     'notion', 'asana', 'trello', 'monday', 'clickup', 'airtable', 'basecamp',
@@ -64,14 +64,25 @@ function isValidCompetitor(name: string): boolean {
     'adobe', 'figma', 'canva', 'sketch', 'invision', 'github', 'gitlab',
     'atlassian', 'jira', 'confluence', 'bitbucket', 'microsoft', 'google',
     'oracle', 'ibm', 'aws', 'azure', 'digitalocean', 'heroku', 'netlify',
-    'marketo', 'pardot', 'klaviyo', 'constant contact', 'activecampaign',
-    'pipedrive', 'zoho', 'dynamics', 'netsuite', 'workday', 'servicenow'
+    'marketo', 'pardot', 'klaviyo', 'activecampaign', 'getresponse',
+    'pipedrive', 'zoho', 'dynamics', 'netsuite', 'workday', 'servicenow',
+    'freshworks', 'freshsales', 'freshdesk', 'keap', 'infusionsoft', 'ontraport',
+    'autotrader', 'carvana', 'carmax', 'truecar', 'vroom', 'edmunds',
+    'autotempest', 'cars.com', 'kbb', 'kelley blue book',
+    'ecwid', 'kartra', 'sendinblue', 'brevo', 'convertkit', 'drip',
+    'capsule', 'creatio', 'vtiger', 'engagebay', 'fostio', 'livechat',
+    'intercom', 'zendesk', 'drift', 'crisp', 'tidio', 'tawk', 'olark',
+    'semrush', 'ahrefs', 'moz', 'similarweb', 'spyfu', 'serpstat'
   ]);
   
   if (knownBusinessBrands.has(normalized)) return true;
   
-  // If it's not obviously business software, require strong indicators
-  // This helps filter out generic terms that made it through
+  // More permissive: if competitor has at least one capital letter (proper noun indicator)
+  // and doesn't fail other checks, allow it
+  if (/[A-Z]/.test(name) && name.length >= 3) {
+    return true;
+  }
+  
   return false;
 }
 
@@ -108,7 +119,8 @@ Deno.serve(async (req) => {
       `)
       .not('competitors_json', 'is', null)
       .gte('run_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()) // Last 14 days
-      .eq('status', 'success')
+      .in('status', ['success', 'completed']) // Support both status values
+      .gt('competitors_count', 0) // Only responses with actual competitors
       .order('run_at', { ascending: false });
 
     if (responsesError) {
@@ -317,8 +329,8 @@ Deno.serve(async (req) => {
 
         const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
         
-        // Frequency threshold: must be mentioned at least 3 times OR have high confidence
-        const meetsFrequencyThreshold = data.mentions >= 3 || avgScore >= 7.0;
+        // Frequency threshold: must be mentioned at least once (was 3, lowered for new accounts)
+        const meetsFrequencyThreshold = data.mentions >= 1;
         
         if (!meetsFrequencyThreshold) {
           console.log(`Skipping ${competitorName}: only ${data.mentions} mentions (threshold: 3)`);
