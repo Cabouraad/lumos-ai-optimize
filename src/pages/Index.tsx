@@ -11,6 +11,7 @@ import { ExitIntentPopup } from '@/components/home/ExitIntentPopup';
 import { LinkedInPixel } from '@/components/tracking/LinkedInPixel';
 import { GoogleAnalytics } from '@/components/tracking/GoogleAnalytics';
 import { ProofSection } from '@/components/landing/ProofSection';
+import { HeroAuditTool } from '@/components/landing/HeroAuditTool';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { SEOHelmet } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
@@ -164,24 +165,11 @@ const Index = () => {
                 Llumos shows how often ChatGPT, Gemini, and Perplexity mention your brand—and how to fix it.
               </p>
               
-              <div className="flex flex-col items-center gap-4 pt-6">
-                <Button 
-                  size="lg" 
-                  className="px-10 h-14 text-lg shadow-glow font-semibold" 
-                  asChild
-                >
-                  <Link to="/signup" onClick={() => trackCtaClick('hero-cta')}>
-                    Start 7-Day Free Trial
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Link>
-                </Button>
-                
-                <p className="text-sm text-muted-foreground">
-                  Set up in 2 minutes
-                </p>
+              <div className="pt-8">
+                <HeroAuditTool />
               </div>
 
-              <div className="pt-8">
+              <div className="pt-10">
                 <p className="text-sm text-muted-foreground mb-4">Trusted by marketers, agencies, and growing brands</p>
                 <div className="flex items-center justify-center gap-6 flex-wrap opacity-60">
                   <Badge variant="outline" className="px-4 py-2">500+ Users</Badge>
