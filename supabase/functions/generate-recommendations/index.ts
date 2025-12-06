@@ -106,17 +106,44 @@ serve(async (req) => {
 
     const orgId = userData.org_id;
 
-    // Get organization details
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("name, business_description, keywords, competitors")
-      .eq("id", orgId)
-      .single();
-
     // Parse request body - reduce default limit to avoid timeouts
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(body.limit || 5, 10); // Reduced from 10/20 to 5/10 to prevent timeouts
     const specificPromptId = body.promptId; // Optional: generate for specific prompt
+    const brandId = body.brandId; // Optional: brand-specific recommendations
+
+    // Get organization details OR brand-specific context
+    let businessContext: { name: string; business_description: string | null; keywords: string[] | null; competitors: string[] | null } | null = null;
+
+    if (brandId) {
+      // Brand-specific context
+      const { data: brand } = await supabase
+        .from("brands")
+        .select("name, business_description, keywords, target_audience, products_services")
+        .eq("id", brandId)
+        .eq("org_id", orgId)
+        .single();
+      
+      if (brand) {
+        businessContext = {
+          name: brand.name,
+          business_description: brand.business_description,
+          keywords: brand.keywords,
+          competitors: null // Brand-level competitors could be fetched from brand_catalog if needed
+        };
+        console.log(`[GENERATE-RECS] Using brand context for: ${brand.name}`);
+      }
+    }
+
+    // Fallback to org-level context
+    if (!businessContext) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name, business_description, keywords, competitors")
+        .eq("id", orgId)
+        .single();
+      businessContext = org;
+    }
 
     let lowVisPrompts;
     let promptError;
@@ -182,10 +209,11 @@ serve(async (req) => {
       }];
       promptError = null;
     } else {
-      // Original behavior: Query for low-visibility prompts
+      // Original behavior: Query for low-visibility prompts with optional brand filter
+      console.log(`[GENERATE-RECS] Querying low-visibility prompts, brandId: ${brandId || 'org-level'}`);
       const result = await supabase.rpc(
         "get_low_visibility_prompts",
-        { p_org_id: orgId, p_limit: limit }
+        { p_org_id: orgId, p_limit: limit, p_brand_id: brandId || null }
       );
       lowVisPrompts = result.data;
       promptError = result.error;
@@ -223,13 +251,13 @@ serve(async (req) => {
       console.log(`[GENERATE-RECS] Processing prompt ${processed}/${lowVisPrompts.length}: ${prompt.prompt_text.substring(0, 60)}...`);
       
       try {
-        // Build system prompt with org context
-        const systemPrompt = `You are an AI optimization strategist helping ${org?.name || "a company"} improve their visibility in AI search results.
+        // Build system prompt with business context (brand-specific or org-level)
+        const systemPrompt = `You are an AI optimization strategist helping ${businessContext?.name || "a company"} improve their visibility in AI search results.
 
-Organization Context:
-- Business: ${org?.business_description || "Not provided"}
-- Keywords: ${org?.keywords?.join(", ") || "Not provided"}
-- Competitors: ${org?.competitors?.join(", ") || "Not provided"}
+Business Context:
+- Business: ${businessContext?.business_description || "Not provided"}
+- Keywords: ${businessContext?.keywords?.join(", ") || "Not provided"}
+- Competitors: ${businessContext?.competitors?.join(", ") || "Not provided"}
 
 The user's brand currently has ${prompt.presence_rate?.toFixed(1)}% presence rate for this prompt (based on ${prompt.total_runs} runs).
 
@@ -391,6 +419,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
 
           const { error: insertError } = await supabase.from("optimizations_v2").insert({
             org_id: orgId,
+            brand_id: brandId || null, // Include brand_id for multi-brand isolation
             prompt_id: prompt.prompt_id,
             title: rec.title,
             description: rec.description,
@@ -411,6 +440,7 @@ Each recommendation should be specific, actionable, and tailored to this prompt.
               prompt_text: prompt.prompt_text,
               presence_rate: prompt.presence_rate,
               total_runs: prompt.total_runs,
+              brand_id: brandId || null, // Track which brand context was used
             },
             citations_used: prompt.top_citations || [],
           });
