@@ -189,11 +189,12 @@ export async function getLowVisibilityPrompts(limit = 20, brandId?: string) {
     brandId: brandId || 'org-level'
   });
 
+  // Type assertion needed because types.ts is auto-generated and may not have the new p_brand_id parameter yet
   const { data, error } = await supabase.rpc('get_low_visibility_prompts', {
     p_org_id: userData.org_id,
     p_limit: limit,
     p_brand_id: brandId || null
-  });
+  } as any);
 
   console.log('🔍 [getLowVisibilityPrompts] RPC result:', { 
     dataLength: data?.length || 0,
