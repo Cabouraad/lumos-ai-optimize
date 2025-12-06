@@ -75,6 +75,7 @@ const AuditResults = lazy(() => loadChunkWithRetry(() => import("./pages/AuditRe
 const Agencies = lazy(() => loadChunkWithRetry(() => import("./pages/Agencies")));
 const ChatGPTvsPerplexity = lazy(() => loadChunkWithRetry(() => import("./pages/ChatGPTvsPerplexity")));
 const KnowledgeBaseArticle = lazy(() => loadChunkWithRetry(() => import("./pages/KnowledgeBaseArticle")));
+const ComparisonLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/ComparisonLandingPage")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -141,6 +142,7 @@ const App = () => {
           <Route path="/agencies" element={<Agencies />} />
 <Route path="/compare/chatgpt-vs-perplexity" element={<ChatGPTvsPerplexity />} />
               <Route path="/knowledge/geo-guide" element={<KnowledgeBaseArticle />} />
+              <Route path="/vs/:competitor" element={<ComparisonLandingPage />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
