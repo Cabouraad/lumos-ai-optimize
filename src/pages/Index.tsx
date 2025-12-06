@@ -21,6 +21,7 @@ import { BlackFridayBanner } from '@/components/BlackFridayBanner';
 import { CompetitorComparison } from '@/components/CompetitorComparison';
 import { TestimonialsSection } from '@/components/TestimonialsSection';
 import { RotatingAIPlatform } from '@/components/RotatingAIPlatform';
+import { SoftwareApplicationSchema, LLUMOS_PRICING } from '@/components/seo/SoftwareApplicationSchema';
 
 const Index = () => {
   const { user, loading, orgData, orgStatus, ready, isChecking } = useAuth();
@@ -84,18 +85,37 @@ const Index = () => {
             "@type": "SoftwareApplication",
             name: "Llumos",
             applicationCategory: "BusinessApplication",
-            operatingSystem: "Web",
-            description: "AI Search Visibility and GEO tracking platform for brands.",
+            operatingSystem: "Cloud/Web",
+            description: "AI Search Visibility & GEO Tracking Platform. Track your brand visibility across AI-powered search engines like ChatGPT, Claude, Perplexity, and Google AI Overviews.",
+            url: "https://llumos.ai",
+            image: "https://llumos.ai/og-home.png",
+            author: {
+              "@type": "Organization",
+              name: "Llumos",
+              url: "https://llumos.ai"
+            },
             offers: {
               "@type": "Offer",
-              price: "39.00",
-              priceCurrency: "USD",
-              priceValidUntil: "2025-12-31"
+              price: LLUMOS_PRICING.starter.price.toFixed(2),
+              priceCurrency: LLUMOS_PRICING.starter.currency,
+              priceValidUntil: "2025-12-31",
+              availability: "https://schema.org/InStock",
+              url: "https://llumos.ai/pricing"
             },
+            featureList: [
+              "AI Search Visibility Tracking",
+              "ChatGPT Brand Monitoring",
+              "Perplexity Visibility Analytics",
+              "Google AI Overviews Tracking",
+              "Competitor Analysis",
+              "Citation Analytics"
+            ],
             aggregateRating: {
               "@type": "AggregateRating",
               ratingValue: "4.8",
-              ratingCount: "124"
+              reviewCount: "124",
+              bestRating: "5",
+              worstRating: "1"
             }
           }
         ]}
