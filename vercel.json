@@ -1,6 +1,39 @@
 {
   "rewrites": [
     {
+      "source": "/resources",
+      "destination": "/resources/index.html",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(Googlebot|Bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Applebot|PetalBot|SemrushBot|AhrefsBot|MJ12bot|Screaming Frog|Bytespider|GPTBot|ChatGPT-User|anthropic-ai|ClaudeBot|PerplexityBot|Google-Extended)"
+        }
+      ]
+    },
+    {
+      "source": "/pricing",
+      "destination": "/pricing/index.html",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(Googlebot|Bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Applebot|PetalBot|SemrushBot|AhrefsBot|MJ12bot|Screaming Frog|Bytespider|GPTBot|ChatGPT-User|anthropic-ai|ClaudeBot|PerplexityBot|Google-Extended)"
+        }
+      ]
+    },
+    {
+      "source": "/features",
+      "destination": "/features/index.html",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(Googlebot|Bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Applebot|PetalBot|SemrushBot|AhrefsBot|MJ12bot|Screaming Frog|Bytespider|GPTBot|ChatGPT-User|anthropic-ai|ClaudeBot|PerplexityBot|Google-Extended)"
+        }
+      ]
+    },
+    {
       "source": "/((?!api|_next|static|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)",
       "destination": "/index.html"
     }
