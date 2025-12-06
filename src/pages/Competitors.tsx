@@ -181,6 +181,28 @@ export default function Competitors() {
       setLoading(true);
       const orgId = await getOrgId();
 
+      // Build brand-filtered queries for catalog count and tracked competitors
+      let catalogCountQuery = supabase
+        .from('brand_catalog')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', orgId)
+        .eq('is_org_brand', false);
+      
+      let trackedQuery = supabase
+        .from('brand_catalog')
+        .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score, brand_id')
+        .eq('org_id', orgId)
+        .eq('is_org_brand', false)
+        .order('total_appearances', { ascending: false })
+        .order('last_seen_at', { ascending: false })
+        .limit(50);
+
+      // Apply strict brand filtering for multi-brand isolation
+      if (selectedBrand?.id) {
+        catalogCountQuery = catalogCountQuery.eq('brand_id', selectedBrand.id);
+        trackedQuery = trackedQuery.eq('brand_id', selectedBrand.id);
+      }
+
       // Get org name and brand info
       const [orgResult, competitorSummaryResult, catalogCountResult, trackedResult] = await Promise.all([
         supabase
@@ -196,43 +218,14 @@ export default function Competitors() {
           p_providers: null, 
           p_brand_id: selectedBrand?.id || null 
         }),
-        supabase
-          .from('brand_catalog')
-          .select('id', { count: 'exact', head: true })
-          .eq('org_id', orgId)
-          .eq('is_org_brand', false),
-        supabase
-          .from('brand_catalog')
-          .select('id, name, first_detected_at, total_appearances, is_org_brand, average_score')
-          .eq('org_id', orgId)
-          .eq('is_org_brand', false)
-          .order('total_appearances', { ascending: false })
-          .order('last_seen_at', { ascending: false })
-          .limit(50)
+        catalogCountQuery,
+        trackedQuery
       ]);
 
       let competitorRows = competitorSummaryResult.data as any[] | null;
-      // default: no fallback unless we switch later
+      // IMPORTANT: Do NOT fall back to org-level data when brand-specific is empty
+      // This would violate brand isolation - each brand should have independent competitor data
       setIsBrandFallback(false);
-      
-      // Fallback: If brand filter returns empty, try without brand filter
-      if (selectedBrand?.id && (!competitorRows || competitorRows.length === 0) && !competitorSummaryResult.error) {
-        console.info('Brand filter returned no results, fetching without brand filter');
-        setIsBrandFallback(true);
-        const fallbackResult = await supabase.rpc('get_org_competitor_summary_v2', { 
-          p_org_id: orgId, 
-          p_days: 30, 
-          p_limit: 50, 
-          p_offset: 0, 
-          p_providers: null, 
-          p_brand_id: null 
-        });
-        
-        if (!fallbackResult.error && fallbackResult.data && fallbackResult.data.length > 0) {
-          competitorRows = fallbackResult.data as any[] | null;
-          setIsBrandFallback(true);
-        }
-      }
 
       if (competitorSummaryResult.error) {
         console.warn('get_org_competitor_summary_v2 failed, attempting legacy fallback', competitorSummaryResult.error);
@@ -251,9 +244,9 @@ export default function Competitors() {
       // Convert RPC data to competitor format
       let competitors: CompetitorData[] = competitorRows || [];
       
-      // Fallback to brand_catalog if RPC returned no data
+      // Fallback to brand_catalog if RPC returned no data (but still brand-filtered)
       if (competitors.length === 0 && trackedResult.data && trackedResult.data.length > 0) {
-        console.info('RPC returned no competitors, using brand_catalog data as fallback');
+        console.info('RPC returned no competitors, using brand_catalog data (brand-filtered)');
         competitors = trackedResult.data
           .filter(b => b.total_appearances > 0) // Only show competitors with actual mentions
           .map(cat => ({
