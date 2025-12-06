@@ -1,3 +1,7 @@
 User-agent: *
 Allow: /
-Sitemap: https://llumos.app/sitemap.xml
+Disallow: /app/*
+Disallow: /dashboard/*
+Disallow: /onboarding/*
+
+Sitemap: https://llumos.ai/sitemap.xml
