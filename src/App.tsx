@@ -72,6 +72,7 @@ const BlogPostGPT = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPost
 const BlogPostProfoundAlternative = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostProfoundAlternative")));
 const IndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/IndustryLandingPage")));
 const AuditResults = lazy(() => loadChunkWithRetry(() => import("./pages/AuditResults")));
+const Agencies = lazy(() => loadChunkWithRetry(() => import("./pages/Agencies")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -135,6 +136,7 @@ const App = () => {
           <Route path="/blog/profound-ai-alternative-pricing" element={<BlogPostProfoundAlternative />} />
           <Route path="/solutions/:industry" element={<IndustryLandingPage />} />
           <Route path="/audit-results" element={<AuditResults />} />
+          <Route path="/agencies" element={<Agencies />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
