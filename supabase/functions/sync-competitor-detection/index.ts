@@ -1,7 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://llumos.app";
-
 // Smart filtering logic (inline for edge function)
 const GENERIC_TERMS = new Set([
   // Common words that appear capitalized but aren't brands
@@ -87,7 +85,7 @@ function isValidCompetitor(name: string): boolean {
 }
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
