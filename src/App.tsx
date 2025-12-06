@@ -73,6 +73,7 @@ const BlogPostProfoundAlternative = lazy(() => loadChunkWithRetry(() => import("
 const IndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/IndustryLandingPage")));
 const AuditResults = lazy(() => loadChunkWithRetry(() => import("./pages/AuditResults")));
 const Agencies = lazy(() => loadChunkWithRetry(() => import("./pages/Agencies")));
+const ChatGPTvsPerplexity = lazy(() => loadChunkWithRetry(() => import("./pages/ChatGPTvsPerplexity")));
 
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
@@ -137,6 +138,7 @@ const App = () => {
           <Route path="/solutions/:industry" element={<IndustryLandingPage />} />
           <Route path="/audit-results" element={<AuditResults />} />
           <Route path="/agencies" element={<Agencies />} />
+          <Route path="/compare/chatgpt-vs-perplexity" element={<ChatGPTvsPerplexity />} />
           
           {/* Auth routes - redirect if already authenticated */}
           <Route path="/signin" element={
