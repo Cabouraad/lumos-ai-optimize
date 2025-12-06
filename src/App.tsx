@@ -12,8 +12,8 @@ import { useGlobalShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { isFeatureEnabled } from '@/lib/config/feature-flags';
 
 // ============================================
-// EAGERLY LOADED - Marketing/Public Pages (Critical for SEO/LCP)
-// These load instantly without Suspense for Core Web Vitals
+// EAGERLY LOADED - Marketing/Public Pages (Critical for SEO/SSG)
+// These load instantly without Suspense for Core Web Vitals + Pre-rendering
 // ============================================
 import Index from "./pages/Index";
 import Pricing from "./pages/Pricing";
@@ -26,6 +26,28 @@ import Security from "./pages/Security";
 import Sitemap from "./pages/Sitemap";
 import BlackFriday from "./pages/BlackFriday";
 import Agencies from "./pages/Agencies";
+
+// Feature sub-pages (eagerly loaded for SSG)
+import BrandVisibility from "./pages/features/BrandVisibility";
+import CompetitiveAnalysis from "./pages/features/CompetitiveAnalysis";
+import ActionableRecommendations from "./pages/features/ActionableRecommendations";
+import CitationAnalysisFeature from "./pages/features/CitationAnalysisFeature";
+import LLMsTextFeature from "./pages/features/LLMsTextFeature";
+import TierComparison from "./pages/features/TierComparison";
+import ContentStudioFeature from "./pages/features/ContentStudio";
+
+// Plan pages (eagerly loaded for SSG)
+import StarterPlan from "./pages/plans/StarterPlan";
+import GrowthPlan from "./pages/plans/GrowthPlan";
+import ProPlan from "./pages/plans/ProPlan";
+
+// Blog posts (eagerly loaded for SSG)
+import BlogPostGPT from "./pages/BlogPostGPT";
+import BlogPostProfoundAlternative from "./pages/BlogPostProfoundAlternative";
+
+// Other marketing pages (eagerly loaded for SSG)
+import FreeChecker from "./pages/FreeChecker";
+import ComparisonPage from "./pages/ComparisonPage";
 
 // ============================================
 // LAZY LOADED - Auth Routes
@@ -71,25 +93,12 @@ const RunReports = lazy(() => loadChunkWithRetry(() => import("./pages/RunReport
 const DomainAuthority = lazy(() => loadChunkWithRetry(() => import("./pages/admin/DomainAuthority")));
 
 // ============================================
-// LAZY LOADED - Secondary Marketing/Public Pages
+// LAZY LOADED - Secondary Public Pages (dynamic routes, not pre-rendered)
 // ============================================
 const BlogPost = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPost")));
-const BrandVisibility = lazy(() => loadChunkWithRetry(() => import("./pages/features/BrandVisibility")));
-const CompetitiveAnalysis = lazy(() => loadChunkWithRetry(() => import("./pages/features/CompetitiveAnalysis")));
-const ActionableRecommendations = lazy(() => loadChunkWithRetry(() => import("./pages/features/ActionableRecommendations")));
-const CitationAnalysisFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/CitationAnalysisFeature")));
-const LLMsTextFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/LLMsTextFeature")));
-const TierComparison = lazy(() => loadChunkWithRetry(() => import("./pages/features/TierComparison")));
-const ContentStudioFeature = lazy(() => loadChunkWithRetry(() => import("./pages/features/ContentStudio")));
-const StarterPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/StarterPlan")));
-const GrowthPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/GrowthPlan")));
-const ProPlan = lazy(() => loadChunkWithRetry(() => import("./pages/plans/ProPlan")));
 const TrialSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/TrialSuccess")));
 const PaymentSuccess = lazy(() => loadChunkWithRetry(() => import("./pages/PaymentSuccess")));
 const BlackFridaySuccess = lazy(() => loadChunkWithRetry(() => import("./pages/BlackFridaySuccess")));
-const FreeChecker = lazy(() => loadChunkWithRetry(() => import("./pages/FreeChecker")));
-const BlogPostGPT = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostGPT")));
-const BlogPostProfoundAlternative = lazy(() => loadChunkWithRetry(() => import("./pages/BlogPostProfoundAlternative")));
 const IndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/IndustryLandingPage")));
 const AuditResults = lazy(() => loadChunkWithRetry(() => import("./pages/AuditResults")));
 const ChatGPTvsPerplexity = lazy(() => loadChunkWithRetry(() => import("./pages/ChatGPTvsPerplexity")));
@@ -98,7 +107,6 @@ const ComparisonLandingPage = lazy(() => loadChunkWithRetry(() => import("./page
 const DynamicIndustryLandingPage = lazy(() => loadChunkWithRetry(() => import("./pages/DynamicIndustryLandingPage")));
 const AICompetitorFinder = lazy(() => loadChunkWithRetry(() => import("./pages/AICompetitorFinder")));
 const SharedScanReport = lazy(() => loadChunkWithRetry(() => import("./pages/SharedScanReport")));
-const ComparisonPage = lazy(() => loadChunkWithRetry(() => import("./pages/ComparisonPage")));
 const NotFound = lazy(() => loadChunkWithRetry(() => import("./pages/NotFound")));
 
 // Suspense fallback for lazy-loaded routes
@@ -112,13 +120,18 @@ const App = () => {
   // Enable global keyboard shortcuts
   useGlobalShortcuts();
 
+  // Dispatch render event for pre-rendering (SSG)
+  useEffect(() => {
+    // Signal to prerenderer that the page is ready
+    document.dispatchEvent(new Event('render-event'));
+  }, []);
   return (
     <TooltipProvider>
       <GoogleAdsTracking />
       <Routes>
         {/* ============================================ */}
-        {/* EAGERLY LOADED - Critical Marketing Pages */}
-        {/* No Suspense wrapper for instant LCP */}
+        {/* EAGERLY LOADED - Critical Marketing Pages (SSG Pre-rendered) */}
+        {/* No Suspense wrapper for instant LCP + SEO crawlability */}
         {/* ============================================ */}
         <Route path="/" element={<Index />} />
         <Route path="/health" element={<Health />} />
@@ -132,31 +145,40 @@ const App = () => {
         <Route path="/sitemap" element={<Sitemap />} />
         <Route path="/black-friday" element={<BlackFriday />} />
         <Route path="/agencies" element={<Agencies />} />
+        
+        {/* Feature sub-pages (SSG Pre-rendered) */}
+        <Route path="/features/brand-visibility" element={<BrandVisibility />} />
+        <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
+        <Route path="/features/actionable-recommendations" element={<ActionableRecommendations />} />
+        <Route path="/features/citation-analysis" element={<CitationAnalysisFeature />} />
+        <Route path="/features/llms-txt" element={<LLMsTextFeature />} />
+        <Route path="/features/tier-comparison" element={<TierComparison />} />
+        <Route path="/features/content-studio" element={<ContentStudioFeature />} />
+        
+        {/* Plan pages (SSG Pre-rendered) */}
+        <Route path="/plans/starter" element={<StarterPlan />} />
+        <Route path="/plans/growth" element={<GrowthPlan />} />
+        <Route path="/plans/pro" element={<ProPlan />} />
+        
+        {/* Blog posts (SSG Pre-rendered) */}
+        <Route path="/blog/how-to-optimize-for-chatgpt-search" element={<BlogPostGPT />} />
+        <Route path="/blog/profound-ai-alternative-pricing" element={<BlogPostProfoundAlternative />} />
+        
+        {/* Other marketing pages (SSG Pre-rendered) */}
+        <Route path="/free-checker" element={<FreeChecker />} />
+        <Route path="/vs-competitors" element={<ComparisonPage />} />
 
         {/* ============================================ */}
-        {/* LAZY LOADED - All Other Routes */}
+        {/* LAZY LOADED - Dynamic & Protected Routes */}
         {/* ============================================ */}
         <Route path="*" element={
           <Suspense fallback={<LazyFallback />}>
             <Routes>
-              {/* Secondary Public Routes */}
-              <Route path="/plans/starter" element={<StarterPlan />} />
-              <Route path="/plans/growth" element={<GrowthPlan />} />
-              <Route path="/plans/pro" element={<ProPlan />} />
-              <Route path="/features/brand-visibility" element={<BrandVisibility />} />
-              <Route path="/features/competitive-analysis" element={<CompetitiveAnalysis />} />
-              <Route path="/features/actionable-recommendations" element={<ActionableRecommendations />} />
-              <Route path="/features/citation-analysis" element={<CitationAnalysisFeature />} />
-              <Route path="/features/llms-txt" element={<LLMsTextFeature />} />
-              <Route path="/features/tier-comparison" element={<TierComparison />} />
-              <Route path="/features/content-studio" element={<ContentStudioFeature />} />
+              {/* Dynamic public routes */}
               <Route path="/resources/:slug" element={<BlogPost />} />
               <Route path="/trial-success" element={<TrialSuccess />} />
               <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/free-checker" element={<FreeChecker />} />
               <Route path="/black-friday-success" element={<BlackFridaySuccess />} />
-              <Route path="/blog/how-to-optimize-for-chatgpt-search" element={<BlogPostGPT />} />
-              <Route path="/blog/profound-ai-alternative-pricing" element={<BlogPostProfoundAlternative />} />
               <Route path="/solutions/:industry" element={<IndustryLandingPage />} />
               <Route path="/audit-results" element={<AuditResults />} />
               <Route path="/compare/chatgpt-vs-perplexity" element={<ChatGPTvsPerplexity />} />
@@ -165,7 +187,6 @@ const App = () => {
               <Route path="/industries/:industry" element={<DynamicIndustryLandingPage />} />
               <Route path="/tools/ai-competitor-finder" element={<AICompetitorFinder />} />
               <Route path="/share/:token" element={<SharedScanReport />} />
-              <Route path="/vs-competitors" element={<ComparisonPage />} />
 
               {/* Auth Routes */}
               <Route path="/signin" element={
