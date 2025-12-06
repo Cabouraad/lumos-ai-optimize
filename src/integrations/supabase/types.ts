@@ -1498,6 +1498,53 @@ export type Database = {
           },
         ]
       }
+      scan_history: {
+        Row: {
+          competitor_name: string | null
+          created_at: string
+          id: string
+          keyword_id: string
+          metadata: Json | null
+          org_id: string
+          previous_rank: number | null
+          rank: number | null
+          raw_response: string | null
+          score: number
+        }
+        Insert: {
+          competitor_name?: string | null
+          created_at?: string
+          id?: string
+          keyword_id: string
+          metadata?: Json | null
+          org_id: string
+          previous_rank?: number | null
+          rank?: number | null
+          raw_response?: string | null
+          score?: number
+        }
+        Update: {
+          competitor_name?: string | null
+          created_at?: string
+          id?: string
+          keyword_id?: string
+          metadata?: Json | null
+          org_id?: string
+          previous_rank?: number | null
+          rank?: number | null
+          raw_response?: string | null
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_history_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduler_runs: {
         Row: {
           completed_at: string | null
@@ -1706,6 +1753,60 @@ export type Database = {
           },
         ]
       }
+      tracked_keywords: {
+        Row: {
+          competitor_url: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          keyword: string
+          last_scanned_at: string | null
+          org_id: string | null
+          platform: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competitor_url?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          last_scanned_at?: string | null
+          org_id?: string | null
+          platform?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competitor_url?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          last_scanned_at?: string | null
+          org_id?: string | null
+          platform?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_keywords_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_brand_detection_health"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "tracked_keywords_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1789,6 +1890,59 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visibility_alerts: {
+        Row: {
+          alert_type: string
+          competitor_name: string | null
+          created_at: string
+          drop_percentage: number | null
+          email_sent_to: string
+          id: string
+          keyword_id: string | null
+          metadata: Json | null
+          org_id: string
+          sent_at: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          alert_type?: string
+          competitor_name?: string | null
+          created_at?: string
+          drop_percentage?: number | null
+          email_sent_to: string
+          id?: string
+          keyword_id?: string | null
+          metadata?: Json | null
+          org_id: string
+          sent_at?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          competitor_name?: string | null
+          created_at?: string
+          drop_percentage?: number | null
+          email_sent_to?: string
+          id?: string
+          keyword_id?: string | null
+          metadata?: Json | null
+          org_id?: string
+          sent_at?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visibility_alerts_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_keywords"
             referencedColumns: ["id"]
           },
         ]
@@ -2228,6 +2382,25 @@ export type Database = {
         Returns: number
       }
       cron_unschedule: { Args: { job_name: string }; Returns: boolean }
+      detect_visibility_drops: {
+        Args: { p_days?: number; p_org_id?: string; p_threshold?: number }
+        Returns: {
+          brand_name: string
+          competitor_name: string
+          current_rank: number
+          current_score: number
+          current_status: string
+          keyword: string
+          keyword_id: string
+          org_id: string
+          previous_rank: number
+          previous_score: number
+          previous_status: string
+          prompt_text: string
+          share_loss: number
+          user_id: string
+        }[]
+      }
       domain_root: { Args: { p_domain: string }; Returns: string }
       email_matches_org_domain: {
         Args: { email_address: string }

@@ -265,3 +265,6 @@ cron_health_monitor = { schedule = "0 */6 * * *", endpoint = "/cron-health-monit
 
 [functions.send-visibility-alert]
 verify_jwt = false
+
+[functions.check-visibility-drops]
+verify_jwt = false
