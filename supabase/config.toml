@@ -268,3 +268,6 @@ verify_jwt = false
 
 [functions.check-visibility-drops]
 verify_jwt = false
+
+[functions.perform-scan]
+verify_jwt = false

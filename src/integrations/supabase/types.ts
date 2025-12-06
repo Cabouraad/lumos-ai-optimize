@@ -2680,6 +2680,18 @@ export type Database = {
         Returns: number
       }
       get_feature_flag: { Args: { flag_name: string }; Returns: boolean }
+      get_keywords_due_for_scan: {
+        Args: { p_limit?: number }
+        Returns: {
+          keyword: string
+          keyword_id: string
+          last_scanned_at: string
+          org_id: string
+          platform: string
+          subscription_tier: string
+          user_id: string
+        }[]
+      }
       get_latest_prompt_provider_responses: {
         Args: { p_org_id: string }
         Returns: {
