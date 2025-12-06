@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { CheckCircle, AlertCircle, Copy, RefreshCw, Globe, FileText, Server } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { EmbedBadge } from '@/components/domain/EmbedBadge';
 
 interface Organization {
   id: string;
@@ -204,27 +205,32 @@ export default function DomainVerification() {
       </div>
 
       {isVerified ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              Domain Verified
-            </CardTitle>
-            <CardDescription>
-              Your domain {org.domain} was verified on{' '}
-              {new Date(org.verified_at!).toLocaleDateString()}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                Your domain is verified and all domain-bound features are enabled.
-                You can now invite users with matching email domains and access restricted features.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="h-5 w-5" />
+                Domain Verified
+              </CardTitle>
+              <CardDescription>
+                Your domain {org.domain} was verified on{' '}
+                {new Date(org.verified_at!).toLocaleDateString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Your domain is verified and all domain-bound features are enabled.
+                  You can now invite users with matching email domains and access restricted features.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+
+          {/* Embed Badge - Only shown after verification */}
+          <EmbedBadge domain={org.domain} visibilityLevel="high" />
+        </div>
       ) : (
         <>
           <Card>
