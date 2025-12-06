@@ -146,6 +146,7 @@ const Index = () => {
             </div>
             <nav className="hidden md:flex items-center space-x-6">
               <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+              <Link to="/tools/ai-competitor-finder" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Free Tools</Link>
               <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
               <Link to="/signin" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Sign In</Link>
               <Button size="sm" asChild>
