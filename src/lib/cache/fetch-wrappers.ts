@@ -4,6 +4,8 @@
  * SAFETY: These are wrapper functions that add caching to existing fetchers.
  * Original functions remain unchanged as guaranteed fallback.
  * Components can choose cached vs direct version.
+ * 
+ * BRAND ISOLATION: Cache keys include brandId to prevent data bleeding between brands.
  */
 
 import { optimizationFlags, withFeatureFlag } from '@/config/featureFlags';
@@ -16,6 +18,16 @@ interface CacheOptions {
   ttl?: number; // Time to live in ms
   skipCache?: boolean; // Force fresh fetch
   cacheKey?: string; // Custom cache key
+  brandId?: string; // Brand ID for multi-brand isolation
+}
+
+/**
+ * Generate brand-scoped cache key
+ * When brandId is provided, cache is isolated per brand
+ * When not provided, uses 'org' suffix for org-level caching
+ */
+function getBrandScopedKey(base: string, orgId: string, brandId?: string): string {
+  return `${base}:${orgId}:${brandId || 'org'}`;
 }
 
 /**
@@ -29,28 +41,28 @@ export async function getCachedDashboardData(
     return withFeatureFlag(
       'FEATURE_DATA_FETCH_CACHE',
     async () => {
-      const { ttl = 60000, skipCache = false, cacheKey } = options;
-      const key = cacheKey || `dashboard:${orgId}`;
+      const { ttl = 60000, skipCache = false, cacheKey, brandId } = options;
+      const key = cacheKey || getBrandScopedKey('dashboard', orgId, brandId);
 
       // Try cache first (unless skipped)
       if (!skipCache) {
         const cached = responseCache.get<UnifiedDashboardData>(key);
         if (cached) {
-          console.log('[CachedFetch] Dashboard data from cache');
+          console.log('[CachedFetch] Dashboard data from cache', { key, brandId: brandId || 'org-level' });
           return cached;
         }
       }
 
       // Fetch fresh data using original logic
-      const data = await fetchDashboardDataOriginal(orgId);
+      const data = await fetchDashboardDataOriginal(orgId, brandId);
       
       // Cache the result
       responseCache.set(key, data, ttl);
-      console.log('[CachedFetch] Dashboard data cached');
+      console.log('[CachedFetch] Dashboard data cached', { key, brandId: brandId || 'org-level' });
       
       return data;
     },
-    () => fetchDashboardDataOriginal(orgId), // Fallback to original
+    () => fetchDashboardDataOriginal(orgId, options.brandId), // Fallback to original
     'dashboard-data-cache'
   );
 }
@@ -58,6 +70,7 @@ export async function getCachedDashboardData(
 /**
  * Cached wrapper for provider data
  * Safe fallback to original function
+ * Note: Providers are org-level, no brand isolation needed
  */
 export async function getCachedProviders(options: CacheOptions = {}) {
     return withFeatureFlag(
@@ -88,7 +101,7 @@ export async function getCachedProviders(options: CacheOptions = {}) {
 
 /**
  * Cached wrapper for prompt responses
- * Original query logic preserved
+ * Original query logic preserved with brand isolation
  */
 export async function getCachedPromptResponses(
   orgId: string, 
@@ -97,19 +110,19 @@ export async function getCachedPromptResponses(
     return withFeatureFlag(
       'FEATURE_DATA_FETCH_CACHE',
     async () => {
-      const { ttl = 30000, skipCache = false } = options; // 30 sec default
-      const key = `responses:${orgId}`;
+      const { ttl = 30000, skipCache = false, brandId } = options; // 30 sec default
+      const key = getBrandScopedKey('responses', orgId, brandId);
 
       if (!skipCache) {
         const cached = responseCache.get<any[]>(key);
         if (cached) {
-          console.log('[CachedFetch] Responses from cache');
+          console.log('[CachedFetch] Responses from cache', { key, brandId: brandId || 'org-level' });
           return cached;
         }
       }
 
-      // Original Supabase query
-      const { data: responses } = await supabase
+      // Build query with optional brand filter
+      let query = supabase
         .from('prompt_provider_responses')
         .select(`
           id, prompt_id, provider, raw_ai_response, score,
@@ -119,15 +132,38 @@ export async function getCachedPromptResponses(
         .eq('org_id', orgId)
         .order('run_at', { ascending: false });
 
+      // If brandId provided, join with prompts to filter by brand
+      if (brandId) {
+        // Need to use a different approach - filter via prompt_id in a subquery
+        const { data: brandPromptIds } = await supabase
+          .from('prompts')
+          .select('id')
+          .eq('org_id', orgId)
+          .eq('brand_id', brandId);
+        
+        if (brandPromptIds && brandPromptIds.length > 0) {
+          const promptIds = brandPromptIds.map(p => p.id);
+          query = query.in('prompt_id', promptIds);
+        } else {
+          // No prompts for this brand, return empty
+          responseCache.set(key, [], ttl);
+          return [];
+        }
+      }
+
+      const { data: responses } = await query;
+
       const result = responses || [];
       responseCache.set(key, result, ttl);
-      console.log('[CachedFetch] Responses cached');
+      console.log('[CachedFetch] Responses cached', { key, brandId: brandId || 'org-level', count: result.length });
       
       return result;
     },
     async () => {
-      // Fallback: Original query without caching
-      const { data: responses } = await supabase
+      // Fallback: Original query without caching but with brand filter support
+      const { brandId } = options;
+      
+      let query = supabase
         .from('prompt_provider_responses')
         .select(`
           id, prompt_id, provider, raw_ai_response, score,
@@ -137,6 +173,21 @@ export async function getCachedPromptResponses(
         .eq('org_id', orgId)
         .order('run_at', { ascending: false });
 
+      if (brandId) {
+        const { data: brandPromptIds } = await supabase
+          .from('prompts')
+          .select('id')
+          .eq('org_id', orgId)
+          .eq('brand_id', brandId);
+        
+        if (brandPromptIds && brandPromptIds.length > 0) {
+          query = query.in('prompt_id', brandPromptIds.map(p => p.id));
+        } else {
+          return [];
+        }
+      }
+
+      const { data: responses } = await query;
       return responses || [];
     },
     'responses-cache'
@@ -145,18 +196,24 @@ export async function getCachedPromptResponses(
 
 /**
  * Original dashboard data fetching function (preserved exactly)
- * This ensures we have the exact same logic as the original
+ * Now supports optional brandId for brand-specific filtering
  */
-async function fetchDashboardDataOriginal(orgId: string): Promise<UnifiedDashboardData> {
-  // Get prompts
-  const { data: prompts } = await supabase
+async function fetchDashboardDataOriginal(orgId: string, brandId?: string): Promise<UnifiedDashboardData> {
+  // Get prompts with optional brand filter
+  let promptsQuery = supabase
     .from('prompts')
     .select('*')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
-  // Get responses  
-  const { data: responses } = await supabase
+  if (brandId) {
+    promptsQuery = promptsQuery.eq('brand_id', brandId);
+  }
+
+  const { data: prompts } = await promptsQuery;
+
+  // Get responses - if brandId provided, filter via prompt_ids
+  let responsesQuery = supabase
     .from('prompt_provider_responses')
     .select(`
       id, prompt_id, provider, raw_ai_response, score,
@@ -165,6 +222,16 @@ async function fetchDashboardDataOriginal(orgId: string): Promise<UnifiedDashboa
     `)
     .eq('org_id', orgId)
     .order('run_at', { ascending: false });
+
+  if (brandId && prompts && prompts.length > 0) {
+    const promptIds = prompts.map(p => p.id);
+    responsesQuery = responsesQuery.in('prompt_id', promptIds);
+  } else if (brandId) {
+    // Brand has no prompts, return empty data
+    return processUnifiedData([], [], new Map(), new Map());
+  }
+
+  const { data: responses } = await responsesQuery;
 
   const validResponses = (responses || []).filter(r => 
     r.score !== null && r.score !== undefined && !isNaN(r.score)
@@ -191,15 +258,14 @@ async function fetchDashboardDataOriginal(orgId: string): Promise<UnifiedDashboa
 
 /**
  * Invalidate cache for specific keys or patterns
- * Useful for forced refresh scenarios
+ * Supports brand-specific invalidation
  */
-export function invalidateCache(pattern?: string): void {
+export function invalidateCache(pattern?: string, brandId?: string): void {
   if (!optimizationFlags.FEATURE_DATA_FETCH_CACHE) return;
   
   if (pattern) {
-    console.log(`[CacheInvalidation] Invalidating pattern: ${pattern}`);
-    // For now, just clear request cache
-    // Could be enhanced to clear specific patterns
+    const suffix = brandId ? `:${brandId}` : '';
+    console.log(`[CacheInvalidation] Invalidating pattern: ${pattern}${suffix}`);
     responseCache.clearRequestCache();
   } else {
     console.log('[CacheInvalidation] Clearing all cache');
