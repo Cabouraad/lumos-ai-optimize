@@ -139,8 +139,15 @@ async function prerenderRoute(browser, route) {
     console.log(`   ⏳ Waiting for selector: ${waitForSelector}`);
     await page.waitForSelector(waitForSelector, { timeout: 10000 });
     
-    // Additional wait for React hydration
-    await page.waitForTimeout(1000);
+    // Wait for React hydration and snapSaveState signal
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Check for snapSaveState (react-snap compatibility)
+    await page.evaluate(() => {
+      if (typeof window.snapSaveState === 'function') {
+        window.snapSaveState();
+      }
+    });
     
     // Validate content if required
     if (validateText && validateText.length > 0) {
