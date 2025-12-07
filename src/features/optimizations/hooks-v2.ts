@@ -1,24 +1,28 @@
 /**
  * Optimizations V2 React Hooks
  * Clean, performant hooks using TanStack Query
+ * Supports multi-brand isolation via BrandContext
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { invokeEdge } from '@/lib/supabase/invoke';
+import { useBrand } from '@/contexts/BrandContext';
 import * as api from './api-v2';
 
 /**
- * Fetch all optimizations
+ * Fetch all optimizations for current brand
  */
 export function useOptimizations(params?: {
   category?: string;
   status?: string;
   limit?: number;
 }) {
+  const { selectedBrand } = useBrand();
+  const brandId = selectedBrand?.id;
+
   return useQuery({
-    queryKey: ['optimizations-v2', params],
-    queryFn: () => api.listOptimizations(params),
+    queryKey: ['optimizations-v2', params, brandId],
+    queryFn: () => api.listOptimizations({ ...params, brandId }),
   });
 }
 
@@ -34,25 +38,34 @@ export function useOptimization(id: string) {
 }
 
 /**
- * Fetch low visibility prompts
+ * Fetch low visibility prompts for current brand
  */
 export function useLowVisibilityPrompts(limit?: number) {
+  const { selectedBrand } = useBrand();
+  const brandId = selectedBrand?.id;
+
   return useQuery({
-    queryKey: ['low-visibility-prompts', limit],
-    queryFn: () => api.getLowVisibilityPrompts(limit),
+    queryKey: ['low-visibility-prompts', limit, brandId],
+    queryFn: () => api.getLowVisibilityPrompts(limit, brandId),
   });
 }
 
 /**
  * Generate new recommendations (simplified, synchronous)
+ * Automatically uses current brand context for multi-brand isolation
  */
 export function useGenerateOptimizations() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { selectedBrand } = useBrand();
 
   return useMutation({
     mutationFn: async (params?: { limit?: number }) => {
-      return await api.generateRecommendations(params);
+      // Include brandId for brand-specific recommendations
+      return await api.generateRecommendations({ 
+        ...params, 
+        brandId: selectedBrand?.id 
+      });
     },
     onSuccess: (data) => {
       console.log('✅ Generation successful:', data);
