@@ -10,8 +10,16 @@ interface BrandVisibilityScore {
   totalMentions: number;
 }
 
+interface BrandCardStatsRow {
+  brand_id: string;
+  prompt_count: number;
+  brand_presence_rate: number;
+  visibility_score: number;
+  total_responses: number;
+}
+
 /**
- * Fetch visibility scores for multiple brands
+ * Fetch visibility scores for multiple brands using efficient batched query
  */
 export function useBrandVisibilityScores(brandIds: string[]) {
   return useQuery({
@@ -36,68 +44,55 @@ export function useBrandVisibilityScores(brandIds: string[]) {
         throw new Error('No organization found');
       }
 
-      // Fetch visibility scores for each brand
-      const scores: BrandVisibilityScore[] = await Promise.all(
-        brandIds.map(async (brandId) => {
-          try {
-            const { data, error } = await supabase.rpc('get_unified_dashboard_data', {
-              p_org_id: userData.org_id,
-              p_brand_id: brandId
-            });
+      // Use the lightweight batched function instead of calling heavy RPC per brand
+      const { data, error } = await supabase.rpc('get_brand_card_stats', {
+        p_org_id: userData.org_id,
+        p_brand_ids: brandIds
+      });
 
-            if (error) {
-              console.error(`Error fetching score for brand ${brandId}:`, error);
-              return { 
-                brandId, 
-                score: 0,
-                totalPrompts: 0,
-                brandPresenceRate: 0,
-                totalMentions: 0,
-                lastActivity: null
-              };
-            }
+      if (error) {
+        console.error('Error fetching brand card stats:', error);
+        // Return empty scores for all brands on error
+        return brandIds.map(brandId => ({
+          brandId,
+          score: 0,
+          totalPrompts: 0,
+          brandPresenceRate: 0,
+          totalMentions: 0,
+          lastActivity: null
+        }));
+      }
 
-            // Type assertion for the RPC response
-            const result = data as any;
-            const avgScore = result?.metrics?.avgScore || 0;
-            const totalPrompts = result?.metrics?.promptCount || result?.metrics?.activePrompts || 0;
-            const totalRuns = result?.metrics?.totalRuns || 0;
-            
-            // Calculate brand presence rate from responses
-            const responses = Array.isArray(result?.responses) ? result.responses : [];
-            const brandPresentResponses = responses.filter((r: any) => r.org_brand_present);
-            const brandPresenceRate = responses.length > 0 
-              ? (brandPresentResponses.length / responses.length) 
-              : 0;
-            
-            // Get last activity from most recent response
-            const lastActivity = responses.length > 0 
-              ? responses.sort((a: any, b: any) => 
-                  new Date(b.run_at).getTime() - new Date(a.run_at).getTime()
-                )[0].run_at
-              : null;
-            
-            return { 
-              brandId, 
-              score: avgScore,
-              totalPrompts,
-              brandPresenceRate,
-              totalMentions: totalRuns,
-              lastActivity
-            };
-          } catch (error) {
-            console.error(`Error fetching score for brand ${brandId}:`, error);
-            return { 
-              brandId, 
-              score: 0,
-              totalPrompts: 0,
-              brandPresenceRate: 0,
-              totalMentions: 0,
-              lastActivity: null
-            };
-          }
-        })
-      );
+      // Map the results to the expected format
+      const statsMap = new Map<string, BrandCardStatsRow>();
+      if (Array.isArray(data)) {
+        (data as BrandCardStatsRow[]).forEach(row => {
+          statsMap.set(row.brand_id, row);
+        });
+      }
+
+      // Return scores for all requested brand IDs
+      const scores: BrandVisibilityScore[] = brandIds.map(brandId => {
+        const stats = statsMap.get(brandId);
+        if (stats) {
+          return {
+            brandId,
+            score: stats.visibility_score || 0,
+            totalPrompts: stats.prompt_count || 0,
+            brandPresenceRate: stats.brand_presence_rate || 0,
+            totalMentions: stats.total_responses || 0,
+            lastActivity: null // Not needed for cards
+          };
+        }
+        return {
+          brandId,
+          score: 0,
+          totalPrompts: 0,
+          brandPresenceRate: 0,
+          totalMentions: 0,
+          lastActivity: null
+        };
+      });
 
       return scores;
     },

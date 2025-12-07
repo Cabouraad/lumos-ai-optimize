@@ -2458,6 +2458,16 @@ export type Database = {
           status: string
         }[]
       }
+      get_brand_card_stats: {
+        Args: { p_brand_ids: string[]; p_org_id: string }
+        Returns: {
+          brand_id: string
+          brand_presence_rate: number
+          prompt_count: number
+          total_responses: number
+          visibility_score: number
+        }[]
+      }
       get_citation_comparison: {
         Args: { p_org_id?: string; p_prompt_id: string }
         Returns: {
