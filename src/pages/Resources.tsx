@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, BookOpen, Search, Mail, ArrowRight, Sparkles } from 'lucide-react';
 import { getAllBlogPosts, getPostsByCategory } from '@/data/blog-posts';
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { SEOHelmet, structuredDataGenerators } from '@/components/SEOHelmet';
 import { Footer } from '@/components/Footer';
@@ -147,6 +147,16 @@ const Resources = () => {
     }
     return getPostsByCategory(selectedCategory);
   }, [allPosts, selectedCategory]);
+
+  // Signal to react-snap that the page is ready for prerendering
+  useEffect(() => {
+    if (typeof window !== 'undefined' && allPosts.length > 0) {
+      // @ts-ignore - react-snap global
+      window.snapSaveState = () => ({
+        __PRELOADED_STATE__: { posts: allPosts }
+      });
+    }
+  }, [allPosts]);
   
   // Insert newsletter card after 4th post
   const postsWithNewsletter = useMemo(() => {
