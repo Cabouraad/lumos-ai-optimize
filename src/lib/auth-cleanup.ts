@@ -51,8 +51,8 @@ export async function signInWithCleanup(email: string, password: string, redirec
     if (data.user) {
       // Force page reload with redirect parameter preserved
       const destination = redirectPath 
-        ? `/auth-processing?redirect=${encodeURIComponent(redirectPath)}`
-        : '/auth-processing';
+        ? `/auth/processing?redirect=${encodeURIComponent(redirectPath)}`
+        : '/auth/processing';
       window.location.href = destination;
     }
     
