@@ -2,39 +2,18 @@
   "rewrites": [
     {
       "source": "/resources",
-      "destination": "/resources/index.html",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(Googlebot|Bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Applebot|PetalBot|SemrushBot|AhrefsBot|MJ12bot|Screaming Frog|Bytespider|GPTBot|ChatGPT-User|anthropic-ai|ClaudeBot|PerplexityBot|Google-Extended)"
-        }
-      ]
+      "destination": "/resources/index.html"
     },
     {
       "source": "/pricing",
-      "destination": "/pricing/index.html",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(Googlebot|Bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Applebot|PetalBot|SemrushBot|AhrefsBot|MJ12bot|Screaming Frog|Bytespider|GPTBot|ChatGPT-User|anthropic-ai|ClaudeBot|PerplexityBot|Google-Extended)"
-        }
-      ]
+      "destination": "/pricing/index.html"
     },
     {
       "source": "/features",
-      "destination": "/features/index.html",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(Googlebot|Bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Applebot|PetalBot|SemrushBot|AhrefsBot|MJ12bot|Screaming Frog|Bytespider|GPTBot|ChatGPT-User|anthropic-ai|ClaudeBot|PerplexityBot|Google-Extended)"
-        }
-      ]
+      "destination": "/features/index.html"
     },
     {
-      "source": "/((?!api|_next|static|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)",
+      "source": "/((?!api|_next|static|favicon.ico|robots.txt|sitemap.xml|resources|pricing|features|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
@@ -62,6 +41,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(resources|pricing|features)/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     }

@@ -1,31 +1,25 @@
-# Netlify configuration for Single Page App routing
-# Includes bot-specific routing for static HTML pages (SEO)
+# Netlify configuration for Single Page App with static marketing pages
 
 [build]
   publish = "dist"
 
-# Bot-specific redirects for pre-rendered marketing pages
-# These serve static HTML to search engines and crawlers
-
+# Serve static HTML for marketing pages (SEO-critical)
 [[redirects]]
   from = "/resources"
   to = "/resources/index.html"
   status = 200
-  conditions = {User-Agent = ["Googlebot", "Bingbot", "Slurp", "DuckDuckBot", "Baiduspider", "YandexBot", "facebookexternalhit", "Twitterbot", "LinkedInBot", "Applebot", "PetalBot", "SemrushBot", "AhrefsBot", "MJ12bot", "Screaming Frog", "Bytespider", "GPTBot", "ChatGPT-User", "anthropic-ai", "ClaudeBot", "PerplexityBot", "Google-Extended"]}
 
 [[redirects]]
   from = "/pricing"
   to = "/pricing/index.html"
   status = 200
-  conditions = {User-Agent = ["Googlebot", "Bingbot", "Slurp", "DuckDuckBot", "Baiduspider", "YandexBot", "facebookexternalhit", "Twitterbot", "LinkedInBot", "Applebot", "PetalBot", "SemrushBot", "AhrefsBot", "MJ12bot", "Screaming Frog", "Bytespider", "GPTBot", "ChatGPT-User", "anthropic-ai", "ClaudeBot", "PerplexityBot", "Google-Extended"]}
 
 [[redirects]]
   from = "/features"
   to = "/features/index.html"
   status = 200
-  conditions = {User-Agent = ["Googlebot", "Bingbot", "Slurp", "DuckDuckBot", "Baiduspider", "YandexBot", "facebookexternalhit", "Twitterbot", "LinkedInBot", "Applebot", "PetalBot", "SemrushBot", "AhrefsBot", "MJ12bot", "Screaming Frog", "Bytespider", "GPTBot", "ChatGPT-User", "anthropic-ai", "ClaudeBot", "PerplexityBot", "Google-Extended"]}
 
-# Default SPA fallback for human users
+# Default SPA fallback for all other routes
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -44,7 +38,6 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Cache static HTML pages for bots
 [[headers]]
   for = "/resources/*"
   [headers.values]
