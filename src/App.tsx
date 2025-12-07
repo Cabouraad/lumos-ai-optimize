@@ -190,17 +190,25 @@ const App = () => {
 
               {/* Auth Routes */}
               <Route path="/signin" element={
-                <ProtectedRoute requireAuth={false}>
-                  <SignIn />
-                </ProtectedRoute>
+                <ChunkErrorBoundary chunkName="SignIn">
+                  <ProtectedRoute requireAuth={false}>
+                    <SignIn />
+                  </ProtectedRoute>
+                </ChunkErrorBoundary>
               } />
               <Route path="/signup" element={
-                <ProtectedRoute requireAuth={false}>
-                  <SignUp />
-                </ProtectedRoute>
+                <ChunkErrorBoundary chunkName="SignUp">
+                  <ProtectedRoute requireAuth={false}>
+                    <SignUp />
+                  </ProtectedRoute>
+                </ChunkErrorBoundary>
               } />
               <Route path="/auth" element={<Navigate to="/signin" replace />} />
-              <Route path="/auth/processing" element={<AuthProcessing />} />
+              <Route path="/auth/processing" element={
+                <ChunkErrorBoundary chunkName="AuthProcessing">
+                  <AuthProcessing />
+                </ChunkErrorBoundary>
+              } />
 
               {/* Protected Routes - Dashboard/App */}
               <Route path="/onboarding" element={
