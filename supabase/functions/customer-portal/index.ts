@@ -2,7 +2,7 @@ import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://llumos.app, http://localhost:3000, https://cgocsffxqyhojtyzniyz.supabase.co",
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
