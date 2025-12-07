@@ -250,16 +250,23 @@ async function main() {
       throw new Error('dist folder not found. Run vite build first.');
     }
     
+    // Try to launch Puppeteer - skip gracefully if Chrome not available
+    console.log('\n🌐 Launching Puppeteer browser...');
+    try {
+      browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+    } catch (launchError) {
+      console.log('⚠️  Puppeteer could not launch (Chrome not available in this environment)');
+      console.log('   Skipping prerendering - build will complete without static HTML generation');
+      console.log('   Run this script locally to generate prerendered pages.\n');
+      process.exit(0); // Exit successfully to not block the build
+    }
+    console.log('✅ Browser launched');
+    
     // Start local server
     await startServer();
-    
-    // Launch Puppeteer
-    console.log('\n🌐 Launching Puppeteer browser...');
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    console.log('✅ Browser launched');
     
     // Prerender each route
     const results = [];
