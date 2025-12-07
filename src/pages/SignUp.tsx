@@ -41,8 +41,8 @@ export default function SignUp() {
     
     // Build email redirect URL with the redirect path parameter
     const emailRedirectUrl = redirectPath && redirectPath !== '/dashboard'
-      ? `${window.location.origin}/auth-processing?redirect=${encodeURIComponent(redirectPath)}`
-      : `${window.location.origin}/auth-processing`;
+      ? `${window.location.origin}/auth/processing?redirect=${encodeURIComponent(redirectPath)}`
+      : `${window.location.origin}/auth/processing`;
     
     const { error } = await supabase.auth.signUp({
       email,
