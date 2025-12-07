@@ -1,7 +1,11 @@
 # Serve static HTML files for marketing pages (SEO)
-/resources /resources/index.html 200
-/pricing /pricing/index.html 200
-/features /features/index.html 200
+# Try both patterns for maximum compatibility
+/resources /resources.html 200
+/resources/ /resources.html 200
+/pricing /pricing.html 200
+/pricing/ /pricing.html 200
+/features /features.html 200
+/features/ /features.html 200
 
 # SPA fallback for all other routes
 /* /index.html 200
