@@ -232,7 +232,7 @@ export default function Brands() {
                             {scoresLoading ? (
                               <Skeleton className="h-8 w-10 mx-auto" />
                             ) : (
-                              `${((scoreMap.get(brand.id)?.brandPresenceRate || 0) * 100).toFixed(0)}%`
+                              `${(scoreMap.get(brand.id)?.brandPresenceRate || 0).toFixed(0)}%`
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">Presence</div>
