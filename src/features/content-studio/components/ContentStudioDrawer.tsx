@@ -26,7 +26,7 @@ import {
   Code2, 
   MessageSquare,
   Target,
-  ArrowRight
+  ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ContentStudioItem, OutlineSection } from '../types';
