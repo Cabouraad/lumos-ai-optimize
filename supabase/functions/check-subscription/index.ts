@@ -224,29 +224,30 @@ try {
   });
 }
 
-// If no Stripe customer and no manual override, mark as unsubscribed (no free tier)
+// If no Stripe customer and no manual override, assign Free tier (not unsubscribed)
 if (customers.data.length === 0) {
-  diagnostics.logStep("No Stripe customer found, marking unsubscribed");
+  diagnostics.logStep("No Stripe customer found, assigning Free tier");
   await supabaseClient.from("subscribers").upsert({
     email: user.email,
     user_id: user.id,
     stripe_customer_id: null,
     subscribed: false,
-    subscription_tier: null,
+    subscription_tier: 'free',
     subscription_end: null,
-    trial_started_at: null,
-    trial_expires_at: null,
+    trial_started_at: existingSubscriber?.trial_started_at ?? null,
+    trial_expires_at: existingSubscriber?.trial_expires_at ?? null,
     payment_collected: false,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'email' });
   return new Response(JSON.stringify({ 
     subscribed: false,
-    subscription_tier: null,
+    subscription_tier: 'free',
     subscription_end: null,
-    trial_expires_at: null,
-    trial_started_at: null,
+    trial_expires_at: existingSubscriber?.trial_expires_at ?? null,
+    trial_started_at: existingSubscriber?.trial_started_at ?? null,
     payment_collected: false,
-    requires_subscription: true,
+    requires_subscription: false, // Free tier has access
+    hasAccess: true, // Free tier has limited access
     }), {
       headers: { ...corsHeaders, "content-type": "application/json" },
       status: 200,
@@ -316,7 +317,19 @@ if (customers.data.length === 0) {
         paymentCollected = true; // Payment method was collected
         diagnostics.logStep("Found trialing subscription", { subscriptionId: trialSubscription.id, trialEnd: subscriptionEnd });
       } else {
-        subscriptionTier = null;
+        // No active subscription and no trial - check if trial expired
+        // If trial expired, convert to Free tier
+        const hadTrial = existingSubscriber?.trial_expires_at;
+        const trialExpired = hadTrial && new Date(existingSubscriber.trial_expires_at) <= new Date();
+        
+        if (trialExpired) {
+          diagnostics.logStep("Trial expired, converting to Free tier");
+          subscriptionTier = "free";
+        } else {
+          // No trial history either - assign Free tier
+          subscriptionTier = "free";
+          diagnostics.logStep("No subscription or trial found, assigning Free tier");
+        }
       }
     }
 
