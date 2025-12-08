@@ -23,12 +23,19 @@ import {
   Tag,
   Eye,
   Edit3,
+  Save,
+  Cloud,
+  CloudOff,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ContentStudioItem } from '../types';
 import { CONTENT_TYPE_LABELS } from '../types';
 import { useContentEditor } from '../hooks/useContentEditor';
+import { useAutoSave } from '../hooks/useAutoSave';
 import { SectionEditor } from './SectionEditor';
+import { ContentMetrics } from './ContentMetrics';
+import { SEOMetadataPanel } from './SEOMetadataPanel';
 
 interface ContentEditorProps {
   item: ContentStudioItem;
@@ -50,6 +57,14 @@ export function ContentEditor({ item, onBack }: ContentEditorProps) {
 
   const [activeTab, setActiveTab] = useState('edit');
   const [assistingSection, setAssistingSection] = useState<number | null>(null);
+
+  // Auto-save functionality
+  const { lastSaved, isSaving, hasUnsavedChanges, saveNow } = useAutoSave(editorState, {
+    itemId: item.id,
+    debounceMs: 3000,
+    onSaveComplete: () => toast.success('Draft saved', { duration: 1500 }),
+    onSaveError: (error) => toast.error('Failed to save draft'),
+  });
 
   useEffect(() => {
     resetEditor(item);
@@ -86,6 +101,18 @@ export function ContentEditor({ item, onBack }: ContentEditorProps) {
   const previewContent = exportAsMarkdown();
   const wordCount = previewContent.split(/\s+/).filter(Boolean).length;
 
+  // Format last saved time
+  const formatLastSaved = (date: Date | null) => {
+    if (!date) return 'Not saved';
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins === 1) return '1 min ago';
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -109,7 +136,34 @@ export function ContentEditor({ item, onBack }: ContentEditorProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Save Status */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : hasUnsavedChanges ? (
+              <>
+                <CloudOff className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-amber-600">Unsaved changes</span>
+              </>
+            ) : (
+              <>
+                <Cloud className="h-3.5 w-3.5 text-green-500" />
+                <span>{formatLastSaved(lastSaved)}</span>
+              </>
+            )}
+          </div>
+
+          {hasUnsavedChanges && (
+            <Button variant="outline" size="sm" onClick={saveNow} className="gap-1.5">
+              <Save className="h-3.5 w-3.5" />
+              Save Now
+            </Button>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
@@ -209,9 +263,23 @@ export function ContentEditor({ item, onBack }: ContentEditorProps) {
                     )}
                   </div>
 
-                  {/* Guidelines Panel */}
+                  {/* Sidebar Panel */}
                   <div className="space-y-4">
+                    {/* Content Metrics */}
                     <Card className="sticky top-4">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Content Metrics</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ContentMetrics editorState={editorState} item={item} />
+                      </CardContent>
+                    </Card>
+
+                    {/* SEO Metadata */}
+                    <SEOMetadataPanel editorState={editorState} item={item} />
+
+                    {/* Writing Guidelines */}
+                    <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">Writing Guidelines</CardTitle>
                       </CardHeader>
@@ -227,23 +295,6 @@ export function ContentEditor({ item, onBack }: ContentEditorProps) {
                               </li>
                             ))}
                           </ul>
-                        </div>
-
-                        <Separator />
-
-                        {/* Key Entities */}
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                            <Tag className="h-3 w-3" />
-                            Include these entities
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {item.key_entities.map((entity, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {entity}
-                              </Badge>
-                            ))}
-                          </div>
                         </div>
 
                         <Separator />

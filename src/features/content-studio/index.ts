@@ -7,3 +7,6 @@ export * from './hooks';
 export { ContentStudioDrawer } from './components/ContentStudioDrawer';
 export { ContentEditor } from './components/ContentEditor';
 export { useContentEditor } from './hooks/useContentEditor';
+export { useAutoSave } from './hooks/useAutoSave';
+export { ContentMetrics } from './components/ContentMetrics';
+export { SEOMetadataPanel } from './components/SEOMetadataPanel';
