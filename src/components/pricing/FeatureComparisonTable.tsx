@@ -6,49 +6,49 @@ const FEATURES = [
   {
     category: 'AI Platform Coverage',
     features: [
-      { name: 'ChatGPT (OpenAI)', starter: true, growth: true, pro: true },
-      { name: 'Perplexity AI', starter: true, growth: true, pro: true },
-      { name: 'Google Gemini', starter: false, growth: true, pro: true },
-      { name: 'Google AI Overviews', starter: false, growth: true, pro: true }
+      { name: 'ChatGPT (OpenAI)', free: true, starter: true, growth: true, pro: true },
+      { name: 'Perplexity AI', free: false, starter: true, growth: true, pro: true },
+      { name: 'Google Gemini', free: false, starter: false, growth: true, pro: true },
+      { name: 'Google AI Overviews', free: false, starter: false, growth: true, pro: true }
     ]
   },
   {
     category: 'Tracking & Monitoring',
     features: [
-      { name: 'Team members', starter: '1 user', growth: '3 users', pro: '10 users' },
-      { name: 'Daily prompt tracking', starter: '25', growth: '100', pro: '300' },
-      { name: 'Real-time updates', starter: true, growth: true, pro: true },
-      { name: 'Historical data', starter: '30 days', growth: '90 days', pro: 'Unlimited' },
-      { name: 'Brand catalog tracking', starter: true, growth: true, pro: true }
+      { name: 'Team members', free: '1 user', starter: '1 user', growth: '3 users', pro: '10 users' },
+      { name: 'Prompt tracking', free: '5 weekly', starter: '25 daily', growth: '100 daily', pro: '300 daily' },
+      { name: 'Real-time updates', free: false, starter: true, growth: true, pro: true },
+      { name: 'Historical data', free: false, starter: '30 days', growth: '90 days', pro: 'Unlimited' },
+      { name: 'Brand catalog tracking', free: false, starter: true, growth: true, pro: true }
     ]
   },
   {
     category: 'Visibility Analytics',
     features: [
-      { name: 'Visibility scoring', starter: 'Basic', growth: 'Advanced', pro: 'Advanced' },
-      { name: 'Competitor tracking', starter: false, growth: '50 competitors', pro: '50 competitors' },
-      { name: 'Market positioning insights', starter: false, growth: true, pro: true },
-      { name: 'Trend analysis', starter: false, growth: true, pro: true }
+      { name: 'Visibility scoring', free: 'Basic', starter: 'Basic', growth: 'Advanced', pro: 'Advanced' },
+      { name: 'Competitor tracking', free: false, starter: false, growth: '50 competitors', pro: '50 competitors' },
+      { name: 'Market positioning insights', free: false, starter: false, growth: true, pro: true },
+      { name: 'Trend analysis', free: false, starter: false, growth: true, pro: true }
     ]
   },
   {
     category: 'Recommendations & Content',
     features: [
-      { name: 'AI-powered optimizations', starter: false, growth: true, pro: true },
-      { name: 'Content suggestions', starter: false, growth: true, pro: true },
-      { name: 'Content Studio', starter: false, growth: true, pro: true },
-      { name: 'Positioning recommendations', starter: false, growth: true, pro: true },
-      { name: 'Custom optimization plans', starter: false, growth: false, pro: true }
+      { name: 'AI-powered optimizations', free: false, starter: false, growth: true, pro: true },
+      { name: 'Content suggestions', free: false, starter: false, growth: true, pro: true },
+      { name: 'Content Studio', free: false, starter: false, growth: true, pro: true },
+      { name: 'Positioning recommendations', free: false, starter: false, growth: true, pro: true },
+      { name: 'Custom optimization plans', free: false, starter: false, growth: false, pro: true }
     ]
   },
   {
     category: 'Reporting & Support',
     features: [
-      { name: 'Weekly email reports', starter: true, growth: true, pro: true },
-      { name: 'Advanced reporting dashboard', starter: false, growth: true, pro: true },
-      { name: 'Export capabilities', starter: false, growth: true, pro: true },
-      { name: 'Email support', starter: true, growth: 'Priority', pro: 'Priority' },
-      { name: 'Dedicated account manager', starter: false, growth: false, pro: true }
+      { name: 'Weekly email reports', free: false, starter: true, growth: true, pro: true },
+      { name: 'Advanced reporting dashboard', free: false, starter: false, growth: true, pro: true },
+      { name: 'Export capabilities', free: false, starter: false, growth: true, pro: true },
+      { name: 'Email support', free: true, starter: true, growth: 'Priority', pro: 'Priority' },
+      { name: 'Dedicated account manager', free: false, starter: false, growth: false, pro: true }
     ]
   }
 ];
@@ -80,6 +80,10 @@ export function FeatureComparisonTable() {
               <tr>
                 <th className="text-left p-4 font-semibold">Feature</th>
                 <th className="text-center p-4 font-semibold">
+                  <div>Free</div>
+                  <Badge variant="outline" className="mt-1 text-xs">$0/mo</Badge>
+                </th>
+                <th className="text-center p-4 font-semibold">
                   <div>Starter</div>
                   <Badge variant="outline" className="mt-1 text-xs">$39/mo</Badge>
                 </th>
@@ -100,7 +104,7 @@ export function FeatureComparisonTable() {
               {FEATURES.map((category, catIndex) => (
                 <>
                   <tr key={`cat-${catIndex}`} className="bg-muted/10">
-                    <td colSpan={4} className="p-3 font-semibold text-sm">
+                    <td colSpan={5} className="p-3 font-semibold text-sm">
                       {category.category}
                     </td>
                   </tr>
@@ -110,6 +114,7 @@ export function FeatureComparisonTable() {
                       className={`border-b ${featIndex % 2 === 0 ? 'bg-background' : 'bg-muted/5'}`}
                     >
                       <td className="p-4 text-sm">{feature.name}</td>
+                      <td className="p-4 text-center">{renderValue(feature.free)}</td>
                       <td className="p-4 text-center">{renderValue(feature.starter)}</td>
                       <td className="p-4 text-center bg-primary/5">{renderValue(feature.growth)}</td>
                       <td className="p-4 text-center">{renderValue(feature.pro)}</td>

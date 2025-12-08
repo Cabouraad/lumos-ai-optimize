@@ -226,46 +226,73 @@ export default function AICompetitorFinder() {
 
             {/* Benefits when no result */}
             {!result && !error && (
-              <div className="mt-16 grid md:grid-cols-3 gap-6 text-left">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Search className="h-5 w-5 text-primary" />
-                      AI-Powered Analysis
-                    </CardTitle>
+              <div className="mt-16 space-y-12">
+                <div className="grid md:grid-cols-3 gap-6 text-left">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Search className="h-5 w-5 text-primary" />
+                        AI-Powered Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground text-sm">
+                        Our AI analyzes your industry and identifies real competitors, not just similar websites.
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Target className="h-5 w-5 text-primary" />
+                        Direct Competitors
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground text-sm">
+                        Get the top 3 brands competing for the same customers and AI visibility as you.
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        Track & Compare
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground text-sm">
+                        Sign up to continuously track how AI recommends you vs. your competitors.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Free Tier CTA */}
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardHeader className="text-center">
+                    <Badge variant="secondary" className="mb-2 w-fit mx-auto">Forever Free</Badge>
+                    <CardTitle className="text-2xl">Start Tracking for Free</CardTitle>
+                    <CardDescription className="text-base">
+                      Track 5 prompts weekly across ChatGPT with our Free plan. No credit card required.
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm">
-                      Our AI analyzes your industry and identifies real competitors, not just similar websites.
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Target className="h-5 w-5 text-primary" />
-                      Direct Competitors
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm">
-                      Get the top 3 brands competing for the same customers and AI visibility as you.
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-primary" />
-                      Track & Compare
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm">
-                      Sign up to continuously track how AI recommends you vs. your competitors.
-                    </p>
+                  <CardContent className="text-center space-y-4">
+                    <ul className="text-sm text-muted-foreground space-y-2">
+                      <li>✓ 5 prompts tracked weekly</li>
+                      <li>✓ ChatGPT visibility data</li>
+                      <li>✓ Read-only dashboard access</li>
+                      <li>✓ No credit card required</li>
+                    </ul>
+                    <Button size="lg" asChild>
+                      <Link to="/signup">
+                        Get Started Free
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
