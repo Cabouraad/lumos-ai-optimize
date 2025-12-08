@@ -24,12 +24,14 @@ function BrandLlumosScore({ brandId }: { brandId: string }) {
   }
   
   const score = scoreData?.score || 0;
+  const composite = scoreData?.composite || 0;
   const colorClass = getScoreColor(score);
   
   return (
-    <span className={colorClass}>
-      {score}
-    </span>
+    <div className="flex flex-col items-center">
+      <span className={colorClass}>{score}</span>
+      <span className="text-[10px] text-muted-foreground">({composite.toFixed(1)}%)</span>
+    </div>
   );
 }
 
