@@ -49,11 +49,36 @@ export async function signInWithCleanup(email: string, password: string, redirec
     if (error) throw error;
     
     if (data.user) {
-      // Force page reload with redirect parameter preserved
-      const destination = redirectPath 
-        ? `/auth/processing?redirect=${encodeURIComponent(redirectPath)}`
-        : '/auth/processing';
-      window.location.href = destination;
+      // For password-based login, session is already established
+      // Bootstrap to determine proper destination (dashboard vs onboarding vs pricing)
+      try {
+        const { data: bootstrapData, error: bootstrapError } = await supabase.functions.invoke('bootstrap-auth');
+        
+        if (!bootstrapError && bootstrapData?.success) {
+          if (bootstrapData.org_id) {
+            // User has organization - check subscription
+            const { data: subData } = await supabase.functions.invoke('check-subscription');
+            
+            if (subData?.hasAccess) {
+              // Has org and subscription - go to dashboard
+              window.location.href = redirectPath || '/dashboard';
+            } else {
+              // Has org but no subscription - check for redirect path (e.g., black-friday)
+              window.location.href = redirectPath || '/pricing';
+            }
+          } else {
+            // No organization - send to onboarding
+            window.location.href = '/onboarding';
+          }
+        } else {
+          // Bootstrap failed - default to dashboard, let ProtectedRoute handle redirects
+          window.location.href = redirectPath || '/dashboard';
+        }
+      } catch (bootstrapError) {
+        console.warn('Bootstrap failed:', bootstrapError);
+        // Default to dashboard, let ProtectedRoute handle redirects
+        window.location.href = redirectPath || '/dashboard';
+      }
     }
     
     return { data, error: null };
