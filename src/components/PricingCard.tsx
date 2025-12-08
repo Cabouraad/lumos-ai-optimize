@@ -12,8 +12,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { openExternalUrl } from '@/lib/navigation';
 import { isBillingBypassEligible, grantStarterBypass } from '@/lib/billing/bypass-utils';
 
-interface PricingCardProps {
-  tier: 'starter' | 'growth' | 'pro';
+export interface PricingCardProps {
+  tier: 'free' | 'starter' | 'growth' | 'pro';
   title: string;
   description: string;
   monthlyPrice: number;
@@ -45,8 +45,19 @@ export function PricingCard({
   const price = billingCycle === 'yearly' ? yearlyPrice : monthlyPrice;
   const isCurrentTier = currentTier === tier;
   const isFreeUser = !currentTier || currentTier === 'free';
+  const isFreeTier = tier === 'free';
 
   const handleSubscribe = async () => {
+    // Free tier just navigates to signup
+    if (isFreeTier) {
+      if (user) {
+        navigate('/dashboard');
+      } else {
+        navigate('/signup');
+      }
+      return;
+    }
+
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -195,7 +206,7 @@ export function PricingCard({
   };
 
   return (
-    <Card className={`relative flex flex-col ${isPopular ? 'border-primary ring-2 ring-primary shadow-lg' : ''} ${tier === 'starter' ? 'border-primary/50' : ''}`}>
+    <Card className={`relative flex flex-col ${isPopular ? 'border-primary ring-2 ring-primary shadow-lg' : ''} ${tier === 'starter' ? 'border-primary/50' : ''} ${isFreeTier ? 'bg-muted/30' : ''}`}>
       {isPopular && (
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
           Most Popular
@@ -204,6 +215,11 @@ export function PricingCard({
       {tier === 'starter' && (
         <Badge className={`absolute ${isPopular ? '-top-3 right-4' : '-top-3 left-1/2 -translate-x-1/2'} bg-primary/10 text-primary border-primary/20`}>
           🎉 Black Friday: $99/year
+        </Badge>
+      )}
+      {isFreeTier && (
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-muted text-muted-foreground border-muted-foreground/20">
+          Forever Free
         </Badge>
       )}
       
@@ -238,13 +254,15 @@ export function PricingCard({
           className="w-full mb-6"
           onClick={handleSubscribe}
           disabled={loading || isCurrentTier}
-          variant={isCurrentTier ? "secondary" : isPopular ? "default" : "outline"}
+          variant={isCurrentTier ? "secondary" : isPopular ? "default" : isFreeTier ? "outline" : "outline"}
           size="lg"
         >
           {loading
             ? 'Loading...'
             : isCurrentTier
             ? 'Current Plan'
+            : isFreeTier
+            ? 'Get Started Free'
             : tier === 'pro'
             ? 'Book a demo'
             : 'Get started'

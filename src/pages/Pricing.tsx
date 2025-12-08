@@ -80,6 +80,20 @@ export default function Pricing() {
 
   const pricingTiers = [
     {
+      tier: 'free' as const,
+      title: 'Free',
+      description: 'For individuals exploring AI visibility',
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      features: [
+        '5 prompts tracked weekly',
+        '1 AI platform (ChatGPT)',
+        'Basic visibility data',
+        'Read-only dashboard',
+        'Email support'
+      ]
+    },
+    {
       tier: 'starter' as const,
       title: 'Starter',
       description: 'For small companies tracking AI visibility',
@@ -264,7 +278,7 @@ export default function Pricing() {
         </Card>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid md:grid-cols-4 gap-6 mb-12">
           {pricingTiers.map((tier) => (
             <PricingCard
               key={tier.tier}
@@ -372,7 +386,7 @@ export default function Pricing() {
                 Is there a free plan?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                We don't offer a free tier to ensure we can provide the best AI search visibility tracking experience. However, our Starter plan includes a 7-day free trial so you can fully evaluate our platform risk-free.
+                Yes! Our Free plan lets you track 5 prompts weekly with basic visibility data on ChatGPT. It's perfect for exploring how AI recommends your brand. When you're ready for more insights, upgrade to a paid plan anytime.
               </AccordionContent>
             </AccordionItem>
 
