@@ -23,6 +23,12 @@ export interface TierLimits {
   hasAdvancedScoring: boolean;
   hasPrioritySupport: boolean;
   hasWhiteLabeling: boolean;
+  /** Maximum number of prompts user can track (null = unlimited) */
+  maxPrompts: number | null;
+  /** Run frequency: 'daily' | 'weekly' */
+  runFrequency: 'daily' | 'weekly';
+  /** Whether user is on free tier */
+  isFreeTier: boolean;
 }
 
 export function useSubscriptionGate() {
@@ -87,14 +93,16 @@ export function useSubscriptionGate() {
   const gracePeriodHours = allowTrialGrace ? 24 : 0;
   
   const trialExpiresAt = subscriptionData?.trial_expires_at;
-  // Simplified access logic: subscribed OR (trial_expires_at > now AND payment_collected === true)
+  // Access logic: subscribed OR (trial_expires_at > now AND payment_collected === true) OR free tier
+  const isFreeTier = currentTier === 'free';
   const hasValidAccess = isSubscribed || 
-    (trialExpiresAt && new Date(trialExpiresAt) > new Date() && subscriptionData?.payment_collected === true);
+    (trialExpiresAt && new Date(trialExpiresAt) > new Date() && subscriptionData?.payment_collected === true) ||
+    isFreeTier; // Free tier users always have access (with restrictions)
   
   const isOnTrial = currentTier === 'starter' && trialExpiresAt && subscriptionData?.payment_collected === true;
-  const trialExpired = !hasValidAccess && trialExpiresAt && new Date(trialExpiresAt) <= new Date();
+  const trialExpired = !isSubscribed && !isFreeTier && trialExpiresAt && new Date(trialExpiresAt) <= new Date();
   // Calculate days remaining for any active trial (not just starter tier)
-  const daysRemainingInTrial = trialExpiresAt && !trialExpired && hasValidAccess
+  const daysRemainingInTrial = trialExpiresAt && !trialExpired && hasValidAccess && !isFreeTier
     ? Math.max(0, Math.ceil((new Date(trialExpiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   
@@ -117,6 +125,9 @@ export function useSubscriptionGate() {
           hasAdvancedScoring: false,
           hasPrioritySupport: false,
           hasWhiteLabeling: false,
+          maxPrompts: null, // Unlimited prompts for paid tiers
+          runFrequency: 'daily',
+          isFreeTier: false,
         };
       case 'growth':
         return {
@@ -129,6 +140,9 @@ export function useSubscriptionGate() {
           hasAdvancedScoring: true,
           hasPrioritySupport: true,
           hasWhiteLabeling: false,
+          maxPrompts: null,
+          runFrequency: 'daily',
+          isFreeTier: false,
         };
       case 'pro':
         return {
@@ -141,10 +155,14 @@ export function useSubscriptionGate() {
           hasAdvancedScoring: true,
           hasPrioritySupport: false,
           hasWhiteLabeling: false,
+          maxPrompts: null,
+          runFrequency: 'daily',
+          isFreeTier: false,
         };
       default:
+        // Free tier - limited access
         return {
-          promptsPerDay: 5, // Free tier gets 5 prompts
+          promptsPerDay: 5,
           providersPerPrompt: 1,
           maxUsers: 1,
           allowedProviders: getAllowedProviders('free'),
@@ -153,6 +171,9 @@ export function useSubscriptionGate() {
           hasAdvancedScoring: false,
           hasPrioritySupport: false,
           hasWhiteLabeling: false,
+          maxPrompts: 5, // Can only track 5 prompts total
+          runFrequency: 'weekly', // Weekly runs only
+          isFreeTier: true,
         };
     }
   };
@@ -234,7 +255,19 @@ export function useSubscriptionGate() {
 
 
   const canCreatePrompts = (currentCount: number): FeatureGate => {
-    // Check valid access first
+    // Free tier has special max prompts limit (not per day, but total)
+    if (isFreeTier && limits.maxPrompts !== null) {
+      if (currentCount >= limits.maxPrompts) {
+        return {
+          hasAccess: false,
+          reason: `Free tier is limited to ${limits.maxPrompts} prompts. Upgrade to track more.`,
+          upgradeRequired: true,
+        };
+      }
+      return { hasAccess: true };
+    }
+    
+    // Check valid access for paid tiers
     if (!hasValidAccess) {
       return {
         hasAccess: false,
@@ -270,8 +303,14 @@ export function useSubscriptionGate() {
       subscribed: subscriptionData?.subscribed,
       trial_expires_at: subscriptionData?.trial_expires_at,
       payment_collected: subscriptionData?.payment_collected,
-      currentTier
+      currentTier,
+      isFreeTier
     });
+    
+    // Free tier users have access (with feature restrictions)
+    if (isFreeTier) {
+      return { hasAccess: true };
+    }
     
     if (!hasValidAccess) {
       return {
@@ -287,6 +326,7 @@ export function useSubscriptionGate() {
   return {
     currentTier,
     isSubscribed,
+    isFreeTier,
     limits,
     isOnTrial,
     trialExpired,

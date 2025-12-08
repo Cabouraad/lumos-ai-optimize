@@ -8,6 +8,10 @@ export type PlanTier = 'starter' | 'growth' | 'pro' | 'free';
 export interface TierQuotas {
   promptsPerDay: number;
   providersPerPrompt: number;
+  /** Maximum number of prompts the user can track (for free tier) */
+  maxPrompts?: number;
+  /** Run frequency: 'daily' | 'weekly' */
+  runFrequency?: 'daily' | 'weekly';
 }
 
 export interface QuotaCheckResult {
@@ -32,6 +36,7 @@ export interface UsageData {
 /**
  * Get quota limits for a plan tier
  * ALIGNED WITH PRICING PAGE:
+ * - Free: 5 prompts max, weekly runs, 1 provider
  * - Starter: 25 prompts/day, 2 providers
  * - Growth: 100 prompts/day, 4 providers
  * - Pro: 300 prompts/day, 4 providers
@@ -39,15 +44,15 @@ export interface UsageData {
 export function getQuotasForTier(planTier: PlanTier): TierQuotas {
   switch (planTier) {
     case 'starter':
-      return { promptsPerDay: 25, providersPerPrompt: 2 };
+      return { promptsPerDay: 25, providersPerPrompt: 2, runFrequency: 'daily' };
     case 'growth':
-      return { promptsPerDay: 100, providersPerPrompt: 4 };
+      return { promptsPerDay: 100, providersPerPrompt: 4, runFrequency: 'daily' };
     case 'pro':
-      return { promptsPerDay: 300, providersPerPrompt: 4 };
+      return { promptsPerDay: 300, providersPerPrompt: 4, runFrequency: 'daily' };
     case 'free':
-      return { promptsPerDay: 5, providersPerPrompt: 1 };
+      return { promptsPerDay: 5, providersPerPrompt: 1, maxPrompts: 5, runFrequency: 'weekly' };
     default:
-      return { promptsPerDay: 5, providersPerPrompt: 1 }; // Default to free tier
+      return { promptsPerDay: 5, providersPerPrompt: 1, maxPrompts: 5, runFrequency: 'weekly' };
   }
 }
 
