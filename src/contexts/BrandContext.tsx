@@ -15,6 +15,7 @@ interface BrandContextType {
   selectedBrand: Brand | null;
   setSelectedBrand: (brand: Brand | null) => void;
   clearSelectedBrand: () => void;
+  isValidated: boolean;
 }
 
 const BrandContext = createContext<BrandContextType | undefined>(undefined);
@@ -113,7 +114,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <BrandContext.Provider value={{ selectedBrand, setSelectedBrand, clearSelectedBrand }}>
+    <BrandContext.Provider value={{ selectedBrand, setSelectedBrand, clearSelectedBrand, isValidated }}>
       {children}
     </BrandContext.Provider>
   );

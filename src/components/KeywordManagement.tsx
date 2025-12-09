@@ -26,16 +26,16 @@ export function KeywordManagement() {
   const [autoFilling, setAutoFilling] = useState(false);
   const { toast } = useToast();
   const { loading: authLoading, user } = useAuth();
-  const { selectedBrand } = useBrand();
+  const { selectedBrand, isValidated: brandValidated } = useBrand();
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !brandValidated) return;
     if (!user || !selectedBrand?.id) {
       setLoading(false);
       return;
     }
     loadKeywords();
-  }, [authLoading, user, selectedBrand?.id]);
+  }, [authLoading, brandValidated, user, selectedBrand?.id]);
 
   const loadKeywords = async () => {
     if (!selectedBrand?.id) return;
@@ -169,6 +169,10 @@ export function KeywordManagement() {
       setAutoFilling(false);
     }
   };
+
+  if (!brandValidated) {
+    return <div className="animate-pulse">Loading brand context...</div>;
+  }
 
   if (!selectedBrand) {
     return (
