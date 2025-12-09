@@ -150,7 +150,7 @@ const Index = () => {
               <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
               <Link to="/signin" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Sign In</Link>
               <Button size="sm" asChild>
-                <Link to="/signup">Get Started</Link>
+                <Link to="/signup">Start Free</Link>
               </Button>
             </nav>
           </div>
@@ -194,8 +194,8 @@ const Index = () => {
               <div className="pt-10">
                 <p className="text-sm text-muted-foreground mb-4">Trusted by marketers, agencies, and growing brands</p>
                 <div className="flex items-center justify-center gap-6 flex-wrap opacity-60">
+                  <Badge variant="outline" className="px-4 py-2">Free Forever Plan</Badge>
                   <Badge variant="outline" className="px-4 py-2">500+ Users</Badge>
-                  <Badge variant="outline" className="px-4 py-2">10,000+ AI Checks</Badge>
                   <Badge variant="outline" className="px-4 py-2">50+ Industries</Badge>
                 </div>
               </div>
@@ -410,26 +410,39 @@ const Index = () => {
         {/* Final CTA Section */}
         <section className="py-24 px-4 bg-gradient-to-br from-primary/10 via-background to-secondary/10 border-t">
           <div className="container max-w-4xl mx-auto text-center space-y-6">
+            <Badge variant="outline" className="mx-auto w-fit px-4 py-2 border-primary/20 bg-background/50">
+              Forever Free Plan Available
+            </Badge>
             <h2 className="text-4xl md:text-5xl font-bold leading-tight">
               See How Often AI Tools Recommend Your Brand
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Run your first visibility scan in under 2 minutes.
+              Start with our Free plan — track 5 prompts weekly on ChatGPT. Upgrade anytime for more insights.
             </p>
-            <div className="pt-4">
+            <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 size="lg" 
                 className="px-12 h-14 text-lg shadow-glow font-semibold" 
                 asChild
               >
                 <Link to="/signup" onClick={() => trackCtaClick('final-cta')}>
-                  Start 7-Day Free Trial
+                  Start Free
                   <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="px-8 h-14 text-lg" 
+                asChild
+              >
+                <Link to="/pricing">
+                  Compare Plans
                 </Link>
               </Button>
             </div>
             <p className="text-sm text-muted-foreground pt-2">
-              Cancel anytime
+              No credit card required for Free plan
             </p>
           </div>
         </section>

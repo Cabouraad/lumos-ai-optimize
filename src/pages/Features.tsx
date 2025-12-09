@@ -93,15 +93,18 @@ const Features = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild className="shadow-glow hover-lift">
-              <Link to="/free-checker">
-                See How It Works - Free Report
+              <Link to="/signup">
+                Start Free — No Credit Card
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/signup">Start 7-Day Free Trial</Link>
+              <Link to="/free-checker">See How It Works - Free Report</Link>
             </Button>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Free plan includes 5 prompts/week on ChatGPT. Upgrade anytime.
+          </p>
         </div>
       </section>
 
@@ -582,24 +585,25 @@ const Features = () => {
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gradient-primary text-primary-foreground">
         <div className="container mx-auto max-w-4xl text-center">
+          <Badge variant="secondary" className="mb-4">Forever Free Plan Available</Badge>
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Ready to Transform Your AI Visibility?
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Join hundreds of companies already dominating AI search results
+            Start with our Free plan — track 5 prompts weekly on ChatGPT. No credit card required.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
             <Button size="lg" variant="secondary" asChild className="text-lg px-10 py-7 shadow-elevated hover-lift">
-              <Link to="/signup">Start Free Trial <ArrowRight className="ml-2 w-5 h-5" /></Link>
+              <Link to="/signup">Start Free <ArrowRight className="ml-2 w-5 h-5" /></Link>
             </Button>
             <Button variant="outline" size="lg" asChild className="text-lg px-10 py-7 bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
-              <Link to="/pricing">View Pricing</Link>
+              <Link to="/pricing">Compare All Plans</Link>
             </Button>
           </div>
           
           <p className="text-sm opacity-80">
-            ✓ 7-day free trial  ✓ Cancel anytime  ✓ Expert support included
+            ✓ Free forever plan  ✓ Upgrade anytime  ✓ Expert support included
           </p>
         </div>
       </section>

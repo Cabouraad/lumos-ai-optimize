@@ -315,16 +315,17 @@ const Resources = () => {
 
           {/* CTA Section */}
           <section className="mt-20 text-center bg-card border border-border rounded-2xl p-12">
+            <Badge variant="secondary" className="mb-4">Free Forever Plan</Badge>
             <h2 className="text-3xl font-bold text-foreground mb-4">
               Ready to Track Your AI Search Performance?
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Put these insights into action. Start tracking how your brand performs across AI-powered search engines today.
+              Start with our Free plan — track 5 prompts weekly on ChatGPT. No credit card required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" asChild>
                 <Link to="/signup" className="flex items-center gap-2">
-                  Start Free Trial
+                  Start Free
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
