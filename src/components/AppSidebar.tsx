@@ -185,12 +185,25 @@ export function AppSidebar() {
                   );
                 }
                 
+                // Generate data-tour attribute based on route
+                const getTourId = (href: string) => {
+                  const tourMap: Record<string, string> = {
+                    '/dashboard': 'dashboard-nav',
+                    '/prompts': 'prompts-nav',
+                    '/optimizations': 'optimizations-nav',
+                    '/competitors': 'competitors-nav',
+                    '/citation-analytics': 'citations-nav',
+                    '/settings': 'settings-nav',
+                  };
+                  return tourMap[href];
+                };
+
                 return (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton 
                       asChild 
                       isActive={isActive}
-                      data-tour={item.href === '/prompts' ? 'prompts-nav' : item.href === '/settings' ? 'settings-nav' : undefined}
+                      data-tour={getTourId(item.href)}
                     >
                       <Link to={item.href} className="flex items-center justify-between transition-smooth hover-glow w-full">
                         <div className="flex items-center gap-2">
