@@ -107,7 +107,12 @@ export function getRunFrequency(tier: SubscriptionTier): 'daily' | 'weekly' {
  * Get max prompts for a tier (null = unlimited)
  */
 export function getMaxPrompts(tier: SubscriptionTier): number | null {
-  return TIER_MAX_PROMPTS[tier] ?? 5;
+  // IMPORTANT: Use explicit key check - null means unlimited, don't coalesce it!
+  if (tier in TIER_MAX_PROMPTS) {
+    return TIER_MAX_PROMPTS[tier];
+  }
+  // Only apply 5-prompt limit for unknown/undefined tiers
+  return 5;
 }
 
 /**
