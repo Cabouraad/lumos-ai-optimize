@@ -2333,6 +2333,45 @@ export type Database = {
           },
         ]
       }
+      subscriber_status: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          payment_collected: boolean | null
+          subscribed: boolean | null
+          subscription_end: string | null
+          subscription_tier: string | null
+          trial_expires_at: string | null
+          trial_started_at: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          payment_collected?: boolean | null
+          subscribed?: boolean | null
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          payment_collected?: boolean | null
+          subscribed?: boolean | null
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_toggle_ca_scoring: {
@@ -2681,6 +2720,7 @@ export type Database = {
       get_cron_secret: { Args: never; Returns: string }
       get_current_org_id: { Args: never; Returns: string }
       get_current_user_org_id: { Args: never; Returns: string }
+      get_current_user_role: { Args: never; Returns: string }
       get_daily_usage: {
         Args: { p_date?: string; p_org_id: string }
         Returns: {
@@ -2777,6 +2817,17 @@ export type Database = {
               total_runs: number
             }[]
           }
+      get_my_subscription_status: {
+        Args: never
+        Returns: {
+          payment_collected: boolean
+          subscribed: boolean
+          subscription_end: string
+          subscription_tier: string
+          trial_expires_at: string
+          trial_started_at: string
+        }[]
+      }
       get_optimization_recommendations: {
         Args: {
           p_category?: string
