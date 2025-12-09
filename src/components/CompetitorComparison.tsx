@@ -76,24 +76,24 @@ export function CompetitorComparison() {
             <CardHeader>
               <CardTitle className="text-xl text-primary">Llumos</CardTitle>
               <div className="text-3xl font-bold mt-2">
-                $39<span className="text-base font-normal text-muted-foreground">/mo</span>
+                Free<span className="text-base font-normal text-muted-foreground"> to start</span>
               </div>
               <p className="text-sm text-primary font-semibold">
-                or $99/year (Black Friday)
+                Paid plans from $39/mo
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm font-medium">Built for marketers, founders, and agencies</span>
+                <span className="text-sm font-medium">Forever Free plan with 5 prompts/week</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm font-medium">Fast setup, automated daily AI checks</span>
+                <span className="text-sm font-medium">No credit card required to start</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm font-medium">See how often AI recommends your brand and competitors</span>
+                <span className="text-sm font-medium">See how often AI recommends your brand</span>
               </div>
             </CardContent>
           </Card>
@@ -102,13 +102,13 @@ export function CompetitorComparison() {
         <div className="text-center mt-10 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="px-8 h-12 shadow-glow" asChild>
-              <Link to="/demo">Watch The Demo</Link>
+              <Link to="/signup">Start Free</Link>
             </Button>
             <Button size="lg" variant="outline" className="px-8 h-12" asChild>
-              <Link to="/vs-competitors">Compare Pricing in Detail</Link>
+              <Link to="/pricing">Compare All Plans</Link>
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">See what Llumos can do for your brand</p>
+          <p className="text-sm text-muted-foreground">No credit card required for Free plan</p>
         </div>
       </div>
     </section>

@@ -21,6 +21,9 @@ export function Footer() {
           <div>
             <h3 className="font-semibold mb-4">Product</h3>
             <nav className="space-y-3">
+              <Link to="/signup" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Free Plan
+              </Link>
               <Link to="/features" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Features
               </Link>
@@ -59,25 +62,15 @@ export function Footer() {
               <Link to="/resources" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Blog & Guides
               </Link>
+              <Link to="/resources/introducing-llumos-free-tier" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Free Tier Announcement
+              </Link>
               <Link to="/user-guide" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 User Guide
               </Link>
-              <a 
-                href="https://openai.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                ChatGPT
-              </a>
-              <a 
-                href="https://www.perplexity.ai" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Perplexity AI
-              </a>
+              <Link to="/tools/ai-competitor-finder" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+                AI Competitor Finder
+              </Link>
             </nav>
           </div>
         </div>

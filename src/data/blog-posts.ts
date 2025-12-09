@@ -2742,6 +2742,101 @@ The way people search for information is fundamentally changing. With the rise o
 Content Studio transforms visibility gaps into actionable content blueprints optimized for AI citation, with AI-powered writing assistance to create content that ranks in AI search.
 
 [Read more about Content Studio](/features/content-studio)`
+  },
+  {
+    slug: "introducing-llumos-free-tier",
+    title: "Introducing the Llumos Free Tier: Track Your AI Visibility for Free",
+    description: "We're excited to announce our Forever Free plan — track up to 5 prompts weekly on ChatGPT with no credit card required. Get started with AI visibility tracking today.",
+    keywords: "free AI visibility tracking, free ChatGPT monitoring, Llumos free tier, free AI search tools, brand visibility free",
+    category: "News",
+    tags: ["Product Updates", "Free Tier", "AI Visibility"],
+    publishedAt: "2024-12-09T10:00:00Z",
+    updatedAt: "2024-12-09T10:00:00Z",
+    readTime: 5,
+    featured: true,
+    content: `# Introducing the Llumos Free Tier: Track Your AI Visibility for Free
+
+Today, we're excited to announce something we've been working on for a while: a **Forever Free plan** for Llumos. Now anyone can start tracking their brand's visibility in AI search — completely free, forever.
+
+## Why We're Launching a Free Plan
+
+Since launching Llumos, we've heard from hundreds of marketers, founders, and agencies who want to understand how AI recommends their brand. Many were curious but hesitant to commit to a paid plan without first experiencing the platform.
+
+We get it. AI search optimization is still new territory for most businesses. You want to see the data before investing in tools to improve it.
+
+That's why we created the Free tier — to give everyone a risk-free way to:
+
+- **See if ChatGPT mentions your brand** when people ask relevant questions
+- **Understand your baseline visibility** before making any optimization efforts
+- **Experience the Llumos dashboard** and reporting capabilities
+
+## What's Included in the Free Plan
+
+Our Free tier isn't a limited trial — it's a fully functional plan you can use forever:
+
+### 5 Prompts Tracked Weekly
+Track up to 5 prompts on a weekly basis. Perfect for monitoring your core brand queries like "best [your product category]" or "top alternatives to [competitor]".
+
+### ChatGPT Coverage
+See exactly how ChatGPT responds to queries about your industry, including whether your brand is mentioned, how it's positioned, and who else appears.
+
+### Basic Visibility Scoring
+Get your Llumos Score — our proprietary metric that measures how visible your brand is in AI search results.
+
+### Read-Only Dashboard
+Access your visibility data through our intuitive dashboard. View trends, see response details, and understand your position.
+
+### Email Support
+Have questions? Our team is here to help, even on the Free plan.
+
+## Who Is the Free Plan For?
+
+The Free tier is perfect for:
+
+- **Startups and small businesses** curious about AI visibility but not ready to invest
+- **Marketers** who want to test the waters before recommending tools to their team
+- **Agencies** evaluating solutions for their clients
+- **Anyone** who wants to understand how AI search works before diving deeper
+
+## Free vs. Paid: What's the Difference?
+
+While the Free plan gives you a solid foundation, our paid plans unlock significantly more power:
+
+| Feature | Free | Starter | Growth |
+|---------|------|---------|--------|
+| Prompts | 5 weekly | 25 daily | 100 daily |
+| AI Platforms | ChatGPT only | ChatGPT + Perplexity | All 4 platforms |
+| Competitor Tracking | — | Basic | 50 competitors |
+| Recommendations | — | — | AI-powered |
+| Content Studio | — | — | Yes |
+| Real-time Updates | — | Yes | Yes |
+
+When you're ready for more insights, upgrading is seamless — and you can always start with our 7-day free trial of the Starter plan.
+
+## How to Get Started
+
+Getting started with the Free plan takes less than 2 minutes:
+
+1. **Sign up** at llumos.ai/signup — no credit card required
+2. **Add your brand** and verify your domain
+3. **Select up to 5 prompts** to track
+4. **View your first results** within 24 hours
+
+That's it. No commitments, no hidden fees, no surprises.
+
+## Our Commitment to Accessibility
+
+At Llumos, we believe every business should understand how AI recommends them. The shift from traditional search to AI-powered discovery is happening now, and we don't want cost to be a barrier to understanding your position in this new landscape.
+
+The Free tier is our commitment to making AI visibility tracking accessible to everyone. Whether you're a solo founder, a growing startup, or an enterprise marketer — you deserve to know how AI talks about your brand.
+
+## What's Next?
+
+Start tracking your AI visibility today. Sign up for free and see your first visibility report within 24 hours.
+
+Have questions about the Free plan or want to learn more about upgrading? Check out our pricing page or reach out to our team — we're always happy to help.
+
+*Welcome to the future of search visibility. Let's see where AI is recommending you.*`
   }
 ];
 
