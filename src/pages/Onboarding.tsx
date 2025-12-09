@@ -107,9 +107,18 @@ export default function Onboarding() {
     try {
       console.log(`[Onboarding] Starting subscription setup for ${selectedPlan} plan`);
       
-      // Free tier - skip checkout and go directly to prompt selection
+      // Free tier - update database and skip checkout
       if (selectedPlan === 'free') {
-        console.log('[Onboarding] Free tier selected - skipping checkout');
+        console.log('[Onboarding] Free tier selected - updating database');
+        
+        // Call check-subscription to ensure Free tier is set in database
+        try {
+          await EdgeFunctionClient.checkSubscription();
+          console.log('[Onboarding] Free tier confirmed in database');
+        } catch (err) {
+          console.warn('[Onboarding] check-subscription call failed, continuing anyway:', err);
+        }
+        
         toast({
           title: 'Free Plan Activated',
           description: 'You can now track up to 5 prompts weekly.',

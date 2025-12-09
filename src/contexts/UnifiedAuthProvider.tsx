@@ -462,6 +462,7 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
   // SECURITY: Access granted if:
   // 1. User has active paid subscription (subscribed=true with a paid tier)
   // 2. OR user is on active trial WITH payment method collected
+  // 3. OR user is on Free tier (limited access but valid)
   const hasAccess = subscriptionData ? (
     // Active paid subscription - subscribed flag is set by Stripe sync or manual override
     (subscriptionData.subscribed === true && 
@@ -470,7 +471,9 @@ export function UnifiedAuthProvider({ children }: UnifiedAuthProviderProps) {
     // Active trial with payment collected (security requirement for trials)
     (subscriptionData.trial_expires_at &&
       new Date(subscriptionData.trial_expires_at) > new Date() &&
-      subscriptionData.payment_collected === true)
+      subscriptionData.payment_collected === true) ||
+    // Free tier users have limited access but can still use the dashboard
+    (subscriptionData.subscription_tier === 'free')
   ) : false;
 
   // Auto-verify subscription once for users who completed checkout
