@@ -170,23 +170,40 @@ export function KeywordManagement() {
     }
   };
 
-  if (!brandValidated) {
-    return <div className="animate-pulse">Loading brand context...</div>;
-  }
-
-  if (!selectedBrand) {
+  // Show loading while brand context is initializing
+  if (!brandValidated || loading) {
     return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Please select a brand to manage its business context.
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-4 p-6">
+        <div className="animate-pulse flex items-center gap-3">
+          <div className="h-10 w-10 bg-muted rounded-lg"></div>
+          <div className="h-6 w-48 bg-muted rounded"></div>
+        </div>
+        <div className="h-4 w-72 bg-muted rounded animate-pulse"></div>
+        <div className="h-32 w-full bg-muted rounded animate-pulse"></div>
+      </div>
     );
   }
 
-  if (loading) {
-    return <div className="animate-pulse">Loading business context...</div>;
+  // If brand context is validated but no brand exists, show helpful message
+  if (!selectedBrand) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Business Context</CardTitle>
+          <CardDescription>
+            Setting up your brand context...
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Your brand is being initialized. Please refresh the page if this message persists.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
