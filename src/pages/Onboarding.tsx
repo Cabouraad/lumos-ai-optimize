@@ -898,12 +898,12 @@ export default function Onboarding() {
         {/* Black Friday Promo */}
         <Card className="mb-6 border-2 border-primary/20 bg-card/50">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Black Friday — One Year Starter for $99</CardTitle>
+            <CardTitle className="text-2xl">End of Year Deal — One Year Starter for $99</CardTitle>
             <CardDescription>Limited-time offer. You can also choose this instead of standard pricing.</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <Button size="lg" onClick={() => navigate('/black-friday')}>
-              Claim Black Friday Deal
+              Claim End of Year Deal
             </Button>
           </CardContent>
         </Card>
