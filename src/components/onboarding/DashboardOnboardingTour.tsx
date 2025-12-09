@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
 import { useUser } from '@/contexts/UnifiedAuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 
 const TOUR_KEY = 'llumos_dashboard_onboarding_completed';
 
-// Steps for the dashboard
-const dashboardSteps: Step[] = [
+// Dashboard-only tour steps highlighting navigation items
+const tourSteps: Step[] = [
   {
     target: 'body',
     content: (
@@ -21,40 +21,58 @@ const dashboardSteps: Step[] = [
     disableBeacon: true,
   },
   {
-    target: '[data-tour="prompts-nav"]',
+    target: '[data-tour="dashboard-nav"]',
     content: (
       <div className="space-y-2">
-        <h4 className="font-semibold">Prompts Page</h4>
-        <p>This is where you manage the prompts you're tracking. Click Next to go there.</p>
+        <h4 className="font-semibold">Dashboard</h4>
+        <p>Your command center. See your visibility score, brand presence, and competitor comparisons at a glance.</p>
       </div>
     ),
     placement: 'right',
     disableBeacon: true,
   },
-];
-
-// Steps for the prompts page
-const promptsSteps: Step[] = [
   {
-    target: '[data-tour="prompt-suggestions"]',
+    target: '[data-tour="prompts-nav"]',
     content: (
       <div className="space-y-2">
-        <h4 className="font-semibold">AI-Generated Suggestions</h4>
-        <p>We've analyzed your business and generated relevant prompts to track. Review these suggestions here.</p>
+        <h4 className="font-semibold">Prompts</h4>
+        <p>Manage the AI prompts you're tracking. Add custom prompts or use our AI-generated suggestions.</p>
       </div>
     ),
-    placement: 'bottom',
+    placement: 'right',
     disableBeacon: true,
   },
   {
-    target: '[data-tour="add-prompt"]',
+    target: '[data-tour="optimizations-nav"]',
     content: (
       <div className="space-y-2">
-        <h4 className="font-semibold">Add Custom Prompts</h4>
-        <p>You can also add your own prompts. Think about questions your customers might ask AI assistants.</p>
+        <h4 className="font-semibold">Optimizations</h4>
+        <p>Get actionable recommendations to improve your visibility in AI responses.</p>
       </div>
     ),
-    placement: 'bottom',
+    placement: 'right',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tour="competitors-nav"]',
+    content: (
+      <div className="space-y-2">
+        <h4 className="font-semibold">Competitors</h4>
+        <p>Track how often competitors appear in AI responses compared to your brand.</p>
+      </div>
+    ),
+    placement: 'right',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tour="citations-nav"]',
+    content: (
+      <div className="space-y-2">
+        <h4 className="font-semibold">Citations</h4>
+        <p>See which sources AI models are citing when mentioning your brand.</p>
+      </div>
+    ),
+    placement: 'right',
     disableBeacon: true,
   },
   {
@@ -62,7 +80,7 @@ const promptsSteps: Step[] = [
     content: (
       <div className="space-y-3">
         <h3 className="text-lg font-semibold">You're All Set! 🚀</h3>
-        <p>Start adding prompts to track your AI visibility. Your dashboard will update as data comes in.</p>
+        <p>Start by adding prompts to track your AI visibility. Your dashboard will update as data comes in.</p>
         <p className="text-sm text-muted-foreground">Need help? Check the Settings page anytime.</p>
       </div>
     ),
@@ -73,16 +91,10 @@ const promptsSteps: Step[] = [
 
 export function DashboardOnboardingTour() {
   const { userData, refreshUserData } = useUser();
-  const navigate = useNavigate();
   const location = useLocation();
   const [runTour, setRunTour] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const [tourPhase, setTourPhase] = useState<'dashboard' | 'prompts'>('dashboard');
-  const navigationTriggeredRef = useRef(false);
   const tourInitializedRef = useRef(false);
-
-  // Get the current steps based on phase
-  const currentSteps = tourPhase === 'dashboard' ? dashboardSteps : promptsSteps;
 
   // Check if user should see tour (new user within 24 hours, hasn't completed)
   useEffect(() => {
@@ -101,25 +113,11 @@ export function DashboardOnboardingTour() {
     if (!tourCompletedInDb && !tourCompletedLocally && isNewUser && location.pathname === '/dashboard') {
       tourInitializedRef.current = true;
       setTimeout(() => {
-        setTourPhase('dashboard');
         setStepIndex(0);
         setRunTour(true);
       }, 1000);
     }
   }, [userData, location.pathname]);
-
-  // Resume tour when arriving at prompts page after navigation
-  useEffect(() => {
-    if (navigationTriggeredRef.current && location.pathname === '/prompts') {
-      navigationTriggeredRef.current = false;
-      // Small delay to let the page render
-      setTimeout(() => {
-        setTourPhase('prompts');
-        setStepIndex(0);
-        setRunTour(true);
-      }, 800);
-    }
-  }, [location.pathname]);
 
   const completeTour = useCallback(async () => {
     localStorage.setItem(TOUR_KEY, 'true');
@@ -146,54 +144,28 @@ export function DashboardOnboardingTour() {
   const handleJoyrideCallback = async (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
-    console.log('[Tour] Callback:', { action, index, status, type, tourPhase, currentStepsLength: currentSteps.length });
-
     // Handle close/skip
     if (action === ACTIONS.CLOSE || action === ACTIONS.SKIP || status === STATUS.SKIPPED) {
-      console.log('[Tour] User closed/skipped tour');
       await completeTour();
       return;
     }
 
-    // Handle step progression - STEP_AFTER fires when user clicks Next/Last
+    // Handle step progression
     if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + 1;
       
-      console.log('[Tour] STEP_AFTER:', { index, nextIndex, currentStepsLength: currentSteps.length, tourPhase });
-      
-      // Check if we're at the last step of current phase
-      if (nextIndex >= currentSteps.length) {
-        if (tourPhase === 'dashboard') {
-          // Dashboard phase finished - navigate to prompts to continue
-          console.log('[Tour] Dashboard phase finished, navigating to prompts');
-          setRunTour(false);
-          navigationTriggeredRef.current = true;
-          navigate('/prompts');
-          return;
-        } else {
-          // Prompts phase finished - actually complete the tour
-          console.log('[Tour] Tour fully completed');
-          await completeTour();
-          return;
-        }
+      if (nextIndex >= tourSteps.length) {
+        // Tour completed
+        await completeTour();
+        return;
       }
       
-      // Move to next step within current phase
       setStepIndex(nextIndex);
     }
 
-    // Handle tour "finished" status as backup
+    // Handle tour finished status
     if (status === STATUS.FINISHED) {
-      console.log('[Tour] STATUS.FINISHED received');
-      if (tourPhase === 'dashboard') {
-        console.log('[Tour] Dashboard phase finished via STATUS, navigating to prompts');
-        setRunTour(false);
-        navigationTriggeredRef.current = true;
-        navigate('/prompts');
-      } else {
-        console.log('[Tour] Tour fully completed via STATUS');
-        await completeTour();
-      }
+      await completeTour();
     }
   };
 
@@ -202,7 +174,7 @@ export function DashboardOnboardingTour() {
 
   return (
     <Joyride
-      steps={currentSteps}
+      steps={tourSteps}
       run={runTour}
       stepIndex={stepIndex}
       continuous
@@ -243,7 +215,7 @@ export function DashboardOnboardingTour() {
       locale={{
         back: 'Back',
         close: 'Close',
-        last: tourPhase === 'dashboard' ? 'Go to Prompts →' : 'Get Started',
+        last: 'Get Started',
         next: 'Next',
         skip: 'Skip Tour',
       }}
