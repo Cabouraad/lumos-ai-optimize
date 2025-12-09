@@ -26,6 +26,7 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useClusterPrompts } from '@/hooks/useClusterPrompts';
 import { usePromptsOnboardingTour } from '@/hooks/usePromptsOnboardingTour';
 import { AlertCircle, Sparkles } from 'lucide-react';
+import { FreeTierUpgradeModal } from '@/components/FreeTierUpgradeModal';
 
 // Transform the existing prompt data to match the PromptList interface
 const transformPromptData = (prompts: any[], promptDetails: any[]) => {
@@ -104,6 +105,9 @@ export default function Prompts() {
     replace: false,
     preflight: false
   });
+  
+  // Free tier upgrade modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     // Wait for auth to be ready before loading data
@@ -251,11 +255,16 @@ export default function Prompts() {
     const activePromptsCount = rawPrompts.filter(p => p.active).length;
     const canCreate = canCreatePrompts(activePromptsCount);
     if (!canCreate.hasAccess) {
-      toast({ 
-        title: 'Subscription Limit Reached', 
-        description: canCreate.reason, 
-        variant: 'destructive' 
-      });
+      // Show upgrade modal for free tier users
+      if (limits.isFreeTier) {
+        setShowUpgradeModal(true);
+      } else {
+        toast({ 
+          title: 'Subscription Limit Reached', 
+          description: canCreate.reason, 
+          variant: 'destructive' 
+        });
+      }
       return;
     }
 
@@ -303,11 +312,16 @@ export default function Prompts() {
       const activePromptsCount = rawPrompts.filter(p => p.active).length;
       const canCreate = canCreatePrompts(activePromptsCount);
       if (!canCreate.hasAccess) {
-        toast({ 
-          title: 'Subscription Limit Reached', 
-          description: `You can only have ${limits.promptsPerDay} active prompts on your current plan. Please deactivate another prompt or upgrade your plan.`,
-          variant: 'destructive' 
-        });
+        // Show upgrade modal for free tier users
+        if (limits.isFreeTier) {
+          setShowUpgradeModal(true);
+        } else {
+          toast({ 
+            title: 'Subscription Limit Reached', 
+            description: `You can only have ${limits.maxPrompts || limits.promptsPerDay} active prompts on your current plan. Please deactivate another prompt or upgrade your plan.`,
+            variant: 'destructive' 
+          });
+        }
         return;
       }
     }
@@ -344,11 +358,16 @@ export default function Prompts() {
     const activePromptsCount = rawPrompts.filter(p => p.active).length;
     const canCreate = canCreatePrompts(activePromptsCount);
     if (!canCreate.hasAccess) {
-      toast({ 
-        title: 'Subscription Limit Reached', 
-        description: `You can only have ${limits.promptsPerDay} active prompts on your current plan. Please deactivate a prompt or upgrade your plan.`,
-        variant: 'destructive' 
-      });
+      // Show upgrade modal for free tier users
+      if (limits.isFreeTier) {
+        setShowUpgradeModal(true);
+      } else {
+        toast({ 
+          title: 'Subscription Limit Reached', 
+          description: `You can only have ${limits.maxPrompts || limits.promptsPerDay} active prompts on your current plan. Please deactivate a prompt or upgrade your plan.`,
+          variant: 'destructive' 
+        });
+      }
       return;
     }
 
@@ -859,6 +878,15 @@ export default function Prompts() {
         </div>
       </div>
       <TourComponent />
+      
+      {/* Free Tier Upgrade Modal */}
+      <FreeTierUpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="prompts"
+        currentCount={rawPrompts.filter(p => p.active).length}
+        maxCount={limits.maxPrompts || 5}
+      />
     </Layout>
     </DashboardLayout>
   );
