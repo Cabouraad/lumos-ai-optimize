@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
 import { useUser } from '@/contexts/UnifiedAuthProvider';
@@ -6,8 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 const TOUR_KEY = 'llumos_dashboard_onboarding_completed';
 
-// All tour steps in a single unified flow
-const allSteps: Step[] = [
+// Steps for the dashboard
+const dashboardSteps: Step[] = [
   {
     target: 'body',
     content: (
@@ -25,13 +25,16 @@ const allSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <h4 className="font-semibold">Prompts Page</h4>
-        <p>This is where you manage the prompts you're tracking. Let's go there now.</p>
+        <p>This is where you manage the prompts you're tracking. Click Next to go there.</p>
       </div>
     ),
     placement: 'right',
     disableBeacon: true,
-    spotlightClicks: true,
   },
+];
+
+// Steps for the prompts page
+const promptsSteps: Step[] = [
   {
     target: '[data-tour="prompt-suggestions"]',
     content: (
@@ -68,17 +71,22 @@ const allSteps: Step[] = [
   },
 ];
 
-export function useDashboardOnboardingTour() {
+export function DashboardOnboardingTour() {
   const { userData, refreshUserData } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const [runTour, setRunTour] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const [waitingForNavigation, setWaitingForNavigation] = useState(false);
+  const [tourPhase, setTourPhase] = useState<'dashboard' | 'prompts'>('dashboard');
+  const navigationTriggeredRef = useRef(false);
+  const tourInitializedRef = useRef(false);
 
-  // Start tour for new users who haven't completed it
+  // Get the current steps based on phase
+  const currentSteps = tourPhase === 'dashboard' ? dashboardSteps : promptsSteps;
+
+  // Check if user should see tour (new user within 24 hours, hasn't completed)
   useEffect(() => {
-    if (!userData) return;
+    if (!userData || tourInitializedRef.current) return;
     
     const tourCompletedInDb = userData?.tour_completions?.dashboard_onboarding === true;
     const tourCompletedLocally = localStorage.getItem(TOUR_KEY) === 'true';
@@ -89,22 +97,29 @@ export function useDashboardOnboardingTour() {
     const hoursSinceCreation = (now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60);
     const isNewUser = hoursSinceCreation < 24;
     
-    if (!tourCompletedInDb && !tourCompletedLocally && isNewUser) {
-      setTimeout(() => setRunTour(true), 1000);
-    }
-  }, [userData]);
-
-  // Resume tour after navigation to prompts page
-  useEffect(() => {
-    if (waitingForNavigation && location.pathname === '/prompts') {
-      setWaitingForNavigation(false);
-      // Move to the prompts page steps
+    // Only start tour on dashboard for new users
+    if (!tourCompletedInDb && !tourCompletedLocally && isNewUser && location.pathname === '/dashboard') {
+      tourInitializedRef.current = true;
       setTimeout(() => {
-        setStepIndex(2); // Jump to "AI-Generated Suggestions" step
+        setTourPhase('dashboard');
+        setStepIndex(0);
         setRunTour(true);
-      }, 500);
+      }, 1000);
     }
-  }, [location.pathname, waitingForNavigation]);
+  }, [userData, location.pathname]);
+
+  // Resume tour when arriving at prompts page after navigation
+  useEffect(() => {
+    if (navigationTriggeredRef.current && location.pathname === '/prompts') {
+      navigationTriggeredRef.current = false;
+      // Small delay to let the page render
+      setTimeout(() => {
+        setTourPhase('prompts');
+        setStepIndex(0);
+        setRunTour(true);
+      }, 800);
+    }
+  }, [location.pathname]);
 
   const completeTour = useCallback(async () => {
     localStorage.setItem(TOUR_KEY, 'true');
@@ -131,6 +146,8 @@ export function useDashboardOnboardingTour() {
   const handleJoyrideCallback = async (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
+    console.log('[Tour] Callback:', { action, index, status, type, tourPhase });
+
     // Handle close/skip
     if (action === ACTIONS.CLOSE || action === ACTIONS.SKIP || status === STATUS.SKIPPED) {
       console.log('[Tour] User closed/skipped tour');
@@ -142,16 +159,17 @@ export function useDashboardOnboardingTour() {
     if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + 1;
       
-      // After step 1 (Prompts Nav), navigate to prompts page
-      if (index === 1 && location.pathname !== '/prompts') {
+      // Dashboard phase: after step 1 (prompts nav), navigate to prompts
+      if (tourPhase === 'dashboard' && index === 1) {
+        console.log('[Tour] Navigating to prompts page');
         setRunTour(false);
-        setWaitingForNavigation(true);
+        navigationTriggeredRef.current = true;
         navigate('/prompts');
         return;
       }
       
-      // Move to next step
-      if (nextIndex < allSteps.length) {
+      // Move to next step within current phase
+      if (nextIndex < currentSteps.length) {
         setStepIndex(nextIndex);
       }
     }
@@ -163,30 +181,12 @@ export function useDashboardOnboardingTour() {
     }
   };
 
-  const resetTour = async () => {
-    if (userData?.id) {
-      try {
-        const currentCompletions = userData.tour_completions || {};
-        const { dashboard_onboarding, ...rest } = currentCompletions;
-        await supabase
-          .from('users')
-          .update({ tour_completions: rest })
-          .eq('id', userData.id);
-        
-        await refreshUserData();
-      } catch (error) {
-        console.error('Failed to reset tour completion:', error);
-      }
-    }
-    
-    localStorage.removeItem(TOUR_KEY);
-    setStepIndex(0);
-    setRunTour(true);
-  };
+  // Don't render if tour shouldn't run
+  if (!runTour) return null;
 
-  const TourComponent = () => (
+  return (
     <Joyride
-      steps={allSteps}
+      steps={currentSteps}
       run={runTour}
       stepIndex={stepIndex}
       continuous
@@ -233,6 +233,4 @@ export function useDashboardOnboardingTour() {
       }}
     />
   );
-
-  return { TourComponent, resetTour, runTour };
 }
