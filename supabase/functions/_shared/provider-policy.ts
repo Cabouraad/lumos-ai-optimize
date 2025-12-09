@@ -73,6 +73,73 @@ export async function getOrgSubscriptionTier(supabase: any, orgId: string): Prom
 }
 
 /**
+ * Tier-based run frequency policies
+ * - Free: Weekly runs only
+ * - All paid tiers: Daily runs
+ */
+const TIER_RUN_FREQUENCY: Record<SubscriptionTier, 'daily' | 'weekly'> = {
+  starter: 'daily',
+  growth: 'daily',
+  pro: 'daily',
+  enterprise: 'daily',
+  free: 'weekly'
+};
+
+/**
+ * Tier-based max prompts limit
+ */
+const TIER_MAX_PROMPTS: Record<SubscriptionTier, number | null> = {
+  starter: null, // Unlimited
+  growth: null,
+  pro: null,
+  enterprise: null,
+  free: 5 // Free tier limited to 5 prompts
+};
+
+/**
+ * Get run frequency for a tier
+ */
+export function getRunFrequency(tier: SubscriptionTier): 'daily' | 'weekly' {
+  return TIER_RUN_FREQUENCY[tier] || 'weekly';
+}
+
+/**
+ * Get max prompts for a tier (null = unlimited)
+ */
+export function getMaxPrompts(tier: SubscriptionTier): number | null {
+  return TIER_MAX_PROMPTS[tier] ?? 5;
+}
+
+/**
+ * Check if org should run prompts based on tier and current schedule
+ * @param tier - The subscription tier
+ * @param isWeeklyRun - Whether this is a weekly run (e.g., Sunday/Monday)
+ * @returns true if org should run prompts in this batch
+ */
+export function shouldRunForTier(tier: SubscriptionTier, isWeeklyRun: boolean = false): boolean {
+  const runFrequency = getRunFrequency(tier);
+  
+  // Daily tiers run every time
+  if (runFrequency === 'daily') {
+    return true;
+  }
+  
+  // Weekly tiers only run on weekly runs
+  return isWeeklyRun;
+}
+
+/**
+ * Check if today is a weekly run day (Sunday or Monday)
+ * Weekly runs happen on Monday to give the best week-start data
+ */
+export function isWeeklyRunDay(): boolean {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  // 0 = Sunday, 1 = Monday
+  return dayOfWeek === 0 || dayOfWeek === 1;
+}
+
+/**
  * Log provider filtering for audit trail
  */
 export function auditProviderFilter(

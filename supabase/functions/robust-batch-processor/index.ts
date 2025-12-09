@@ -443,10 +443,29 @@ Deno.serve(async (req) => {
 
     console.log('🚀 Batch processor:', { jobId, orgId, replace, source, action, isSchedulerTriggered });
 
-    // Fetch org subscription tier for provider filtering
-    const { getOrgSubscriptionTier, filterAllowedProviders } = await import('../_shared/provider-policy.ts');
+    // Fetch org subscription tier for provider filtering and run frequency
+    const { getOrgSubscriptionTier, filterAllowedProviders, shouldRunForTier, isWeeklyRunDay, getMaxPrompts } = await import('../_shared/provider-policy.ts');
     const subscriptionTier = await getOrgSubscriptionTier(supabase, orgId);
     console.log(`📊 Org ${orgId} subscription tier: ${subscriptionTier}`);
+
+    // Check if this org should run based on tier and schedule
+    // Free tier only runs on weekly schedule (Sunday/Monday)
+    const isWeeklyRun = isWeeklyRunDay();
+    const shouldRun = shouldRunForTier(subscriptionTier, isWeeklyRun);
+    
+    if (!shouldRun && isSchedulerTriggered) {
+      console.log(`⏭️ Skipping org ${orgId} - Free tier only runs weekly (today is not a weekly run day)`);
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'skipped',
+        reason: 'free_tier_weekly_only',
+        message: 'Free tier prompts run weekly, not daily',
+        tier: subscriptionTier,
+        isWeeklyRun
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Cancel existing jobs if replace=true
     let cancelledCount = 0;
@@ -484,11 +503,19 @@ Deno.serve(async (req) => {
         });
       }
     } else {
-      const { data: prompts } = await supabase
+      let { data: prompts } = await supabase
         .from('prompts')
         .select('id, text, brand_id')
         .eq('org_id', orgId)
-        .eq('active', true);
+        .eq('active', true)
+        .order('created_at', { ascending: true }); // Oldest first for consistent limiting
+
+      // CRITICAL: Enforce max prompts limit for free tier
+      const maxPrompts = getMaxPrompts(subscriptionTier);
+      if (maxPrompts !== null && prompts && prompts.length > maxPrompts) {
+        console.log(`🔒 Free tier prompt limit: Processing only ${maxPrompts} of ${prompts.length} prompts`);
+        prompts = prompts.slice(0, maxPrompts);
+      }
 
       const allProviders = getProviderConfigs();
       const providerNames = allProviders.map(p => p.name);
@@ -542,11 +569,19 @@ Deno.serve(async (req) => {
     }
 
     // Fetch active prompts and providers (include brand_id for response tagging)
-    const { data: prompts } = await supabase
+    let { data: prompts } = await supabase
       .from('prompts')
       .select('id, text, brand_id')
       .eq('org_id', orgId)
-      .eq('active', true);
+      .eq('active', true)
+      .order('created_at', { ascending: true }); // Oldest first for consistent limiting
+
+    // CRITICAL: Enforce max prompts limit for free tier (also during processing)
+    const maxPromptsLimit = getMaxPrompts(subscriptionTier);
+    if (maxPromptsLimit !== null && prompts && prompts.length > maxPromptsLimit) {
+      console.log(`🔒 Free tier prompt limit: Processing only ${maxPromptsLimit} of ${prompts.length} prompts`);
+      prompts = prompts.slice(0, maxPromptsLimit);
+    }
 
     const allProviders = getProviderConfigs();
     const providerNames = allProviders.map(p => p.name);
