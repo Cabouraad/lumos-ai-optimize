@@ -25,7 +25,7 @@ import { MostCitedDomains } from '@/components/dashboard/MostCitedDomains';
 import { BrandPresenceRate } from '@/components/dashboard/BrandPresenceRate';
 import { TopCompetitorsComparison } from '@/components/dashboard/TopCompetitorsComparison';
 import { AISourceIntelligence } from '@/components/dashboard/AISourceIntelligence';
-import { CitationTrends } from '@/components/dashboard/CitationTrends';
+import { ContentStudioCard } from '@/components/dashboard/ContentStudioCard';
 import { useCompetitors } from '@/features/competitors/hooks';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
@@ -538,8 +538,8 @@ export default function Dashboard() {
             {/* Most Cited Domains Card */}
             <MostCitedDomains orgId={orgData?.organizations?.id} brandId={selectedBrand?.id} />
 
-            {/* Citation Trends Card */}
-            <CitationTrends orgId={orgData?.organizations?.id} days={30} brandId={selectedBrand?.id} />
+            {/* Content Studio Card */}
+            <ContentStudioCard brandId={selectedBrand?.id} />
           </div>
 
           {/* Admin Panel for Test Users */}
