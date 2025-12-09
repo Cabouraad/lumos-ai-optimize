@@ -159,25 +159,25 @@ export function DashboardOnboardingTour() {
     if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + 1;
       
-      // Dashboard phase: after step 1 (prompts nav), navigate to prompts
-      if (tourPhase === 'dashboard' && index === 1) {
-        console.log('[Tour] Navigating to prompts page');
-        setRunTour(false);
-        navigationTriggeredRef.current = true;
-        navigate('/prompts');
-        return;
-      }
-      
       // Move to next step within current phase
       if (nextIndex < currentSteps.length) {
         setStepIndex(nextIndex);
       }
     }
 
-    // Handle tour completion
+    // Handle tour "finished" - but for dashboard phase, this means navigate to prompts
     if (status === STATUS.FINISHED) {
-      console.log('[Tour] Tour finished');
-      await completeTour();
+      if (tourPhase === 'dashboard') {
+        // Dashboard phase finished - navigate to prompts to continue
+        console.log('[Tour] Dashboard phase finished, navigating to prompts');
+        setRunTour(false);
+        navigationTriggeredRef.current = true;
+        navigate('/prompts');
+      } else {
+        // Prompts phase finished - actually complete the tour
+        console.log('[Tour] Tour fully completed');
+        await completeTour();
+      }
     }
   };
 
@@ -227,7 +227,7 @@ export function DashboardOnboardingTour() {
       locale={{
         back: 'Back',
         close: 'Close',
-        last: 'Get Started',
+        last: tourPhase === 'dashboard' ? 'Go to Prompts →' : 'Get Started',
         next: 'Next',
         skip: 'Skip Tour',
       }}
