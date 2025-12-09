@@ -25,55 +25,71 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [selectedBrand, setSelectedBrandState] = useState<Brand | null>(null);
   const [isValidated, setIsValidated] = useState(false);
 
-  // Validate and load selected brand from localStorage
+  // Validate and load selected brand from localStorage, or auto-select primary brand
   useEffect(() => {
     const validateStoredBrand = async () => {
       const stored = localStorage.getItem(SELECTED_BRAND_KEY);
-      if (!stored) {
+      
+      // Get current user's org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        localStorage.removeItem(SELECTED_BRAND_KEY);
         setIsValidated(true);
         return;
       }
 
-      try {
-        const storedBrand = JSON.parse(stored) as Brand;
-        
-        // Get current user's org_id
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          localStorage.removeItem(SELECTED_BRAND_KEY);
-          setIsValidated(true);
-          return;
-        }
+      const { data: userData } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
 
-        const { data: userData } = await supabase
-          .from('users')
-          .select('org_id')
-          .eq('id', user.id)
-          .single();
+      if (!userData?.org_id) {
+        setIsValidated(true);
+        return;
+      }
 
-        // Validate the stored brand belongs to the current user's org
-        if (userData?.org_id && storedBrand.org_id === userData.org_id) {
-          // Verify brand still exists in database
-          const { data: brandExists } = await supabase
-            .from('brands')
-            .select('id')
-            .eq('id', storedBrand.id)
-            .eq('org_id', userData.org_id)
-            .single();
+      // If we have a stored brand, validate it
+      if (stored) {
+        try {
+          const storedBrand = JSON.parse(stored) as Brand;
+          
+          // Validate the stored brand belongs to the current user's org
+          if (storedBrand.org_id === userData.org_id) {
+            // Verify brand still exists in database
+            const { data: brandExists } = await supabase
+              .from('brands')
+              .select('*')
+              .eq('id', storedBrand.id)
+              .eq('org_id', userData.org_id)
+              .single();
 
-          if (brandExists) {
-            setSelectedBrandState(storedBrand);
-          } else {
-            // Brand no longer exists, clear it
-            localStorage.removeItem(SELECTED_BRAND_KEY);
+            if (brandExists) {
+              setSelectedBrandState(brandExists as Brand);
+              setIsValidated(true);
+              return;
+            }
           }
-        } else {
-          // Brand doesn't belong to current org, clear it
+          // Brand invalid, clear it
+          localStorage.removeItem(SELECTED_BRAND_KEY);
+        } catch (e) {
+          console.error('Failed to validate stored brand:', e);
           localStorage.removeItem(SELECTED_BRAND_KEY);
         }
-      } catch (e) {
-        console.error('Failed to validate stored brand:', e);
-        localStorage.removeItem(SELECTED_BRAND_KEY);
+      }
+
+      // No stored brand or it was invalid - auto-select primary brand
+      const { data: brands } = await supabase
+        .from('brands')
+        .select('*')
+        .eq('org_id', userData.org_id)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true });
+
+      if (brands && brands.length > 0) {
+        const primaryBrand = brands.find(b => b.is_primary) || brands[0];
+        setSelectedBrandState(primaryBrand as Brand);
+        localStorage.setItem(SELECTED_BRAND_KEY, JSON.stringify(primaryBrand));
       }
       
       setIsValidated(true);
