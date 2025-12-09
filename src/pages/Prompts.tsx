@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
@@ -616,6 +617,7 @@ export default function Prompts() {
   }
 
   return (
+    <DashboardLayout>
     <Layout>
       <div className="min-h-screen bg-gradient-subtle">
         <div className="p-6">
@@ -858,5 +860,6 @@ export default function Prompts() {
       </div>
       <TourComponent />
     </Layout>
+    </DashboardLayout>
   );
 }
