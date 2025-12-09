@@ -2361,6 +2361,7 @@ export type Database = {
         Returns: number
       }
       clean_competitor_catalog:
+        | { Args: { p_dry_run?: boolean }; Returns: Json }
         | {
             Args: { p_days?: number; p_org_id: string }
             Returns: {
@@ -2368,7 +2369,6 @@ export type Database = {
               removed_count: number
             }[]
           }
-        | { Args: { p_dry_run?: boolean }; Returns: Json }
       compute_daily_llumos_scores: { Args: never; Returns: undefined }
       compute_llumos_score:
         | { Args: { p_org_id: string; p_prompt_id?: string }; Returns: Json }
@@ -2574,7 +2574,7 @@ export type Database = {
           }
       get_citation_recommendations:
         | {
-            Args: { p_brand_id?: string; p_days?: number; p_org_id: string }
+            Args: { p_days?: number; p_org_id: string }
             Returns: {
               data_support: Json
               description: string
@@ -2586,7 +2586,7 @@ export type Database = {
             }[]
           }
         | {
-            Args: { p_days?: number; p_org_id: string }
+            Args: { p_brand_id?: string; p_days?: number; p_org_id: string }
             Returns: {
               data_support: Json
               description: string
@@ -2599,19 +2599,19 @@ export type Database = {
           }
       get_citation_trends:
         | {
-            Args: { p_days?: number; p_limit?: number; p_org_id: string }
-            Returns: {
-              citation_url: string
-              trend_data: Json
-            }[]
-          }
-        | {
             Args: {
               p_brand_id?: string
               p_days?: number
               p_limit?: number
               p_org_id: string
             }
+            Returns: {
+              citation_url: string
+              trend_data: Json
+            }[]
+          }
+        | {
+            Args: { p_days?: number; p_limit?: number; p_org_id: string }
             Returns: {
               citation_url: string
               trend_data: Json
@@ -2851,19 +2851,19 @@ export type Database = {
       get_org_user_limit: { Args: { org_id_param: string }; Returns: number }
       get_prompt_competitors:
         | {
-            Args: { p_days?: number; p_prompt_id: string }
-            Returns: {
-              competitor_name: string
-              mentions: number
-              share: number
-            }[]
-          }
-        | {
             Args: { p_prompt_id: string }
             Returns: {
               competitor_name: string
               share: number
               total_mentions: number
+            }[]
+          }
+        | {
+            Args: { p_days?: number; p_prompt_id: string }
+            Returns: {
+              competitor_name: string
+              mentions: number
+              share: number
             }[]
           }
       get_prompt_visibility_7d: {
