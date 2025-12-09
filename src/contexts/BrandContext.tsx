@@ -26,12 +26,12 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [selectedBrand, setSelectedBrandState] = useState<Brand | null>(null);
   const [isValidated, setIsValidated] = useState(false);
 
-  // Validate and load selected brand from localStorage, or auto-select primary brand
+  // Validate and load selected brand from localStorage, or auto-create/select primary brand
   useEffect(() => {
-    const validateStoredBrand = async () => {
+    const initializeBrand = async () => {
       const stored = localStorage.getItem(SELECTED_BRAND_KEY);
       
-      // Get current user's org_id
+      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         localStorage.removeItem(SELECTED_BRAND_KEY);
@@ -39,6 +39,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Get user's org_id
       const { data: userData } = await supabase
         .from('users')
         .select('org_id')
@@ -46,9 +47,12 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (!userData?.org_id) {
+        console.log('[BrandContext] User has no org_id, skipping brand initialization');
         setIsValidated(true);
         return;
       }
+
+      const orgId = userData.org_id;
 
       // If we have a stored brand, validate it
       if (stored) {
@@ -56,16 +60,17 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
           const storedBrand = JSON.parse(stored) as Brand;
           
           // Validate the stored brand belongs to the current user's org
-          if (storedBrand.org_id === userData.org_id) {
+          if (storedBrand.org_id === orgId) {
             // Verify brand still exists in database
             const { data: brandExists } = await supabase
               .from('brands')
               .select('*')
               .eq('id', storedBrand.id)
-              .eq('org_id', userData.org_id)
+              .eq('org_id', orgId)
               .single();
 
             if (brandExists) {
+              console.log('[BrandContext] Using validated stored brand:', brandExists.name);
               setSelectedBrandState(brandExists as Brand);
               setIsValidated(true);
               return;
@@ -74,29 +79,89 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
           // Brand invalid, clear it
           localStorage.removeItem(SELECTED_BRAND_KEY);
         } catch (e) {
-          console.error('Failed to validate stored brand:', e);
+          console.error('[BrandContext] Failed to validate stored brand:', e);
           localStorage.removeItem(SELECTED_BRAND_KEY);
         }
       }
 
-      // No stored brand or it was invalid - auto-select primary brand
-      const { data: brands } = await supabase
+      // Try to find existing brands for this org
+      const { data: brands, error: brandsError } = await supabase
         .from('brands')
         .select('*')
-        .eq('org_id', userData.org_id)
+        .eq('org_id', orgId)
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
 
+      if (brandsError) {
+        console.error('[BrandContext] Error fetching brands:', brandsError);
+        setIsValidated(true);
+        return;
+      }
+
       if (brands && brands.length > 0) {
+        // Use existing brand
         const primaryBrand = brands.find(b => b.is_primary) || brands[0];
+        console.log('[BrandContext] Using existing brand:', primaryBrand.name);
         setSelectedBrandState(primaryBrand as Brand);
         localStorage.setItem(SELECTED_BRAND_KEY, JSON.stringify(primaryBrand));
+        setIsValidated(true);
+        return;
       }
+
+      // NO BRANDS EXIST - Auto-create brand from organization data
+      console.log('[BrandContext] No brands found, creating from organization...');
       
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('name, domain, keywords, business_description, products_services, target_audience')
+        .eq('id', orgId)
+        .single();
+
+      if (orgError || !org) {
+        console.error('[BrandContext] Error fetching org for brand creation:', orgError);
+        setIsValidated(true);
+        return;
+      }
+
+      // Clean domain - remove any suffixes like "-uuid" patterns and protocols
+      let cleanDomain = org.domain || '';
+      cleanDomain = cleanDomain.replace(/^https?:\/\//, ''); // Remove protocol
+      cleanDomain = cleanDomain.replace(/\/$/, ''); // Remove trailing slash
+      // Remove UUID-like suffixes (e.g., "-3771e21b")
+      cleanDomain = cleanDomain.replace(/-[a-f0-9]{8}(-[a-f0-9]{4})?(-[a-f0-9]{4})?(-[a-f0-9]{4})?(-[a-f0-9]{12})?$/i, '');
+      // Remove any remaining query params or paths
+      cleanDomain = cleanDomain.split('/')[0];
+
+      // Create a new primary brand from the organization
+      const { data: newBrand, error: createError } = await supabase
+        .from('brands')
+        .insert({
+          org_id: orgId,
+          name: org.name,
+          domain: cleanDomain,
+          is_primary: true,
+          // Copy business context from org to brand
+          keywords: org.keywords || [],
+          business_description: org.business_description || null,
+          products_services: org.products_services || null,
+          target_audience: org.target_audience || null,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('[BrandContext] Error creating brand:', createError);
+        setIsValidated(true);
+        return;
+      }
+
+      console.log('[BrandContext] Successfully created brand:', newBrand.name);
+      setSelectedBrandState(newBrand as Brand);
+      localStorage.setItem(SELECTED_BRAND_KEY, JSON.stringify(newBrand));
       setIsValidated(true);
     };
 
-    validateStoredBrand();
+    initializeBrand();
   }, []);
 
   const setSelectedBrand = (brand: Brand | null) => {
