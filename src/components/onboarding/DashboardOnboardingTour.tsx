@@ -146,7 +146,7 @@ export function DashboardOnboardingTour() {
   const handleJoyrideCallback = async (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
-    console.log('[Tour] Callback:', { action, index, status, type, tourPhase });
+    console.log('[Tour] Callback:', { action, index, status, type, tourPhase, currentStepsLength: currentSteps.length });
 
     // Handle close/skip
     if (action === ACTIONS.CLOSE || action === ACTIONS.SKIP || status === STATUS.SKIPPED) {
@@ -155,27 +155,43 @@ export function DashboardOnboardingTour() {
       return;
     }
 
-    // Handle step progression
+    // Handle step progression - STEP_AFTER fires when user clicks Next/Last
     if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + 1;
       
-      // Move to next step within current phase
-      if (nextIndex < currentSteps.length) {
-        setStepIndex(nextIndex);
+      console.log('[Tour] STEP_AFTER:', { index, nextIndex, currentStepsLength: currentSteps.length, tourPhase });
+      
+      // Check if we're at the last step of current phase
+      if (nextIndex >= currentSteps.length) {
+        if (tourPhase === 'dashboard') {
+          // Dashboard phase finished - navigate to prompts to continue
+          console.log('[Tour] Dashboard phase finished, navigating to prompts');
+          setRunTour(false);
+          navigationTriggeredRef.current = true;
+          navigate('/prompts');
+          return;
+        } else {
+          // Prompts phase finished - actually complete the tour
+          console.log('[Tour] Tour fully completed');
+          await completeTour();
+          return;
+        }
       }
+      
+      // Move to next step within current phase
+      setStepIndex(nextIndex);
     }
 
-    // Handle tour "finished" - but for dashboard phase, this means navigate to prompts
+    // Handle tour "finished" status as backup
     if (status === STATUS.FINISHED) {
+      console.log('[Tour] STATUS.FINISHED received');
       if (tourPhase === 'dashboard') {
-        // Dashboard phase finished - navigate to prompts to continue
-        console.log('[Tour] Dashboard phase finished, navigating to prompts');
+        console.log('[Tour] Dashboard phase finished via STATUS, navigating to prompts');
         setRunTour(false);
         navigationTriggeredRef.current = true;
         navigate('/prompts');
       } else {
-        // Prompts phase finished - actually complete the tour
-        console.log('[Tour] Tour fully completed');
+        console.log('[Tour] Tour fully completed via STATUS');
         await completeTour();
       }
     }
