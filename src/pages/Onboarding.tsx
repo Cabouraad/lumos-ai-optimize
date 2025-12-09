@@ -36,9 +36,9 @@ export default function Onboarding() {
   const [autoFillLoading, setAutoFillLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1: Basic info, 2: Business Context, 3: Pricing, 4: Prompts
   const [promptSuggestionsGenerated, setPromptSuggestionsGenerated] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'growth' | 'pro'>(() => {
+  const [selectedPlan, setSelectedPlan] = useState<'free' | 'starter' | 'growth' | 'pro'>(() => {
     const saved = sessionStorage.getItem('selected-plan');
-    return (saved as 'starter' | 'growth' | 'pro') || 'growth';
+    return (saved as 'free' | 'starter' | 'growth' | 'pro') || 'growth';
   });
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(() => {
     const saved = sessionStorage.getItem('billing-cycle');
@@ -106,6 +106,18 @@ export default function Onboarding() {
     
     try {
       console.log(`[Onboarding] Starting subscription setup for ${selectedPlan} plan`);
+      
+      // Free tier - skip checkout and go directly to prompt selection
+      if (selectedPlan === 'free') {
+        console.log('[Onboarding] Free tier selected - skipping checkout');
+        toast({
+          title: 'Free Plan Activated',
+          description: 'You can now track up to 5 prompts weekly.',
+        });
+        setCurrentStep(4); // Go to prompt selection
+        setLoading(false);
+        return;
+      }
       
       // Check if user is eligible for billing bypass (only for starter tier)
       if (selectedPlan === 'starter' && isBillingBypassEligible(user?.email)) {
@@ -482,6 +494,25 @@ export default function Onboarding() {
   };
 
   const pricingTiers = [
+    {
+      tier: 'free' as const,
+      title: 'Free',
+      description: 'Try basic visibility tracking',
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      features: [
+        '5 prompts tracked weekly',
+        '1 AI provider',
+        'Basic visibility data',
+        'Read-only dashboard'
+      ],
+      limitations: [
+        'No competitor analysis',
+        'No recommendations',
+        'No optimizations'
+      ],
+      isFree: true
+    },
     {
       tier: 'starter' as const,
       title: 'Starter',
@@ -878,7 +909,7 @@ export default function Onboarding() {
         </Card>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
           {pricingTiers.map((tier) => (
             <Card 
               key={tier.tier} 
@@ -886,9 +917,16 @@ export default function Onboarding() {
                 selectedPlan === tier.tier 
                   ? 'ring-2 ring-primary border-primary' 
                   : 'hover:border-primary/50'
-              } ${tier.isPopular ? 'relative' : ''}`}
-              onClick={() => setSelectedPlan(tier.tier)}
+              } ${tier.isPopular ? 'relative' : ''} ${tier.isFree ? 'border-dashed' : ''}`}
+              onClick={() => setSelectedPlan(tier.tier as 'free' | 'starter' | 'growth' | 'pro')}
             >
+              {tier.isFree && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                  <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm font-medium">
+                    Forever Free
+                  </span>
+                </div>
+              )}
               {tier.isPopular && (
                 <div className="absolute -top-2 left-1/2 -translate-x-1/2">
                   <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
@@ -904,13 +942,19 @@ export default function Onboarding() {
                   <span className="text-3xl font-bold">
                     ${billingCycle === 'yearly' ? tier.yearlyPrice : tier.monthlyPrice}
                   </span>
-                  <span className="text-muted-foreground">
-                    /{billingCycle === 'yearly' ? 'year' : 'month'}
-                  </span>
-                  {billingCycle === 'yearly' && (
-                    <div className="text-sm text-green-600 font-medium">
-                      Save ~17% annually
-                    </div>
+                  {tier.isFree ? (
+                    <span className="text-muted-foreground">/forever</span>
+                  ) : (
+                    <>
+                      <span className="text-muted-foreground">
+                        /{billingCycle === 'yearly' ? 'year' : 'month'}
+                      </span>
+                      {billingCycle === 'yearly' && !tier.isFree && (
+                        <div className="text-sm text-green-600 font-medium">
+                          Save ~17% annually
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </CardHeader>
@@ -962,7 +1006,9 @@ export default function Onboarding() {
                   Redirecting to checkout...
                 </span>
               )
-              : `Start ${selectedPlan === 'starter' ? '7-Day Free Trial' : 'Subscription'} - ${pricingTiers.find(t => t.tier === selectedPlan)?.title} Plan`
+              : selectedPlan === 'free' 
+                ? 'Start Free Plan'
+                : `Start ${selectedPlan === 'starter' ? '7-Day Free Trial' : 'Subscription'} - ${pricingTiers.find(t => t.tier === selectedPlan)?.title} Plan`
             }
           </Button>
           
